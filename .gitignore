@@ -52,4 +52,9 @@ next-env.d.ts
 !/public/uploads/products/.gitkeep
 !/public/uploads/categories/.gitkeep
 
-/app/generated/prisma
+# import sessions (temporary)
+/data/import-sessions/*.json
+
+# playwright
+/test-results/
+/playwright-report/

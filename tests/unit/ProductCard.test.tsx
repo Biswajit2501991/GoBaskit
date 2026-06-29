@@ -2,11 +2,22 @@ import { render, screen } from '@testing-library/react';
 import ProductCard from '@/components/ProductCard/ProductCard';
 
 jest.mock('@/store/cartStore', () => ({
-  useCartStore: () => ({
-    items: [],
-    addItem: jest.fn(),
-    updateQuantity: jest.fn(),
-  }),
+  useCartStore: Object.assign(
+    () => ({
+      items: [],
+      addItem: jest.fn(),
+      updateQuantity: jest.fn(),
+    }),
+    {
+      persist: {
+        onFinishHydration: (cb: () => void) => {
+          cb();
+          return () => undefined;
+        },
+        hasHydrated: () => true,
+      },
+    }
+  ),
 }));
 
 const mockProduct = {

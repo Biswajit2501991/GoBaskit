@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { randomBytes } from 'crypto';
 import { getAdminSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { compressAndSave } from '@/services/bulk-upload/imageCompress';
 
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
 export async function POST(req: NextRequest) {
@@ -29,30 +29,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Image must be smaller than 5MB' }, { status: 400 });
     }
 
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-    const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext) ? ext : 'jpg';
-    const filename = `${Date.now()}-${randomBytes(6).toString('hex')}.${safeExt}`;
     const folder = type === 'category' ? 'categories' : 'products';
     const uploadDir = path.join(process.cwd(), 'public', 'uploads', folder);
-
-    await mkdir(uploadDir, { recursive: true });
+    const baseFilename = `${Date.now()}-${randomBytes(6).toString('hex')}`;
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const filepath = path.join(uploadDir, filename);
-    await writeFile(filepath, buffer);
-
-    const url = `/uploads/${folder}/${filename}`;
+    const { url, thumbUrl, filename } = await compressAndSave(buffer, uploadDir, baseFilename);
 
     await prisma.upload.create({
       data: {
         filename,
         url,
         type: folder,
-        size: file.size,
+        size: buffer.length,
       },
     });
 
-    return NextResponse.json({ url, filename });
+    return NextResponse.json({ url, thumbUrl, filename });
   } catch (error) {
     console.error('Upload error:', error);
     return NextResponse.json({ error: 'Failed to upload image' }, { status: 500 });
