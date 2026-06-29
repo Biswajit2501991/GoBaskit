@@ -9,6 +9,8 @@ import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { PROMO_BANNERS } from '@/constants';
 import type { ProductWithCategory, CategoryItem } from '@/types';
 
+const PRODUCT_GRID = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2';
+
 export default function HomePage() {
   const [products, setProducts] = useState<ProductWithCategory[]>([]);
   const [featured, setFeatured] = useState<ProductWithCategory[]>([]);
@@ -93,7 +95,7 @@ export default function HomePage() {
         {!search && featured.length > 0 && (
           <section className="mb-6">
             <h2 className="font-bold text-gray-900 text-base mb-3">Best Sellers</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            <div className={PRODUCT_GRID}>
               {featured.map((p) => <ProductCard key={p.id} product={p} />)}
             </div>
           </section>
@@ -108,13 +110,13 @@ export default function HomePage() {
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            <div className={PRODUCT_GRID}>
               {[...Array(12)].map((_, i) => (
-                <div key={i} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-                  <div className="aspect-square skeleton" />
-                  <div className="p-2.5 space-y-2">
-                    <div className="h-3 skeleton rounded" />
-                    <div className="h-6 skeleton rounded mt-2" />
+                <div key={i} className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+                  <div className="aspect-[4/5] skeleton" />
+                  <div className="p-2 space-y-1.5">
+                    <div className="h-2.5 skeleton rounded" />
+                    <div className="h-5 skeleton rounded mt-1" />
                   </div>
                 </div>
               ))}
@@ -125,7 +127,7 @@ export default function HomePage() {
               <p className="font-semibold text-gray-700">No products found</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            <div className={PRODUCT_GRID}>
               {products.map((p) => <ProductCard key={p.id} product={p} />)}
             </div>
           )}

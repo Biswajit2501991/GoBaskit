@@ -9,6 +9,8 @@ import CategoryCard from '@/components/CategoryCard/CategoryCard';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import type { ProductWithCategory, CategoryItem } from '@/types';
 
+const PRODUCT_GRID = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2';
+
 export default function CategoryPage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -48,11 +50,11 @@ export default function CategoryPage() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {[...Array(8)].map((_, i) => <div key={i} className="aspect-square skeleton rounded-xl" />)}
+          <div className={PRODUCT_GRID}>
+            {[...Array(8)].map((_, i) => <div key={i} className="aspect-[4/5] skeleton rounded-lg" />)}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          <div className={PRODUCT_GRID}>
             {products.map((p) => <ProductCard key={p.id} product={p} />)}
           </div>
         )}

@@ -31,8 +31,8 @@ export default function ProductCard({ product }: ProductCardProps) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden flex flex-col hover:shadow-md transition-shadow group">
-      <Link href={`/product/${product.id}`} className="aspect-square relative overflow-hidden bg-gray-50 p-2 block">
+    <div className="bg-white rounded-lg border border-gray-100 overflow-hidden flex flex-col hover:shadow-sm transition-shadow group">
+      <Link href={`/product/${product.id}`} className="aspect-[4/5] relative overflow-hidden bg-gray-50 p-1.5 block">
         {product.imageUrl ? (
           <img
             src={product.imageUrl}
@@ -40,44 +40,44 @@ export default function ProductCard({ product }: ProductCardProps) {
             className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-green-50 text-3xl opacity-60">
+          <div className="w-full h-full flex items-center justify-center bg-green-50 text-xl opacity-60">
             {product.name.charAt(0)}
           </div>
         )}
         {product.isFeatured && (
-          <span className="absolute top-2 left-2 bg-blinkit-yellow text-[10px] font-bold px-2 py-0.5 rounded text-gray-900">
+          <span className="absolute top-1 left-1 bg-blinkit-yellow text-[8px] font-bold px-1.5 py-0.5 rounded text-gray-900">
             BESTSELLER
           </span>
         )}
         {!inStock && (
           <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
-            <span className="bg-gray-800 text-white text-[11px] font-bold px-2.5 py-1 rounded uppercase">Out of stock</span>
+            <span className="bg-gray-800 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase">Out of stock</span>
           </div>
         )}
       </Link>
 
-      <div className="px-2.5 pb-2.5 flex flex-col flex-1">
+      <div className="px-2 pb-2 flex flex-col flex-1">
         <Link href={`/product/${product.id}`}>
-          <h3 className="font-medium text-gray-800 text-[13px] leading-snug line-clamp-2 min-h-[2.5rem] hover:text-blinkit-green">
+          <h3 className="font-medium text-gray-800 text-[11px] leading-tight line-clamp-2 min-h-[1.75rem] hover:text-blinkit-green">
             {product.name}
           </h3>
         </Link>
-        <p className="text-[11px] text-gray-400 mt-0.5">{product.unit}</p>
-        <div className="flex items-end justify-between mt-2">
-          <div>
-            <p className="font-bold text-gray-900 text-sm">{formatCurrency(price)}</p>
+        <p className="text-[10px] text-gray-400 mt-0.5 truncate">{product.unit}</p>
+        <div className="flex items-end justify-between mt-1.5 gap-1">
+          <div className="min-w-0">
+            <p className="font-bold text-gray-900 text-xs leading-none">{formatCurrency(price)}</p>
             {product.discount > 0 && (
-              <p className="text-[10px] text-gray-400 line-through">{formatCurrency(product.price)}</p>
+              <p className="text-[9px] text-gray-400 line-through">{formatCurrency(product.price)}</p>
             )}
           </div>
           {cartQty > 0 ? (
-            <div className="flex items-center bg-blinkit-green rounded-lg overflow-hidden">
-              <button onClick={() => updateQuantity(product.id, cartQty - 1)} className="w-7 h-7 text-white font-bold hover:bg-blinkit-green-dark">−</button>
-              <span className="font-bold text-white text-sm w-5 text-center">{cartQty}</span>
+            <div className="flex items-center bg-blinkit-green rounded-md overflow-hidden shrink-0">
+              <button onClick={() => updateQuantity(product.id, cartQty - 1)} className="w-6 h-6 text-white text-sm font-bold hover:bg-blinkit-green-dark">−</button>
+              <span className="font-bold text-white text-xs w-4 text-center">{cartQty}</span>
               <button
                 onClick={() => updateQuantity(product.id, cartQty + 1)}
                 disabled={cartQty >= product.stock}
-                className="w-7 h-7 text-white font-bold hover:bg-blinkit-green-dark disabled:opacity-40"
+                className="w-6 h-6 text-white text-sm font-bold hover:bg-blinkit-green-dark disabled:opacity-40"
               >+</button>
             </div>
           ) : (
@@ -86,7 +86,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               size="sm"
               onClick={handleAdd}
               disabled={!inStock}
-              className="text-xs uppercase tracking-wide h-7 px-3"
+              className="text-[10px] uppercase tracking-wide h-6 px-2 min-w-[2.75rem] shrink-0"
             >
               ADD
             </Button>
