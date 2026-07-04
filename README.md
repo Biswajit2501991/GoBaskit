@@ -117,6 +117,11 @@ Test structure:
 2. Change `provider` in `prisma/schema.prisma` to `postgresql`
 3. Deploy to Vercel with environment variables from `.env.example`
 
+**Domain (`gobaskitkaro.com`):**
+The canonical site URL is controlled by `NEXT_PUBLIC_SITE_URL` (default `https://gobaskitkaro.com`). It drives `metadataBase`, canonical/Open Graph tags, `robots.txt`, and `sitemap.xml`. To deploy on the domain:
+1. Add `NEXT_PUBLIC_SITE_URL="https://gobaskitkaro.com"` to the hosting environment variables.
+2. Add `gobaskitkaro.com` (and `www`) as a custom domain in Vercel and point the registrar's DNS records (A/CNAME) at Vercel per their dashboard instructions.
+
 ## Future-Ready Modules
 
 Architecture supports adding without major refactors:
