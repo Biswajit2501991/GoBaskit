@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { formatCurrency, getEffectivePrice } from '@/utils/formatter';
+import { CATEGORY_ICONS } from '@/constants';
 import type { ProductWithCategory } from '@/types';
 import { Button } from '@/components/ui/button';
 
@@ -40,8 +41,8 @@ export default function ProductCard({ product }: ProductCardProps) {
             className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-green-50 text-xl opacity-60">
-            {product.name.charAt(0)}
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 text-4xl">
+            <span>{CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒'}</span>
           </div>
         )}
         {product.isFeatured && (
