@@ -120,10 +120,11 @@ Test structure:
 3. Deploy to Vercel with environment variables from `.env.example`
 4. Run `npx prisma migrate deploy` (and `npm run db:seed` once) against the Supabase database
 
-**Domain (`gobaskitkaro.com`):**
-The canonical site URL is controlled by `NEXT_PUBLIC_SITE_URL` (default `https://gobaskitkaro.com`). It drives `metadataBase`, canonical/Open Graph tags, `robots.txt`, and `sitemap.xml`. To deploy on the domain:
-1. Add `NEXT_PUBLIC_SITE_URL="https://gobaskitkaro.com"` to the hosting environment variables.
-2. Add `gobaskitkaro.com` (and `www`) as a custom domain in Vercel and point the registrar's DNS records (A/CNAME) at Vercel per their dashboard instructions.
+**Domain (`www.gobaskitkaro.com`):**
+The canonical site URL is controlled by `NEXT_PUBLIC_SITE_URL` (default `https://www.gobaskitkaro.com`). It drives `metadataBase`, canonical/Open Graph tags, `robots.txt`, and `sitemap.xml`. To deploy on the domain:
+1. Add `NEXT_PUBLIC_SITE_URL="https://www.gobaskitkaro.com"` to the hosting environment variables.
+2. In Vercel add both `www.gobaskitkaro.com` (set as the primary domain) and the apex `gobaskitkaro.com` (redirecting to `www`).
+3. In Cloudflare DNS: `CNAME www -> cname.vercel-dns.com` and `A @ -> 76.76.21.21` (both "DNS only"); set SSL/TLS mode to Full (strict).
 
 ## Future-Ready Modules
 

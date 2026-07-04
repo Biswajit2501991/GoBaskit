@@ -1,6 +1,6 @@
 export const STORE_NAME = process.env.NEXT_PUBLIC_STORE_NAME || 'GoBaskit';
 
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://gobaskitkaro.com').replace(/\/+$/, '');
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.gobaskitkaro.com').replace(/\/+$/, '');
 
 export const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '917899813212';
 
