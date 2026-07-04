@@ -141,8 +141,9 @@ export default function CheckoutPage() {
               </div>
             </div>
             <div>
-              <Label>Mobile *</Label>
-              <Input {...register('mobile')} placeholder="9876543210" maxLength={10} inputMode="numeric" className="mt-1" />
+              <Label>WhatsApp Number *</Label>
+              <Input {...register('mobile')} placeholder="10-digit WhatsApp number" maxLength={10} inputMode="numeric" className="mt-1" />
+              <p className="text-[11px] text-gray-400 mt-1">We&apos;ll confirm your order on this WhatsApp number.</p>
               {errors.mobile && <p className="text-red-500 text-xs mt-1">{errors.mobile.message}</p>}
             </div>
             <div>
