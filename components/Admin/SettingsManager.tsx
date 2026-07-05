@@ -10,6 +10,7 @@ import type { DeliverySlab } from '@/constants';
 
 interface StoreConfig {
   serviceablePins: string[];
+  serviceableCities: string[];
   deliverySlabs: DeliverySlab[];
   minOrderValue: number;
   storeTiming: string;
@@ -41,6 +42,8 @@ export default function SettingsManager({
   const [minOrderValue, setMinOrderValue] = useState<number>(initialConfig.minOrderValue);
   const [pins, setPins] = useState<string[]>(initialConfig.serviceablePins);
   const [newPin, setNewPin] = useState('');
+  const [cities, setCities] = useState<string[]>(initialConfig.serviceableCities);
+  const [newCity, setNewCity] = useState('');
   const [slabs, setSlabs] = useState<DeliverySlab[]>(initialConfig.deliverySlabs);
   const [storeTiming, setStoreTiming] = useState(initialConfig.storeTiming);
   const [storeStatus, setStoreStatus] = useState<StoreConfig['storeStatus']>(initialConfig.storeStatus);
@@ -72,6 +75,25 @@ export default function SettingsManager({
     setPins(pins.filter((p) => p !== pin));
   }
 
+  function addCity() {
+    const c = newCity.trim();
+    if (c.length < 2) {
+      setMessage({ type: 'err', text: 'City must be at least 2 characters.' });
+      return;
+    }
+    if (cities.some((city) => city.toLowerCase() === c.toLowerCase())) {
+      setMessage({ type: 'err', text: 'That city is already in the list.' });
+      return;
+    }
+    setCities([...cities, c]);
+    setNewCity('');
+    setMessage(null);
+  }
+
+  function removeCity(cityToRemove: string) {
+    setCities(cities.filter((c) => c !== cityToRemove));
+  }
+
   function updateSlab(index: number, field: keyof DeliverySlab, value: number) {
     setSlabs(slabs.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   }
@@ -95,6 +117,7 @@ export default function SettingsManager({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           serviceablePins: pins,
+          serviceableCities: cities,
           deliverySlabs: slabs.map((s) => ({ min: Number(s.min), max: Number(s.max), charge: Number(s.charge) })),
           minOrderValue: Number(minOrderValue),
           storeTiming,
@@ -111,6 +134,7 @@ export default function SettingsManager({
       }
       const updated: StoreConfig = await res.json();
       setPins(updated.serviceablePins);
+      setCities(updated.serviceableCities);
       setSlabs(updated.deliverySlabs);
       setMinOrderValue(updated.minOrderValue);
       setStoreTiming(updated.storeTiming);
@@ -199,6 +223,42 @@ export default function SettingsManager({
             />
           </div>
           <Button type="button" variant="outline" onClick={addPin} disabled={!canEdit}>
+            <Plus size={16} /> Add
+          </Button>
+        </div>
+      </section>
+
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <h2 className="font-bold text-sm">Serviceable Cities</h2>
+        <p className="text-xs text-gray-400">Orders can only be placed for these cities.</p>
+        <div className="flex flex-wrap gap-2">
+          {cities.length === 0 && <span className="text-sm text-gray-400">No cities added yet.</span>}
+          {cities.map((city) => (
+            <span key={city} className="inline-flex items-center gap-2 bg-blinkit-green-light text-blinkit-green rounded-full px-3 py-1 text-sm font-medium">
+              {city}
+              <button type="button" onClick={() => removeCity(city)} aria-label={`Remove ${city}`} className="hover:text-red-500" disabled={!canEdit}>
+                <Trash2 size={14} />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex items-end gap-2 max-w-xs">
+          <div className="flex-1">
+            <Label>Add City</Label>
+            <Input
+              value={newCity}
+              placeholder="City name"
+              onChange={(e) => setNewCity(e.target.value)}
+              disabled={!canEdit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addCity();
+                }
+              }}
+            />
+          </div>
+          <Button type="button" variant="outline" onClick={addCity} disabled={!canEdit}>
             <Plus size={16} /> Add
           </Button>
         </div>

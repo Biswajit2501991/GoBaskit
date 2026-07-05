@@ -10,6 +10,7 @@ import {
 
 interface ConfigState {
   serviceablePins: string[];
+  serviceableCities: string[];
   deliverySlabs: DeliverySlab[];
   minOrderValue: number;
   homepageConfig: {
@@ -31,6 +32,7 @@ let inFlight: Promise<void> | null = null;
 export const useConfigStore = create<ConfigState>((set, get) => ({
   // Sensible defaults so the UI works before the fetch resolves (and if it fails).
   serviceablePins: SERVICEABLE_PINS,
+  serviceableCities: ['Kolkata'],
   deliverySlabs: DELIVERY_SLABS,
   minOrderValue: MIN_ORDER_VALUE,
   homepageConfig: {
@@ -54,6 +56,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
           const c = await res.json();
           set({
             serviceablePins: Array.isArray(c.serviceablePins) ? c.serviceablePins : get().serviceablePins,
+            serviceableCities: Array.isArray(c.serviceableCities) ? c.serviceableCities : get().serviceableCities,
             deliverySlabs: Array.isArray(c.deliverySlabs) ? c.deliverySlabs : get().deliverySlabs,
             minOrderValue: typeof c.minOrderValue === 'number' ? c.minOrderValue : get().minOrderValue,
             homepageConfig:

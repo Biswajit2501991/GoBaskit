@@ -7,6 +7,7 @@ import { AuditService } from '@/services/AuditService';
 
 const settingsSchema = z.object({
   serviceablePins: z.array(z.string().regex(/^\d{6}$/, 'PIN must be 6 digits')).optional(),
+  serviceableCities: z.array(z.string().min(2)).optional(),
   deliverySlabs: z
     .array(
       z.object({

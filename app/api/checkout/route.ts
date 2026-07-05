@@ -6,6 +6,10 @@ import { SettingsService } from '@/services/SettingsService';
 import { OrderService } from '@/services/OrderService';
 import { NotificationService } from '@/services/NotificationService';
 
+function cityIsServiceable(serviceableCities: string[], city: string): boolean {
+  return serviceableCities.some((c) => c.toLowerCase() === city.trim().toLowerCase());
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -26,6 +30,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: 'Sorry, delivery is currently unavailable in your area.' },
         { status: 400 }
+      );
+    }
+
+    if (!cityIsServiceable(config.serviceableCities, parsed.data.city)) {
+      return NextResponse.json(
+        { error: `Sorry, delivery is unavailable in ${parsed.data.city}.` },
+        { status: 400 },
       );
     }
 

@@ -9,10 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 export default function LocationBar() {
-  const { pin, setPin } = useLocationStore();
-  const { serviceablePins, fetchConfig } = useConfigStore();
+  const { pin, city, setPin, setCity } = useLocationStore();
+  const { serviceablePins, serviceableCities, fetchConfig } = useConfigStore();
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState('');
+  const [draftPin, setDraftPin] = useState('');
+  const [draftCity, setDraftCity] = useState('');
   const [error, setError] = useState('');
   const ref = useRef<HTMLDivElement>(null);
 
@@ -29,21 +30,39 @@ export default function LocationBar() {
   }, [open]);
 
   function confirm() {
-    const p = draft.trim();
-    if (!/^\d{6}$/.test(p)) {
-      setError('Enter a valid 6-digit PIN code.');
+    const p = draftPin.trim();
+    const c = draftCity.trim();
+
+    if (!p && !c) {
+      setError('Enter your 6-digit PIN code or city.');
       return;
     }
-    if (!pinIsServiceable(serviceablePins, p)) {
-      setError(`We don't deliver to ${p} yet. We serve: ${serviceablePins.join(', ')}.`);
-      return;
+
+    if (p) {
+      if (!/^\d{6}$/.test(p)) {
+        setError('Enter a valid 6-digit PIN code.');
+        return;
+      }
+      if (!pinIsServiceable(serviceablePins, p)) {
+        setError(`We don't deliver to ${p} yet. We serve: ${serviceablePins.join(', ')}.`);
+        return;
+      }
+      setPin(p);
     }
-    setPin(p);
+
+    if (c) {
+      const matched = serviceableCities.some((cityOption) => cityOption.toLowerCase() === c.toLowerCase());
+      if (!matched) {
+        setError(`We currently deliver to: ${serviceableCities.join(', ')}.`);
+        return;
+      }
+      setCity(c);
+    }
     setError('');
     setOpen(false);
   }
 
-  const label = pin ? `Delivering to ${pin}` : 'Select delivery location';
+  const label = pin ? `Delivering to ${pin}` : city ? `Delivering to ${city}` : 'Select delivery location';
 
   return (
     <div className="relative" ref={ref}>
@@ -57,7 +76,8 @@ export default function LocationBar() {
         <button
           type="button"
           onClick={() => {
-            setDraft(pin);
+            setDraftPin(pin);
+            setDraftCity(city);
             setError('');
             setOpen((v) => !v);
           }}
@@ -72,16 +92,16 @@ export default function LocationBar() {
       {open && (
         <div className="absolute left-4 top-full mt-1 z-50 w-[280px] bg-white rounded-xl border border-gray-200 shadow-lg p-4 space-y-3">
           <p className="text-sm font-bold text-gray-900">Set your delivery location</p>
-          <p className="text-xs text-gray-500">Enter your PIN code to check availability.</p>
+          <p className="text-xs text-gray-500">Enter your PIN code or your city to check availability.</p>
           <div className="flex items-center gap-2">
             <Input
               autoFocus
-              value={draft}
+              value={draftPin}
               maxLength={6}
               inputMode="numeric"
               placeholder="6-digit PIN"
               onChange={(e) => {
-                setDraft(e.target.value.replace(/\D/g, ''));
+                setDraftPin(e.target.value.replace(/\D/g, ''));
                 setError('');
               }}
               onKeyDown={(e) => {
@@ -95,8 +115,23 @@ export default function LocationBar() {
               Apply
             </Button>
           </div>
+          <Input
+            value={draftCity}
+            placeholder="Or your city"
+            onChange={(e) => {
+              setDraftCity(e.target.value);
+              setError('');
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                confirm();
+              }
+            }}
+          />
           {error && <p className="text-xs text-red-500">{error}</p>}
-          <p className="text-[11px] text-gray-400">Currently serving: {serviceablePins.join(', ')}</p>
+          <p className="text-[11px] text-gray-400">Serving PINs: {serviceablePins.join(', ')}</p>
+          <p className="text-[11px] text-gray-400">Serving cities: {serviceableCities.join(', ')}</p>
         </div>
       )}
     </div>

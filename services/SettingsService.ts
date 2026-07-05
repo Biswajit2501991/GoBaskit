@@ -9,6 +9,7 @@ import {
 
 export interface StoreConfig {
   serviceablePins: string[];
+  serviceableCities: string[];
   deliverySlabs: DeliverySlab[];
   minOrderValue: number;
   storeTiming: string;
@@ -32,6 +33,7 @@ type StoreConfigUpdate = Partial<Omit<StoreConfig, 'homepageConfig'>> & {
 };
 
 const KEY_PINS = 'serviceable_pins';
+const KEY_CITIES = 'serviceable_cities';
 const KEY_SLABS = 'delivery_slabs';
 const KEY_MIN = 'min_order_value';
 const KEY_TIMING = 'store_timing';
@@ -43,6 +45,7 @@ const KEY_HOMEPAGE_CONFIG = 'homepage_config';
 
 const DEFAULTS: StoreConfig = {
   serviceablePins: SERVICEABLE_PINS,
+  serviceableCities: ['Kolkata'],
   deliverySlabs: DELIVERY_SLABS,
   minOrderValue: MIN_ORDER_VALUE,
   storeTiming: '08:00-22:00',
@@ -115,6 +118,16 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     }
   }
 
+  let cities = DEFAULTS.serviceableCities;
+  const rawCities = map.get(KEY_CITIES);
+  if (rawCities) {
+    try {
+      cities = toStringArray(JSON.parse(rawCities)) ?? cities;
+    } catch {
+      cities = rawCities.split(',').map((c) => c.trim()).filter(Boolean);
+    }
+  }
+
   let minOrderValue = DEFAULTS.minOrderValue;
   const rawMin = map.get(KEY_MIN);
   if (rawMin != null && rawMin !== '') {
@@ -176,6 +189,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
 
   return {
     serviceablePins: pins,
+    serviceableCities: cities,
     deliverySlabs: slabs,
     minOrderValue,
     storeTiming,
@@ -197,6 +211,7 @@ export const SettingsService = {
           key: {
             in: [
               KEY_PINS,
+              KEY_CITIES,
               KEY_SLABS,
               KEY_MIN,
               KEY_TIMING,
@@ -228,6 +243,12 @@ export const SettingsService = {
         .map((p) => String(p).trim())
         .filter((p) => /^\d{6}$/.test(p));
       writes.push(upsert(KEY_PINS, JSON.stringify([...new Set(pins)])));
+    }
+    if (partial.serviceableCities) {
+      const cities = partial.serviceableCities
+        .map((c) => String(c).trim())
+        .filter(Boolean);
+      writes.push(upsert(KEY_CITIES, JSON.stringify([...new Set(cities)])));
     }
     if (partial.deliverySlabs) {
       const slabs = partial.deliverySlabs

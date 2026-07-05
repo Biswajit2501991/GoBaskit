@@ -23,7 +23,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const hydrated = useCartHydrated();
   const { items, getSubtotal, clearCart } = useCartStore();
-  const { serviceablePins, deliverySlabs, minOrderValue, fetchConfig } = useConfigStore();
+  const { serviceablePins, serviceableCities, deliverySlabs, minOrderValue, fetchConfig } = useConfigStore();
 
   useEffect(() => {
     fetchConfig();
@@ -35,6 +35,7 @@ export default function CheckoutPage() {
   const belowMinimum = minOrderValue > 0 && subtotal < minOrderValue;
 
   const locationPin = useLocationStore((s) => s.pin);
+  const locationCity = useLocationStore((s) => s.city);
 
   const {
     register,
@@ -61,10 +62,20 @@ export default function CheckoutPage() {
     }
   }, [locationPin, getValues, setValue]);
 
+  useEffect(() => {
+    if (locationCity && !getValues('city')) {
+      setValue('city', locationCity, { shouldValidate: true });
+    }
+  }, [locationCity, getValues, setValue]);
+
   const formValues = watch();
   const pincodeValue = formValues.pincode ?? '';
   const pinChecked = /^\d{6}$/.test(pincodeValue);
   const pinServiceable = pinChecked ? pinIsServiceable(serviceablePins, pincodeValue) : null;
+  const cityValue = (formValues.city ?? '').trim();
+  const cityServiceable = cityValue
+    ? serviceableCities.some((city) => city.toLowerCase() === cityValue.toLowerCase())
+    : null;
 
   useEffect(() => {
     if (!hydrated) return;
@@ -86,6 +97,7 @@ export default function CheckoutPage() {
   async function onSubmit(data: CheckoutSchema) {
     if (belowMinimum) return;
     if (!pinIsServiceable(serviceablePins, data.pincode)) return;
+    if (!serviceableCities.some((city) => city.toLowerCase() === data.city.trim().toLowerCase())) return;
 
     const message = buildWhatsAppMessage({
       items,
@@ -207,6 +219,12 @@ export default function CheckoutPage() {
                 <Label>City *</Label>
                 <Input {...register('city')} className="mt-1" />
                 {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city.message}</p>}
+              {!errors.city && cityServiceable === false && (
+                <p className="text-red-500 text-xs mt-1">We currently deliver to: {serviceableCities.join(', ')}.</p>
+              )}
+              {!errors.city && cityServiceable === true && (
+                <p className="text-green-600 text-xs mt-1">✓ City is serviceable.</p>
+              )}
               </div>
               <div>
                 <Label>State *</Label>
@@ -270,7 +288,7 @@ export default function CheckoutPage() {
             type="submit"
             size="lg"
             className="w-full"
-            disabled={belowMinimum || isSubmitting || pinServiceable === false}
+            disabled={belowMinimum || isSubmitting || pinServiceable === false || cityServiceable === false}
           >
             {isSubmitting
               ? 'Placing Order...'
