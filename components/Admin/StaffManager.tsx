@@ -86,19 +86,23 @@ export default function StaffManager() {
       password: form.password || undefined,
     };
     const url = editingId ? `/api/admin/staff/${editingId}` : '/api/admin/staff';
-    const res = await fetch(url, {
-      method: editingId ? 'PATCH' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(typeof data.error === 'string' ? data.error : 'Save failed');
-      return;
+    try {
+      const res = await fetch(url, {
+        method: editingId ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(typeof data.error === 'string' ? data.error : 'Save failed');
+        return;
+      }
+      setShowForm(false);
+      load();
+      router.refresh();
+    } catch {
+      setError('Network or server error. Please try again.');
     }
-    setShowForm(false);
-    load();
-    router.refresh();
   }
 
   async function handleDelete(id: string) {
@@ -145,7 +149,14 @@ export default function StaffManager() {
             </div>
             <div>
               <Label>Mobile</Label>
-              <Input value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} required className="mt-1" />
+              <Input
+                value={form.mobile}
+                onChange={(e) => setForm({ ...form, mobile: e.target.value.replace(/\D/g, '').slice(-10) })}
+                required
+                className="mt-1"
+                inputMode="numeric"
+                maxLength={10}
+              />
             </div>
             <div>
               <Label>Email (optional)</Label>
