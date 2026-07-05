@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,6 +15,7 @@ interface StoreConfig {
 }
 
 export default function SettingsManager({ initialConfig }: { initialConfig: StoreConfig }) {
+  const router = useRouter();
   const [minOrderValue, setMinOrderValue] = useState<number>(initialConfig.minOrderValue);
   const [pins, setPins] = useState<string[]>(initialConfig.serviceablePins);
   const [newPin, setNewPin] = useState('');
@@ -75,6 +77,7 @@ export default function SettingsManager({ initialConfig }: { initialConfig: Stor
       setSlabs(updated.deliverySlabs);
       setMinOrderValue(updated.minOrderValue);
       setMessage({ type: 'ok', text: 'Settings saved.' });
+      router.refresh();
     } catch (e) {
       setMessage({ type: 'err', text: e instanceof Error ? e.message : 'Failed to save settings' });
     } finally {
