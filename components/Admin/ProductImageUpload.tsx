@@ -11,6 +11,8 @@ interface ProductImageUploadProps {
   onChange: (url: string) => void;
   label?: string;
   disabled?: boolean;
+  searchName?: string;
+  searchCategory?: string;
 }
 
 export default function ProductImageUpload({
@@ -18,11 +20,16 @@ export default function ProductImageUpload({
   onChange,
   label = 'Product Image',
   disabled = false,
+  searchName = '',
+  searchCategory = '',
 }: ProductImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [dragOver, setDragOver] = useState(false);
+  const [suggestions, setSuggestions] = useState<Array<{ id: string; url: string; label: string }>>([]);
+  const [webLoading, setWebLoading] = useState(false);
+  const [importingId, setImportingId] = useState<string | null>(null);
 
   const uploadFile = useCallback(async (file: File) => {
     if (disabled) return;
@@ -61,6 +68,58 @@ export default function ProductImageUpload({
     const file = e.dataTransfer.files?.[0];
     if (file?.type.startsWith('image/')) uploadFile(file);
     else setUploadError('Please drop an image file');
+  }
+
+  async function loadWebSuggestions() {
+    if (!searchName.trim()) {
+      setUploadError('Enter product name first to get web suggestions.');
+      return;
+    }
+
+    setUploadError('');
+    setWebLoading(true);
+    try {
+      const params = new URLSearchParams({
+        name: searchName,
+        category: searchCategory,
+      });
+      const res = await fetch(`/api/admin/upload/suggest?${params.toString()}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setUploadError(data.error || 'Failed to fetch web suggestions');
+        return;
+      }
+      setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+    } catch {
+      setUploadError('Failed to fetch web suggestions');
+    } finally {
+      setWebLoading(false);
+    }
+  }
+
+  async function importFromWeb(url: string, id: string) {
+    if (disabled) return;
+    setUploading(true);
+    setImportingId(id);
+    setUploadError('');
+    try {
+      const res = await fetch('/api/admin/upload/from-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, type: 'product' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setUploadError(data.error || 'Failed to import image');
+        return;
+      }
+      onChange(data.url);
+    } catch {
+      setUploadError('Failed to import image');
+    } finally {
+      setUploading(false);
+      setImportingId(null);
+    }
   }
 
   return (
@@ -128,6 +187,42 @@ export default function ProductImageUpload({
           className="mt-1"
           disabled={disabled}
         />
+      </div>
+
+      <div className="pt-1 border-t border-gray-100">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-gray-500">
+            Find image online by product name (India-focused suggestions).
+          </p>
+          <button
+            type="button"
+            onClick={loadWebSuggestions}
+            disabled={disabled || webLoading}
+            className="text-xs px-2.5 py-1 rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-60"
+          >
+            {webLoading ? 'Loading...' : 'Get from Web'}
+          </button>
+        </div>
+        {suggestions.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+            {suggestions.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => importFromWeb(s.url, s.id)}
+                disabled={disabled || uploading}
+                className="border rounded-lg overflow-hidden hover:border-blinkit-green transition-colors text-left"
+              >
+                <div className="aspect-square bg-gray-50">
+                  <img src={s.url} alt={s.label} className="w-full h-full object-cover" />
+                </div>
+                <div className="px-2 py-1 text-[11px] text-gray-600">
+                  {importingId === s.id ? 'Saving...' : 'Use this image'}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

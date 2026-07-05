@@ -19,6 +19,7 @@ export async function compressImage(
   const fast = options?.fast ?? false;
   const image = sharp(input, { failOn: 'none' });
   const meta = await image.metadata();
+  const sourceFormat = (meta.format || '').toLowerCase();
 
   const mainPipeline = sharp(input).rotate().resize({
     width: MAX_WIDTH,
@@ -33,6 +34,20 @@ export async function compressImage(
         position: 'centre',
       })
     : null;
+
+  if (sourceFormat === 'png') {
+    const [main, thumbnail] = await Promise.all([
+      mainPipeline
+        .png({ compressionLevel: fast ? 6 : 9, adaptiveFiltering: true, quality: 90 })
+        .toBuffer(),
+      withThumbnail && thumbnailPipeline
+        ? thumbnailPipeline
+            .png({ compressionLevel: fast ? 6 : 9, adaptiveFiltering: true, quality: 82 })
+            .toBuffer()
+        : Promise.resolve(undefined),
+    ]);
+    return { main, thumbnail, ext: 'png' };
+  }
 
   if (meta.hasAlpha) {
     const [main, thumbnail] = await Promise.all([

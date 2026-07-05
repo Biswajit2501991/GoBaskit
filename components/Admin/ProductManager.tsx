@@ -77,6 +77,10 @@ export default function ProductManager({
   });
 
   const imageUrl = watch('imageUrl') || '';
+  const currentName = watch('name') || '';
+  const currentCategoryId = watch('categoryId') || '';
+  const currentCategoryName =
+    categories.find((c) => c.id === currentCategoryId)?.name || '';
 
   function openCreate() {
     setEditingId(null);
@@ -238,6 +242,8 @@ export default function ProductManager({
                 value={imageUrl}
                 onChange={(url) => setValue('imageUrl', url, { shouldDirty: true })}
                 disabled={!canEdit}
+                searchName={currentName}
+                searchCategory={currentCategoryName}
               />
 
               <div className="flex flex-col gap-2 md:col-span-2 lg:col-span-3">
