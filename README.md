@@ -114,17 +114,93 @@ Test structure:
 
 ## Deployment
 
-**Vercel + Supabase:**
-1. Set `DATABASE_URL` (pooled, port 6543, with `?pgbouncer=true`) and `DIRECT_URL` (session pooler, port 5432) to your Supabase connection strings
-2. `prisma/schema.prisma` already uses `provider = "postgresql"` with `directUrl`
-3. Deploy to Vercel with environment variables from `.env.example`
-4. Run `npx prisma migrate deploy` (and `npm run db:seed` once) against the Supabase database
+**Stack: Supabase (database) + Cloudflare Tunnel (hosting)**
 
-**Domain (`www.gobaskitkaro.com`):**
-The canonical site URL is controlled by `NEXT_PUBLIC_SITE_URL` (default `https://www.gobaskitkaro.com`). It drives `metadataBase`, canonical/Open Graph tags, `robots.txt`, and `sitemap.xml`. To deploy on the domain:
-1. Add `NEXT_PUBLIC_SITE_URL="https://www.gobaskitkaro.com"` to the hosting environment variables.
-2. In Vercel add both `www.gobaskitkaro.com` (set as the primary domain) and the apex `gobaskitkaro.com` (redirecting to `www`).
-3. In Cloudflare DNS: `CNAME www -> cname.vercel-dns.com` and `A @ -> 76.76.21.21` (both "DNS only"); set SSL/TLS mode to Full (strict).
+Project path: `~/Projects/GoBaskit` (not Desktop — macOS blocks 24/7 services there).
+
+No Vercel required. The app runs as a Node.js server on your machine (or VPS); Cloudflare Tunnel exposes it at `www.gobaskitkaro.com`.
+
+### 1. Database (Supabase)
+
+1. Set `DATABASE_URL` (pooler, port **6543**, `?pgbouncer=true`) and `DIRECT_URL` (session pooler, port **5432**) in `.env`
+2. Run once against Supabase:
+   ```bash
+   npx prisma migrate deploy
+   npm run db:seed
+   ```
+
+### 2. Run production app locally
+
+```bash
+npm run build
+npm run start
+```
+
+Serves on **http://localhost:3000**. Use production mode (`start`), not `dev`, when serving through a tunnel.
+
+### 3. Cloudflare Tunnel
+
+Tunnel config lives at `~/.cloudflared/config.yml` and routes `www.gobaskitkaro.com` → `localhost:3000`.
+
+Start the tunnel (keep running alongside `npm run start`):
+
+```bash
+cloudflared tunnel run
+```
+
+Or use the token-based tunnel if configured in the Cloudflare dashboard.
+
+### 4. Cloudflare DNS
+
+In the Cloudflare dashboard for `gobaskitkaro.com`:
+
+- **www** → CNAME to your tunnel (`<tunnel-id>.cfargotunnel.com`) — proxied (orange cloud)
+- **@** (apex) → redirect to `https://www.gobaskitkaro.com` (Redirect Rule or Page Rule)
+- SSL/TLS mode: **Full**
+
+Set `NEXT_PUBLIC_SITE_URL="https://www.gobaskitkaro.com"` in `.env` before `npm run build`.
+
+### 5. Run 24/7 (auto-start, sleep & network recovery)
+
+One-time install — registers macOS LaunchAgents that start at login, restart on crash, and health-check every 3 minutes:
+
+```bash
+bash scripts/install-services.sh
+```
+
+This installs:
+- **com.gobaskit.app** — production Next.js server (supervised restart loop)
+- **com.gobaskit.tunnel** — Cloudflare tunnel with fresh token + http2
+- **com.gobaskit.healthcheck** — recovers after network blips or stale connections
+
+For instant recovery after **laptop sleep**, also install sleepwatcher:
+
+```bash
+brew install sleepwatcher
+bash scripts/install-services.sh   # re-run to wire ~/.wakeup hook
+```
+
+**After code deploy:**
+
+```bash
+npm run build
+launchctl kickstart -k gui/$(id -u)/com.gobaskit.app
+```
+
+**Logs:** `logs/` in the project root.
+
+**Uninstall:**
+
+```bash
+bash scripts/uninstall-services.sh
+```
+
+**Note:** If you previously ran `cloudflared service install`, disable the old system daemon to avoid conflicts:
+
+```bash
+sudo launchctl bootout system/com.cloudflare.cloudflared
+sudo cloudflared service uninstall
+```
 
 ## Future-Ready Modules
 

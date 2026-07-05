@@ -58,3 +58,7 @@ next-env.d.ts
 # playwright
 /test-results/
 /playwright-report/
+
+# launchd / daemon logs
+/logs/
+!.gitkeep
