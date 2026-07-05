@@ -25,6 +25,15 @@ export interface StoreConfig {
     announcementBarText: string;
     deliveryTimeText: string;
     themeColor: string;
+    promoSections: Array<{
+      id: string;
+      title: string;
+      subtitle: string;
+      link: string;
+      theme: 'green' | 'blue' | 'orange' | 'purple';
+      emoji: string;
+      enabled: boolean;
+    }>;
   };
 }
 
@@ -69,6 +78,35 @@ const DEFAULTS: StoreConfig = {
     announcementBarText: '',
     deliveryTimeText: 'Delivery in 10 minutes',
     themeColor: '#facc15',
+    promoSections: [
+      {
+        id: 'paan-corner',
+        title: 'Paan Corner',
+        subtitle: 'Your favourite paan shop is now online',
+        link: '/category/paan-corner',
+        theme: 'green',
+        emoji: '🌿',
+        enabled: true,
+      },
+      {
+        id: 'pharmacy',
+        title: 'Pharmacy at your doorstep!',
+        subtitle: 'Cough syrups, pain relief & more',
+        link: '/category/pharmacy',
+        theme: 'blue',
+        emoji: '💊',
+        enabled: true,
+      },
+      {
+        id: 'pet-care',
+        title: 'Pet Care supplies',
+        subtitle: 'Food, treats, toys & more',
+        link: '/category/pet-care',
+        theme: 'orange',
+        emoji: '🐾',
+        enabled: true,
+      },
+    ],
   },
 };
 
@@ -181,6 +219,23 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
         announcementBarText: String(parsed.announcementBarText ?? ''),
         deliveryTimeText: String(parsed.deliveryTimeText ?? DEFAULTS.homepageConfig.deliveryTimeText),
         themeColor: String(parsed.themeColor ?? DEFAULTS.homepageConfig.themeColor),
+        promoSections: Array.isArray(parsed.promoSections)
+          ? parsed.promoSections
+              .map((section, index) => ({
+                id: String((section as { id?: unknown }).id ?? `promo-${index + 1}`).slice(0, 60),
+                title: String((section as { title?: unknown }).title ?? '').trim(),
+                subtitle: String((section as { subtitle?: unknown }).subtitle ?? '').trim(),
+                link: String((section as { link?: unknown }).link ?? '').trim(),
+                theme: (['green', 'blue', 'orange', 'purple'].includes(
+                  String((section as { theme?: unknown }).theme ?? ''),
+                )
+                  ? String((section as { theme?: unknown }).theme)
+                  : 'green') as 'green' | 'blue' | 'orange' | 'purple',
+                emoji: String((section as { emoji?: unknown }).emoji ?? '✨').trim() || '✨',
+                enabled: (section as { enabled?: unknown }).enabled !== false,
+              }))
+              .filter((section) => section.title.length > 0)
+          : DEFAULTS.homepageConfig.promoSections,
       };
     } catch {
       homepageConfig = DEFAULTS.homepageConfig;
@@ -294,6 +349,21 @@ export const SettingsService = {
           String(partial.homepageConfig.deliveryTimeText ?? '').trim() || DEFAULTS.homepageConfig.deliveryTimeText,
         themeColor:
           String(partial.homepageConfig.themeColor ?? '').trim() || DEFAULTS.homepageConfig.themeColor,
+        promoSections: Array.isArray(partial.homepageConfig.promoSections)
+          ? partial.homepageConfig.promoSections
+              .map((section, index) => ({
+                id: String(section.id ?? `promo-${index + 1}`).slice(0, 60),
+                title: String(section.title ?? '').trim(),
+                subtitle: String(section.subtitle ?? '').trim(),
+                link: String(section.link ?? '').trim(),
+                theme: (['green', 'blue', 'orange', 'purple'].includes(String(section.theme))
+                  ? String(section.theme)
+                  : 'green') as 'green' | 'blue' | 'orange' | 'purple',
+                emoji: String(section.emoji ?? '✨').trim() || '✨',
+                enabled: section.enabled !== false,
+              }))
+              .filter((section) => section.title.length > 0)
+          : DEFAULTS.homepageConfig.promoSections,
       };
       writes.push(upsert(KEY_HOMEPAGE_CONFIG, JSON.stringify(safe)));
     }

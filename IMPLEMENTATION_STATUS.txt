@@ -1,0 +1,255 @@
+GoBaskit Staff/Admin Portal - Implementation Status
+Last Updated: 2026-07-05
+Branch: main
+Latest Known Commit: dce0d18
+
+================================================================
+1) WHAT HAS BEEN IMPLEMENTED SO FAR
+================================================================
+
+Step 1 - Mobile Number Detection (Implemented)
+- Admin Login is hidden by default for normal customers.
+- Header uses "My Account" modal to check mobile first.
+- API checks staff existence in DB table `staff_accounts`.
+- "Login as Admin" button appears only for staff mobile detection.
+- Detection is session-memory based (in-memory Zustand store), so refresh resets it.
+
+Step 2 - Admin Login + Secure Session (Implemented)
+- Mobile+password staff login modal is implemented.
+- Passwords are bcrypt hashed and compared via hash only.
+- Access token + refresh token flow implemented:
+  - Access JWT cookie
+  - Refresh token cookie (`staff_refresh_tokens`)
+- Remember Me supported by longer refresh token TTL.
+- Logout supported and clears auth cookies.
+- Failed login tracking + rate limiting implemented (`staff_login_attempts`).
+- Audit logging for login success/failure is implemented (`audit_logs`).
+- Legacy email admin login remains backward compatible.
+
+Step 3 - Staff Management (Implemented, core)
+- Staff CRUD APIs and UI implemented.
+- Staff list/search and activation/deactivation support implemented.
+- Roles + permission model implemented in code.
+- Permission-gated navigation and server-side route protection added.
+
+Step 4 - Bulk Staff Import (Implemented, core)
+- Staff import template download endpoints implemented.
+- Preview + validation implemented:
+  - duplicate mobile
+  - duplicate email
+  - invalid mobile
+  - invalid role
+- Transactional import with rollback behavior via Prisma transaction.
+- Import report output implemented.
+
+Step 5 - Admin Dashboard (Partially Implemented, high-value)
+- Dashboard upgraded from legacy stats to richer KPI cards.
+- Cached dashboard service implemented with invalidation on key events.
+- Includes orders/revenue/staff online/low stock/recent activity/top products/trends.
+
+Step 6 - Product Management (Partially Implemented)
+- Existing product/category CRUD preserved.
+- Staff permission checks added to product/category pages and APIs.
+- UI supports read-only mode for non-edit roles.
+- Full advanced product CMS features (drag-drop ordering, multi-image gallery, SEO, restore, etc.) still pending.
+
+Step 7 - Home Page Configuration (Partially Implemented)
+- Added DB-backed `homepageConfig` in settings service.
+- Admin settings can now control:
+  - showHeroBanner
+  - showCategories
+  - showBestSellers
+  - showOffers
+  - announcementBarText
+  - deliveryTimeText
+  - themeColor
+- Customer homepage now consumes this config via `/api/config`.
+- Full section-level CMS (offers/coupons/seasonal/footer/header block builder) still pending.
+
+Step 8 - Order Management (Implemented foundation)
+- Orders API and manager upgraded for staff-secure workflows.
+- Pagination, search/filter, optimistic updates implemented.
+- Status timeline model and service integration added.
+- Notes/priority/assignment fields supported.
+
+Step 9 - Order Assignment + Locking (Implemented foundation)
+- Assign/release endpoints implemented.
+- Lock ownership checks implemented.
+- Non-owner edits blocked when locked (unless override permission).
+- Super-admin override support via permission check.
+
+Step 10 - Order Notifications (Implemented, improved)
+- Real-time notifications over SSE implemented.
+- Notification center supports unread badge, mark read, mark all read.
+- Added filters/actions:
+  - read state filter
+  - type filter
+  - mark selected type as read
+- Toast + browser notification + sound cue included.
+
+Step 11 - WhatsApp Updates (Partially Implemented)
+- "Send WhatsApp" action added in order manager rows.
+- Prefilled status message + customer number integration done.
+- Full template lifecycle management + button templating per status still pending.
+
+Step 12 - Role Dashboards (Implemented initial)
+- Added role-focused desks/routes:
+  - /admin/delivery
+  - /admin/inventory
+  - /admin/finance
+- Role default landing paths implemented.
+- Role-based nav filtering in layout implemented.
+
+Step 13 - Analytics (Implemented initial + enhanced)
+- Added analytics API/UI module (`/admin/analytics`).
+- Metrics include:
+  - sales/orders/avg basket/customer count
+  - delivery time proxy
+  - status breakdown
+  - top/low products
+  - trend charts
+  - conversion proxy
+  - abandonment proxy
+  - staff performance table
+
+Step 14 - Database Design (Partially Implemented)
+- Added normalized staff/auth/audit/order-support models.
+- Added key indexes and relation links.
+- Soft-delete fields added for staff.
+- Additional schema still needed for full CMS/settings/advanced analytics.
+
+Step 15 - Performance Optimizations (Partially Implemented)
+- Debounced search implemented in multiple admin views.
+- Server pagination and query limiting used.
+- In-memory service caches implemented (dashboard/settings/analytics).
+- SSE-based realtime used (no polling loops).
+- Optimistic UI used in order operations.
+- Further optimization (virtualization/infinite scroll/indexeddb/diff sync) still pending.
+
+Step 16 - Security (Partially Implemented, strong base)
+- bcrypt + JWT/refresh token auth done.
+- Permission middleware and role guards done.
+- Rate limit + failed login tracking done.
+- Audit logs extended to product/category/settings/order/staff workflows.
+- Same-origin mutation guard added on admin write routes.
+- Remaining hardening still needed (e.g. stronger CSRF token flow, stricter cookie policies review, broader abuse controls).
+
+Step 17 - Settings (Partially Implemented, expanded)
+- Settings now include:
+  - serviceable PINs
+  - delivery slabs
+  - minimum order
+  - store timing/status/holiday mode
+  - payment methods
+  - WhatsApp templates
+  - homepage config
+- Still pending: full role/permission settings UI, coupon engine, discount rule engine, etc.
+
+Step 18 - QA (Partially Implemented)
+- Unit tests expanded (staff auth/routing/security).
+- E2E security scaffold expanded (auth access checks, role/lock/session scenarios with environment-safe skips).
+- Full matrix E2E across all roles/devices/realtime/offline/race conditions still pending.
+
+
+================================================================
+2) IMPORTANT DATABASE/ARCHITECTURE DETAILS
+================================================================
+
+Core new/extended DB entities:
+- staff_accounts
+- staff_refresh_tokens
+- staff_login_attempts
+- audit_logs
+- admin_notifications
+- order_status_history
+- orders extended with:
+  - assigned_staff_id
+  - locked_at
+  - priority
+  - admin_notes
+
+Key architecture decisions:
+- Reused existing `/admin/*` structure (no duplicate admin app).
+- Kept legacy admin auth compatibility while introducing staff-first auth.
+- Real-time admin events use SSE event bus (`/api/admin/events`).
+- Config and KPI reads use cache-backed services to reduce DB traffic.
+
+
+================================================================
+3) IMPORTANT API ENDPOINTS CURRENTLY IN USE
+================================================================
+
+Auth/Staff:
+- POST /api/staff/check-mobile
+- POST/PUT/DELETE /api/auth/staff-login
+- GET/POST /api/admin/staff
+- PATCH/DELETE /api/admin/staff/[id]
+- staff bulk import:
+  - /api/admin/staff/bulk-import/template
+  - /api/admin/staff/bulk-import/preview
+  - /api/admin/staff/bulk-import/import
+
+Admin realtime/ops:
+- GET /api/admin/events
+- GET/PATCH /api/admin/notifications
+- POST /api/admin/notifications/[id]/read
+- GET/PATCH /api/admin/orders
+- POST /api/admin/orders/[id]/assign
+- POST /api/admin/orders/[id]/release
+- GET /api/admin/dashboard/stats
+- GET /api/admin/analytics
+
+Settings/Public config:
+- GET/PUT /api/admin/settings
+- GET /api/config
+
+
+================================================================
+4) REMAINING HIGH-PRIORITY WORK (FUTURE IMPLEMENTATION)
+================================================================
+
+High priority remaining:
+1. Full homepage CMS sections (hero variants, featured blocks, coupons/offers widgets, footer/header components).
+2. Full product/admin data model expansion (multi-image assets, sort-order drag-drop persistence, SEO fields, soft delete restore).
+3. Stronger notifications:
+   - mobile push integration
+   - browser permission UX flows
+   - notification retention/archival strategy.
+4. Full WhatsApp template engine:
+   - template CRUD + variable interpolation + role restrictions.
+5. Analytics deepening:
+   - true funnel events (not proxies), abandoned cart events, conversion per source/category, SLA metrics by role/time-slot.
+6. Security hardening:
+   - robust CSRF token strategy for cookie auth writes
+   - session expiry UX + silent refresh fallback behavior checks
+   - stricter lock/race test scenarios.
+7. E2E expansion:
+   - explicit role matrix
+   - lock ownership concurrency tests
+   - session timeout tests with clock control
+   - responsive/mobile/tablet/admin workflows.
+
+
+================================================================
+5) OPERATIONAL NOTES FOR NEXT AGENT/DEVELOPER
+================================================================
+
+- Always use `requireStaffPermission(...)` / `requireStaffSession()` for new admin routes.
+- Keep customer flow unchanged when extending admin features.
+- Avoid duplicate APIs; extend existing services/modules first.
+- Invalidate relevant caches when mutating related entities:
+  - settings changes -> SettingsService cache
+  - order/status/notification changes -> Dashboard/Analytics caches
+- Keep optimistic UI updates paired with robust server-side revalidation fallback.
+- Preserve backward compatibility with legacy `/api/auth/login` until explicitly removed.
+
+
+================================================================
+6) CURRENT QUALITY/VALIDATION SNAPSHOT
+================================================================
+
+- Build: passing
+- Unit tests: passing
+- E2E security scaffold: passing with environment-aware skips for unavailable seeded/role setup paths
+
+End of status file.

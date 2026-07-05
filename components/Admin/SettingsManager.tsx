@@ -26,6 +26,15 @@ interface StoreConfig {
     announcementBarText: string;
     deliveryTimeText: string;
     themeColor: string;
+    promoSections: Array<{
+      id: string;
+      title: string;
+      subtitle: string;
+      link: string;
+      theme: 'green' | 'blue' | 'orange' | 'purple';
+      emoji: string;
+      enabled: boolean;
+    }>;
   };
 }
 
@@ -125,6 +134,44 @@ export default function SettingsManager({
 
   function removeSlab(index: number) {
     setSlabs(slabs.filter((_, i) => i !== index));
+  }
+
+  function addPromoSection() {
+    setHomepageConfig((prev) => ({
+      ...prev,
+      promoSections: [
+        ...(prev.promoSections ?? []),
+        {
+          id: `promo-${Date.now()}`,
+          title: '',
+          subtitle: '',
+          link: '',
+          theme: 'green',
+          emoji: '✨',
+          enabled: true,
+        },
+      ],
+    }));
+  }
+
+  function updatePromoSection(
+    index: number,
+    field: 'title' | 'subtitle' | 'link' | 'theme' | 'emoji' | 'enabled',
+    value: string | boolean,
+  ) {
+    setHomepageConfig((prev) => ({
+      ...prev,
+      promoSections: (prev.promoSections ?? []).map((section, i) =>
+        i === index ? { ...section, [field]: value } : section,
+      ),
+    }));
+  }
+
+  function removePromoSection(index: number) {
+    setHomepageConfig((prev) => ({
+      ...prev,
+      promoSections: (prev.promoSections ?? []).filter((_, i) => i !== index),
+    }));
   }
 
   async function save() {
@@ -394,6 +441,102 @@ export default function SettingsManager({
           />
           Show Featured Products (Best Sellers)
         </label>
+      </section>
+
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-sm">Homepage Promo Sections</h2>
+            <p className="text-xs text-gray-400 mt-1">
+              Add cards like Pharmacy/Pet Care/Paan Corner, set destination link, and toggle live visibility.
+            </p>
+          </div>
+          <Button type="button" variant="outline" onClick={addPromoSection} disabled={!canEdit}>
+            <Plus size={16} /> Add Section
+          </Button>
+        </div>
+        <div className="space-y-3">
+          {(homepageConfig.promoSections ?? []).length === 0 && (
+            <p className="text-sm text-gray-400">No promo sections configured.</p>
+          )}
+          {(homepageConfig.promoSections ?? []).map((section, index) => (
+            <div key={section.id || `${section.title}-${index}`} className="rounded-lg border border-gray-200 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-gray-500">Section #{index + 1}</p>
+                <button
+                  type="button"
+                  onClick={() => removePromoSection(index)}
+                  className="text-gray-400 hover:text-red-500"
+                  disabled={!canEdit}
+                  aria-label={`Remove promo section ${index + 1}`}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              <div className="grid md:grid-cols-2 gap-3">
+                <div>
+                  <Label>Title</Label>
+                  <Input
+                    value={section.title}
+                    onChange={(e) => updatePromoSection(index, 'title', e.target.value)}
+                    disabled={!canEdit}
+                  />
+                </div>
+                <div>
+                  <Label>Subtitle</Label>
+                  <Input
+                    value={section.subtitle}
+                    onChange={(e) => updatePromoSection(index, 'subtitle', e.target.value)}
+                    disabled={!canEdit}
+                  />
+                </div>
+                <div>
+                  <Label>Navigate To (Link)</Label>
+                  <Input
+                    placeholder="/category/pet-care"
+                    value={section.link}
+                    onChange={(e) => updatePromoSection(index, 'link', e.target.value)}
+                    disabled={!canEdit}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Theme</Label>
+                    <select
+                      value={section.theme}
+                      onChange={(e) => updatePromoSection(index, 'theme', e.target.value)}
+                      className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm"
+                      disabled={!canEdit}
+                    >
+                      <option value="green">Green</option>
+                      <option value="blue">Blue</option>
+                      <option value="orange">Orange</option>
+                      <option value="purple">Purple</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label>Emoji</Label>
+                    <Input
+                      value={section.emoji}
+                      onChange={(e) => updatePromoSection(index, 'emoji', e.target.value)}
+                      disabled={!canEdit}
+                    />
+                  </div>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={section.enabled}
+                  onChange={(e) => updatePromoSection(index, 'enabled', e.target.checked)}
+                  disabled={!canEdit}
+                  className="accent-blinkit-green"
+                />
+                Toggle live (show on homepage)
+              </label>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">

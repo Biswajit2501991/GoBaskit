@@ -21,6 +21,15 @@ interface ConfigState {
     announcementBarText: string;
     deliveryTimeText: string;
     themeColor: string;
+    promoSections: Array<{
+      id: string;
+      title: string;
+      subtitle: string;
+      link: string;
+      theme: 'green' | 'blue' | 'orange' | 'purple';
+      emoji: string;
+      enabled: boolean;
+    }>;
   };
   loaded: boolean;
   fetchConfig: () => Promise<void>;
@@ -43,6 +52,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     announcementBarText: '',
     deliveryTimeText: 'Delivery in 10 minutes',
     themeColor: '#facc15',
+    promoSections: [],
   },
   loaded: false,
 

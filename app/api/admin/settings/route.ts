@@ -32,6 +32,20 @@ const settingsSchema = z.object({
       announcementBarText: z.string().max(200).optional(),
       deliveryTimeText: z.string().max(120).optional(),
       themeColor: z.string().max(20).optional(),
+      promoSections: z
+        .array(
+          z.object({
+            id: z.string().max(60).optional(),
+            title: z.string().min(2).max(80),
+            subtitle: z.string().max(160).optional(),
+            link: z.string().max(200).optional(),
+            theme: z.enum(['green', 'blue', 'orange', 'purple']).optional(),
+            emoji: z.string().max(8).optional(),
+            enabled: z.boolean().optional(),
+          }),
+        )
+        .max(20)
+        .optional(),
     })
     .optional(),
 });

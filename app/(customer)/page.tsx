@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
+import Link from 'next/link';
 import ProductCard from '@/components/ProductCard/ProductCard';
 import CategoryCard from '@/components/CategoryCard/CategoryCard';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
@@ -21,6 +22,26 @@ export default function HomePage() {
   const [activeBanner, setActiveBanner] = useState(0);
   const { homepageConfig, fetchConfig } = useConfigStore();
   const showFeaturedSection = !search && homepageConfig.showBestSellers && featured.length > 0;
+  const homepageBanners = (homepageConfig.promoSections ?? [])
+    .filter((section) => section.enabled)
+    .map((section) => ({
+      title: section.title,
+      subtitle: section.subtitle,
+      link: section.link,
+      emoji: section.emoji || '✨',
+      bg:
+        section.theme === 'blue'
+          ? 'from-blue-500 to-blue-700'
+          : section.theme === 'orange'
+            ? 'from-orange-400 to-orange-600'
+            : section.theme === 'purple'
+              ? 'from-purple-500 to-purple-700'
+              : 'from-green-600 to-green-800',
+    }));
+  const rotatingBanners = homepageBanners.length > 0 ? homepageBanners : PROMO_BANNERS.map((banner) => ({
+    ...banner,
+    link: '',
+  }));
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -60,9 +81,10 @@ export default function HomePage() {
   }, [fetchConfig]);
 
   useEffect(() => {
-    const interval = setInterval(() => setActiveBanner((b) => (b + 1) % PROMO_BANNERS.length), 4000);
+    if (rotatingBanners.length === 0) return;
+    const interval = setInterval(() => setActiveBanner((b) => (b + 1) % rotatingBanners.length), 4500);
     return () => clearInterval(interval);
-  }, []);
+  }, [rotatingBanners.length]);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -77,7 +99,7 @@ export default function HomePage() {
 
         {!search && homepageConfig.showHeroBanner && (
           <div className="mb-5 relative overflow-hidden rounded-2xl min-h-[140px]">
-            {PROMO_BANNERS.map((banner, i) => (
+            {rotatingBanners.map((banner, i) => (
               <div
                 key={banner.title}
                 className={`bg-gradient-to-r ${banner.bg} rounded-2xl p-5 flex items-center justify-between will-change-transform transition-all duration-700 ease-in-out ${
@@ -86,12 +108,25 @@ export default function HomePage() {
                     : 'opacity-0 absolute inset-0 translate-x-2 scale-[0.99] pointer-events-none'
                 }`}
               >
-                <div>
-                  <p className="text-white/80 text-xs font-semibold uppercase tracking-wider mb-1">Featured</p>
-                  <h2 className="text-white font-bold text-lg">{banner.title}</h2>
-                  <p className="text-white/80 text-sm mt-1">{banner.subtitle}</p>
-                </div>
-                <span className="text-5xl">{banner.emoji}</span>
+                {banner.link ? (
+                  <Link href={banner.link} className="flex items-center justify-between w-full">
+                    <div>
+                      <p className="text-white/80 text-xs font-semibold uppercase tracking-wider mb-1">Featured</p>
+                      <h2 className="text-white font-bold text-lg">{banner.title}</h2>
+                      <p className="text-white/80 text-sm mt-1">{banner.subtitle}</p>
+                    </div>
+                    <span className="text-5xl">{banner.emoji}</span>
+                  </Link>
+                ) : (
+                  <>
+                    <div>
+                      <p className="text-white/80 text-xs font-semibold uppercase tracking-wider mb-1">Featured</p>
+                      <h2 className="text-white font-bold text-lg">{banner.title}</h2>
+                      <p className="text-white/80 text-sm mt-1">{banner.subtitle}</p>
+                    </div>
+                    <span className="text-5xl">{banner.emoji}</span>
+                  </>
+                )}
               </div>
             ))}
           </div>
