@@ -45,11 +45,6 @@ export default function ProductCard({ product }: ProductCardProps) {
             <span>{CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒'}</span>
           </div>
         )}
-        {product.isFeatured && (
-          <span className="absolute top-1 left-1 bg-blinkit-yellow text-[8px] font-bold px-1.5 py-0.5 rounded text-gray-900">
-            BESTSELLER
-          </span>
-        )}
         {!inStock && (
           <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
             <span className="bg-gray-800 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase">Out of stock</span>
@@ -58,6 +53,13 @@ export default function ProductCard({ product }: ProductCardProps) {
       </Link>
 
       <div className="px-2 pb-2 flex flex-col flex-1">
+        {product.isFeatured ? (
+          <span className="inline-flex self-start bg-blinkit-yellow text-[8px] font-bold px-1.5 py-0.5 rounded text-gray-900 mb-1">
+            BESTSELLER
+          </span>
+        ) : (
+          <span className="h-4 mb-1" />
+        )}
         <Link href={`/product/${product.id}`}>
           <h3 className="font-medium text-gray-800 text-[11px] leading-tight line-clamp-2 min-h-[1.75rem] hover:text-blinkit-green">
             {product.name}
