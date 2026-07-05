@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import ProductManager from '@/components/Admin/ProductManager';
 import { parsePermissions, staffHasPermission } from '@/types/staff';
 
-export default async function AdminProductsPage() {
+export default async function InventoryDeskPage() {
   const staff = await getStaffFromSession();
   if (!staff) redirect('/admin');
   const perms = parsePermissions(staff.permissions);
@@ -15,7 +15,7 @@ export default async function AdminProductsPage() {
   const [products, categories] = await Promise.all([
     prisma.product.findMany({
       include: { category: { select: { id: true, name: true, slug: true } } },
-      orderBy: { name: 'asc' },
+      orderBy: [{ stock: 'asc' }, { name: 'asc' }],
     }),
     prisma.category.findMany({
       orderBy: { sortOrder: 'asc' },

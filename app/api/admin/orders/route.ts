@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { OrderStatus } from '@prisma/client';
 import { requireStaffPermission } from '@/lib/staff-auth';
 import { OrderService } from '@/services/OrderService';
+import { requireSameOrigin } from '@/lib/security';
 
 export async function GET(req: NextRequest) {
   const auth = await requireStaffPermission('orders:view');
@@ -22,6 +23,8 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const auth = await requireStaffPermission('orders:edit');
   if (auth.error) return auth.error;
+  const originError = requireSameOrigin(req);
+  if (originError) return NextResponse.json({ error: originError }, { status: 403 });
 
   const body = await req.json();
   const { id, status, priority, adminNotes } = body;

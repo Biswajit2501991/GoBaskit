@@ -28,7 +28,13 @@ const emptyCategory: CategoryFormData = {
   isActive: true,
 };
 
-export default function CategoryManager({ categories }: { categories: AdminCategory[] }) {
+export default function CategoryManager({
+  categories,
+  canEdit,
+}: {
+  categories: AdminCategory[];
+  canEdit: boolean;
+}) {
   const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -73,6 +79,7 @@ export default function CategoryManager({ categories }: { categories: AdminCateg
   }
 
   async function onSubmit(data: CategoryFormData) {
+    if (!canEdit) return;
     setError('');
     const url = editingId ? `/api/admin/categories/${editingId}` : '/api/admin/categories';
     const method = editingId ? 'PUT' : 'POST';
@@ -94,6 +101,7 @@ export default function CategoryManager({ categories }: { categories: AdminCateg
   }
 
   async function handleDelete(id: string) {
+    if (!canEdit) return;
     if (!confirm('Delete this category? Products must be moved first.')) return;
     setDeletingId(id);
     const res = await fetch(`/api/admin/categories/${id}`, { method: 'DELETE' });
@@ -113,7 +121,7 @@ export default function CategoryManager({ categories }: { categories: AdminCateg
           <h1 className="text-2xl font-bold">Categories</h1>
           <p className="text-sm text-gray-500 mt-1">{categories.length} categories · map products via category dropdown</p>
         </div>
-        <Button onClick={openCreate} className="gap-2">
+        <Button onClick={openCreate} className="gap-2" disabled={!canEdit}>
           <Plus className="w-4 h-4" /> Add Category
         </Button>
       </div>
@@ -127,28 +135,28 @@ export default function CategoryManager({ categories }: { categories: AdminCateg
           <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>Name *</Label>
-              <Input {...register('name')} placeholder="e.g. Vegetables" className="mt-1" />
+              <Input {...register('name')} placeholder="e.g. Vegetables" className="mt-1" disabled={!canEdit} />
               {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
             </div>
             <div>
               <Label>Slug (optional)</Label>
-              <Input {...register('slug')} placeholder="auto-generated from name" className="mt-1" />
+              <Input {...register('slug')} placeholder="auto-generated from name" className="mt-1" disabled={!canEdit} />
             </div>
             <div>
               <Label>Sort Order</Label>
-              <Input {...register('sortOrder')} type="number" className="mt-1" />
+              <Input {...register('sortOrder')} type="number" className="mt-1" disabled={!canEdit} />
             </div>
             <div>
               <Label>Image URL (optional)</Label>
-              <Input {...register('imageUrl')} placeholder="https://..." className="mt-1" />
+              <Input {...register('imageUrl')} placeholder="https://..." className="mt-1" disabled={!canEdit} />
             </div>
             <div className="flex items-center gap-2 md:col-span-2">
-              <input type="checkbox" id="isActive" {...register('isActive')} className="accent-blinkit-green" />
+              <input type="checkbox" id="isActive" {...register('isActive')} className="accent-blinkit-green" disabled={!canEdit} />
               <label htmlFor="isActive" className="text-sm font-medium">Active (visible on store)</label>
             </div>
             {error && <p className="text-red-500 text-sm md:col-span-2">{error}</p>}
             <div className="flex gap-2 md:col-span-2">
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting || !canEdit}>
                 {isSubmitting ? 'Saving...' : editingId ? 'Update Category' : 'Create Category'}
               </Button>
               <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
@@ -169,14 +177,14 @@ export default function CategoryManager({ categories }: { categories: AdminCateg
               </span>
             </div>
             <div className="flex gap-2 mt-4 pt-3 border-t border-gray-50">
-              <Button variant="secondary" size="sm" onClick={() => openEdit(cat)} className="flex-1 gap-1">
+              <Button variant="secondary" size="sm" onClick={() => openEdit(cat)} className="flex-1 gap-1" disabled={!canEdit}>
                 <Pencil className="w-3.5 h-3.5" /> Edit
               </Button>
               <Button
                 variant="destructive"
                 size="sm"
                 onClick={() => handleDelete(cat.id)}
-                disabled={deletingId === cat.id || cat._count.products > 0}
+                disabled={deletingId === cat.id || cat._count.products > 0 || !canEdit}
                 title={cat._count.products > 0 ? 'Move products before deleting' : 'Delete'}
               >
                 <Trash2 className="w-3.5 h-3.5" />

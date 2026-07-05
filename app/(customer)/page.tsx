@@ -8,6 +8,7 @@ import CategoryCard from '@/components/CategoryCard/CategoryCard';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { PROMO_BANNERS } from '@/constants';
 import type { ProductWithCategory, CategoryItem } from '@/types';
+import { useConfigStore } from '@/store/configStore';
 
 const PRODUCT_GRID = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2';
 
@@ -18,6 +19,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeBanner, setActiveBanner] = useState(0);
+  const { homepageConfig, fetchConfig } = useConfigStore();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -53,6 +55,10 @@ export default function HomePage() {
   }, [fetchData, search]);
 
   useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
+
+  useEffect(() => {
     const interval = setInterval(() => setActiveBanner((b) => (b + 1) % PROMO_BANNERS.length), 4000);
     return () => clearInterval(interval);
   }, []);
@@ -62,7 +68,13 @@ export default function HomePage() {
       <Header search={search} onSearchChange={setSearch} />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-4 pb-24">
-        {!search && (
+        {homepageConfig.announcementBarText && (
+          <div className="mb-3 rounded-xl px-3 py-2 text-sm font-medium bg-blinkit-green-light text-blinkit-green">
+            {homepageConfig.announcementBarText}
+          </div>
+        )}
+
+        {!search && homepageConfig.showHeroBanner && (
           <div className="mb-5 relative overflow-hidden rounded-2xl min-h-[140px]">
             {PROMO_BANNERS.map((banner, i) => (
               <div
@@ -82,7 +94,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {categories.length > 0 && (
+        {homepageConfig.showCategories && categories.length > 0 && (
           <div className="mb-5 overflow-x-auto scrollbar-hide">
             <div className="flex gap-4 pb-1">
               {categories.map((cat) => (
@@ -92,7 +104,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {!search && featured.length > 0 && (
+        {!search && homepageConfig.showBestSellers && featured.length > 0 && (
           <section className="mb-6">
             <h2 className="font-bold text-gray-900 text-base mb-3">Best Sellers</h2>
             <div className={PRODUCT_GRID}>
@@ -106,7 +118,9 @@ export default function HomePage() {
             <h2 className="font-bold text-gray-900 text-base">
               {search ? `Results for "${search}"` : 'Buy groceries & essentials'}
             </h2>
-            <span className="text-xs text-gray-400">{products.length} items</span>
+            <span className="text-xs text-gray-400">
+              {homepageConfig.deliveryTimeText} · {products.length} items
+            </span>
           </div>
 
           {loading ? (

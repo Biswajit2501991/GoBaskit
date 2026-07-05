@@ -1,19 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAdminSession } from '@/lib/auth';
 import { categorySchema } from '@/lib/validations';
 import { slugify } from '@/lib/utils';
+import { requireStaffPermission } from '@/lib/staff-auth';
+import { requireSameOrigin } from '@/lib/security';
+import { AuditService } from '@/services/AuditService';
 
 export async function GET() {
-  const session = await getAdminSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireStaffPermission('categories:view');
+  if (auth.error) return auth.error;
   const categories = await prisma.category.findMany({ orderBy: { sortOrder: 'asc' }, include: { _count: { select: { products: true } } } });
   return NextResponse.json(categories);
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getAdminSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireStaffPermission('categories:edit');
+  if (auth.error) return auth.error;
+  const originError = requireSameOrigin(req);
+  if (originError) return NextResponse.json({ error: originError }, { status: 403 });
 
   const body = await req.json();
   const parsed = categorySchema.safeParse(body);
@@ -36,6 +40,12 @@ export async function POST(req: NextRequest) {
       isActive: parsed.data.isActive ?? true,
     },
     include: { _count: { select: { products: true } } },
+  });
+  await AuditService.log({
+    staffId: auth.staff?.id,
+    action: 'category_created',
+    entity: 'categories',
+    entityId: category.id,
   });
   return NextResponse.json(category, { status: 201 });
 }

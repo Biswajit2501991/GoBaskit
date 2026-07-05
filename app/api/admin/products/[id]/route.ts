@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAdminSession } from '@/lib/auth';
 import { productSchema } from '@/lib/validations';
+import { requireStaffPermission } from '@/lib/staff-auth';
+import { requireSameOrigin } from '@/lib/security';
+import { AuditService } from '@/services/AuditService';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function PUT(req: NextRequest, { params }: RouteContext) {
-  const session = await getAdminSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireStaffPermission('products:edit');
+  if (auth.error) return auth.error;
+  const originError = requireSameOrigin(req);
+  if (originError) return NextResponse.json({ error: originError }, { status: 403 });
 
   const { id } = await params;
   const body = await req.json();
@@ -39,18 +43,32 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     },
     include: { category: true },
   });
+  await AuditService.log({
+    staffId: auth.staff?.id,
+    action: 'product_updated',
+    entity: 'products',
+    entityId: product.id,
+  });
 
   return NextResponse.json(product);
 }
 
-export async function DELETE(_req: NextRequest, { params }: RouteContext) {
-  const session = await getAdminSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export async function DELETE(req: NextRequest, { params }: RouteContext) {
+  const auth = await requireStaffPermission('products:delete');
+  if (auth.error) return auth.error;
+  const originError = requireSameOrigin(req);
+  if (originError) return NextResponse.json({ error: originError }, { status: 403 });
 
   const { id } = await params;
   const existing = await prisma.product.findUnique({ where: { id } });
   if (!existing) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
 
   await prisma.product.delete({ where: { id } });
+  await AuditService.log({
+    staffId: auth.staff?.id,
+    action: 'product_deleted',
+    entity: 'products',
+    entityId: id,
+  });
   return NextResponse.json({ success: true });
 }

@@ -46,9 +46,13 @@ const emptyProduct: ProductFormData = {
 export default function ProductManager({
   products,
   categories,
+  canEdit,
+  canDelete,
 }: {
   products: AdminProduct[];
   categories: AdminCategory[];
+  canEdit: boolean;
+  canDelete: boolean;
 }) {
   const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -110,6 +114,7 @@ export default function ProductManager({
   }
 
   async function onSubmit(data: ProductFormData) {
+    if (!canEdit) return;
     setError('');
     const url = editingId ? `/api/admin/products/${editingId}` : '/api/admin/products';
     const method = editingId ? 'PUT' : 'POST';
@@ -131,6 +136,7 @@ export default function ProductManager({
   }
 
   async function handleDelete(id: string) {
+    if (!canDelete) return;
     if (!confirm('Delete this product?')) return;
     setDeletingId(id);
     const res = await fetch(`/api/admin/products/${id}`, { method: 'DELETE' });
@@ -152,7 +158,7 @@ export default function ProductManager({
           <h1 className="text-2xl font-bold">Products</h1>
           <p className="text-sm text-gray-500 mt-1">{products.length} products · assign each to a category</p>
         </div>
-        <Button onClick={openCreate} className="gap-2" disabled={categories.length === 0}>
+        <Button onClick={openCreate} className="gap-2" disabled={categories.length === 0 || !canEdit}>
           <Plus className="w-4 h-4" /> Add Product
         </Button>
       </div>
@@ -172,13 +178,13 @@ export default function ProductManager({
           <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="md:col-span-2">
               <Label>Product Name *</Label>
-              <Input {...register('name')} placeholder="e.g. Fresh Tomatoes" className="mt-1" />
+              <Input {...register('name')} placeholder="e.g. Fresh Tomatoes" className="mt-1" disabled={!canEdit} />
               {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
             </div>
 
             <div>
               <Label>Category *</Label>
-              <select {...register('categoryId')} className={`mt-1 ${selectClass}`}>
+              <select {...register('categoryId')} className={`mt-1 ${selectClass}`} disabled={!canEdit}>
                 <option value="">Select category</option>
                 {categories.filter((c) => c.isActive).map((cat) => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -189,35 +195,35 @@ export default function ProductManager({
 
             <div className="md:col-span-2 lg:col-span-3">
               <Label>Description</Label>
-              <Input {...register('description')} placeholder="Short product description" className="mt-1" />
+              <Input {...register('description')} placeholder="Short product description" className="mt-1" disabled={!canEdit} />
             </div>
 
             <div>
               <Label>Price (₹) *</Label>
-              <Input {...register('price')} type="number" step="0.01" min="0" className="mt-1" />
+              <Input {...register('price')} type="number" step="0.01" min="0" className="mt-1" disabled={!canEdit} />
               {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price.message}</p>}
             </div>
 
             <div>
               <Label>Unit *</Label>
-              <Input {...register('unit')} placeholder="e.g. 500 g, 1 kg" className="mt-1" />
+              <Input {...register('unit')} placeholder="e.g. 500 g, 1 kg" className="mt-1" disabled={!canEdit} />
               {errors.unit && <p className="text-red-500 text-xs mt-1">{errors.unit.message}</p>}
             </div>
 
             <div>
               <Label>Stock *</Label>
-              <Input {...register('stock')} type="number" min="0" className="mt-1" />
+              <Input {...register('stock')} type="number" min="0" className="mt-1" disabled={!canEdit} />
               {errors.stock && <p className="text-red-500 text-xs mt-1">{errors.stock.message}</p>}
             </div>
 
             <div>
               <Label>Discount (%)</Label>
-              <Input {...register('discount')} type="number" min="0" max="100" className="mt-1" />
+              <Input {...register('discount')} type="number" min="0" max="100" className="mt-1" disabled={!canEdit} />
             </div>
 
             <div>
               <Label>Status</Label>
-              <select {...register('status')} className={`mt-1 ${selectClass}`}>
+              <select {...register('status')} className={`mt-1 ${selectClass}`} disabled={!canEdit}>
                 <option value="ACTIVE">Active</option>
                 <option value="INACTIVE">Inactive</option>
                 <option value="OUT_OF_STOCK">Out of Stock</option>
@@ -227,15 +233,16 @@ export default function ProductManager({
             <ProductImageUpload
               value={imageUrl}
               onChange={(url) => setValue('imageUrl', url, { shouldDirty: true })}
+              disabled={!canEdit}
             />
 
             <div className="flex flex-col gap-2 md:col-span-2 lg:col-span-3">
               <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="checkbox" {...register('isFeatured')} className="accent-blinkit-green" />
+                <input type="checkbox" {...register('isFeatured')} className="accent-blinkit-green" disabled={!canEdit} />
                 Featured (Best Seller badge)
               </label>
               <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="checkbox" {...register('isVisible')} className="accent-blinkit-green" />
+                <input type="checkbox" {...register('isVisible')} className="accent-blinkit-green" disabled={!canEdit} />
                 Visible on store
               </label>
             </div>
@@ -243,7 +250,7 @@ export default function ProductManager({
             {error && <p className="text-red-500 text-sm md:col-span-2 lg:col-span-3">{error}</p>}
 
             <div className="flex gap-2 md:col-span-2 lg:col-span-3">
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting || !canEdit}>
                 {isSubmitting ? 'Saving...' : editingId ? 'Update Product' : 'Create Product'}
               </Button>
               <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
@@ -300,14 +307,14 @@ export default function ProductManager({
                   </td>
                   <td className="p-3">
                     <div className="flex justify-end gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => openEdit(p)} className="gap-1">
+                      <Button variant="secondary" size="sm" onClick={() => openEdit(p)} className="gap-1" disabled={!canEdit}>
                         <Pencil className="w-3.5 h-3.5" /> Edit
                       </Button>
                       <Button
                         variant="destructive"
                         size="sm"
                         onClick={() => handleDelete(p.id)}
-                        disabled={deletingId === p.id}
+                        disabled={deletingId === p.id || !canDelete}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>

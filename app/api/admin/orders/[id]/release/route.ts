@@ -1,13 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { requireStaffPermission } from '@/lib/staff-auth';
 import { OrderService } from '@/services/OrderService';
+import { requireSameOrigin } from '@/lib/security';
 
 export async function POST(
-  _req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireStaffPermission('orders:edit');
   if (auth.error) return auth.error;
+  const originError = requireSameOrigin(req);
+  if (originError) return NextResponse.json({ error: originError }, { status: 403 });
 
   const { id } = await params;
 

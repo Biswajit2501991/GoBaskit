@@ -113,3 +113,23 @@ export function staffHasPermission(
   if (role === 'CUSTOM') return customPermissions.includes(permission);
   return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
 }
+
+export function getRoleDefaultAdminPath(role: StaffRole): string {
+  switch (role) {
+    case 'DELIVERY_MANAGER':
+      return '/admin/delivery';
+    case 'ORDER_MANAGER':
+    case 'CUSTOMER_SUPPORT':
+      return '/admin/orders';
+    case 'INVENTORY_MANAGER':
+      return '/admin/inventory';
+    case 'FINANCE':
+      return '/admin/finance';
+    case 'MARKETING':
+      return '/admin/analytics';
+    case 'READ_ONLY':
+      return '/admin/orders';
+    default:
+      return '/admin/dashboard';
+  }
+}

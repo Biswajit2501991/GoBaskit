@@ -12,6 +12,15 @@ interface ConfigState {
   serviceablePins: string[];
   deliverySlabs: DeliverySlab[];
   minOrderValue: number;
+  homepageConfig: {
+    showHeroBanner: boolean;
+    showCategories: boolean;
+    showBestSellers: boolean;
+    showOffers: boolean;
+    announcementBarText: string;
+    deliveryTimeText: string;
+    themeColor: string;
+  };
   loaded: boolean;
   fetchConfig: () => Promise<void>;
 }
@@ -24,6 +33,15 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   serviceablePins: SERVICEABLE_PINS,
   deliverySlabs: DELIVERY_SLABS,
   minOrderValue: MIN_ORDER_VALUE,
+  homepageConfig: {
+    showHeroBanner: true,
+    showCategories: true,
+    showBestSellers: true,
+    showOffers: true,
+    announcementBarText: '',
+    deliveryTimeText: 'Delivery in 10 minutes',
+    themeColor: '#facc15',
+  },
   loaded: false,
 
   fetchConfig: async () => {
@@ -38,6 +56,13 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
             serviceablePins: Array.isArray(c.serviceablePins) ? c.serviceablePins : get().serviceablePins,
             deliverySlabs: Array.isArray(c.deliverySlabs) ? c.deliverySlabs : get().deliverySlabs,
             minOrderValue: typeof c.minOrderValue === 'number' ? c.minOrderValue : get().minOrderValue,
+            homepageConfig:
+              typeof c.homepageConfig === 'object' && c.homepageConfig
+                ? {
+                    ...get().homepageConfig,
+                    ...c.homepageConfig,
+                  }
+                : get().homepageConfig,
             loaded: true,
           });
         }

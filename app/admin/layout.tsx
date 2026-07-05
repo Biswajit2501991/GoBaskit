@@ -6,6 +6,10 @@ import { parsePermissions, staffHasPermission, type Permission } from '@/types/s
 
 const nav: { href: string; label: string; permission: Permission }[] = [
   { href: '/admin/dashboard', label: 'Dashboard', permission: 'analytics:view' },
+  { href: '/admin/analytics', label: 'Analytics', permission: 'analytics:view' },
+  { href: '/admin/delivery', label: 'Delivery Desk', permission: 'delivery:view' },
+  { href: '/admin/inventory', label: 'Inventory Desk', permission: 'products:view' },
+  { href: '/admin/finance', label: 'Finance Desk', permission: 'finance:view' },
   { href: '/admin/products', label: 'Products', permission: 'products:view' },
   { href: '/admin/categories', label: 'Categories', permission: 'categories:view' },
   { href: '/admin/orders', label: 'Orders', permission: 'orders:view' },

@@ -11,16 +11,62 @@ export interface StoreConfig {
   serviceablePins: string[];
   deliverySlabs: DeliverySlab[];
   minOrderValue: number;
+  storeTiming: string;
+  storeStatus: 'OPEN' | 'CLOSED' | 'HOLIDAY';
+  holidayMode: boolean;
+  paymentMethods: string[];
+  whatsappTemplates: Record<string, string>;
+  homepageConfig: {
+    showHeroBanner: boolean;
+    showCategories: boolean;
+    showBestSellers: boolean;
+    showOffers: boolean;
+    announcementBarText: string;
+    deliveryTimeText: string;
+    themeColor: string;
+  };
 }
+
+type StoreConfigUpdate = Partial<Omit<StoreConfig, 'homepageConfig'>> & {
+  homepageConfig?: Partial<StoreConfig['homepageConfig']>;
+};
 
 const KEY_PINS = 'serviceable_pins';
 const KEY_SLABS = 'delivery_slabs';
 const KEY_MIN = 'min_order_value';
+const KEY_TIMING = 'store_timing';
+const KEY_STATUS = 'store_status';
+const KEY_HOLIDAY = 'holiday_mode';
+const KEY_PAYMENT_METHODS = 'payment_methods';
+const KEY_WHATSAPP_TEMPLATES = 'whatsapp_templates';
+const KEY_HOMEPAGE_CONFIG = 'homepage_config';
 
 const DEFAULTS: StoreConfig = {
   serviceablePins: SERVICEABLE_PINS,
   deliverySlabs: DELIVERY_SLABS,
   minOrderValue: MIN_ORDER_VALUE,
+  storeTiming: '08:00-22:00',
+  storeStatus: 'OPEN',
+  holidayMode: false,
+  paymentMethods: ['COD', 'QR_ON_DELIVERY'],
+  whatsappTemplates: {
+    ORDER_RECEIVED: 'Your order is received and will be confirmed shortly.',
+    ORDER_ACCEPTED: 'Your order has been accepted and is being prepared.',
+    PREPARING: 'Your order is currently being prepared.',
+    PACKED: 'Your order is packed and ready for dispatch.',
+    OUT_FOR_DELIVERY: 'Your order is out for delivery.',
+    DELIVERED: 'Your order has been delivered. Thank you!',
+    CANCELLED: 'Your order has been cancelled. Contact support for details.',
+  },
+  homepageConfig: {
+    showHeroBanner: true,
+    showCategories: true,
+    showBestSellers: true,
+    showOffers: true,
+    announcementBarText: '',
+    deliveryTimeText: 'Delivery in 10 minutes',
+    themeColor: '#facc15',
+  },
 };
 
 // In-memory cache. The app runs as a single long-lived Node server, so this
@@ -76,7 +122,69 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     if (Number.isFinite(n) && n >= 0) minOrderValue = n;
   }
 
-  return { serviceablePins: pins, deliverySlabs: slabs, minOrderValue };
+  const storeTiming = map.get(KEY_TIMING) || DEFAULTS.storeTiming;
+
+  const rawStatus = (map.get(KEY_STATUS) || DEFAULTS.storeStatus).toUpperCase();
+  const storeStatus =
+    rawStatus === 'OPEN' || rawStatus === 'CLOSED' || rawStatus === 'HOLIDAY'
+      ? rawStatus
+      : DEFAULTS.storeStatus;
+
+  const holidayMode = (map.get(KEY_HOLIDAY) || 'false').toLowerCase() === 'true';
+
+  let paymentMethods = DEFAULTS.paymentMethods;
+  const rawPaymentMethods = map.get(KEY_PAYMENT_METHODS);
+  if (rawPaymentMethods) {
+    try {
+      paymentMethods = toStringArray(JSON.parse(rawPaymentMethods)) ?? paymentMethods;
+    } catch {
+      paymentMethods = rawPaymentMethods.split(',').map((v) => v.trim()).filter(Boolean);
+    }
+  }
+
+  let whatsappTemplates = DEFAULTS.whatsappTemplates;
+  const rawTemplates = map.get(KEY_WHATSAPP_TEMPLATES);
+  if (rawTemplates) {
+    try {
+      const parsed = JSON.parse(rawTemplates) as Record<string, unknown>;
+      whatsappTemplates = Object.fromEntries(
+        Object.entries(parsed).map(([k, v]) => [k, String(v ?? '').trim()]),
+      );
+    } catch {
+      whatsappTemplates = DEFAULTS.whatsappTemplates;
+    }
+  }
+
+  let homepageConfig = DEFAULTS.homepageConfig;
+  const rawHomepageConfig = map.get(KEY_HOMEPAGE_CONFIG);
+  if (rawHomepageConfig) {
+    try {
+      const parsed = JSON.parse(rawHomepageConfig) as Record<string, unknown>;
+      homepageConfig = {
+        showHeroBanner: parsed.showHeroBanner !== false,
+        showCategories: parsed.showCategories !== false,
+        showBestSellers: parsed.showBestSellers !== false,
+        showOffers: parsed.showOffers !== false,
+        announcementBarText: String(parsed.announcementBarText ?? ''),
+        deliveryTimeText: String(parsed.deliveryTimeText ?? DEFAULTS.homepageConfig.deliveryTimeText),
+        themeColor: String(parsed.themeColor ?? DEFAULTS.homepageConfig.themeColor),
+      };
+    } catch {
+      homepageConfig = DEFAULTS.homepageConfig;
+    }
+  }
+
+  return {
+    serviceablePins: pins,
+    deliverySlabs: slabs,
+    minOrderValue,
+    storeTiming,
+    storeStatus,
+    holidayMode,
+    paymentMethods,
+    whatsappTemplates,
+    homepageConfig,
+  };
 }
 
 export const SettingsService = {
@@ -85,7 +193,21 @@ export const SettingsService = {
     if (cache && cache.expiresAt > Date.now()) return cache.data;
     try {
       const rows = await prisma.setting.findMany({
-        where: { key: { in: [KEY_PINS, KEY_SLABS, KEY_MIN] } },
+        where: {
+          key: {
+            in: [
+              KEY_PINS,
+              KEY_SLABS,
+              KEY_MIN,
+              KEY_TIMING,
+              KEY_STATUS,
+              KEY_HOLIDAY,
+              KEY_PAYMENT_METHODS,
+              KEY_WHATSAPP_TEMPLATES,
+              KEY_HOMEPAGE_CONFIG,
+            ],
+          },
+        },
         select: { key: true, value: true },
       });
       const data = parseRows(rows);
@@ -98,7 +220,7 @@ export const SettingsService = {
   },
 
   /** Persist changed settings and invalidate the cache. */
-  async updateStoreConfig(partial: Partial<StoreConfig>): Promise<StoreConfig> {
+  async updateStoreConfig(partial: StoreConfigUpdate): Promise<StoreConfig> {
     const writes: Promise<unknown>[] = [];
 
     if (partial.serviceablePins) {
@@ -120,6 +242,39 @@ export const SettingsService = {
     }
     if (partial.minOrderValue != null && Number.isFinite(partial.minOrderValue)) {
       writes.push(upsert(KEY_MIN, String(Math.max(0, Math.round(partial.minOrderValue)))));
+    }
+    if (partial.storeTiming != null) {
+      writes.push(upsert(KEY_TIMING, String(partial.storeTiming).trim() || DEFAULTS.storeTiming));
+    }
+    if (partial.storeStatus != null) {
+      writes.push(upsert(KEY_STATUS, partial.storeStatus));
+    }
+    if (partial.holidayMode != null) {
+      writes.push(upsert(KEY_HOLIDAY, partial.holidayMode ? 'true' : 'false'));
+    }
+    if (partial.paymentMethods) {
+      const methods = partial.paymentMethods.map((m) => String(m).trim()).filter(Boolean);
+      writes.push(upsert(KEY_PAYMENT_METHODS, JSON.stringify([...new Set(methods)])));
+    }
+    if (partial.whatsappTemplates) {
+      const sanitized = Object.fromEntries(
+        Object.entries(partial.whatsappTemplates).map(([k, v]) => [k, String(v ?? '').trim()]),
+      );
+      writes.push(upsert(KEY_WHATSAPP_TEMPLATES, JSON.stringify(sanitized)));
+    }
+    if (partial.homepageConfig) {
+      const safe = {
+        showHeroBanner: partial.homepageConfig.showHeroBanner !== false,
+        showCategories: partial.homepageConfig.showCategories !== false,
+        showBestSellers: partial.homepageConfig.showBestSellers !== false,
+        showOffers: partial.homepageConfig.showOffers !== false,
+        announcementBarText: String(partial.homepageConfig.announcementBarText ?? '').trim(),
+        deliveryTimeText:
+          String(partial.homepageConfig.deliveryTimeText ?? '').trim() || DEFAULTS.homepageConfig.deliveryTimeText,
+        themeColor:
+          String(partial.homepageConfig.themeColor ?? '').trim() || DEFAULTS.homepageConfig.themeColor,
+      };
+      writes.push(upsert(KEY_HOMEPAGE_CONFIG, JSON.stringify(safe)));
     }
 
     await Promise.all(writes);

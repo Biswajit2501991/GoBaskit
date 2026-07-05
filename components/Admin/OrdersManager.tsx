@@ -62,11 +62,13 @@ export default function OrdersManager({
   canEdit,
   canAssign,
   canOverrideLock,
+  forceAssignedToMe = false,
 }: {
   currentStaffId: string;
   canEdit: boolean;
   canAssign: boolean;
   canOverrideLock: boolean;
+  forceAssignedToMe?: boolean;
 }) {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [staffList, setStaffList] = useState<StaffOption[]>([]);
@@ -81,6 +83,7 @@ export default function OrdersManager({
     const params = new URLSearchParams({ page: String(page), pageSize: '20' });
     if (search) params.set('search', search);
     if (statusFilter) params.set('status', statusFilter);
+    if (forceAssignedToMe) params.set('assignedStaffId', currentStaffId);
     const res = await fetch(`/api/admin/orders?${params}`);
     if (res.ok) {
       const data = await res.json();
@@ -88,7 +91,7 @@ export default function OrdersManager({
       setTotal(data.total);
     }
     setLoading(false);
-  }, [page, search, statusFilter]);
+  }, [page, search, statusFilter, forceAssignedToMe, currentStaffId]);
 
   useEffect(() => {
     const t = setTimeout(load, 300);
@@ -258,17 +261,19 @@ export default function OrdersManager({
                     {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
 
-                  <select
-                    value={order.assignedStaffId ?? ''}
-                    onChange={(e) => e.target.value && assignOrder(order.id, e.target.value)}
-                    className="text-xs border rounded px-2 py-1"
-                    disabled={!canAssign || lockedByOther}
-                  >
-                    <option value="">Assign to...</option>
-                    {staffList.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.role.replace(/_/g, ' ')})</option>
-                    ))}
-                  </select>
+                  {!forceAssignedToMe && (
+                    <select
+                      value={order.assignedStaffId ?? ''}
+                      onChange={(e) => e.target.value && assignOrder(order.id, e.target.value)}
+                      className="text-xs border rounded px-2 py-1"
+                      disabled={!canAssign || lockedByOther}
+                    >
+                      <option value="">Assign to...</option>
+                      {staffList.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.role.replace(/_/g, ' ')})</option>
+                      ))}
+                    </select>
+                  )}
 
                   {order.assignedStaffId && canEdit && (isMine || !isLocked || canOverrideLock) && (
                     <Button type="button" variant="outline" size="sm" onClick={() => releaseOrder(order.id)} className="gap-1 h-7 text-xs">

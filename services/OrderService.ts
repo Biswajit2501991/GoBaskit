@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { staffHasPermission, parsePermissions } from '@/types/staff';
 import { AuditService } from '@/services/AuditService';
 import { adminEventBus } from '@/lib/realtime/eventBus';
+import { DashboardService } from '@/services/DashboardService';
+import { AnalyticsService } from '@/services/AnalyticsService';
 
 export interface OrderListParams {
   search?: string;
@@ -121,6 +123,8 @@ export class OrderService {
     });
 
     const payload = orderPayload(updated);
+    DashboardService.invalidateCache();
+    AnalyticsService.invalidateCache();
     adminEventBus.emit({ type: 'order_updated', payload });
     return updated;
   }
@@ -154,6 +158,8 @@ export class OrderService {
     });
 
     const payload = orderPayload(updated);
+    DashboardService.invalidateCache();
+    AnalyticsService.invalidateCache();
     adminEventBus.emit({ type: 'order_updated', payload });
     return updated;
   }
@@ -211,6 +217,8 @@ export class OrderService {
     });
 
     const payload = orderPayload(updated);
+    DashboardService.invalidateCache();
+    AnalyticsService.invalidateCache();
     adminEventBus.emit({ type: 'order_updated', payload });
     return updated;
   }
@@ -223,6 +231,8 @@ export class OrderService {
     customer: { firstName: string; lastName: string };
   }) {
     await this.recordStatusChange(order.id, order.status);
+    DashboardService.invalidateCache();
+    AnalyticsService.invalidateCache();
     adminEventBus.emit({
       type: 'order_created',
       payload: {

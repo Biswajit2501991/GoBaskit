@@ -12,14 +12,44 @@ interface StoreConfig {
   serviceablePins: string[];
   deliverySlabs: DeliverySlab[];
   minOrderValue: number;
+  storeTiming: string;
+  storeStatus: 'OPEN' | 'CLOSED' | 'HOLIDAY';
+  holidayMode: boolean;
+  paymentMethods: string[];
+  whatsappTemplates: Record<string, string>;
+  homepageConfig: {
+    showHeroBanner: boolean;
+    showCategories: boolean;
+    showBestSellers: boolean;
+    showOffers: boolean;
+    announcementBarText: string;
+    deliveryTimeText: string;
+    themeColor: string;
+  };
 }
 
-export default function SettingsManager({ initialConfig }: { initialConfig: StoreConfig }) {
+const PAYMENT_OPTIONS = ['COD', 'QR_ON_DELIVERY', 'UPI', 'CARD'];
+
+export default function SettingsManager({
+  initialConfig,
+  canEdit,
+}: {
+  initialConfig: StoreConfig;
+  canEdit: boolean;
+}) {
   const router = useRouter();
   const [minOrderValue, setMinOrderValue] = useState<number>(initialConfig.minOrderValue);
   const [pins, setPins] = useState<string[]>(initialConfig.serviceablePins);
   const [newPin, setNewPin] = useState('');
   const [slabs, setSlabs] = useState<DeliverySlab[]>(initialConfig.deliverySlabs);
+  const [storeTiming, setStoreTiming] = useState(initialConfig.storeTiming);
+  const [storeStatus, setStoreStatus] = useState<StoreConfig['storeStatus']>(initialConfig.storeStatus);
+  const [holidayMode, setHolidayMode] = useState(initialConfig.holidayMode);
+  const [paymentMethods, setPaymentMethods] = useState<string[]>(initialConfig.paymentMethods);
+  const [whatsappTemplates, setWhatsappTemplates] = useState<Record<string, string>>(
+    initialConfig.whatsappTemplates,
+  );
+  const [homepageConfig, setHomepageConfig] = useState(initialConfig.homepageConfig);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
@@ -56,6 +86,7 @@ export default function SettingsManager({ initialConfig }: { initialConfig: Stor
   }
 
   async function save() {
+    if (!canEdit) return;
     setSaving(true);
     setMessage(null);
     try {
@@ -66,6 +97,12 @@ export default function SettingsManager({ initialConfig }: { initialConfig: Stor
           serviceablePins: pins,
           deliverySlabs: slabs.map((s) => ({ min: Number(s.min), max: Number(s.max), charge: Number(s.charge) })),
           minOrderValue: Number(minOrderValue),
+          storeTiming,
+          storeStatus,
+          holidayMode,
+          paymentMethods,
+          whatsappTemplates,
+          homepageConfig,
         }),
       });
       if (!res.ok) {
@@ -76,6 +113,12 @@ export default function SettingsManager({ initialConfig }: { initialConfig: Stor
       setPins(updated.serviceablePins);
       setSlabs(updated.deliverySlabs);
       setMinOrderValue(updated.minOrderValue);
+      setStoreTiming(updated.storeTiming);
+      setStoreStatus(updated.storeStatus);
+      setHolidayMode(updated.holidayMode);
+      setPaymentMethods(updated.paymentMethods);
+      setWhatsappTemplates(updated.whatsappTemplates);
+      setHomepageConfig(updated.homepageConfig);
       setMessage({ type: 'ok', text: 'Settings saved.' });
       router.refresh();
     } catch (e) {
@@ -116,6 +159,7 @@ export default function SettingsManager({ initialConfig }: { initialConfig: Stor
             min={0}
             value={minOrderValue}
             onChange={(e) => setMinOrderValue(Number(e.target.value))}
+            disabled={!canEdit}
           />
         </div>
         <p className="text-xs text-gray-400">Orders below this subtotal are blocked. Set 0 to disable.</p>
@@ -130,7 +174,7 @@ export default function SettingsManager({ initialConfig }: { initialConfig: Stor
           {pins.map((pin) => (
             <span key={pin} className="inline-flex items-center gap-2 bg-blinkit-green-light text-blinkit-green rounded-full px-3 py-1 text-sm font-medium">
               {pin}
-              <button type="button" onClick={() => removePin(pin)} aria-label={`Remove ${pin}`} className="hover:text-red-500">
+              <button type="button" onClick={() => removePin(pin)} aria-label={`Remove ${pin}`} className="hover:text-red-500" disabled={!canEdit}>
                 <Trash2 size={14} />
               </button>
             </span>
@@ -145,6 +189,7 @@ export default function SettingsManager({ initialConfig }: { initialConfig: Stor
               inputMode="numeric"
               placeholder="6-digit PIN"
               onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+              disabled={!canEdit}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -153,7 +198,7 @@ export default function SettingsManager({ initialConfig }: { initialConfig: Stor
               }}
             />
           </div>
-          <Button type="button" variant="outline" onClick={addPin}>
+          <Button type="button" variant="outline" onClick={addPin} disabled={!canEdit}>
             <Plus size={16} /> Add
           </Button>
         </div>
@@ -172,24 +217,168 @@ export default function SettingsManager({ initialConfig }: { initialConfig: Stor
           </div>
           {slabs.map((slab, i) => (
             <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
-              <Input type="number" min={0} value={slab.min} onChange={(e) => updateSlab(i, 'min', Number(e.target.value))} />
-              <Input type="number" min={0} value={slab.max} onChange={(e) => updateSlab(i, 'max', Number(e.target.value))} />
-              <Input type="number" min={0} value={slab.charge} onChange={(e) => updateSlab(i, 'charge', Number(e.target.value))} />
-              <button type="button" onClick={() => removeSlab(i)} aria-label="Remove slab" className="text-gray-400 hover:text-red-500 p-2">
+              <Input type="number" min={0} value={slab.min} onChange={(e) => updateSlab(i, 'min', Number(e.target.value))} disabled={!canEdit} />
+              <Input type="number" min={0} value={slab.max} onChange={(e) => updateSlab(i, 'max', Number(e.target.value))} disabled={!canEdit} />
+              <Input type="number" min={0} value={slab.charge} onChange={(e) => updateSlab(i, 'charge', Number(e.target.value))} disabled={!canEdit} />
+              <button type="button" onClick={() => removeSlab(i)} aria-label="Remove slab" className="text-gray-400 hover:text-red-500 p-2" disabled={!canEdit}>
                 <Trash2 size={16} />
               </button>
             </div>
           ))}
         </div>
-        <Button type="button" variant="outline" onClick={addSlab}>
+        <Button type="button" variant="outline" onClick={addSlab} disabled={!canEdit}>
           <Plus size={16} /> Add slab
         </Button>
       </section>
 
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <h2 className="font-bold text-sm">Store Status & Timing</h2>
+        <div className="grid md:grid-cols-3 gap-3">
+          <div>
+            <Label>Store Timing</Label>
+            <Input value={storeTiming} onChange={(e) => setStoreTiming(e.target.value)} disabled={!canEdit} />
+          </div>
+          <div>
+            <Label>Status</Label>
+            <select
+              value={storeStatus}
+              onChange={(e) => setStoreStatus(e.target.value as StoreConfig['storeStatus'])}
+              className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm"
+              disabled={!canEdit}
+            >
+              <option value="OPEN">Open</option>
+              <option value="CLOSED">Closed</option>
+              <option value="HOLIDAY">Holiday</option>
+            </select>
+          </div>
+          <label className="flex items-center gap-2 text-sm mt-6">
+            <input type="checkbox" checked={holidayMode} onChange={(e) => setHolidayMode(e.target.checked)} disabled={!canEdit} />
+            Holiday mode
+          </label>
+        </div>
+      </section>
+
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <h2 className="font-bold text-sm">Payment Methods</h2>
+        <div className="flex flex-wrap gap-3">
+          {PAYMENT_OPTIONS.map((method) => (
+            <label key={method} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={paymentMethods.includes(method)}
+                onChange={(e) =>
+                  setPaymentMethods((prev) =>
+                    e.target.checked ? [...new Set([...prev, method])] : prev.filter((m) => m !== method),
+                  )
+                }
+                disabled={!canEdit}
+              />
+              {method}
+            </label>
+          ))}
+        </div>
+      </section>
+
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <h2 className="font-bold text-sm">WhatsApp Templates</h2>
+        <p className="text-xs text-gray-400">Used for quick send actions in order management.</p>
+        <div className="grid md:grid-cols-2 gap-3">
+          {Object.entries(whatsappTemplates).map(([key, value]) => (
+            <div key={key}>
+              <Label>{key.replace(/_/g, ' ')}</Label>
+              <textarea
+                value={value}
+                onChange={(e) => setWhatsappTemplates((prev) => ({ ...prev, [key]: e.target.value }))}
+                className="mt-1 w-full min-h-[78px] rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                disabled={!canEdit}
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <h2 className="font-bold text-sm">Homepage Configuration</h2>
+        <div className="grid md:grid-cols-2 gap-3 text-sm">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={homepageConfig.showHeroBanner}
+              onChange={(e) => setHomepageConfig((prev) => ({ ...prev, showHeroBanner: e.target.checked }))}
+              disabled={!canEdit}
+            />
+            Show Hero Banner
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={homepageConfig.showCategories}
+              onChange={(e) => setHomepageConfig((prev) => ({ ...prev, showCategories: e.target.checked }))}
+              disabled={!canEdit}
+            />
+            Show Categories
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={homepageConfig.showBestSellers}
+              onChange={(e) => setHomepageConfig((prev) => ({ ...prev, showBestSellers: e.target.checked }))}
+              disabled={!canEdit}
+            />
+            Show Best Sellers
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={homepageConfig.showOffers}
+              onChange={(e) => setHomepageConfig((prev) => ({ ...prev, showOffers: e.target.checked }))}
+              disabled={!canEdit}
+            />
+            Show Offers
+          </label>
+        </div>
+        <div className="grid md:grid-cols-2 gap-3">
+          <div>
+            <Label>Announcement Bar</Label>
+            <Input
+              value={homepageConfig.announcementBarText}
+              onChange={(e) =>
+                setHomepageConfig((prev) => ({ ...prev, announcementBarText: e.target.value }))
+              }
+              disabled={!canEdit}
+            />
+          </div>
+          <div>
+            <Label>Delivery Text</Label>
+            <Input
+              value={homepageConfig.deliveryTimeText}
+              onChange={(e) =>
+                setHomepageConfig((prev) => ({ ...prev, deliveryTimeText: e.target.value }))
+              }
+              disabled={!canEdit}
+            />
+          </div>
+          <div>
+            <Label>Theme Color</Label>
+            <Input
+              value={homepageConfig.themeColor}
+              onChange={(e) =>
+                setHomepageConfig((prev) => ({ ...prev, themeColor: e.target.value }))
+              }
+              disabled={!canEdit}
+            />
+          </div>
+        </div>
+      </section>
+
       <div className="flex justify-end">
-        <Button onClick={save} disabled={saving} size="lg">
-          {saving ? 'Saving...' : 'Save Settings'}
-        </Button>
+        {canEdit ? (
+          <Button onClick={save} disabled={saving} size="lg">
+            {saving ? 'Saving...' : 'Save Settings'}
+          </Button>
+        ) : (
+          <span className="text-sm text-gray-500">Read-only access</span>
+        )}
       </div>
     </div>
   );

@@ -10,15 +10,22 @@ interface ProductImageUploadProps {
   value: string;
   onChange: (url: string) => void;
   label?: string;
+  disabled?: boolean;
 }
 
-export default function ProductImageUpload({ value, onChange, label = 'Product Image' }: ProductImageUploadProps) {
+export default function ProductImageUpload({
+  value,
+  onChange,
+  label = 'Product Image',
+  disabled = false,
+}: ProductImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [dragOver, setDragOver] = useState(false);
 
   const uploadFile = useCallback(async (file: File) => {
+    if (disabled) return;
     setUploadError('');
     setUploading(true);
     try {
@@ -40,7 +47,7 @@ export default function ProductImageUpload({ value, onChange, label = 'Product I
     } finally {
       setUploading(false);
     }
-  }, [onChange]);
+  }, [onChange, disabled]);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -68,6 +75,7 @@ export default function ProductImageUpload({ value, onChange, label = 'Product I
           <button
             type="button"
             onClick={() => onChange('')}
+            disabled={disabled}
             className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow"
             title="Remove image"
           >
@@ -80,10 +88,10 @@ export default function ProductImageUpload({ value, onChange, label = 'Product I
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
-        onClick={() => inputRef.current?.click()}
-        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+        onClick={() => !disabled && inputRef.current?.click()}
+        className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
           dragOver ? 'border-blinkit-green bg-blinkit-green-light' : 'border-gray-200 hover:border-blinkit-green hover:bg-gray-50'
-        }`}
+        } ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
       >
         <input
           ref={inputRef}
@@ -91,6 +99,7 @@ export default function ProductImageUpload({ value, onChange, label = 'Product I
           accept="image/jpeg,image/png,image/webp,image/gif"
           className="hidden"
           onChange={handleFileChange}
+          disabled={disabled}
         />
         {uploading ? (
           <div className="flex flex-col items-center gap-2 text-gray-500">
@@ -117,6 +126,7 @@ export default function ProductImageUpload({ value, onChange, label = 'Product I
           onChange={(e) => onChange(e.target.value)}
           placeholder="https://... or /uploads/products/..."
           className="mt-1"
+          disabled={disabled}
         />
       </div>
     </div>
