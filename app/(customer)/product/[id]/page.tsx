@@ -11,6 +11,7 @@ import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { formatCurrency, getEffectivePrice } from '@/utils/formatter';
+import { resolvePublicImageUrl } from '@/utils/image';
 import { CATEGORY_ICONS } from '@/constants';
 import { Button } from '@/components/ui/button';
 import type { ProductWithCategory } from '@/types';
@@ -52,6 +53,7 @@ export default function ProductPage() {
   const savings = hasDiscount ? Math.round((product.price - price) * 100) / 100 : 0;
   const inStock = product.stock > 0 && product.status === 'ACTIVE';
   const categoryIcon = CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒';
+  const imageUrl = resolvePublicImageUrl(product.imageUrl);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -73,8 +75,8 @@ export default function ProductPage() {
 
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden md:flex">
           <div className="relative md:w-1/2 aspect-square bg-gradient-to-br from-green-50 to-yellow-50 flex items-center justify-center p-8">
-            {product.imageUrl ? (
-              <img src={product.imageUrl} alt={product.name} className="max-w-full max-h-full object-contain" />
+            {imageUrl ? (
+              <img src={imageUrl} alt={product.name} className="max-w-full max-h-full object-contain" />
             ) : (
               <span className="text-7xl">{categoryIcon}</span>
             )}

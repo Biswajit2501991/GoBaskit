@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { productSchema, type ProductFormData } from '@/lib/validations';
 import { formatCurrency } from '@/utils/formatter';
+import { resolvePublicImageUrl } from '@/utils/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -283,7 +284,7 @@ export default function ProductManager({
                 <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="p-3">
                     {p.imageUrl ? (
-                      <img src={p.imageUrl} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
+                      <img src={resolvePublicImageUrl(p.imageUrl)} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
                     ) : (
                       <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-400">
                         {p.name.charAt(0)}

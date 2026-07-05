@@ -7,11 +7,16 @@ const WEBP_QUALITY = 80;
 
 export interface CompressedImage {
   main: Buffer;
-  thumbnail: Buffer;
+  thumbnail?: Buffer;
   ext: 'webp' | 'jpg' | 'png';
 }
 
-export async function compressImage(input: Buffer): Promise<CompressedImage> {
+export async function compressImage(
+  input: Buffer,
+  options?: { withThumbnail?: boolean; fast?: boolean },
+): Promise<CompressedImage> {
+  const withThumbnail = options?.withThumbnail ?? true;
+  const fast = options?.fast ?? false;
   const image = sharp(input, { failOn: 'none' });
   const meta = await image.metadata();
 
@@ -22,22 +27,28 @@ export async function compressImage(input: Buffer): Promise<CompressedImage> {
     withoutEnlargement: true,
   });
 
-  const thumbnailPipeline = sharp(input).rotate().resize(THUMB_SIZE, THUMB_SIZE, {
-    fit: 'cover',
-    position: 'centre',
-  });
+  const thumbnailPipeline = withThumbnail
+    ? sharp(input).rotate().resize(THUMB_SIZE, THUMB_SIZE, {
+        fit: 'cover',
+        position: 'centre',
+      })
+    : null;
 
   if (meta.hasAlpha) {
     const [main, thumbnail] = await Promise.all([
-      mainPipeline.webp({ quality: WEBP_QUALITY }).toBuffer(),
-      thumbnailPipeline.webp({ quality: 70 }).toBuffer(),
+      mainPipeline.webp({ quality: fast ? 76 : WEBP_QUALITY, effort: fast ? 2 : 4 }).toBuffer(),
+      withThumbnail && thumbnailPipeline
+        ? thumbnailPipeline.webp({ quality: 70, effort: fast ? 2 : 4 }).toBuffer()
+        : Promise.resolve(undefined),
     ]);
     return { main, thumbnail, ext: 'webp' };
   }
 
   const [main, thumbnail] = await Promise.all([
-    mainPipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true }).toBuffer(),
-    thumbnailPipeline.jpeg({ quality: 75, mozjpeg: true }).toBuffer(),
+    mainPipeline.jpeg({ quality: fast ? 78 : JPEG_QUALITY, mozjpeg: !fast }).toBuffer(),
+    withThumbnail && thumbnailPipeline
+      ? thumbnailPipeline.jpeg({ quality: 75, mozjpeg: !fast }).toBuffer()
+      : Promise.resolve(undefined),
   ]);
   return { main, thumbnail, ext: 'jpg' };
 }
@@ -45,23 +56,28 @@ export async function compressImage(input: Buffer): Promise<CompressedImage> {
 export async function compressAndSave(
   input: Buffer,
   uploadDir: string,
-  baseFilename: string
+  baseFilename: string,
+  options?: { withThumbnail?: boolean; fast?: boolean },
 ): Promise<{ url: string; thumbUrl: string; filename: string }> {
   const { writeFile, mkdir } = await import('fs/promises');
   await mkdir(uploadDir, { recursive: true });
 
-  const { main, thumbnail, ext } = await compressImage(input);
+  const withThumbnail = options?.withThumbnail ?? true;
+  const { main, thumbnail, ext } = await compressImage(input, options);
   const filename = `${baseFilename}.${ext}`;
   const thumbFilename = `${baseFilename}-thumb.${ext}`;
   const filepath = `${uploadDir}/${filename}`;
-  const thumbPath = `${uploadDir}/${thumbFilename}`;
-
-  await Promise.all([writeFile(filepath, main), writeFile(thumbPath, thumbnail)]);
+  const writes: Promise<unknown>[] = [writeFile(filepath, main)];
+  if (withThumbnail && thumbnail) {
+    const thumbPath = `${uploadDir}/${thumbFilename}`;
+    writes.push(writeFile(thumbPath, thumbnail));
+  }
+  await Promise.all(writes);
 
   const folder = uploadDir.includes('categories') ? 'categories' : 'products';
   return {
     url: `/uploads/${folder}/${filename}`,
-    thumbUrl: `/uploads/${folder}/${thumbFilename}`,
+    thumbUrl: withThumbnail ? `/uploads/${folder}/${thumbFilename}` : `/uploads/${folder}/${filename}`,
     filename,
   };
 }

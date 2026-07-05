@@ -34,7 +34,12 @@ export async function POST(req: NextRequest) {
     const baseFilename = `${Date.now()}-${randomBytes(6).toString('hex')}`;
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const { url, thumbUrl, filename } = await compressAndSave(buffer, uploadDir, baseFilename);
+    const { url, thumbUrl, filename } = await compressAndSave(buffer, uploadDir, baseFilename, {
+      // Product uploads don't need generated thumbnails right now; skipping them
+      // keeps upload latency low for normal admin image updates.
+      withThumbnail: false,
+      fast: true,
+    });
 
     await prisma.upload.create({
       data: {

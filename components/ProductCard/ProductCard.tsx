@@ -5,6 +5,7 @@ import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { formatCurrency, getEffectivePrice } from '@/utils/formatter';
 import { CATEGORY_ICONS } from '@/constants';
+import { resolvePublicImageUrl } from '@/utils/image';
 import type { ProductWithCategory } from '@/types';
 import { Button } from '@/components/ui/button';
 
@@ -19,6 +20,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const cartQty = hydrated ? (cartItem?.quantity ?? 0) : 0;
   const price = getEffectivePrice(product.price, product.discount);
   const inStock = product.stock > 0 && product.status === 'ACTIVE';
+  const imageUrl = resolvePublicImageUrl(product.imageUrl);
 
   function handleAdd() {
     addItem({
@@ -34,9 +36,9 @@ export default function ProductCard({ product }: ProductCardProps) {
   return (
     <div className="bg-white rounded-lg border border-gray-100 overflow-hidden flex flex-col hover:shadow-sm transition-shadow group">
       <Link href={`/product/${product.id}`} className="aspect-[4/5] relative overflow-hidden bg-gray-50 p-1.5 block">
-        {product.imageUrl ? (
+        {imageUrl ? (
           <img
-            src={product.imageUrl}
+            src={imageUrl}
             alt={product.name}
             className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
           />
