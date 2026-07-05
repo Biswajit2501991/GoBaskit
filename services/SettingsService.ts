@@ -38,7 +38,9 @@ export interface StoreConfig {
 }
 
 type StoreConfigUpdate = Partial<Omit<StoreConfig, 'homepageConfig'>> & {
-  homepageConfig?: Partial<StoreConfig['homepageConfig']>;
+  homepageConfig?: Partial<Omit<StoreConfig['homepageConfig'], 'promoSections'>> & {
+    promoSections?: Array<Partial<StoreConfig['homepageConfig']['promoSections'][number]>>;
+  };
 };
 
 const KEY_PINS = 'serviceable_pins';
