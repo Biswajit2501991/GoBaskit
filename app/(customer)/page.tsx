@@ -20,6 +20,7 @@ export default function HomePage() {
   const [search, setSearch] = useState('');
   const [activeBanner, setActiveBanner] = useState(0);
   const { homepageConfig, fetchConfig } = useConfigStore();
+  const showFeaturedSection = !search && homepageConfig.showBestSellers && featured.length > 0;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -79,8 +80,10 @@ export default function HomePage() {
             {PROMO_BANNERS.map((banner, i) => (
               <div
                 key={banner.title}
-                className={`bg-gradient-to-r ${banner.bg} rounded-2xl p-5 flex items-center justify-between transition-opacity duration-500 ${
-                  i === activeBanner ? 'opacity-100 relative' : 'opacity-0 absolute inset-0'
+                className={`bg-gradient-to-r ${banner.bg} rounded-2xl p-5 flex items-center justify-between will-change-transform transition-all duration-700 ease-in-out ${
+                  i === activeBanner
+                    ? 'opacity-100 translate-x-0 scale-100 relative'
+                    : 'opacity-0 absolute inset-0 translate-x-2 scale-[0.99] pointer-events-none'
                 }`}
               >
                 <div>
@@ -104,8 +107,8 @@ export default function HomePage() {
           </div>
         )}
 
-        {!search && homepageConfig.showBestSellers && featured.length > 0 && (
-          <section className="mb-6">
+        {showFeaturedSection && (
+          <section className="mb-6 transition-all duration-500 ease-out opacity-100 translate-y-0">
             <h2 className="font-bold text-gray-900 text-base mb-3">Best Sellers</h2>
             <div className={PRODUCT_GRID}>
               {featured.map((p) => <ProductCard key={p.id} product={p} />)}

@@ -378,6 +378,25 @@ export default function SettingsManager({
       </section>
 
       <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <h2 className="font-bold text-sm">Featured Section</h2>
+        <p className="text-xs text-gray-400">
+          Controls the customer homepage Best Sellers (featured products) section visibility.
+        </p>
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={homepageConfig.showBestSellers}
+            onChange={(e) =>
+              setHomepageConfig((prev) => ({ ...prev, showBestSellers: e.target.checked }))
+            }
+            disabled={!canEdit}
+            className="accent-blinkit-green"
+          />
+          Show Featured Products (Best Sellers)
+        </label>
+      </section>
+
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Homepage Configuration</h2>
         <div className="grid md:grid-cols-2 gap-3 text-sm">
           <label className="flex items-center gap-2">
@@ -397,15 +416,6 @@ export default function SettingsManager({
               disabled={!canEdit}
             />
             Show Categories
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={homepageConfig.showBestSellers}
-              onChange={(e) => setHomepageConfig((prev) => ({ ...prev, showBestSellers: e.target.checked }))}
-              disabled={!canEdit}
-            />
-            Show Best Sellers
           </label>
           <label className="flex items-center gap-2">
             <input
