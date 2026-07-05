@@ -78,6 +78,9 @@ export default function CheckoutPage() {
   const cityServiceable = cityValue
     ? serviceableCities.some((city) => city.toLowerCase() === cityValue.toLowerCase())
     : null;
+  const deliveryMatchByPin = pinServiceable === true;
+  const deliveryMatchByCity = cityServiceable === true;
+  const deliveryServiceable = deliveryMatchByPin || deliveryMatchByCity;
   const enteredMobile = (formValues.mobile ?? '').trim();
   const isWhatsAppPatternValid = /^\d{10}$/.test(enteredMobile);
   const [whatsAppConfirmed, setWhatsAppConfirmed] = useState(false);
@@ -128,11 +131,11 @@ export default function CheckoutPage() {
       focusSection('summary');
       return;
     }
-    if (!pinIsServiceable(serviceablePins, data.pincode)) {
-      focusSection('address');
-      return;
-    }
-    if (!serviceableCities.some((city) => city.toLowerCase() === data.city.trim().toLowerCase())) {
+    const pinMatched = pinIsServiceable(serviceablePins, data.pincode);
+    const cityMatched = serviceableCities.some(
+      (city) => city.toLowerCase() === data.city.trim().toLowerCase(),
+    );
+    if (!pinMatched && !cityMatched) {
       focusSection('address');
       return;
     }
@@ -307,7 +310,7 @@ export default function CheckoutPage() {
                 <Label>City *</Label>
                 <Input {...register('city')} className="mt-1" />
                 {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city.message}</p>}
-              {!errors.city && cityServiceable === false && (
+              {!errors.city && cityServiceable === false && pinServiceable !== true && (
                 <p className="text-red-500 text-xs mt-1">We currently deliver to: {serviceableCities.join(', ')}.</p>
               )}
               {!errors.city && cityServiceable === true && (
@@ -331,6 +334,9 @@ export default function CheckoutPage() {
                 <p className="text-red-500 text-xs mt-1">
                   Sorry, delivery is unavailable at {pincodeValue}. We currently serve: {serviceablePins.join(', ')}.
                 </p>
+              )}
+              {!errors.pincode && pinServiceable !== true && cityServiceable === true && (
+                <p className="text-green-600 text-xs mt-1">✓ Delivery is available based on your city.</p>
               )}
             </div>
             <div>
@@ -386,7 +392,9 @@ export default function CheckoutPage() {
             {isSubmitting
               ? 'Placing Order...'
               : pinServiceable === false
-                ? 'Delivery unavailable at this PIN'
+                ? deliveryServiceable
+                  ? 'Place Order via WhatsApp'
+                  : 'Delivery unavailable at this address'
                 : !isWhatsAppPatternValid
                   ? 'Enter valid WhatsApp number'
                   : !whatsAppConfirmed

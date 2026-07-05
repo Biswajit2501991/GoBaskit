@@ -26,16 +26,11 @@ export async function POST(req: NextRequest) {
 
     const config = await SettingsService.getStoreConfig();
 
-    if (!pinIsServiceable(config.serviceablePins, parsed.data.pincode)) {
+    const pinMatched = pinIsServiceable(config.serviceablePins, parsed.data.pincode);
+    const cityMatched = cityIsServiceable(config.serviceableCities, parsed.data.city);
+    if (!pinMatched && !cityMatched) {
       return NextResponse.json(
         { error: 'Sorry, delivery is currently unavailable in your area.' },
-        { status: 400 }
-      );
-    }
-
-    if (!cityIsServiceable(config.serviceableCities, parsed.data.city)) {
-      return NextResponse.json(
-        { error: `Sorry, delivery is unavailable in ${parsed.data.city}.` },
         { status: 400 },
       );
     }
