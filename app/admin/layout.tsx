@@ -47,7 +47,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       )}
       <main className="flex-1 min-w-0 h-screen overflow-y-auto flex flex-col">
         {staff && (
-          <header className="bg-white border-b border-gray-200 px-6 py-3 flex justify-end sticky top-0 z-10">
+          <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-end gap-3 sticky top-0 z-10">
+            <div className="text-right">
+              <p className="text-xs font-semibold text-gray-700">{staff.name}</p>
+              <p className="text-[10px] text-gray-400">{staff.role.replace(/_/g, ' ')}</p>
+            </div>
             <NotificationCenter />
           </header>
         )}
