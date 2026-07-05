@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Lock, Unlock } from 'lucide-react';
+import { Lock, MessageCircle, Unlock } from 'lucide-react';
+import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
+import { buildWhatsAppUrl } from '@/utils/whatsapp';
 
 interface OrderItem {
   id: string;
@@ -46,7 +48,26 @@ interface StaffOption {
 const STATUSES = ['PENDING', 'ACCEPTED', 'PACKED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
 const PRIORITIES = ['NORMAL', 'HIGH', 'URGENT'];
 
-export default function OrdersManager({ currentStaffId }: { currentStaffId: string }) {
+function getWhatsAppMessage(order: OrderRow) {
+  return [
+    `Hi ${order.customer.firstName},`,
+    `Your GoBaskit order ${order.orderNumber} is now ${order.status.replace(/_/g, ' ')}.`,
+    `Total: ${formatCurrency(order.grandTotal)}.`,
+    'Thank you for shopping with us.',
+  ].join('\n');
+}
+
+export default function OrdersManager({
+  currentStaffId,
+  canEdit,
+  canAssign,
+  canOverrideLock,
+}: {
+  currentStaffId: string;
+  canEdit: boolean;
+  canAssign: boolean;
+  canOverrideLock: boolean;
+}) {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [staffList, setStaffList] = useState<StaffOption[]>([]);
   const [search, setSearch] = useState('');
@@ -54,7 +75,6 @@ export default function OrdersManager({ currentStaffId }: { currentStaffId: stri
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const esRef = useRef<EventSource | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,20 +102,16 @@ export default function OrdersManager({ currentStaffId }: { currentStaffId: stri
   }, []);
 
   useEffect(() => {
-    const es = new EventSource('/api/admin/events');
-    esRef.current = es;
-    es.onmessage = (ev) => {
-      try {
-        const data = JSON.parse(ev.data);
-        if (data.type === 'order_created' || data.type === 'order_updated') {
-          load();
-        }
-      } catch { /* ignore */ }
-    };
-    return () => es.close();
+    const unsubscribe = subscribeToAdminEvents((data) => {
+      if (data.type === 'order_created' || data.type === 'order_updated') {
+        load();
+      }
+    });
+    return unsubscribe;
   }, [load]);
 
   async function updateOrder(id: string, patch: Record<string, unknown>, optimistic: Partial<OrderRow>) {
+    if (!canEdit) return;
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...optimistic } : o)));
     const res = await fetch('/api/admin/orders', {
       method: 'PATCH',
@@ -113,6 +129,7 @@ export default function OrdersManager({ currentStaffId }: { currentStaffId: stri
   }
 
   async function assignOrder(id: string, staffId: string) {
+    if (!canAssign) return;
     const staff = staffList.find((s) => s.id === staffId);
     setOrders((prev) =>
       prev.map((o) =>
@@ -134,6 +151,12 @@ export default function OrdersManager({ currentStaffId }: { currentStaffId: stri
     }
     const updated = await res.json();
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
+  }
+
+  function sendWhatsAppUpdate(order: OrderRow) {
+    const message = getWhatsAppMessage(order);
+    const url = buildWhatsAppUrl(`91${order.customer.mobile}`, message);
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   async function releaseOrder(id: string) {
@@ -183,6 +206,7 @@ export default function OrdersManager({ currentStaffId }: { currentStaffId: stri
           {orders.map((order) => {
             const isLocked = Boolean(order.lockedAt && order.assignedStaffId);
             const isMine = order.assignedStaffId === currentStaffId;
+            const lockedByOther = isLocked && !isMine && !canOverrideLock;
             return (
               <div key={order.id} className="bg-white rounded-xl border border-gray-100 p-5">
                 <div className="flex flex-wrap justify-between items-start gap-3 mb-3">
@@ -211,7 +235,7 @@ export default function OrdersManager({ currentStaffId }: { currentStaffId: stri
                       value={order.status}
                       onChange={(e) => updateOrder(order.id, { status: e.target.value }, { status: e.target.value })}
                       className="text-xs font-semibold border rounded px-2 py-1 mt-1"
-                      disabled={isLocked && !isMine}
+                      disabled={!canEdit || lockedByOther}
                     >
                       {STATUSES.map((s) => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
                     </select>
@@ -229,7 +253,7 @@ export default function OrdersManager({ currentStaffId }: { currentStaffId: stri
                     value={order.priority}
                     onChange={(e) => updateOrder(order.id, { priority: e.target.value }, { priority: e.target.value })}
                     className="text-xs border rounded px-2 py-1"
-                    disabled={isLocked && !isMine}
+                    disabled={!canEdit || lockedByOther}
                   >
                     {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
@@ -238,7 +262,7 @@ export default function OrdersManager({ currentStaffId }: { currentStaffId: stri
                     value={order.assignedStaffId ?? ''}
                     onChange={(e) => e.target.value && assignOrder(order.id, e.target.value)}
                     className="text-xs border rounded px-2 py-1"
-                    disabled={isLocked && !isMine}
+                    disabled={!canAssign || lockedByOther}
                   >
                     <option value="">Assign to...</option>
                     {staffList.map((s) => (
@@ -246,11 +270,21 @@ export default function OrdersManager({ currentStaffId }: { currentStaffId: stri
                     ))}
                   </select>
 
-                  {order.assignedStaffId && (isMine || !isLocked) && (
+                  {order.assignedStaffId && canEdit && (isMine || !isLocked || canOverrideLock) && (
                     <Button type="button" variant="outline" size="sm" onClick={() => releaseOrder(order.id)} className="gap-1 h-7 text-xs">
                       <Unlock className="w-3 h-3" /> Release
                     </Button>
                   )}
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1 h-7 text-xs"
+                    onClick={() => sendWhatsAppUpdate(order)}
+                  >
+                    <MessageCircle className="w-3 h-3" /> Send WhatsApp
+                  </Button>
 
                   <Input
                     placeholder="Admin notes..."
@@ -261,7 +295,7 @@ export default function OrdersManager({ currentStaffId }: { currentStaffId: stri
                       }
                     }}
                     className="max-w-xs h-7 text-xs"
-                    disabled={isLocked && !isMine}
+                    disabled={!canEdit || lockedByOther}
                   />
                 </div>
 

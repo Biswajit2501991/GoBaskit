@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Bell, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 
 interface NotificationItem {
   id: string;
@@ -21,7 +21,7 @@ export function NotificationCenter() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState<NotificationItem | null>(null);
-  const esRef = useRef<EventSource | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch('/api/admin/notifications?pageSize=10');
@@ -37,30 +37,41 @@ export function NotificationCenter() {
   }, [load]);
 
   useEffect(() => {
-    const es = new EventSource('/api/admin/events');
-    esRef.current = es;
+    const unsubscribe = subscribeToAdminEvents((data) => {
+      if (data.type !== 'notification_created') return;
+      const payload = data.payload as Record<string, unknown>;
+      const n: NotificationItem = {
+        id: String(payload.id ?? ''),
+        type: String(payload.type ?? ''),
+        title: String(payload.title ?? ''),
+        message: String(payload.message ?? ''),
+        entityType: payload.entityType ? String(payload.entityType) : null,
+        entityId: payload.entityId ? String(payload.entityId) : null,
+        readAt: null,
+        createdAt: String(payload.createdAt ?? new Date().toISOString()),
+      };
+      setUnreadCount((c) => c + 1);
+      setItems((prev) => [{ ...n, readAt: null }, ...prev].slice(0, 10));
+      setToast(n);
+      setTimeout(() => setToast(null), 5000);
 
-    es.onmessage = (ev) => {
-      try {
-        const data = JSON.parse(ev.data);
-        if (data.type === 'notification_created') {
-          const n = data.payload as NotificationItem;
-          setUnreadCount((c) => c + 1);
-          setItems((prev) => [{ ...n, readAt: null }, ...prev].slice(0, 10));
-          setToast(n);
-          setTimeout(() => setToast(null), 5000);
-        }
-        if (data.type === 'order_created') {
-          setUnreadCount((c) => c + 1);
-        }
-      } catch {
-        /* ignore parse errors */
+      audioRef.current?.play().catch(() => {
+        // browsers can block autoplay until user interaction
+      });
+
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(n.title, { body: n.message });
       }
-    };
+    });
+    return unsubscribe;
+  }, []);
 
-    return () => {
-      es.close();
-    };
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {
+        // noop
+      });
+    }
   }, []);
 
   async function markRead(id: string) {
@@ -81,6 +92,9 @@ export function NotificationCenter() {
 
   return (
     <>
+      <audio ref={audioRef} preload="auto">
+        <source src="data:audio/wav;base64,UklGRjQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YRAAAAAA////AAAA////AAAA////AAAA" type="audio/wav" />
+      </audio>
       <div className="relative">
         <button
           type="button"
