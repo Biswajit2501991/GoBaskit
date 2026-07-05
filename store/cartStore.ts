@@ -3,7 +3,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CartItem } from '@/types';
-import { DELIVERY_CHARGE, MIN_ORDER_VALUE } from '@/constants';
+import {
+  MIN_ORDER_VALUE,
+  calculateDeliveryCharge,
+  isPinServiceable,
+  SERVICEABLE_PINS,
+} from '@/constants';
 
 interface CartState {
   items: CartItem[];
@@ -69,10 +74,13 @@ export const useCartStore = create<CartState>()(
       getItemCount: () =>
         get().items.reduce((sum, item) => sum + item.quantity, 0),
 
-      getGrandTotal: () => get().getSubtotal() + DELIVERY_CHARGE,
+      getGrandTotal: () => {
+        const subtotal = get().getSubtotal();
+        return subtotal + calculateDeliveryCharge(subtotal);
+      },
     }),
     { name: 'gobaskit-cart' }
   )
 );
 
-export { DELIVERY_CHARGE, MIN_ORDER_VALUE };
+export { MIN_ORDER_VALUE, calculateDeliveryCharge, isPinServiceable, SERVICEABLE_PINS };

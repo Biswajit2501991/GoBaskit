@@ -4,9 +4,34 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.gobask
 
 export const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '919046370119';
 
-export const DELIVERY_CHARGE = Number(process.env.DELIVERY_CHARGE || 30);
+export const MIN_ORDER_VALUE = Number(process.env.MIN_ORDER_VALUE || 100);
 
-export const MIN_ORDER_VALUE = Number(process.env.MIN_ORDER_VALUE || 0);
+// Tiered delivery charge by order subtotal (ported from the original Go Baskit app).
+export const DELIVERY_SLABS: { min: number; max: number; charge: number }[] = [
+  { min: 0, max: 199, charge: 10 },
+  { min: 200, max: 299, charge: 20 },
+  { min: 300, max: 499, charge: 30 },
+  { min: 500, max: 1000, charge: 50 },
+  { min: 1001, max: 2000, charge: 70 },
+  { min: 2001, max: Infinity, charge: 100 },
+];
+
+export function calculateDeliveryCharge(subtotal: number): number {
+  const tier = DELIVERY_SLABS.find((t) => subtotal >= t.min && subtotal <= t.max);
+  return tier ? tier.charge : (DELIVERY_SLABS[DELIVERY_SLABS.length - 1]?.charge ?? 0);
+}
+
+// Serviceable delivery PIN codes (comma-separated env override, else defaults).
+export const SERVICEABLE_PINS = (
+  process.env.NEXT_PUBLIC_SERVICEABLE_PINS || '723131,723132,723133'
+)
+  .split(',')
+  .map((p) => p.trim())
+  .filter(Boolean);
+
+export function isPinServiceable(pin: string): boolean {
+  return SERVICEABLE_PINS.includes(String(pin).trim());
+}
 
 export const CATEGORY_ICONS: Record<string, string> = {
   vegetables: '🥬',

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Header from '@/components/Header/Header';
-import { useCartStore, DELIVERY_CHARGE, MIN_ORDER_VALUE } from '@/store/cartStore';
+import { useCartStore, MIN_ORDER_VALUE, calculateDeliveryCharge, isPinServiceable, SERVICEABLE_PINS } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { checkoutSchema, type CheckoutSchema } from '@/lib/validations';
 import { buildWhatsAppMessage, buildWhatsAppUrl } from '@/utils/whatsapp';
@@ -21,6 +21,7 @@ export default function CheckoutPage() {
   const hydrated = useCartHydrated();
   const { items, getSubtotal, getGrandTotal, clearCart } = useCartStore();
   const subtotal = getSubtotal();
+  const deliveryCharge = calculateDeliveryCharge(subtotal);
   const grandTotal = getGrandTotal();
   const belowMinimum = MIN_ORDER_VALUE > 0 && subtotal < MIN_ORDER_VALUE;
 
@@ -40,6 +41,9 @@ export default function CheckoutPage() {
   });
 
   const formValues = watch();
+  const pincodeValue = formValues.pincode ?? '';
+  const pinChecked = /^\d{6}$/.test(pincodeValue);
+  const pinServiceable = pinChecked ? isPinServiceable(pincodeValue) : null;
 
   useEffect(() => {
     if (!hydrated) return;
@@ -52,20 +56,21 @@ export default function CheckoutPage() {
       items,
       customer: formValues,
       subtotal,
-      deliveryCharge: DELIVERY_CHARGE,
+      deliveryCharge,
       grandTotal,
       storeName: STORE_NAME,
     });
-  }, [items, formValues, subtotal, grandTotal]);
+  }, [items, formValues, subtotal, deliveryCharge, grandTotal]);
 
   async function onSubmit(data: CheckoutSchema) {
     if (belowMinimum) return;
+    if (!isPinServiceable(data.pincode)) return;
 
     const message = buildWhatsAppMessage({
       items,
       customer: data,
       subtotal,
-      deliveryCharge: DELIVERY_CHARGE,
+      deliveryCharge,
       grandTotal,
       storeName: STORE_NAME,
     });
@@ -190,6 +195,14 @@ export default function CheckoutPage() {
               <Label>Pincode *</Label>
               <Input {...register('pincode')} maxLength={6} inputMode="numeric" className="mt-1" />
               {errors.pincode && <p className="text-red-500 text-xs mt-1">{errors.pincode.message}</p>}
+              {!errors.pincode && pinServiceable === true && (
+                <p className="text-green-600 text-xs mt-1">✓ Great! We deliver to your area.</p>
+              )}
+              {!errors.pincode && pinServiceable === false && (
+                <p className="text-red-500 text-xs mt-1">
+                  Sorry, delivery is unavailable at {pincodeValue}. We currently serve: {SERVICEABLE_PINS.join(', ')}.
+                </p>
+              )}
             </div>
             <div>
               <Label>Delivery Notes</Label>
@@ -217,7 +230,7 @@ export default function CheckoutPage() {
 
           <div className="bg-white rounded-xl border border-gray-100 p-4 text-sm space-y-1">
             <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-            <div className="flex justify-between"><span>Delivery</span><span>{formatCurrency(DELIVERY_CHARGE)}</span></div>
+            <div className="flex justify-between"><span>Delivery</span><span>{formatCurrency(deliveryCharge)}</span></div>
             <div className="flex justify-between font-bold text-base border-t border-dashed pt-2">
               <span>Total</span><span className="text-blinkit-green">{formatCurrency(grandTotal)}</span>
             </div>
@@ -234,9 +247,13 @@ export default function CheckoutPage() {
             type="submit"
             size="lg"
             className="w-full"
-            disabled={belowMinimum || isSubmitting}
+            disabled={belowMinimum || isSubmitting || pinServiceable === false}
           >
-            {isSubmitting ? 'Placing Order...' : 'Place Order via WhatsApp'}
+            {isSubmitting
+              ? 'Placing Order...'
+              : pinServiceable === false
+                ? 'Delivery unavailable at this PIN'
+                : 'Place Order via WhatsApp'}
           </Button>
         </form>
       </main>

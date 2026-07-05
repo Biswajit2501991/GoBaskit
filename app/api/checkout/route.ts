@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { checkoutSchema } from '@/lib/validations';
-import { DELIVERY_CHARGE } from '@/constants';
+import { calculateDeliveryCharge, isPinServiceable, MIN_ORDER_VALUE } from '@/constants';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,11 +17,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 });
     }
 
+    if (!isPinServiceable(parsed.data.pincode)) {
+      return NextResponse.json(
+        { error: 'Sorry, delivery is currently unavailable in your area.' },
+        { status: 400 }
+      );
+    }
+
     const subtotal = items.reduce(
       (sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity,
       0
     );
-    const grandTotal = subtotal + DELIVERY_CHARGE;
+
+    if (MIN_ORDER_VALUE > 0 && subtotal < MIN_ORDER_VALUE) {
+      return NextResponse.json(
+        { error: `Minimum order value is ₹${MIN_ORDER_VALUE}.` },
+        { status: 400 }
+      );
+    }
+
+    const deliveryCharge = calculateDeliveryCharge(subtotal);
+    const grandTotal = subtotal + deliveryCharge;
 
     const orderNumber = `GB${Date.now().toString().slice(-8)}`;
 
@@ -46,7 +62,7 @@ export async function POST(req: NextRequest) {
         orderNumber,
         customerId: dbCustomer.id,
         subtotal,
-        deliveryCharge: DELIVERY_CHARGE,
+        deliveryCharge,
         grandTotal,
         paymentMethod: parsed.data.paymentMethod,
         deliveryNotes: parsed.data.deliveryNotes || null,

@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
-import { useCartStore, DELIVERY_CHARGE, MIN_ORDER_VALUE } from '@/store/cartStore';
+import { useCartStore, MIN_ORDER_VALUE, calculateDeliveryCharge } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { formatCurrency } from '@/utils/formatter';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ export default function CartPage() {
   const hydrated = useCartHydrated();
   const { items, updateQuantity, removeItem, clearCart, getSubtotal, getGrandTotal } = useCartStore();
   const subtotal = getSubtotal();
+  const deliveryCharge = calculateDeliveryCharge(subtotal);
   const grandTotal = getGrandTotal();
   const belowMinimum = MIN_ORDER_VALUE > 0 && subtotal < MIN_ORDER_VALUE;
 
@@ -122,7 +123,7 @@ export default function CartPage() {
 
         <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-2 text-sm">
           <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
-          <div className="flex justify-between"><span className="text-gray-500">Delivery</span><span className="font-medium">{formatCurrency(DELIVERY_CHARGE)}</span></div>
+          <div className="flex justify-between"><span className="text-gray-500">Delivery</span><span className="font-medium">{formatCurrency(deliveryCharge)}</span></div>
           <div className="flex justify-between border-t border-dashed pt-2 font-bold text-base">
             <span>Grand Total</span><span className="text-blinkit-green">{formatCurrency(grandTotal)}</span>
           </div>
