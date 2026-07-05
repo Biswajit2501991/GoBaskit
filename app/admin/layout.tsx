@@ -8,6 +8,7 @@ const nav = [
   { href: '/admin/categories', label: 'Categories' },
   { href: '/admin/orders', label: 'Orders' },
   { href: '/admin/bulk-upload', label: 'Bulk Upload' },
+  { href: '/admin/settings', label: 'Settings' },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

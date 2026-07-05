@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { checkoutSchema } from '@/lib/validations';
-import { calculateDeliveryCharge, isPinServiceable, MIN_ORDER_VALUE } from '@/constants';
+import { deliveryChargeFrom, pinIsServiceable } from '@/constants';
+import { SettingsService } from '@/services/SettingsService';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +18,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 });
     }
 
-    if (!isPinServiceable(parsed.data.pincode)) {
+    const config = await SettingsService.getStoreConfig();
+
+    if (!pinIsServiceable(config.serviceablePins, parsed.data.pincode)) {
       return NextResponse.json(
         { error: 'Sorry, delivery is currently unavailable in your area.' },
         { status: 400 }
@@ -29,14 +32,14 @@ export async function POST(req: NextRequest) {
       0
     );
 
-    if (MIN_ORDER_VALUE > 0 && subtotal < MIN_ORDER_VALUE) {
+    if (config.minOrderValue > 0 && subtotal < config.minOrderValue) {
       return NextResponse.json(
-        { error: `Minimum order value is ₹${MIN_ORDER_VALUE}.` },
+        { error: `Minimum order value is ₹${config.minOrderValue}.` },
         { status: 400 }
       );
     }
 
-    const deliveryCharge = calculateDeliveryCharge(subtotal);
+    const deliveryCharge = deliveryChargeFrom(config.deliverySlabs, subtotal);
     const grandTotal = subtotal + deliveryCharge;
 
     const orderNumber = `GB${Date.now().toString().slice(-8)}`;

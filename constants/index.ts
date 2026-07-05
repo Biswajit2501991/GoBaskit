@@ -6,22 +6,34 @@ export const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '91904
 
 export const MIN_ORDER_VALUE = Number(process.env.MIN_ORDER_VALUE || 100);
 
-// Tiered delivery charge by order subtotal (ported from the original Go Baskit app).
-export const DELIVERY_SLABS: { min: number; max: number; charge: number }[] = [
+export type DeliverySlab = { min: number; max: number; charge: number };
+
+// A large finite cap (JSON-safe; avoids Infinity which JSON.stringify turns into null).
+export const SLAB_MAX = 1_000_000_000;
+
+// Default tiered delivery charge by order subtotal (ported from the original Go Baskit app).
+// These are defaults/fallbacks; the live values are admin-editable and stored in the DB.
+export const DELIVERY_SLABS: DeliverySlab[] = [
   { min: 0, max: 199, charge: 10 },
   { min: 200, max: 299, charge: 20 },
   { min: 300, max: 499, charge: 30 },
   { min: 500, max: 1000, charge: 50 },
   { min: 1001, max: 2000, charge: 70 },
-  { min: 2001, max: Infinity, charge: 100 },
+  { min: 2001, max: SLAB_MAX, charge: 100 },
 ];
 
-export function calculateDeliveryCharge(subtotal: number): number {
-  const tier = DELIVERY_SLABS.find((t) => subtotal >= t.min && subtotal <= t.max);
-  return tier ? tier.charge : (DELIVERY_SLABS[DELIVERY_SLABS.length - 1]?.charge ?? 0);
+// Compute delivery charge from a given slab set.
+export function deliveryChargeFrom(slabs: DeliverySlab[], subtotal: number): number {
+  const tier = slabs.find((t) => subtotal >= t.min && subtotal <= t.max);
+  return tier ? tier.charge : (slabs[slabs.length - 1]?.charge ?? 0);
 }
 
-// Serviceable delivery PIN codes (comma-separated env override, else defaults).
+// Convenience helper using the default slabs.
+export function calculateDeliveryCharge(subtotal: number): number {
+  return deliveryChargeFrom(DELIVERY_SLABS, subtotal);
+}
+
+// Default serviceable delivery PIN codes (comma-separated env override, else defaults).
 export const SERVICEABLE_PINS = (
   process.env.NEXT_PUBLIC_SERVICEABLE_PINS || '723131,723132,723133'
 )
@@ -29,8 +41,13 @@ export const SERVICEABLE_PINS = (
   .map((p) => p.trim())
   .filter(Boolean);
 
+export function pinIsServiceable(pins: string[], pin: string): boolean {
+  return pins.includes(String(pin).trim());
+}
+
+// Convenience helper using the default pins.
 export function isPinServiceable(pin: string): boolean {
-  return SERVICEABLE_PINS.includes(String(pin).trim());
+  return pinIsServiceable(SERVICEABLE_PINS, pin);
 }
 
 export const CATEGORY_ICONS: Record<string, string> = {

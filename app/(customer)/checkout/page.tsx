@@ -6,7 +6,9 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Header from '@/components/Header/Header';
-import { useCartStore, MIN_ORDER_VALUE, calculateDeliveryCharge, isPinServiceable, SERVICEABLE_PINS } from '@/store/cartStore';
+import { useCartStore } from '@/store/cartStore';
+import { useConfigStore } from '@/store/configStore';
+import { deliveryChargeFrom, pinIsServiceable } from '@/constants';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { checkoutSchema, type CheckoutSchema } from '@/lib/validations';
 import { buildWhatsAppMessage, buildWhatsAppUrl } from '@/utils/whatsapp';
@@ -19,11 +21,17 @@ import { Label } from '@/components/ui/label';
 export default function CheckoutPage() {
   const router = useRouter();
   const hydrated = useCartHydrated();
-  const { items, getSubtotal, getGrandTotal, clearCart } = useCartStore();
+  const { items, getSubtotal, clearCart } = useCartStore();
+  const { serviceablePins, deliverySlabs, minOrderValue, fetchConfig } = useConfigStore();
+
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
+
   const subtotal = getSubtotal();
-  const deliveryCharge = calculateDeliveryCharge(subtotal);
-  const grandTotal = getGrandTotal();
-  const belowMinimum = MIN_ORDER_VALUE > 0 && subtotal < MIN_ORDER_VALUE;
+  const deliveryCharge = deliveryChargeFrom(deliverySlabs, subtotal);
+  const grandTotal = subtotal + deliveryCharge;
+  const belowMinimum = minOrderValue > 0 && subtotal < minOrderValue;
 
   const {
     register,
@@ -43,7 +51,7 @@ export default function CheckoutPage() {
   const formValues = watch();
   const pincodeValue = formValues.pincode ?? '';
   const pinChecked = /^\d{6}$/.test(pincodeValue);
-  const pinServiceable = pinChecked ? isPinServiceable(pincodeValue) : null;
+  const pinServiceable = pinChecked ? pinIsServiceable(serviceablePins, pincodeValue) : null;
 
   useEffect(() => {
     if (!hydrated) return;
@@ -64,7 +72,7 @@ export default function CheckoutPage() {
 
   async function onSubmit(data: CheckoutSchema) {
     if (belowMinimum) return;
-    if (!isPinServiceable(data.pincode)) return;
+    if (!pinIsServiceable(serviceablePins, data.pincode)) return;
 
     const message = buildWhatsAppMessage({
       items,
@@ -126,7 +134,7 @@ export default function CheckoutPage() {
 
         {belowMinimum && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
-            Minimum order is {formatCurrency(MIN_ORDER_VALUE)}. Add {formatCurrency(MIN_ORDER_VALUE - subtotal)} more from the store.
+            Minimum order is {formatCurrency(minOrderValue)}. Add {formatCurrency(minOrderValue - subtotal)} more from the store.
           </div>
         )}
 
@@ -200,7 +208,7 @@ export default function CheckoutPage() {
               )}
               {!errors.pincode && pinServiceable === false && (
                 <p className="text-red-500 text-xs mt-1">
-                  Sorry, delivery is unavailable at {pincodeValue}. We currently serve: {SERVICEABLE_PINS.join(', ')}.
+                  Sorry, delivery is unavailable at {pincodeValue}. We currently serve: {serviceablePins.join(', ')}.
                 </p>
               )}
             </div>

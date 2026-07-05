@@ -4,18 +4,26 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
-import { useCartStore, MIN_ORDER_VALUE, calculateDeliveryCharge } from '@/store/cartStore';
+import { useCartStore } from '@/store/cartStore';
+import { useConfigStore } from '@/store/configStore';
+import { deliveryChargeFrom } from '@/constants';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { formatCurrency } from '@/utils/formatter';
 import { Button } from '@/components/ui/button';
 
 export default function CartPage() {
   const hydrated = useCartHydrated();
-  const { items, updateQuantity, removeItem, clearCart, getSubtotal, getGrandTotal } = useCartStore();
+  const { items, updateQuantity, removeItem, clearCart, getSubtotal } = useCartStore();
+  const { deliverySlabs, minOrderValue, fetchConfig } = useConfigStore();
+
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
+
   const subtotal = getSubtotal();
-  const deliveryCharge = calculateDeliveryCharge(subtotal);
-  const grandTotal = getGrandTotal();
-  const belowMinimum = MIN_ORDER_VALUE > 0 && subtotal < MIN_ORDER_VALUE;
+  const deliveryCharge = deliveryChargeFrom(deliverySlabs, subtotal);
+  const grandTotal = subtotal + deliveryCharge;
+  const belowMinimum = minOrderValue > 0 && subtotal < minOrderValue;
 
   const imageFetchAttempted = useRef(new Set<string>());
 
@@ -129,7 +137,7 @@ export default function CartPage() {
           </div>
           {belowMinimum && (
             <p className="text-amber-600 text-xs font-semibold">
-              Add {formatCurrency(MIN_ORDER_VALUE - subtotal)} more to meet minimum order of {formatCurrency(MIN_ORDER_VALUE)}
+              Add {formatCurrency(minOrderValue - subtotal)} more to meet minimum order of {formatCurrency(minOrderValue)}
             </p>
           )}
         </div>
