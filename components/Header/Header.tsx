@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShoppingCart, Search, Clock, User, Shield } from 'lucide-react';
+import { ShoppingCart, Search, Clock, User, Shield, MessageCircle } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
@@ -22,8 +22,16 @@ export default function Header({ search = '', onSearchChange, showSearch = true 
   const itemCount = useCartStore((s) => s.getItemCount());
   const isHome = pathname === '/';
   const staffEligible = useStaffPortalStore((s) => s.staffEligible);
+  const checkedMobile = useStaffPortalStore((s) => s.checkedMobile);
+  const customerMobile = useStaffPortalStore((s) => s.customerMobile);
+  const staffName = useStaffPortalStore((s) => s.staffName);
   const openAccountModal = useStaffPortalStore((s) => s.openAccountModal);
   const openAdminLoginModal = useStaffPortalStore((s) => s.openAdminLoginModal);
+  const accountLabel = staffEligible
+    ? staffName || `Staff ${checkedMobile}`
+    : customerMobile
+      ? `+91 ${customerMobile}`
+      : 'My Account';
 
   return (
     <header className="sticky top-0 z-50 bg-white shadow-sm">
@@ -65,16 +73,28 @@ export default function Header({ search = '', onSearchChange, showSearch = true 
               onClick={openAccountModal}
               className="hidden sm:inline-flex items-center gap-1.5 bg-white/80 hover:bg-white rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-800 transition-colors shadow-sm"
             >
-              <User className="w-3.5 h-3.5" />
-              My Account
+              {staffEligible ? (
+                <User className="w-3.5 h-3.5" />
+              ) : customerMobile ? (
+                <MessageCircle className="w-3.5 h-3.5 text-green-600" />
+              ) : (
+                <User className="w-3.5 h-3.5" />
+              )}
+              {accountLabel}
             </button>
             <button
               type="button"
               onClick={openAccountModal}
               className="sm:hidden bg-white/80 hover:bg-white rounded-lg p-2 shadow-sm"
-              aria-label="My Account"
+              aria-label={accountLabel}
             >
-              <User className="w-5 h-5 text-gray-800" />
+              {staffEligible ? (
+                <User className="w-5 h-5 text-gray-800" />
+              ) : customerMobile ? (
+                <MessageCircle className="w-5 h-5 text-green-600" />
+              ) : (
+                <User className="w-5 h-5 text-gray-800" />
+              )}
             </button>
             <div className="hidden sm:flex items-center gap-1.5 bg-white/80 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-800">
               <Clock className="w-3.5 h-3.5 text-blinkit-green" />

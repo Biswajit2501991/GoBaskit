@@ -15,6 +15,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ isStaff: false });
   }
 
-  const isStaff = await StaffService.isStaffMobile(mobile);
-  return NextResponse.json({ isStaff });
+  const staff = await StaffService.findByMobile(mobile);
+  return NextResponse.json({
+    isStaff: Boolean(staff),
+    staffName: staff?.name ?? null,
+  });
 }

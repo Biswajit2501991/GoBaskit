@@ -6,9 +6,12 @@ import { create } from 'zustand';
 interface StaffPortalState {
   staffEligible: boolean;
   checkedMobile: string;
+  customerMobile: string;
+  staffName: string;
   showAccountModal: boolean;
   showAdminLoginModal: boolean;
-  setStaffEligible: (mobile: string) => void;
+  setStaffEligible: (mobile: string, name?: string) => void;
+  setCustomerMobile: (mobile: string) => void;
   clearStaffEligible: () => void;
   openAccountModal: () => void;
   closeAccountModal: () => void;
@@ -19,10 +22,27 @@ interface StaffPortalState {
 export const useStaffPortalStore = create<StaffPortalState>((set) => ({
   staffEligible: false,
   checkedMobile: '',
+  customerMobile: '',
+  staffName: '',
   showAccountModal: false,
   showAdminLoginModal: false,
-  setStaffEligible: (mobile) => set({ staffEligible: true, checkedMobile: mobile, showAccountModal: false }),
-  clearStaffEligible: () => set({ staffEligible: false, checkedMobile: '' }),
+  setStaffEligible: (mobile, name) =>
+    set({
+      staffEligible: true,
+      checkedMobile: mobile,
+      customerMobile: '',
+      staffName: name?.trim() || '',
+      showAccountModal: false,
+    }),
+  setCustomerMobile: (mobile) =>
+    set({
+      customerMobile: mobile,
+      checkedMobile: mobile,
+      staffEligible: false,
+      staffName: '',
+      showAccountModal: false,
+    }),
+  clearStaffEligible: () => set({ staffEligible: false, checkedMobile: '', staffName: '' }),
   openAccountModal: () => set({ showAccountModal: true }),
   closeAccountModal: () => set({ showAccountModal: false }),
   openAdminLoginModal: () => set({ showAdminLoginModal: true }),

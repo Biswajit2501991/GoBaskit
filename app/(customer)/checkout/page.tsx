@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -9,6 +9,7 @@ import Header from '@/components/Header/Header';
 import { useCartStore } from '@/store/cartStore';
 import { useConfigStore } from '@/store/configStore';
 import { useLocationStore } from '@/store/locationStore';
+import { useStaffPortalStore } from '@/store/staffPortalStore';
 import { deliveryChargeFrom, pinIsServiceable } from '@/constants';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { checkoutSchema, type CheckoutSchema } from '@/lib/validations';
@@ -36,6 +37,7 @@ export default function CheckoutPage() {
 
   const locationPin = useLocationStore((s) => s.pin);
   const locationCity = useLocationStore((s) => s.city);
+  const checkedMobile = useStaffPortalStore((s) => s.checkedMobile);
 
   const {
     register,
@@ -76,6 +78,19 @@ export default function CheckoutPage() {
   const cityServiceable = cityValue
     ? serviceableCities.some((city) => city.toLowerCase() === cityValue.toLowerCase())
     : null;
+  const enteredMobile = (formValues.mobile ?? '').trim();
+  const isWhatsAppPatternValid = /^\d{10}$/.test(enteredMobile);
+  const [whatsAppConfirmed, setWhatsAppConfirmed] = useState(false);
+
+  useEffect(() => {
+    if (checkedMobile && !getValues('mobile')) {
+      setValue('mobile', checkedMobile, { shouldValidate: true });
+    }
+  }, [checkedMobile, getValues, setValue]);
+
+  useEffect(() => {
+    setWhatsAppConfirmed(false);
+  }, [enteredMobile]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -186,6 +201,17 @@ export default function CheckoutPage() {
               <p className="text-[11px] text-gray-400 mt-1">We&apos;ll confirm your order on this WhatsApp number.</p>
               {errors.mobile && <p className="text-red-500 text-xs mt-1">{errors.mobile.message}</p>}
             </div>
+            <label className="flex items-start gap-2 text-xs text-gray-600">
+              <input
+                type="checkbox"
+                checked={whatsAppConfirmed}
+                onChange={(e) => setWhatsAppConfirmed(e.target.checked)}
+                className="mt-0.5 accent-blinkit-green"
+              />
+              <span>
+                I confirm {enteredMobile ? `+91 ${enteredMobile}` : 'this number'} is active on WhatsApp.
+              </span>
+            </label>
             <div>
               <Label>Alternate Mobile</Label>
               <Input {...register('alternateMobile')} placeholder="Optional" maxLength={10} inputMode="numeric" className="mt-1" />
@@ -288,12 +314,23 @@ export default function CheckoutPage() {
             type="submit"
             size="lg"
             className="w-full"
-            disabled={belowMinimum || isSubmitting || pinServiceable === false || cityServiceable === false}
+            disabled={
+              belowMinimum ||
+              isSubmitting ||
+              pinServiceable === false ||
+              cityServiceable === false ||
+              !isWhatsAppPatternValid ||
+              !whatsAppConfirmed
+            }
           >
             {isSubmitting
               ? 'Placing Order...'
               : pinServiceable === false
                 ? 'Delivery unavailable at this PIN'
+                : !isWhatsAppPatternValid
+                  ? 'Enter valid WhatsApp number'
+                  : !whatsAppConfirmed
+                    ? 'Confirm WhatsApp number'
                 : 'Place Order via WhatsApp'}
           </Button>
         </form>

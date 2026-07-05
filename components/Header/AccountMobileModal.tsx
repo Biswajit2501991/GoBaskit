@@ -8,19 +8,15 @@ import { Label } from '@/components/ui/label';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
 
 export default function AccountMobileModal() {
-  const { showAccountModal, closeAccountModal, setStaffEligible, clearStaffEligible } = useStaffPortalStore();
+  const { showAccountModal, closeAccountModal, setStaffEligible, setCustomerMobile, clearStaffEligible } =
+    useStaffPortalStore();
   const [mobile, setMobile] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
-  const [staffDetected, setStaffDetected] = useState(false);
-
   if (!showAccountModal) return null;
 
   async function handleContinue() {
     setError('');
-    setInfo('');
-    setStaffDetected(false);
     setLoading(true);
     try {
       const res = await fetch('/api/staff/check-mobile', {
@@ -34,13 +30,13 @@ export default function AccountMobileModal() {
         return;
       }
       if (data.isStaff) {
-        setStaffEligible(mobile.replace(/\D/g, '').slice(-10));
-        setStaffDetected(true);
-        setInfo('Staff account detected. "Login as Admin" is now enabled.');
+        setStaffEligible(mobile.replace(/\D/g, '').slice(-10), data.staffName);
         closeAccountModal();
       } else {
         clearStaffEligible();
-        setInfo('No staff account found for this number. Continue as customer.');
+        // For normal customers, automatically continue with this number.
+        setCustomerMobile(mobile.replace(/\D/g, '').slice(-10));
+        closeAccountModal();
       }
     } catch {
       setError('Network error. Please try again.');
@@ -80,17 +76,9 @@ export default function AccountMobileModal() {
             </div>
           </div>
           {error && <p className="text-red-500 text-xs">{error}</p>}
-          {!error && info && (
-            <p className={`text-xs ${staffDetected ? 'text-green-600' : 'text-gray-600'}`}>{info}</p>
-          )}
           <Button className="w-full" onClick={handleContinue} disabled={loading || mobile.length < 10}>
             {loading ? 'Checking...' : 'Continue'}
           </Button>
-          {!staffDetected && info && (
-            <Button variant="outline" className="w-full" onClick={closeAccountModal}>
-              Continue as Customer
-            </Button>
-          )}
         </div>
       </div>
     </div>
