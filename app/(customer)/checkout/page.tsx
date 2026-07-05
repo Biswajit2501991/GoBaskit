@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -81,6 +81,10 @@ export default function CheckoutPage() {
   const enteredMobile = (formValues.mobile ?? '').trim();
   const isWhatsAppPatternValid = /^\d{10}$/.test(enteredMobile);
   const [whatsAppConfirmed, setWhatsAppConfirmed] = useState(false);
+  const [highlightSection, setHighlightSection] = useState<'customer' | 'address' | 'summary' | null>(null);
+  const customerSectionRef = useRef<HTMLDivElement | null>(null);
+  const addressSectionRef = useRef<HTMLDivElement | null>(null);
+  const summarySectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (checkedMobile && !getValues('mobile')) {
@@ -91,6 +95,16 @@ export default function CheckoutPage() {
   useEffect(() => {
     setWhatsAppConfirmed(false);
   }, [enteredMobile]);
+
+  function focusSection(section: 'customer' | 'address' | 'summary') {
+    setHighlightSection(section);
+    const refMap = {
+      customer: customerSectionRef,
+      address: addressSectionRef,
+      summary: summarySectionRef,
+    };
+    refMap[section].current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 
   useEffect(() => {
     if (!hydrated) return;
@@ -110,9 +124,22 @@ export default function CheckoutPage() {
   }, [items, formValues, subtotal, deliveryCharge, grandTotal]);
 
   async function onSubmit(data: CheckoutSchema) {
-    if (belowMinimum) return;
-    if (!pinIsServiceable(serviceablePins, data.pincode)) return;
-    if (!serviceableCities.some((city) => city.toLowerCase() === data.city.trim().toLowerCase())) return;
+    if (belowMinimum) {
+      focusSection('summary');
+      return;
+    }
+    if (!pinIsServiceable(serviceablePins, data.pincode)) {
+      focusSection('address');
+      return;
+    }
+    if (!serviceableCities.some((city) => city.toLowerCase() === data.city.trim().toLowerCase())) {
+      focusSection('address');
+      return;
+    }
+    if (!isWhatsAppPatternValid || !whatsAppConfirmed) {
+      focusSection('customer');
+      return;
+    }
 
     const message = buildWhatsAppMessage({
       items,
@@ -151,6 +178,28 @@ export default function CheckoutPage() {
     router.push('/success');
   }
 
+  function onInvalid(formErrors: Partial<Record<keyof CheckoutSchema, unknown>>) {
+    const customerFields: Array<keyof CheckoutSchema> = ['firstName', 'lastName', 'mobile', 'alternateMobile'];
+    const addressFields: Array<keyof CheckoutSchema> = [
+      'houseNumber',
+      'street',
+      'area',
+      'city',
+      'state',
+      'pincode',
+      'deliveryNotes',
+    ];
+    if (customerFields.some((field) => formErrors[field])) {
+      focusSection('customer');
+      return;
+    }
+    if (addressFields.some((field) => formErrors[field])) {
+      focusSection('address');
+      return;
+    }
+    focusSection('summary');
+  }
+
   if (!hydrated) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -180,8 +229,13 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
+        <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-4">
+          <div
+            ref={customerSectionRef}
+            className={`bg-white rounded-xl border p-4 space-y-3 transition-colors ${
+              highlightSection === 'customer' ? 'border-red-300 bg-red-50/30' : 'border-gray-100'
+            }`}
+          >
             <h3 className="font-bold text-sm">Customer Details</h3>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -212,6 +266,9 @@ export default function CheckoutPage() {
                 I confirm {enteredMobile ? `+91 ${enteredMobile}` : 'this number'} is active on WhatsApp.
               </span>
             </label>
+            {!whatsAppConfirmed && highlightSection === 'customer' && (
+              <p className="text-red-500 text-xs">Please confirm this is your active WhatsApp number.</p>
+            )}
             <div>
               <Label>Alternate Mobile</Label>
               <Input {...register('alternateMobile')} placeholder="Optional" maxLength={10} inputMode="numeric" className="mt-1" />
@@ -219,7 +276,12 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
+          <div
+            ref={addressSectionRef}
+            className={`bg-white rounded-xl border p-4 space-y-3 transition-colors ${
+              highlightSection === 'address' ? 'border-red-300 bg-red-50/30' : 'border-gray-100'
+            }`}
+          >
             <h3 className="font-bold text-sm">Delivery Address</h3>
             <div>
               <Label>House / Flat No. *</Label>
@@ -295,7 +357,12 @@ export default function CheckoutPage() {
             </label>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-100 p-4 text-sm space-y-1">
+          <div
+            ref={summarySectionRef}
+            className={`bg-white rounded-xl border p-4 text-sm space-y-1 transition-colors ${
+              highlightSection === 'summary' ? 'border-red-300 bg-red-50/30' : 'border-gray-100'
+            }`}
+          >
             <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
             <div className="flex justify-between"><span>Delivery</span><span>{formatCurrency(deliveryCharge)}</span></div>
             <div className="flex justify-between font-bold text-base border-t border-dashed pt-2">
@@ -314,14 +381,7 @@ export default function CheckoutPage() {
             type="submit"
             size="lg"
             className="w-full"
-            disabled={
-              belowMinimum ||
-              isSubmitting ||
-              pinServiceable === false ||
-              cityServiceable === false ||
-              !isWhatsAppPatternValid ||
-              !whatsAppConfirmed
-            }
+            disabled={isSubmitting}
           >
             {isSubmitting
               ? 'Placing Order...'
