@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShoppingCart, Search, MapPin, Clock } from 'lucide-react';
+import { ShoppingCart, Search, Clock } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
-import { STORE_NAME } from '@/constants';
+import LocationBar from '@/components/Header/LocationBar';
 
 interface HeaderProps {
   search?: string;
@@ -49,17 +49,10 @@ export default function Header({ search = '', onSearchChange, showSearch = true 
         </div>
       </div>
 
+      <LocationBar />
+
       {isHome && showSearch && onSearchChange && (
-        <div className="max-w-7xl mx-auto px-4 py-3 space-y-3 border-b border-gray-100">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-9 h-9 bg-blinkit-green-light rounded-full flex items-center justify-center flex-shrink-0">
-              <MapPin className="w-4 h-4 text-blinkit-green" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Delivery in 15 minutes</p>
-              <p className="text-sm font-bold text-gray-900 truncate">{STORE_NAME} · Groceries & Essentials</p>
-            </div>
-          </div>
+        <div className="max-w-7xl mx-auto px-4 py-3 border-b border-gray-100">
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input

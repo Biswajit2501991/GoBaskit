@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Header from '@/components/Header/Header';
 import { useCartStore } from '@/store/cartStore';
 import { useConfigStore } from '@/store/configStore';
+import { useLocationStore } from '@/store/locationStore';
 import { deliveryChargeFrom, pinIsServiceable } from '@/constants';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { checkoutSchema, type CheckoutSchema } from '@/lib/validations';
@@ -33,10 +34,14 @@ export default function CheckoutPage() {
   const grandTotal = subtotal + deliveryCharge;
   const belowMinimum = minOrderValue > 0 && subtotal < minOrderValue;
 
+  const locationPin = useLocationStore((s) => s.pin);
+
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<CheckoutSchema>({
     resolver: zodResolver(checkoutSchema),
@@ -45,8 +50,16 @@ export default function CheckoutPage() {
       alternateMobile: '',
       state: 'West Bengal',
       city: 'Kolkata',
+      pincode: '',
     },
   });
+
+  // Prefill the pincode from the delivery location the customer picked in the header.
+  useEffect(() => {
+    if (locationPin && !getValues('pincode')) {
+      setValue('pincode', locationPin, { shouldValidate: true });
+    }
+  }, [locationPin, getValues, setValue]);
 
   const formValues = watch();
   const pincodeValue = formValues.pincode ?? '';
