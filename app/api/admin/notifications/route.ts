@@ -11,6 +11,8 @@ export async function GET(req: NextRequest) {
     page: Number(searchParams.get('page') || 1),
     pageSize: Number(searchParams.get('pageSize') || 20),
     unreadOnly: searchParams.get('unreadOnly') === 'true',
+    readState: (searchParams.get('readState') as 'all' | 'read' | 'unread' | null) || 'all',
+    type: searchParams.get('type') || undefined,
   });
 
   return NextResponse.json(data);
@@ -23,6 +25,11 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json();
   if (body.markAllRead) {
     await NotificationService.markAllRead(auth.staff!.id);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (body.markTypeRead && typeof body.markTypeRead === 'string') {
+    await NotificationService.markByTypeRead(auth.staff!.id, body.markTypeRead);
     return NextResponse.json({ ok: true });
   }
 

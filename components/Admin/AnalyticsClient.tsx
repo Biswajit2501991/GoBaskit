@@ -10,8 +10,20 @@ interface AnalyticsOverview {
   customersLast30Days: number;
   averageDeliveryMinutes: number;
   statusBreakdown: Array<{ status: string; count: number }>;
+  conversionRate: number;
+  abandonmentRate: number;
+  abandonedOrdersProxy: number;
+  checkoutAttemptsProxy: number;
   topProducts: Array<{ name: string; quantity: number; revenue: number }>;
   lowProducts: Array<{ name: string; quantity: number; revenue: number }>;
+  staffPerformance: Array<{
+    staffId: string;
+    staffName: string;
+    assignedOrders: number;
+    deliveredOrders: number;
+    completionRate: number;
+    averageHandleMinutes: number;
+  }>;
   salesTrend: Array<{ day: string; revenue: number; orders: number }>;
   updatedAt: string;
 }
@@ -48,12 +60,14 @@ export default function AnalyticsClient() {
     { label: 'Avg Basket', value: formatCurrency(data.averageBasketValue) },
     { label: 'Customers (30d)', value: data.customersLast30Days.toString() },
     { label: 'Avg Delivery (mins)', value: data.averageDeliveryMinutes.toString() },
+    { label: 'Conversion Rate', value: `${data.conversionRate}%` },
+    { label: 'Abandonment (proxy)', value: `${data.abandonmentRate}%` },
   ];
 
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">Analytics</h1>
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
         {cards.map((c) => (
           <div key={c.label} className="bg-white rounded-xl border border-gray-100 p-4">
             <p className="text-xs text-gray-500">{c.label}</p>
@@ -116,6 +130,46 @@ export default function AnalyticsClient() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 p-4">
+        <h2 className="font-semibold mb-2">Funnel Proxy</h2>
+        <p className="text-sm text-gray-600">
+          Attempts: <b>{data.checkoutAttemptsProxy}</b> · Delivered: <b>{data.statusBreakdown.find((s) => s.status === 'DELIVERED')?.count ?? 0}</b> ·
+          Abandoned Pending: <b>{data.abandonedOrdersProxy}</b>
+        </p>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 p-4">
+        <h2 className="font-semibold mb-3">Staff Performance</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[620px]">
+            <thead className="text-left text-gray-500 border-b">
+              <tr>
+                <th className="py-2">Staff</th>
+                <th className="py-2">Assigned</th>
+                <th className="py-2">Delivered</th>
+                <th className="py-2">Completion %</th>
+                <th className="py-2">Avg Handle (mins)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.staffPerformance.length === 0 ? (
+                <tr><td className="py-3 text-gray-400" colSpan={5}>No staff activity yet.</td></tr>
+              ) : (
+                data.staffPerformance.map((row) => (
+                  <tr key={row.staffId} className="border-b border-gray-50">
+                    <td className="py-2">{row.staffName}</td>
+                    <td className="py-2">{row.assignedOrders}</td>
+                    <td className="py-2">{row.deliveredOrders}</td>
+                    <td className="py-2">{row.completionRate}%</td>
+                    <td className="py-2">{row.averageHandleMinutes}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

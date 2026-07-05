@@ -37,13 +37,22 @@ export class NotificationService {
     return notification;
   }
 
-  static async list(staffId: string, params: { page?: number; pageSize?: number; unreadOnly?: boolean }) {
+  static async list(
+    staffId: string,
+    params: { page?: number; pageSize?: number; unreadOnly?: boolean; type?: string; readState?: 'all' | 'read' | 'unread' },
+  ) {
     const page = params.page ?? 1;
     const pageSize = Math.min(params.pageSize ?? 20, 50);
 
     const where = {
       OR: [{ staffId: null }, { staffId }],
       ...(params.unreadOnly ? { readAt: null } : {}),
+      ...(params.type ? { type: params.type } : {}),
+      ...(params.readState === 'read'
+        ? { readAt: { not: null as Date | null } }
+        : params.readState === 'unread'
+          ? { readAt: null }
+          : {}),
     };
 
     const [items, total, unreadCount] = await Promise.all([
@@ -95,6 +104,17 @@ export class NotificationService {
   static async markAllRead(staffId: string) {
     await prisma.adminNotification.updateMany({
       where: { OR: [{ staffId: null }, { staffId }], readAt: null },
+      data: { readAt: new Date() },
+    });
+  }
+
+  static async markByTypeRead(staffId: string, type: string) {
+    await prisma.adminNotification.updateMany({
+      where: {
+        OR: [{ staffId: null }, { staffId }],
+        readAt: null,
+        type,
+      },
       data: { readAt: new Date() },
     });
   }

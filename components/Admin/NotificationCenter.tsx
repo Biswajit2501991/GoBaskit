@@ -21,16 +21,20 @@ export function NotificationCenter() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState<NotificationItem | null>(null);
+  const [readState, setReadState] = useState<'all' | 'read' | 'unread'>('all');
+  const [typeFilter, setTypeFilter] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch('/api/admin/notifications?pageSize=10');
+    const params = new URLSearchParams({ pageSize: '20', readState });
+    if (typeFilter) params.set('type', typeFilter);
+    const res = await fetch(`/api/admin/notifications?${params}`);
     if (res.ok) {
       const data = await res.json();
       setItems(data.items);
       setUnreadCount(data.unreadCount);
     }
-  }, []);
+  }, [readState, typeFilter]);
 
   useEffect(() => {
     load();
@@ -90,6 +94,16 @@ export function NotificationCenter() {
     setUnreadCount(0);
   }
 
+  async function markTypeRead() {
+    if (!typeFilter) return;
+    await fetch('/api/admin/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markTypeRead: typeFilter }),
+    });
+    await load();
+  }
+
   return (
     <>
       <audio ref={audioRef} preload="auto">
@@ -114,11 +128,43 @@ export function NotificationCenter() {
           <div className="absolute right-0 top-full mt-1 w-80 bg-white border rounded-xl shadow-lg z-50">
             <div className="flex items-center justify-between p-3 border-b">
               <span className="font-semibold text-sm">Notifications</span>
-              {unreadCount > 0 && (
-                <button type="button" onClick={markAllRead} className="text-xs text-blinkit-green hover:underline">
-                  Mark all read
-                </button>
-              )}
+              <button type="button" onClick={load} className="text-xs text-gray-500 hover:underline">
+                Refresh
+              </button>
+            </div>
+            <div className="p-2 border-b bg-gray-50 space-y-2">
+              <div className="flex gap-2">
+                <select
+                  value={readState}
+                  onChange={(e) => setReadState(e.target.value as 'all' | 'read' | 'unread')}
+                  className="text-xs border rounded px-2 py-1 flex-1"
+                >
+                  <option value="all">All</option>
+                  <option value="unread">Unread</option>
+                  <option value="read">Read</option>
+                </select>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="text-xs border rounded px-2 py-1 flex-1"
+                >
+                  <option value="">All types</option>
+                  <option value="new_order">New Order</option>
+                  <option value="system">System</option>
+                </select>
+              </div>
+              <div className="flex justify-between">
+                {unreadCount > 0 ? (
+                  <button type="button" onClick={markAllRead} className="text-xs text-blinkit-green hover:underline">
+                    Mark all read
+                  </button>
+                ) : <span />}
+                {typeFilter && (
+                  <button type="button" onClick={markTypeRead} className="text-xs text-blinkit-green hover:underline">
+                    Mark {typeFilter} read
+                  </button>
+                )}
+              </div>
             </div>
             <div className="max-h-72 overflow-y-auto">
               {items.length === 0 ? (
