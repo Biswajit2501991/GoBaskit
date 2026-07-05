@@ -170,92 +170,96 @@ export default function ProductManager({
       )}
 
       {showForm && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold">{editingId ? 'Edit Product' : 'New Product'}</h2>
-            <button onClick={closeForm} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-bold">{editingId ? 'Edit Product' : 'New Product'}</h2>
+              <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <Label>Product Name *</Label>
+                <Input {...register('name')} placeholder="e.g. Fresh Tomatoes" className="mt-1" disabled={!canEdit} />
+                {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
+              </div>
+
+              <div>
+                <Label>Category *</Label>
+                <select {...register('categoryId')} className={`mt-1 ${selectClass}`} disabled={!canEdit}>
+                  <option value="">Select category</option>
+                  {categories.filter((c) => c.isActive).map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+                {errors.categoryId && <p className="text-red-500 text-xs mt-1">{errors.categoryId.message}</p>}
+              </div>
+
+              <div className="md:col-span-2 lg:col-span-3">
+                <Label>Description</Label>
+                <Input {...register('description')} placeholder="Short product description" className="mt-1" disabled={!canEdit} />
+              </div>
+
+              <div>
+                <Label>Price (₹) *</Label>
+                <Input {...register('price')} type="number" step="0.01" min="0" className="mt-1" disabled={!canEdit} />
+                {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price.message}</p>}
+              </div>
+
+              <div>
+                <Label>Unit *</Label>
+                <Input {...register('unit')} placeholder="e.g. 500 g, 1 kg" className="mt-1" disabled={!canEdit} />
+                {errors.unit && <p className="text-red-500 text-xs mt-1">{errors.unit.message}</p>}
+              </div>
+
+              <div>
+                <Label>Stock *</Label>
+                <Input {...register('stock')} type="number" min="0" className="mt-1" disabled={!canEdit} />
+                {errors.stock && <p className="text-red-500 text-xs mt-1">{errors.stock.message}</p>}
+              </div>
+
+              <div>
+                <Label>Discount (%)</Label>
+                <Input {...register('discount')} type="number" min="0" max="100" className="mt-1" disabled={!canEdit} />
+              </div>
+
+              <div>
+                <Label>Status</Label>
+                <select {...register('status')} className={`mt-1 ${selectClass}`} disabled={!canEdit}>
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                  <option value="OUT_OF_STOCK">Out of Stock</option>
+                </select>
+              </div>
+
+              <ProductImageUpload
+                value={imageUrl}
+                onChange={(url) => setValue('imageUrl', url, { shouldDirty: true })}
+                disabled={!canEdit}
+              />
+
+              <div className="flex flex-col gap-2 md:col-span-2 lg:col-span-3">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" {...register('isFeatured')} className="accent-blinkit-green" disabled={!canEdit} />
+                  Featured (Best Seller badge)
+                </label>
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" {...register('isVisible')} className="accent-blinkit-green" disabled={!canEdit} />
+                  Visible on store
+                </label>
+              </div>
+
+              {error && <p className="text-red-500 text-sm md:col-span-2 lg:col-span-3">{error}</p>}
+
+              <div className="flex gap-2 md:col-span-2 lg:col-span-3">
+                <Button type="submit" disabled={isSubmitting || !canEdit}>
+                  {isSubmitting ? 'Saving...' : editingId ? 'Update Product' : 'Create Product'}
+                </Button>
+                <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
+              </div>
+            </form>
           </div>
-          <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <Label>Product Name *</Label>
-              <Input {...register('name')} placeholder="e.g. Fresh Tomatoes" className="mt-1" disabled={!canEdit} />
-              {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
-            </div>
-
-            <div>
-              <Label>Category *</Label>
-              <select {...register('categoryId')} className={`mt-1 ${selectClass}`} disabled={!canEdit}>
-                <option value="">Select category</option>
-                {categories.filter((c) => c.isActive).map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-              {errors.categoryId && <p className="text-red-500 text-xs mt-1">{errors.categoryId.message}</p>}
-            </div>
-
-            <div className="md:col-span-2 lg:col-span-3">
-              <Label>Description</Label>
-              <Input {...register('description')} placeholder="Short product description" className="mt-1" disabled={!canEdit} />
-            </div>
-
-            <div>
-              <Label>Price (₹) *</Label>
-              <Input {...register('price')} type="number" step="0.01" min="0" className="mt-1" disabled={!canEdit} />
-              {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price.message}</p>}
-            </div>
-
-            <div>
-              <Label>Unit *</Label>
-              <Input {...register('unit')} placeholder="e.g. 500 g, 1 kg" className="mt-1" disabled={!canEdit} />
-              {errors.unit && <p className="text-red-500 text-xs mt-1">{errors.unit.message}</p>}
-            </div>
-
-            <div>
-              <Label>Stock *</Label>
-              <Input {...register('stock')} type="number" min="0" className="mt-1" disabled={!canEdit} />
-              {errors.stock && <p className="text-red-500 text-xs mt-1">{errors.stock.message}</p>}
-            </div>
-
-            <div>
-              <Label>Discount (%)</Label>
-              <Input {...register('discount')} type="number" min="0" max="100" className="mt-1" disabled={!canEdit} />
-            </div>
-
-            <div>
-              <Label>Status</Label>
-              <select {...register('status')} className={`mt-1 ${selectClass}`} disabled={!canEdit}>
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-                <option value="OUT_OF_STOCK">Out of Stock</option>
-              </select>
-            </div>
-
-            <ProductImageUpload
-              value={imageUrl}
-              onChange={(url) => setValue('imageUrl', url, { shouldDirty: true })}
-              disabled={!canEdit}
-            />
-
-            <div className="flex flex-col gap-2 md:col-span-2 lg:col-span-3">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="checkbox" {...register('isFeatured')} className="accent-blinkit-green" disabled={!canEdit} />
-                Featured (Best Seller badge)
-              </label>
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="checkbox" {...register('isVisible')} className="accent-blinkit-green" disabled={!canEdit} />
-                Visible on store
-              </label>
-            </div>
-
-            {error && <p className="text-red-500 text-sm md:col-span-2 lg:col-span-3">{error}</p>}
-
-            <div className="flex gap-2 md:col-span-2 lg:col-span-3">
-              <Button type="submit" disabled={isSubmitting || !canEdit}>
-                {isSubmitting ? 'Saving...' : editingId ? 'Update Product' : 'Create Product'}
-              </Button>
-              <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
-            </div>
-          </form>
         </div>
       )}
 

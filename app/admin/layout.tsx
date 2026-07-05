@@ -1,7 +1,7 @@
-import Link from 'next/link';
 import { getStaffFromSession } from '@/lib/auth';
 import { LogoutButton } from '@/components/Admin/LogoutButton';
 import { NotificationCenter } from '@/components/Admin/NotificationCenter';
+import { AdminNavLink } from '@/components/Admin/AdminNavLink';
 import { parsePermissions, staffHasPermission, type Permission } from '@/types/staff';
 
 const nav: { href: string; label: string; permission: Permission }[] = [
@@ -37,13 +37,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
           <nav className="space-y-1 flex-1 overflow-y-auto pr-1">
             {visibleNav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blinkit-green-light hover:text-blinkit-green"
-              >
-                {item.label}
-              </Link>
+              <AdminNavLink key={item.href} href={item.href} label={item.label} />
             ))}
           </nav>
           <div className="pt-3 mt-3 border-t border-gray-100">
