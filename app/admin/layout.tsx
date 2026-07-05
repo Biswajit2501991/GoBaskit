@@ -27,15 +27,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     : [];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-screen bg-gray-50 flex overflow-hidden">
       {staff && (
-        <aside className="w-56 bg-white border-r border-gray-200 p-4 flex flex-col">
+        <aside className="w-56 shrink-0 h-screen bg-white border-r border-gray-200 p-4 flex flex-col sticky top-0">
           <div className="mb-8">
             <span className="font-extrabold text-lg">Go<span className="text-blinkit-green">Baskit</span></span>
             <p className="text-xs text-gray-400 mt-1">Staff Portal</p>
             <p className="text-[10px] text-gray-400 mt-0.5">{staff.name} · {staff.role.replace(/_/g, ' ')}</p>
           </div>
-          <nav className="space-y-1 flex-1">
+          <nav className="space-y-1 flex-1 overflow-y-auto pr-1">
             {visibleNav.map((item) => (
               <Link
                 key={item.href}
@@ -46,16 +46,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               </Link>
             ))}
           </nav>
-          <LogoutButton />
+          <div className="pt-3 mt-3 border-t border-gray-100">
+            <LogoutButton />
+          </div>
         </aside>
       )}
-      <main className="flex-1 overflow-auto flex flex-col">
+      <main className="flex-1 min-w-0 h-screen overflow-y-auto flex flex-col">
         {staff && (
-          <header className="bg-white border-b border-gray-200 px-6 py-3 flex justify-end">
+          <header className="bg-white border-b border-gray-200 px-6 py-3 flex justify-end sticky top-0 z-10">
             <NotificationCenter />
           </header>
         )}
-        <div className="flex-1 overflow-auto">{children}</div>
+        <div className="flex-1">{children}</div>
       </main>
     </div>
   );

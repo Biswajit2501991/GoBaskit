@@ -12,6 +12,7 @@ interface StaffPortalState {
   showAdminLoginModal: boolean;
   setStaffEligible: (mobile: string, name?: string) => void;
   setCustomerMobile: (mobile: string) => void;
+  clearAccount: () => void;
   clearStaffEligible: () => void;
   openAccountModal: () => void;
   closeAccountModal: () => void;
@@ -40,6 +41,15 @@ export const useStaffPortalStore = create<StaffPortalState>((set) => ({
       checkedMobile: mobile,
       staffEligible: false,
       staffName: '',
+      showAccountModal: false,
+    }),
+  clearAccount: () =>
+    set({
+      staffEligible: false,
+      checkedMobile: '',
+      customerMobile: '',
+      staffName: '',
+      showAdminLoginModal: false,
       showAccountModal: false,
     }),
   clearStaffEligible: () => set({ staffEligible: false, checkedMobile: '', staffName: '' }),

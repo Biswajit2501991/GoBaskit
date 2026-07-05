@@ -35,7 +35,13 @@ export default function AccountMobileModal() {
       } else {
         clearStaffEligible();
         // For normal customers, automatically continue with this number.
-        setCustomerMobile(mobile.replace(/\D/g, '').slice(-10));
+        const normalized = mobile.replace(/\D/g, '').slice(-10);
+        setCustomerMobile(normalized);
+        await fetch('/api/customer/account', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mobile: normalized }),
+        }).catch(() => null);
         closeAccountModal();
       }
     } catch {

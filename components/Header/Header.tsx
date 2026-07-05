@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ShoppingCart, Search, Clock, User, Shield, MessageCircle } from 'lucide-react';
@@ -25,13 +26,43 @@ export default function Header({ search = '', onSearchChange, showSearch = true 
   const checkedMobile = useStaffPortalStore((s) => s.checkedMobile);
   const customerMobile = useStaffPortalStore((s) => s.customerMobile);
   const staffName = useStaffPortalStore((s) => s.staffName);
+  const setCustomerMobile = useStaffPortalStore((s) => s.setCustomerMobile);
+  const clearAccount = useStaffPortalStore((s) => s.clearAccount);
   const openAccountModal = useStaffPortalStore((s) => s.openAccountModal);
   const openAdminLoginModal = useStaffPortalStore((s) => s.openAdminLoginModal);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountLabel = staffEligible
     ? staffName || `Staff ${checkedMobile}`
     : customerMobile
       ? `+91 ${customerMobile}`
       : 'My Account';
+  const hasAccountIdentity = staffEligible || Boolean(customerMobile);
+
+  useEffect(() => {
+    if (hasAccountIdentity) return;
+    fetch('/api/customer/account')
+      .then((res) => res.json())
+      .then((data: { mobile?: string | null }) => {
+        if (data.mobile) {
+          setCustomerMobile(data.mobile);
+        }
+      })
+      .catch(() => null);
+  }, [hasAccountIdentity, setCustomerMobile]);
+
+  async function handleAccountClick() {
+    if (hasAccountIdentity) {
+      setAccountMenuOpen((prev) => !prev);
+      return;
+    }
+    openAccountModal();
+  }
+
+  async function handleCustomerLogout() {
+    await fetch('/api/customer/account', { method: 'DELETE' }).catch(() => null);
+    clearAccount();
+    setAccountMenuOpen(false);
+  }
 
   return (
     <header className="sticky top-0 z-50 bg-white shadow-sm">
@@ -68,34 +99,60 @@ export default function Header({ search = '', onSearchChange, showSearch = true 
                 Admin
               </button>
             )}
-            <button
-              type="button"
-              onClick={openAccountModal}
-              className="hidden sm:inline-flex items-center gap-1.5 bg-white/80 hover:bg-white rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-800 transition-colors shadow-sm"
-            >
-              {staffEligible ? (
-                <User className="w-3.5 h-3.5" />
-              ) : customerMobile ? (
-                <MessageCircle className="w-3.5 h-3.5 text-green-600" />
-              ) : (
-                <User className="w-3.5 h-3.5" />
+            <div className="relative">
+              <button
+                type="button"
+                onClick={handleAccountClick}
+                className="hidden sm:inline-flex items-center gap-1.5 bg-white/80 hover:bg-white rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-800 transition-colors shadow-sm"
+              >
+                {staffEligible ? (
+                  <User className="w-3.5 h-3.5" />
+                ) : customerMobile ? (
+                  <MessageCircle className="w-3.5 h-3.5 text-green-600" />
+                ) : (
+                  <User className="w-3.5 h-3.5" />
+                )}
+                {accountLabel}
+              </button>
+              <button
+                type="button"
+                onClick={handleAccountClick}
+                className="sm:hidden bg-white/80 hover:bg-white rounded-lg p-2 shadow-sm"
+                aria-label={accountLabel}
+              >
+                {staffEligible ? (
+                  <User className="w-5 h-5 text-gray-800" />
+                ) : customerMobile ? (
+                  <MessageCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <User className="w-5 h-5 text-gray-800" />
+                )}
+              </button>
+              {accountMenuOpen && hasAccountIdentity && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl border border-gray-200 shadow-lg p-2 z-20">
+                  <p className="px-2 py-1 text-[11px] text-gray-500 truncate">{accountLabel}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      openAccountModal();
+                    }}
+                    className="w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50"
+                  >
+                    Use another number
+                  </button>
+                  {customerMobile && (
+                    <button
+                      type="button"
+                      onClick={handleCustomerLogout}
+                      className="w-full text-left px-2 py-2 text-sm rounded-lg text-red-600 hover:bg-red-50"
+                    >
+                      Logout from My Account
+                    </button>
+                  )}
+                </div>
               )}
-              {accountLabel}
-            </button>
-            <button
-              type="button"
-              onClick={openAccountModal}
-              className="sm:hidden bg-white/80 hover:bg-white rounded-lg p-2 shadow-sm"
-              aria-label={accountLabel}
-            >
-              {staffEligible ? (
-                <User className="w-5 h-5 text-gray-800" />
-              ) : customerMobile ? (
-                <MessageCircle className="w-5 h-5 text-green-600" />
-              ) : (
-                <User className="w-5 h-5 text-gray-800" />
-              )}
-            </button>
+            </div>
             <div className="hidden sm:flex items-center gap-1.5 bg-white/80 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-800">
               <Clock className="w-3.5 h-3.5 text-blinkit-green" />
               Delivery in 15 mins
