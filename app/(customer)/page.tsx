@@ -82,7 +82,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (rotatingBanners.length === 0) return;
-    const interval = setInterval(() => setActiveBanner((b) => (b + 1) % rotatingBanners.length), 4500);
+    const interval = setInterval(() => setActiveBanner((b) => (b + 1) % rotatingBanners.length), 7000);
     return () => clearInterval(interval);
   }, [rotatingBanners.length]);
 
@@ -98,31 +98,29 @@ export default function HomePage() {
         )}
 
         {!search && homepageConfig.showHeroBanner && (
-          <div className="mb-5 relative overflow-hidden rounded-2xl min-h-[140px]">
+          <div className="mb-5 relative overflow-hidden rounded-2xl h-[156px]">
             {rotatingBanners.map((banner, i) => (
               <div
                 key={banner.title}
-                className={`bg-gradient-to-r ${banner.bg} rounded-2xl p-5 flex items-center justify-between will-change-transform transition-all duration-700 ease-in-out ${
-                  i === activeBanner
-                    ? 'opacity-100 translate-x-0 scale-100 relative'
-                    : 'opacity-0 absolute inset-0 translate-x-2 scale-[0.99] pointer-events-none'
+                className={`absolute inset-0 bg-gradient-to-r ${banner.bg} rounded-2xl p-5 flex items-center justify-between transition-opacity duration-1200 ease-in-out ${
+                  i === activeBanner ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
                 }`}
               >
                 {banner.link ? (
-                  <Link href={banner.link} className="flex items-center justify-between w-full">
-                    <div>
+                  <Link href={banner.link} className="flex items-center justify-between w-full h-full">
+                    <div className="min-w-0 max-w-[78%]">
                       <p className="text-white/80 text-xs font-semibold uppercase tracking-wider mb-1">Featured</p>
                       <h2 className="text-white font-bold text-lg">{banner.title}</h2>
-                      <p className="text-white/80 text-sm mt-1">{banner.subtitle}</p>
+                      <p className="text-white/80 text-sm mt-1 line-clamp-2">{banner.subtitle}</p>
                     </div>
                     <span className="text-5xl">{banner.emoji}</span>
                   </Link>
                 ) : (
                   <>
-                    <div>
+                    <div className="min-w-0 max-w-[78%]">
                       <p className="text-white/80 text-xs font-semibold uppercase tracking-wider mb-1">Featured</p>
                       <h2 className="text-white font-bold text-lg">{banner.title}</h2>
-                      <p className="text-white/80 text-sm mt-1">{banner.subtitle}</p>
+                      <p className="text-white/80 text-sm mt-1 line-clamp-2">{banner.subtitle}</p>
                     </div>
                     <span className="text-5xl">{banner.emoji}</span>
                   </>
