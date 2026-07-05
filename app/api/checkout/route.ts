@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { checkoutSchema } from '@/lib/validations';
 import { deliveryChargeFrom, pinIsServiceable } from '@/constants';
 import { SettingsService } from '@/services/SettingsService';
+import { OrderService } from '@/services/OrderService';
+import { NotificationService } from '@/services/NotificationService';
 
 export async function POST(req: NextRequest) {
   try {
@@ -82,6 +84,9 @@ export async function POST(req: NextRequest) {
       },
       include: { items: true, customer: true },
     });
+
+    await OrderService.onOrderCreated(order);
+    await NotificationService.notifyNewOrder(order);
 
     return NextResponse.json({ order, orderNumber });
   } catch (error) {

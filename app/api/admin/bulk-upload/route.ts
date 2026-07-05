@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth';
+import { getSessionActorLabel } from '@/types/staff';
 import { legacyConfirmImport, legacyPreview } from '@/services/bulk-upload/BulkUploadService';
 
 /** Backward-compatible bulk upload endpoint (legacy UI flow). */
@@ -19,6 +20,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   }
 
-  const result = await legacyConfirmImport(buffer, session.email);
+  const result = await legacyConfirmImport(buffer, getSessionActorLabel(session));
   return NextResponse.json(result);
 }

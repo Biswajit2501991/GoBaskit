@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth';
+import { getSessionActorLabel } from '@/types/staff';
 import { importChunk } from '@/services/bulk-upload/BulkUploadService';
 import type { DuplicateStrategy } from '@/types/BulkUpload';
 
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
     end,
     duplicateStrategy,
     autoCreateCategories,
-    adminEmail: session.email,
+    adminEmail: getSessionActorLabel(session),
     imageMap,
   });
 

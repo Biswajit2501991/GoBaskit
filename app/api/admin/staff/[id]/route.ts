@@ -1,0 +1,95 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { hashPassword, revokeStaffRefreshTokens } from '@/lib/auth';
+import { staffUpdateSchema } from '@/lib/validations';
+import { normalizeMobile, isValidIndianMobile } from '@/utils/mobile';
+import { requireStaffPermission } from '@/lib/staff-auth';
+import { StaffService } from '@/services/StaffService';
+import { AuditService } from '@/services/AuditService';
+
+type Params = { params: Promise<{ id: string }> };
+
+export async function PATCH(req: NextRequest, { params }: Params) {
+  const auth = await requireStaffPermission('staff:manage');
+  if (auth.error) return auth.error;
+
+  const { id } = await params;
+  const body = await req.json();
+  const parsed = staffUpdateSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const existing = await prisma.staffAccount.findFirst({ where: { id, deletedAt: null } });
+  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  const data: Record<string, unknown> = {};
+  if (parsed.data.name) data.name = parsed.data.name;
+  if (parsed.data.email !== undefined) data.email = parsed.data.email || null;
+  if (parsed.data.role) data.role = parsed.data.role;
+  if (parsed.data.permissions) data.permissions = parsed.data.permissions;
+  if (parsed.data.active !== undefined) data.active = parsed.data.active;
+
+  if (parsed.data.mobile) {
+    const mobile = normalizeMobile(parsed.data.mobile);
+    if (!isValidIndianMobile(mobile)) {
+      return NextResponse.json({ error: 'Invalid mobile' }, { status: 400 });
+    }
+    data.mobile = mobile;
+  }
+
+  if (parsed.data.password) {
+    data.passwordHash = await hashPassword(parsed.data.password);
+    await revokeStaffRefreshTokens(id);
+  }
+
+  const staff = await prisma.staffAccount.update({
+    where: { id },
+    data,
+    select: {
+      id: true, name: true, mobile: true, email: true, role: true, permissions: true, active: true, updatedAt: true,
+    },
+  });
+
+  StaffService.invalidateMobileCache(existing.mobile);
+  if (parsed.data.mobile) StaffService.invalidateMobileCache(staff.mobile);
+
+  await AuditService.log({
+    staffId: auth.staff!.id,
+    action: 'staff_updated',
+    entity: 'staff_accounts',
+    entityId: id,
+    meta: { fields: Object.keys(parsed.data) },
+  });
+
+  return NextResponse.json(staff);
+}
+
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  const auth = await requireStaffPermission('staff:manage');
+  if (auth.error) return auth.error;
+
+  const { id } = await params;
+  if (id === auth.staff!.id) {
+    return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
+  }
+
+  const existing = await prisma.staffAccount.findFirst({ where: { id, deletedAt: null } });
+  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  await prisma.staffAccount.update({
+    where: { id },
+    data: { deletedAt: new Date(), active: false },
+  });
+  await revokeStaffRefreshTokens(id);
+  StaffService.invalidateMobileCache(existing.mobile);
+
+  await AuditService.log({
+    staffId: auth.staff!.id,
+    action: 'staff_deleted',
+    entity: 'staff_accounts',
+    entityId: id,
+  });
+
+  return NextResponse.json({ success: true });
+}

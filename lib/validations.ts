@@ -23,6 +23,33 @@ export const adminLoginSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
+export const staffMobileCheckSchema = z.object({
+  mobile: z.string().min(10, 'Enter a valid mobile number').max(15),
+});
+
+export const staffLoginSchema = z.object({
+  mobile: z.string().min(10, 'Enter a valid mobile number').max(15),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  rememberMe: z.boolean().optional(),
+});
+
+export const staffCreateSchema = z.object({
+  name: z.string().min(2),
+  mobile: z.string().min(10).max(15),
+  email: z.string().email().optional().or(z.literal('')),
+  role: z.enum([
+    'SUPER_ADMIN', 'MANAGER', 'ORDER_MANAGER', 'INVENTORY_MANAGER', 'DELIVERY_MANAGER',
+    'CUSTOMER_SUPPORT', 'FINANCE', 'MARKETING', 'READ_ONLY', 'CUSTOM',
+  ]),
+  password: z.string().min(6).optional(),
+  permissions: z.array(z.string()).optional(),
+  active: z.boolean().optional(),
+});
+
+export const staffUpdateSchema = staffCreateSchema.partial().extend({
+  password: z.string().min(6).optional(),
+});
+
 export const productSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   description: z.string().optional(),

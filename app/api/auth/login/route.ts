@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { hashPassword, signAdminToken, verifyPassword, COOKIE_NAME } from '@/lib/auth';
+import { verifyPassword, signAdminToken, COOKIE_NAME, getStaffFromSession } from '@/lib/auth';
 import { adminLoginSchema } from '@/lib/validations';
-import { getAdminSession } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -40,9 +39,16 @@ export async function DELETE() {
 }
 
 export async function GET() {
-  const session = await getAdminSession();
-  if (!session) return NextResponse.json({ authenticated: false });
-  const admin = await prisma.admin.findUnique({ where: { id: session.sub } });
-  if (!admin) return NextResponse.json({ authenticated: false });
-  return NextResponse.json({ authenticated: true, admin: { id: admin.id, name: admin.name, email: admin.email } });
+  const staff = await getStaffFromSession();
+  if (!staff) return NextResponse.json({ authenticated: false });
+  return NextResponse.json({
+    authenticated: true,
+    staff: {
+      id: staff.id,
+      name: staff.name,
+      mobile: staff.mobile,
+      role: staff.role,
+      email: staff.email,
+    },
+  });
 }

@@ -23,9 +23,28 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum OrderPriority {
+  NORMAL
+  HIGH
+  URGENT
+}
+
 enum PaymentMethod {
   COD
   QR_ON_DELIVERY
+}
+
+enum StaffRole {
+  SUPER_ADMIN
+  MANAGER
+  ORDER_MANAGER
+  INVENTORY_MANAGER
+  DELIVERY_MANAGER
+  CUSTOMER_SUPPORT
+  FINANCE
+  MARKETING
+  READ_ONLY
+  CUSTOM
 }
 
 model Admin {
@@ -107,12 +126,51 @@ model Order {
   grandTotal      Float         @map("grand_total")
   paymentMethod   PaymentMethod @map("payment_method")
   deliveryNotes   String?       @map("delivery_notes")
+  assignedStaffId String?       @map("assigned_staff_id")
+  assignedStaff   StaffAccount? @relation("AssignedOrders", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  lockedAt        DateTime?     @map("locked_at")
+  priority        OrderPriority @default(NORMAL)
+  adminNotes      String?       @map("admin_notes")
   items           OrderItem[]
+  statusHistory   OrderStatusHistory[]
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
   @@index([status, createdAt])
+  @@index([assignedStaffId])
+  @@index([priority, createdAt])
   @@map("orders")
+}
+
+model OrderStatusHistory {
+  id        String        @id @default(cuid())
+  orderId   String        @map("order_id")
+  order     Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    OrderStatus
+  staffId   String?       @map("staff_id")
+  staff     StaffAccount? @relation("OrderStatusChanges", fields: [staffId], references: [id], onDelete: SetNull)
+  note      String?
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@index([orderId, createdAt])
+  @@map("order_status_history")
+}
+
+model AdminNotification {
+  id         String        @id @default(cuid())
+  staffId    String?       @map("staff_id")
+  staff      StaffAccount? @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  type       String
+  title      String
+  message    String
+  entityType String?       @map("entity_type")
+  entityId   String?       @map("entity_id")
+  readAt     DateTime?     @map("read_at")
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  @@index([staffId, readAt, createdAt])
+  @@index([createdAt])
+  @@map("admin_notifications")
 }
 
 model OrderItem {
@@ -147,4 +205,72 @@ model Upload {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("uploads")
+}
+
+model StaffAccount {
+  id           String    @id @default(cuid())
+  mobile       String    @unique
+  email        String?   @unique
+  name         String
+  role         StaffRole @default(READ_ONLY)
+  passwordHash String    @map("password_hash")
+  permissions  Json      @default("[]")
+  active       Boolean   @default(true)
+  deletedAt    DateTime? @map("deleted_at")
+  lastLogin    DateTime? @map("last_login")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  refreshTokens     StaffRefreshToken[]
+  auditLogs         AuditLog[]              @relation("AuditActor")
+  assignedOrders    Order[]                 @relation("AssignedOrders")
+  orderStatusChanges OrderStatusHistory[]   @relation("OrderStatusChanges")
+  notifications     AdminNotification[]
+
+  @@index([mobile])
+  @@index([role, active])
+  @@index([deletedAt])
+  @@map("staff_accounts")
+}
+
+model StaffRefreshToken {
+  id         String       @id @default(cuid())
+  staffId    String       @map("staff_id")
+  staff      StaffAccount @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  tokenHash  String       @map("token_hash")
+  expiresAt  DateTime     @map("expires_at")
+  rememberMe Boolean      @default(false) @map("remember_me")
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  @@index([staffId])
+  @@index([expiresAt])
+  @@map("staff_refresh_tokens")
+}
+
+model StaffLoginAttempt {
+  id        String   @id @default(cuid())
+  mobile    String
+  success   Boolean
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([mobile, createdAt])
+  @@map("staff_login_attempts")
+}
+
+model AuditLog {
+  id        String        @id @default(cuid())
+  staffId   String?       @map("staff_id")
+  staff     StaffAccount? @relation("AuditActor", fields: [staffId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String?
+  entityId  String?       @map("entity_id")
+  meta      Json?
+  ip        String?
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@index([staffId, createdAt])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }

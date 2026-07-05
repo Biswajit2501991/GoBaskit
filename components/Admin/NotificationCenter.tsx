@@ -1,0 +1,147 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { Bell, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+interface NotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  entityType: string | null;
+  entityId: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export function NotificationCenter() {
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [open, setOpen] = useState(false);
+  const [toast, setToast] = useState<NotificationItem | null>(null);
+  const esRef = useRef<EventSource | null>(null);
+
+  const load = useCallback(async () => {
+    const res = await fetch('/api/admin/notifications?pageSize=10');
+    if (res.ok) {
+      const data = await res.json();
+      setItems(data.items);
+      setUnreadCount(data.unreadCount);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    const es = new EventSource('/api/admin/events');
+    esRef.current = es;
+
+    es.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.type === 'notification_created') {
+          const n = data.payload as NotificationItem;
+          setUnreadCount((c) => c + 1);
+          setItems((prev) => [{ ...n, readAt: null }, ...prev].slice(0, 10));
+          setToast(n);
+          setTimeout(() => setToast(null), 5000);
+        }
+        if (data.type === 'order_created') {
+          setUnreadCount((c) => c + 1);
+        }
+      } catch {
+        /* ignore parse errors */
+      }
+    };
+
+    return () => {
+      es.close();
+    };
+  }, []);
+
+  async function markRead(id: string) {
+    await fetch(`/api/admin/notifications/${id}/read`, { method: 'POST' });
+    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
+    setUnreadCount((c) => Math.max(0, c - 1));
+  }
+
+  async function markAllRead() {
+    await fetch('/api/admin/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markAllRead: true }),
+    });
+    setItems((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })));
+    setUnreadCount(0);
+  }
+
+  return (
+    <>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="relative p-2 rounded-lg hover:bg-gray-100"
+          aria-label="Notifications"
+        >
+          <Bell className="w-5 h-5 text-gray-600" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
+
+        {open && (
+          <div className="absolute right-0 top-full mt-1 w-80 bg-white border rounded-xl shadow-lg z-50">
+            <div className="flex items-center justify-between p-3 border-b">
+              <span className="font-semibold text-sm">Notifications</span>
+              {unreadCount > 0 && (
+                <button type="button" onClick={markAllRead} className="text-xs text-blinkit-green hover:underline">
+                  Mark all read
+                </button>
+              )}
+            </div>
+            <div className="max-h-72 overflow-y-auto">
+              {items.length === 0 ? (
+                <p className="p-4 text-sm text-gray-400 text-center">No notifications</p>
+              ) : (
+                items.map((n) => (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => { if (!n.readAt) markRead(n.id); }}
+                    className={`w-full text-left p-3 border-b hover:bg-gray-50 ${!n.readAt ? 'bg-green-50/50' : ''}`}
+                  >
+                    <p className="text-sm font-medium">{n.title}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
+                    {n.entityType === 'orders' && n.entityId && (
+                      <Link href="/admin/orders" className="text-xs text-blinkit-green mt-1 inline-block" onClick={() => setOpen(false)}>
+                        View orders →
+                      </Link>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {toast && (
+        <div className="fixed bottom-4 right-4 z-[60] bg-white border shadow-lg rounded-xl p-4 max-w-sm flex gap-3">
+          <Bell className="w-5 h-5 text-blinkit-green shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-semibold text-sm">{toast.title}</p>
+            <p className="text-xs text-gray-600 mt-0.5">{toast.message}</p>
+          </div>
+          <button type="button" onClick={() => setToast(null)}><X className="w-4 h-4 text-gray-400" /></button>
+        </div>
+      )}
+    </>
+  );
+}

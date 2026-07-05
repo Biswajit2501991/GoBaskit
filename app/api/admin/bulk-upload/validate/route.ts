@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth';
+import { getSessionActorLabel } from '@/types/staff';
 import { validateUpload } from '@/services/bulk-upload/BulkUploadService';
 import { cleanupExpiredSessions } from '@/services/bulk-upload/ImportHistoryStore';
 
@@ -16,6 +17,6 @@ export async function POST(req: NextRequest) {
   const autoCreateCategories = formData.get('autoCreateCategories') !== 'false';
   const buffer = await file.arrayBuffer();
 
-  const result = await validateUpload(buffer, file.name, session.email, autoCreateCategories);
+  const result = await validateUpload(buffer, file.name, getSessionActorLabel(session), autoCreateCategories);
   return NextResponse.json(result);
 }

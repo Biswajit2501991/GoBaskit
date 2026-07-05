@@ -57,6 +57,28 @@ async function main() {
     await prisma.admin.deleteMany({ where: { email: 'admin@gobasket.com' } });
   }
 
+  const staffMobile = process.env.STAFF_SUPER_MOBILE || '9046370119';
+  await prisma.staffAccount.upsert({
+    where: { mobile: staffMobile },
+    update: {
+      passwordHash,
+      name: 'Super Admin',
+      role: 'SUPER_ADMIN',
+      active: true,
+      deletedAt: null,
+      email: adminEmail,
+    },
+    create: {
+      mobile: staffMobile,
+      email: adminEmail,
+      name: 'Super Admin',
+      role: 'SUPER_ADMIN',
+      passwordHash,
+      permissions: [],
+      active: true,
+    },
+  });
+
   const settings = [
     { key: 'store_name', value: 'GoBaskit' },
     { key: 'whatsapp_number', value: process.env.WHATSAPP_NUMBER || '919046370119' },
@@ -106,6 +128,7 @@ async function main() {
 
   console.log('Seed completed!');
   console.log(`Admin: ${adminEmail} / ${adminPassword}`);
+  console.log(`Staff Super Admin mobile: ${process.env.STAFF_SUPER_MOBILE || '9046370119'} / ${adminPassword}`);
 }
 
 main()
