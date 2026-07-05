@@ -1,7 +1,5 @@
 import { getStaffFromSession } from '@/lib/auth';
-import { LogoutButton } from '@/components/Admin/LogoutButton';
-import { NotificationCenter } from '@/components/Admin/NotificationCenter';
-import { AdminNavLink } from '@/components/Admin/AdminNavLink';
+import { AdminShell } from '@/components/Admin/AdminShell';
 import { parsePermissions, staffHasPermission, type Permission } from '@/types/staff';
 
 const nav: { href: string; label: string; permission: Permission }[] = [
@@ -20,6 +18,9 @@ const nav: { href: string; label: string; permission: Permission }[] = [
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const staff = await getStaffFromSession();
+  if (!staff) {
+    return <div className="min-h-screen bg-gray-50">{children}</div>;
+  }
   const perms = staff ? parsePermissions(staff.permissions) : [];
 
   const visibleNav = staff
@@ -27,36 +28,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     : [];
 
   return (
-    <div className="h-screen bg-gray-50 flex overflow-hidden">
-      {staff && (
-        <aside className="w-56 shrink-0 h-screen bg-white border-r border-gray-200 p-4 flex flex-col sticky top-0">
-          <div className="mb-8">
-            <span className="font-extrabold text-lg">Go<span className="text-blinkit-green">Baskit</span></span>
-            <p className="text-xs text-gray-400 mt-1">Staff Portal</p>
-            <p className="text-[10px] text-gray-400 mt-0.5">{staff.name} · {staff.role.replace(/_/g, ' ')}</p>
-          </div>
-          <nav className="space-y-1 flex-1 overflow-y-auto pr-1">
-            {visibleNav.map((item) => (
-              <AdminNavLink key={item.href} href={item.href} label={item.label} />
-            ))}
-          </nav>
-          <div className="pt-3 mt-3 border-t border-gray-100">
-            <LogoutButton />
-          </div>
-        </aside>
-      )}
-      <main className="flex-1 min-w-0 h-screen overflow-y-auto flex flex-col">
-        {staff && (
-          <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-end gap-3 sticky top-0 z-10">
-            <div className="text-right">
-              <p className="text-xs font-semibold text-gray-700">{staff.name}</p>
-              <p className="text-[10px] text-gray-400">{staff.role.replace(/_/g, ' ')}</p>
-            </div>
-            <NotificationCenter />
-          </header>
-        )}
-        <div className="flex-1">{children}</div>
-      </main>
-    </div>
+    <AdminShell
+      staff={{ name: staff.name, role: staff.role }}
+      visibleNav={visibleNav.map((item) => ({ href: item.href, label: item.label }))}
+    >
+      {children}
+    </AdminShell>
   );
 }
