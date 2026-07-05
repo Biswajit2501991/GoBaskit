@@ -31,6 +31,26 @@ interface StoreConfig {
 
 const PAYMENT_OPTIONS = ['COD', 'QR_ON_DELIVERY', 'UPI', 'CARD'];
 
+type SettingsErrorResponse = {
+  error?: unknown;
+  fieldErrors?: Record<string, string[] | undefined>;
+};
+
+function formatSettingsError(data: SettingsErrorResponse): string {
+  if (typeof data.error === 'string' && data.error.trim()) {
+    return data.error;
+  }
+  if (data.fieldErrors && typeof data.fieldErrors === 'object') {
+    const details = Object.entries(data.fieldErrors)
+      .map(([field, errors]) => `${field}: ${(errors ?? []).join(', ')}`)
+      .filter((line) => line.split(': ')[1]);
+    if (details.length > 0) {
+      return `Validation failed - ${details.join(' | ')}`;
+    }
+  }
+  return 'Failed to save settings';
+}
+
 export default function SettingsManager({
   initialConfig,
   canEdit,
@@ -129,8 +149,8 @@ export default function SettingsManager({
         }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(typeof data.error === 'string' ? data.error : 'Failed to save settings');
+        const data: SettingsErrorResponse = await res.json().catch(() => ({}));
+        throw new Error(formatSettingsError(data));
       }
       const updated: StoreConfig = await res.json();
       setPins(updated.serviceablePins);

@@ -52,15 +52,30 @@ export async function PUT(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const parsed = settingsSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
+    const flattened = parsed.error.flatten();
+    const details = Object.entries(flattened.fieldErrors)
+      .map(([field, errors]) => `${field}: ${(errors ?? []).join(', ')}`)
+      .filter(Boolean);
+    return NextResponse.json(
+      {
+        error: details.length ? `Validation failed - ${details.join(' | ')}` : 'Validation failed',
+        fieldErrors: flattened.fieldErrors,
+      },
+      { status: 400 },
+    );
   }
 
-  const updated = await SettingsService.updateStoreConfig(parsed.data);
-  await AuditService.log({
-    staffId: auth.staff?.id,
-    action: 'settings_updated',
-    entity: 'settings',
-    meta: { changedKeys: Object.keys(parsed.data) },
-  });
-  return NextResponse.json(updated);
+  try {
+    const updated = await SettingsService.updateStoreConfig(parsed.data);
+    await AuditService.log({
+      staffId: auth.staff?.id,
+      action: 'settings_updated',
+      entity: 'settings',
+      meta: { changedKeys: Object.keys(parsed.data) },
+    });
+    return NextResponse.json(updated);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to save settings';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
