@@ -12,7 +12,7 @@ import { useLocationStore } from '@/store/locationStore';
 import { deliveryChargeFrom, pinIsServiceable } from '@/constants';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { checkoutSchema, type CheckoutSchema } from '@/lib/validations';
-import { buildWhatsAppMessage, buildWhatsAppUrl } from '@/utils/whatsapp';
+import { buildWhatsAppMessage, buildWhatsAppUrl, openWhatsAppUrl } from '@/utils/whatsapp';
 import { formatCurrency } from '@/utils/formatter';
 import { WHATSAPP_NUMBER, STORE_NAME } from '@/constants';
 import { Button } from '@/components/ui/button';
@@ -97,6 +97,9 @@ export default function CheckoutPage() {
     });
     const url = buildWhatsAppUrl(WHATSAPP_NUMBER, message);
 
+    // Open WhatsApp immediately (before await) so the browser keeps the click gesture.
+    openWhatsAppUrl(url);
+
     try {
       await fetch('/api/checkout', {
         method: 'POST',
@@ -114,10 +117,9 @@ export default function CheckoutPage() {
         }),
       });
     } catch {
-      // Continue to WhatsApp even if DB save fails
+      // Order already opened in WhatsApp; DB save is best-effort
     }
 
-    window.open(url, '_blank');
     clearCart();
     router.push('/success');
   }

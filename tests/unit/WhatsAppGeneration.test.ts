@@ -52,7 +52,8 @@ describe('WhatsApp Message Generation', () => {
 
   it('builds valid WhatsApp URL', () => {
     const url = buildWhatsAppUrl('917899813212', 'Hello Test');
-    expect(url).toContain('wa.me/917899813212');
+    expect(url).toContain('api.whatsapp.com/send');
+    expect(url).toContain('phone=917899813212');
     expect(url).toContain('text=');
   });
 });

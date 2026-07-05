@@ -76,6 +76,26 @@ export function buildWhatsAppMessage({
 
 export function buildWhatsAppUrl(phoneNumber: string, message: string): string {
   const cleanPhone = phoneNumber.replace(/\D/g, '');
+  if (!cleanPhone) {
+    throw new Error('WhatsApp phone number is missing');
+  }
   const encoded = encodeURIComponent(message);
-  return `https://wa.me/${cleanPhone}?text=${encoded}`;
+  // api.whatsapp.com is more reliable than wa.me (fewer SSL/proxy issues on mobile networks).
+  return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encoded}`;
+}
+
+/** Opens WhatsApp in a new tab while the click gesture is still valid. */
+export function openWhatsAppUrl(url: string): void {
+  if (typeof window === 'undefined') return;
+
+  try {
+    sessionStorage.setItem('gobaskit_last_whatsapp_url', url);
+  } catch {
+    /* private mode */
+  }
+
+  const opened = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!opened) {
+    window.location.href = url;
+  }
 }

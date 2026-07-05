@@ -1,8 +1,22 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header/Header';
 import { Button } from '@/components/ui/button';
 
 export default function SuccessPage() {
+  const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const url = sessionStorage.getItem('gobaskit_last_whatsapp_url');
+      if (url) setWhatsappUrl(url);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header showSearch={false} />
@@ -13,9 +27,16 @@ export default function SuccessPage() {
           </svg>
         </div>
         <h1 className="text-2xl font-bold mb-2">Order sent on WhatsApp!</h1>
-        <p className="text-gray-500 text-sm max-w-sm mb-8">
+        <p className="text-gray-500 text-sm max-w-sm mb-6">
           Your order has been shared with GoBaskit. We&apos;ll confirm shortly and deliver in ~15 minutes.
         </p>
+        {whatsappUrl && (
+          <Button asChild variant="outline" className="mb-4">
+            <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+              Open WhatsApp again
+            </a>
+          </Button>
+        )}
         <Button asChild><Link href="/">Continue Shopping</Link></Button>
       </main>
     </div>
