@@ -8,7 +8,7 @@ import { AdminNavLink } from '@/components/Admin/AdminNavLink';
 
 type AdminShellProps = {
   staff: { id: string; name: string; role: string };
-  visibleNav: Array<{ href: string; label: string }>;
+  visibleNav: Array<{ href: string; label: string; permission?: string }>;
   children: React.ReactNode;
 };
 
@@ -27,10 +27,29 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
     if (typeof window === 'undefined') return false;
     return window.localStorage.getItem(SIDEBAR_PREF_KEY) === '1';
   });
+  const [pendingVerifications, setPendingVerifications] = useState(0);
 
   useEffect(() => {
     window.localStorage.setItem(SIDEBAR_PREF_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
+
+  useEffect(() => {
+    const hasVerificationNav = visibleNav.some((item) => item.href === '/admin/whatsapp-verification');
+    if (!hasVerificationNav) return;
+
+    const load = () => {
+      fetch('/api/admin/whatsapp-verifications/pending-count')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (typeof data?.pendingCount === 'number') setPendingVerifications(data.pendingCount);
+        })
+        .catch(() => {});
+    };
+
+    load();
+    const timer = setInterval(load, 30_000);
+    return () => clearInterval(timer);
+  }, [visibleNav]);
 
   return (
     <div className="h-screen bg-gray-50 flex overflow-hidden">
@@ -62,7 +81,13 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
 
         <nav className="space-y-1 flex-1 overflow-y-auto pr-1">
           {visibleNav.map((item) => (
-            <AdminNavLink key={item.href} href={item.href} label={item.label} collapsed={collapsed} />
+            <AdminNavLink
+              key={item.href}
+              href={item.href}
+              label={item.label}
+              collapsed={collapsed}
+              badge={item.href === '/admin/whatsapp-verification' ? pendingVerifications : undefined}
+            />
           ))}
         </nav>
 

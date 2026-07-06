@@ -99,6 +99,13 @@ model Product {
   @@map("products")
 }
 
+enum WhatsAppVerificationStatus {
+  PENDING
+  VERIFIED
+  EXPIRED
+  REJECTED
+}
+
 model Customer {
   id               String   @id @default(cuid())
   firstName        String   @map("first_name")
@@ -112,10 +119,66 @@ model Customer {
   city             String
   state            String
   pincode          String
+  isWhatsappVerified Boolean @default(false) @map("is_whatsapp_verified")
+  verifiedAt       DateTime? @map("verified_at")
+  verifiedById     String?  @map("verified_by")
+  verifiedBy       StaffAccount? @relation("CustomerVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
   orders           Order[]
   createdAt        DateTime @default(now()) @map("created_at")
 
+  @@index([mobile])
   @@map("customers")
+}
+
+model CustomerMobile {
+  id                 String   @id @default(cuid())
+  mobile             String   @unique
+  isWhatsappVerified Boolean  @default(false) @map("is_whatsapp_verified")
+  verifiedAt         DateTime? @map("verified_at")
+  verifiedById       String?  @map("verified_by")
+  verifiedBy         StaffAccount? @relation("CustomerMobileVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  verifications      WhatsAppVerification[]
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("customer_mobiles")
+}
+
+model WhatsAppVerification {
+  id               String                     @id @default(cuid())
+  customerMobileId String                     @map("customer_mobile_id")
+  customerMobile   CustomerMobile             @relation(fields: [customerMobileId], references: [id], onDelete: Cascade)
+  mobile           String
+  verificationCode String                     @map("verification_code")
+  status           WhatsAppVerificationStatus @default(PENDING)
+  customerName     String?                    @map("customer_name")
+  createdAt        DateTime                   @default(now()) @map("created_at")
+  expiresAt        DateTime                   @map("expires_at")
+  verifiedAt       DateTime?                  @map("verified_at")
+  verifiedById     String?                    @map("verified_by")
+  verifiedBy       StaffAccount?              @relation("WhatsAppVerificationApprovedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@index([mobile, status])
+  @@index([verificationCode])
+  @@index([status, createdAt])
+  @@map("whatsapp_verifications")
+}
+
+model VerificationAuditLog {
+  id             String   @id @default(cuid())
+  mobile         String?
+  verificationId String?  @map("verification_id")
+  action         String
+  actorType      String   @map("actor_type")
+  actorId        String?  @map("actor_id")
+  ip             String?
+  userAgent      String?  @map("user_agent")
+  meta           Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([mobile, createdAt])
+  @@index([verificationId])
+  @@map("verification_audit_logs")
 }
 
 model Order {
@@ -256,6 +319,9 @@ model StaffAccount {
   assignedOrders    Order[]                 @relation("AssignedOrders")
   orderStatusChanges OrderStatusHistory[]   @relation("OrderStatusChanges")
   notifications     AdminNotification[]
+  verifiedCustomers Customer[]              @relation("CustomerVerifiedBy")
+  verifiedCustomerMobiles CustomerMobile[]  @relation("CustomerMobileVerifiedBy")
+  whatsappVerificationsApproved WhatsAppVerification[] @relation("WhatsAppVerificationApprovedBy")
 
   @@index([mobile])
   @@index([role, active])

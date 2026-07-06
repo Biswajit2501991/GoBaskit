@@ -4,6 +4,7 @@ import {
   DELIVERY_SLABS,
   MIN_ORDER_VALUE,
   SLAB_MAX,
+  WHATSAPP_NUMBER,
   type DeliverySlab,
 } from '@/constants';
 
@@ -18,6 +19,7 @@ export interface StoreConfig {
   holidayMode: boolean;
   paymentMethods: string[];
   whatsappTemplates: Record<string, string>;
+  whatsappNumber: string;
   checkoutMode: 'website' | 'whatsapp' | 'both';
   notificationSoundEnabled: boolean;
   homepageConfig: {
@@ -56,6 +58,7 @@ const KEY_STATUS = 'store_status';
 const KEY_HOLIDAY = 'holiday_mode';
 const KEY_PAYMENT_METHODS = 'payment_methods';
 const KEY_WHATSAPP_TEMPLATES = 'whatsapp_templates';
+const KEY_WHATSAPP_NUMBER = 'whatsapp_number';
 const KEY_CHECKOUT_MODE = 'checkout_mode';
 const KEY_NOTIFICATION_SOUND = 'notification_sound_enabled';
 const KEY_HOMEPAGE_CONFIG = 'homepage_config';
@@ -81,6 +84,7 @@ const DEFAULTS: StoreConfig = {
     DELIVERED: 'Your order has been delivered. Thank you!',
     CANCELLED: 'Your order has been cancelled. Contact support for details.',
   },
+  whatsappNumber: WHATSAPP_NUMBER,
   homepageConfig: {
     showHeroBanner: true,
     showCategories: true,
@@ -242,6 +246,8 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     }
   }
 
+  const whatsappNumber = (map.get(KEY_WHATSAPP_NUMBER) || DEFAULTS.whatsappNumber).replace(/\D/g, '') || DEFAULTS.whatsappNumber;
+
   let homepageConfig = DEFAULTS.homepageConfig;
   const rawHomepageConfig = map.get(KEY_HOMEPAGE_CONFIG);
   if (rawHomepageConfig) {
@@ -289,6 +295,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     holidayMode,
     paymentMethods,
     whatsappTemplates,
+    whatsappNumber,
     checkoutMode,
     notificationSoundEnabled,
     homepageConfig,
@@ -314,6 +321,7 @@ export const SettingsService = {
               KEY_HOLIDAY,
               KEY_PAYMENT_METHODS,
               KEY_WHATSAPP_TEMPLATES,
+              KEY_WHATSAPP_NUMBER,
               KEY_CHECKOUT_MODE,
               KEY_NOTIFICATION_SOUND,
               KEY_HOMEPAGE_CONFIG,
@@ -396,6 +404,12 @@ export const SettingsService = {
         Object.entries(partial.whatsappTemplates).map(([k, v]) => [k, String(v ?? '').trim()]),
       );
       writes.push(upsert(KEY_WHATSAPP_TEMPLATES, JSON.stringify(sanitized)));
+    }
+    if (partial.whatsappNumber != null) {
+      const digits = String(partial.whatsappNumber).replace(/\D/g, '');
+      if (digits.length >= 8) {
+        writes.push(upsert(KEY_WHATSAPP_NUMBER, digits));
+      }
     }
     if (partial.homepageConfig) {
       const safe = {

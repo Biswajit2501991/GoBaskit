@@ -79,6 +79,15 @@ export class CustomerOrderService {
     });
   }
 
+  static async orderCountForMobile(mobile: string): Promise<number> {
+    return prisma.order.count({
+      where: {
+        customer: customerMobileWhere(mobile),
+        ...OrderArchiveService.customerVisibilityFilter(),
+      },
+    });
+  }
+
   static async getByIdForMobile(orderId: string, mobile: string): Promise<CustomerOrderDetail | null> {
     const order = await prisma.order.findFirst({
       where: {

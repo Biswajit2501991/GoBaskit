@@ -11,6 +11,7 @@ const nav: { href: string; label: string; permission: Permission }[] = [
   { href: '/admin/products', label: 'Products', permission: 'products:view' },
   { href: '/admin/categories', label: 'Categories', permission: 'categories:view' },
   { href: '/admin/orders', label: 'Orders', permission: 'orders:view' },
+  { href: '/admin/whatsapp-verification', label: 'WhatsApp Verification', permission: 'verification:view' },
   { href: '/admin/bulk-upload', label: 'Bulk Upload', permission: 'bulk_upload:use' },
   { href: '/admin/staff', label: 'Staff', permission: 'staff:view' },
   { href: '/admin/settings', label: 'Settings', permission: 'settings:view' },

@@ -34,7 +34,9 @@ export type Permission =
   | 'finance:view'
   | 'finance:edit'
   | 'delivery:view'
-  | 'delivery:update';
+  | 'delivery:update'
+  | 'verification:view'
+  | 'verification:manage';
 
 export const ROLE_PERMISSIONS: Record<StaffRole, Permission[]> = {
   SUPER_ADMIN: [
@@ -44,15 +46,17 @@ export const ROLE_PERMISSIONS: Record<StaffRole, Permission[]> = {
     'orders:view', 'orders:edit', 'orders:delete', 'orders:assign', 'orders:override_lock',
     'settings:view', 'settings:edit', 'analytics:view', 'bulk_upload:use',
     'finance:view', 'finance:edit', 'delivery:view', 'delivery:update',
+    'verification:view', 'verification:manage',
   ],
   MANAGER: [
     'staff:view', 'products:view', 'products:edit', 'categories:view', 'categories:edit',
     'orders:view', 'orders:edit', 'orders:assign', 'settings:view', 'analytics:view',
     'bulk_upload:use', 'delivery:view', 'delivery:update',
+    'verification:view', 'verification:manage',
   ],
   ORDER_MANAGER: [
     'orders:view', 'orders:edit', 'orders:assign', 'delivery:view', 'delivery:update',
-    'products:view',
+    'products:view', 'verification:view', 'verification:manage',
   ],
   INVENTORY_MANAGER: [
     'products:view', 'products:edit', 'categories:view', 'categories:edit', 'bulk_upload:use',
@@ -61,7 +65,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, Permission[]> = {
     'orders:view', 'orders:edit', 'delivery:view', 'delivery:update',
   ],
   CUSTOMER_SUPPORT: [
-    'orders:view', 'products:view',
+    'orders:view', 'products:view', 'verification:view', 'verification:manage',
   ],
   FINANCE: [
     'orders:view', 'finance:view', 'finance:edit', 'analytics:view',

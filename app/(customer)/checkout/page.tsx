@@ -24,9 +24,12 @@ import { buildWhatsAppMessage, buildWhatsAppUrl, openWhatsAppUrl } from '@/utils
 import { formatCurrency } from '@/utils/formatter';
 import { WHATSAPP_NUMBER, STORE_NAME } from '@/constants';
 import { normalizeMobile } from '@/utils/mobile';
+import { e164ToCheckoutMobile, toE164 } from '@/utils/phone';
+import WhatsAppVerificationModal from '@/components/Checkout/WhatsAppVerificationModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { CheckCircle2 } from 'lucide-react';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -146,7 +149,11 @@ export default function CheckoutPage() {
   const pincodeOptional = deliveryMatchByCity && !deliveryMatchByPin;
   const enteredMobile = (formValues.mobile ?? '').trim();
   const isWhatsAppPatternValid = /^\d{10}$/.test(enteredMobile);
-  const [whatsAppConfirmed, setWhatsAppConfirmed] = useState(false);
+  const mobileE164 = isWhatsAppPatternValid ? (toE164('91', enteredMobile) ?? '') : '';
+  const [whatsappVerified, setWhatsappVerified] = useState(false);
+  const [verifiedMobileE164, setVerifiedMobileE164] = useState<string | null>(null);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [pendingSubmitSource, setPendingSubmitSource] = useState<'website' | 'whatsapp' | null>(null);
   const [highlightSection, setHighlightSection] = useState<'customer' | 'address' | 'summary' | null>(null);
   const [orderError, setOrderError] = useState('');
   const customerSectionRef = useRef<HTMLDivElement | null>(null);
@@ -166,8 +173,36 @@ export default function CheckoutPage() {
   }, [customerMobile, getValues, setValue]);
 
   useEffect(() => {
-    setWhatsAppConfirmed(false);
-  }, [enteredMobile]);
+    if (!isWhatsAppPatternValid || !mobileE164) {
+      setWhatsappVerified(false);
+      setVerifiedMobileE164(null);
+      return;
+    }
+
+    if (verifiedMobileE164 && verifiedMobileE164 !== mobileE164) {
+      setWhatsappVerified(false);
+      setVerifiedMobileE164(null);
+    }
+
+    let alive = true;
+    fetch(`/api/customer/verification/status?mobile=${encodeURIComponent(mobileE164)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!alive || !data) return;
+        if (data.verified) {
+          setWhatsappVerified(true);
+          setVerifiedMobileE164(mobileE164);
+        } else if (!data.needsVerification) {
+          setWhatsappVerified(true);
+          setVerifiedMobileE164(mobileE164);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      alive = false;
+    };
+  }, [mobileE164, isWhatsAppPatternValid, verifiedMobileE164]);
 
   function focusSection(section: 'customer' | 'address' | 'summary') {
     setHighlightSection(section);
@@ -208,11 +243,34 @@ export default function CheckoutPage() {
       focusSection('address');
       return false;
     }
-    if (!isWhatsAppPatternValid || !whatsAppConfirmed) {
+    if (!isWhatsAppPatternValid) {
       focusSection('customer');
       return false;
     }
     return true;
+  }
+
+  async function ensureWhatsAppVerified(data: CheckoutSchema): Promise<boolean> {
+    const e164 = toE164('91', data.mobile);
+    if (!e164) {
+      focusSection('customer');
+      return false;
+    }
+
+    try {
+      const res = await fetch(`/api/customer/verification/status?mobile=${encodeURIComponent(e164)}`);
+      const status = res.ok ? await res.json() : null;
+      if (status?.verified || status?.needsVerification === false) {
+        setWhatsappVerified(true);
+        setVerifiedMobileE164(e164);
+        return true;
+      }
+    } catch {
+      /* fall through to modal */
+    }
+
+    setShowVerificationModal(true);
+    return false;
   }
 
   async function persistProfile(data: CheckoutSchema) {
@@ -303,11 +361,37 @@ export default function CheckoutPage() {
   }
 
   async function onSubmitWebsite(data: CheckoutSchema) {
+    if (!validateBeforeSubmit(data)) return;
+    if (!(await ensureWhatsAppVerified(data))) {
+      setPendingSubmitSource('website');
+      return;
+    }
     await submitOrder(data, 'website');
   }
 
   async function onSubmitWhatsApp(data: CheckoutSchema) {
+    if (!validateBeforeSubmit(data)) return;
+    if (!(await ensureWhatsAppVerified(data))) {
+      setPendingSubmitSource('whatsapp');
+      return;
+    }
     await submitOrder(data, 'whatsapp');
+  }
+
+  async function handleVerified(mobile: string) {
+    setWhatsappVerified(true);
+    setVerifiedMobileE164(mobile);
+    setShowVerificationModal(false);
+    const checkoutMobile = e164ToCheckoutMobile(mobile);
+    if (checkoutMobile && checkoutMobile !== getValues('mobile')) {
+      setValue('mobile', checkoutMobile, { shouldValidate: true });
+    }
+    const data = getValues();
+    if (pendingSubmitSource) {
+      const source = pendingSubmitSource;
+      setPendingSubmitSource(null);
+      await submitOrder({ ...data, mobile: checkoutMobile || data.mobile }, source);
+    }
   }
 
   function onInvalid(formErrors: Partial<Record<keyof CheckoutSchema, unknown>>) {
@@ -338,7 +422,6 @@ export default function CheckoutPage() {
   const canSubmit =
     deliveryServiceable &&
     isWhatsAppPatternValid &&
-    whatsAppConfirmed &&
     !belowMinimum &&
     !isSubmitting;
 
@@ -399,22 +482,13 @@ export default function CheckoutPage() {
               <Label>Mobile *</Label>
               <Input {...register('mobile')} placeholder="10-digit mobile number" maxLength={10} inputMode="numeric" className="mt-1" />
               <p className="text-[11px] text-gray-400 mt-1">We&apos;ll confirm your order on this WhatsApp number.</p>
+              {whatsappVerified && isWhatsAppPatternValid && (
+                <p className="text-xs text-green-700 flex items-center gap-1 mt-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> WhatsApp verified
+                </p>
+              )}
               {errors.mobile && <p className="text-red-500 text-xs mt-1">{errors.mobile.message}</p>}
             </div>
-            <label className="flex items-start gap-2 text-xs text-gray-600">
-              <input
-                type="checkbox"
-                checked={whatsAppConfirmed}
-                onChange={(e) => setWhatsAppConfirmed(e.target.checked)}
-                className="mt-0.5 accent-blinkit-green"
-              />
-              <span>
-                I confirm {enteredMobile ? `+91 ${enteredMobile}` : 'this number'} is active on WhatsApp.
-              </span>
-            </label>
-            {!whatsAppConfirmed && highlightSection === 'customer' && (
-              <p className="text-red-500 text-xs">Please confirm this is your active WhatsApp number.</p>
-            )}
             <div>
               <Label>Alternate Mobile</Label>
               <Input {...register('alternateMobile')} placeholder="Optional" maxLength={10} inputMode="numeric" className="mt-1" />
@@ -541,9 +615,9 @@ export default function CheckoutPage() {
                     ? 'Delivery unavailable at this address'
                     : !isWhatsAppPatternValid
                       ? 'Enter valid mobile number'
-                      : !whatsAppConfirmed
-                        ? 'Confirm WhatsApp number'
-                        : 'Place Order'}
+                      : !whatsappVerified
+                      ? 'Verify WhatsApp to place order'
+                      : 'Place Order'}
               </Button>
             )}
             {showWhatsApp && (
@@ -561,6 +635,18 @@ export default function CheckoutPage() {
           </div>
         </form>
       </main>
+
+      <WhatsAppVerificationModal
+        open={showVerificationModal}
+        initialNationalNumber={enteredMobile}
+        initialCountryDial="91"
+        customerName={formValues.firstName ? `${formValues.firstName} ${formValues.lastName ?? ''}`.trim() : undefined}
+        onVerified={handleVerified}
+        onClose={() => {
+          setShowVerificationModal(false);
+          setPendingSubmitSource(null);
+        }}
+      />
     </div>
   );
 }

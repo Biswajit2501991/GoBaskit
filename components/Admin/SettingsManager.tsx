@@ -19,6 +19,7 @@ interface StoreConfig {
   holidayMode: boolean;
   paymentMethods: string[];
   whatsappTemplates: Record<string, string>;
+  whatsappNumber: string;
   checkoutMode: 'website' | 'whatsapp' | 'both';
   notificationSoundEnabled: boolean;
   homepageConfig: {
@@ -84,6 +85,7 @@ export default function SettingsManager({
   const [whatsappTemplates, setWhatsappTemplates] = useState<Record<string, string>>(
     initialConfig.whatsappTemplates,
   );
+  const [whatsappNumber, setWhatsappNumber] = useState(initialConfig.whatsappNumber ?? '');
   const [homepageConfig, setHomepageConfig] = useState(initialConfig.homepageConfig);
   const [checkoutMode, setCheckoutMode] = useState<StoreConfig['checkoutMode']>(initialConfig.checkoutMode ?? 'both');
   const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(
@@ -199,6 +201,7 @@ export default function SettingsManager({
           holidayMode,
           paymentMethods,
           whatsappTemplates,
+          whatsappNumber,
           checkoutMode,
           notificationSoundEnabled,
           homepageConfig,
@@ -218,6 +221,7 @@ export default function SettingsManager({
       setHolidayMode(updated.holidayMode);
       setPaymentMethods(updated.paymentMethods);
       setWhatsappTemplates(updated.whatsappTemplates);
+      setWhatsappNumber(updated.whatsappNumber ?? '');
       setCheckoutMode(updated.checkoutMode ?? 'both');
       setNotificationSoundEnabled(updated.notificationSoundEnabled ?? true);
       setHomepageConfig(updated.homepageConfig);
@@ -340,6 +344,20 @@ export default function SettingsManager({
             <Plus size={16} /> Add
           </Button>
         </div>
+      </section>
+
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <h2 className="font-bold text-sm">Business WhatsApp Number</h2>
+        <p className="text-xs text-gray-400">
+          Used for customer verification messages and order WhatsApp links. Include country code without + (e.g. 919046370119 or 61412345678).
+        </p>
+        <Input
+          value={whatsappNumber}
+          onChange={(e) => setWhatsappNumber(e.target.value.replace(/\D/g, ''))}
+          placeholder="919046370119"
+          disabled={!canEdit}
+          className="max-w-sm"
+        />
       </section>
 
       <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">

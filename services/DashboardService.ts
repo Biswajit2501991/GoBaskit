@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@prisma/client';
 import { InventoryService } from '@/services/InventoryService';
+import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationService';
 
 const CACHE_TTL_MS = 60 * 1000;
 let cache: { data: DashboardStats; expires: number } | null = null;
@@ -22,6 +23,7 @@ export interface DashboardStats {
   lowStockCount: number;
   staffOnline: number;
   unreadNotifications: number;
+  pendingWhatsappVerifications: number;
   topProducts: Array<{ name: string; quantity: number; revenue: number }>;
   dailyTrend: Array<{ day: string; orders: number; revenue: number }>;
   recentOrders: Array<{
@@ -73,6 +75,7 @@ export class DashboardService {
       recentOrders,
       topProductsRaw,
       trendOrdersRaw,
+      pendingWhatsappVerifications,
     ] = await Promise.all([
       prisma.order.aggregate({
         where: { createdAt: { gte: todayStart } },
@@ -116,6 +119,7 @@ export class DashboardService {
         _count: { _all: true },
         _sum: { grandTotal: true },
       }),
+      WhatsAppVerificationService.getPendingCount(),
     ]);
 
     const statusMap = new Map(statusCounts.map((s) => [s.status, s._count._all]));
@@ -157,6 +161,7 @@ export class DashboardService {
       lowStockCount,
       staffOnline,
       unreadNotifications,
+      pendingWhatsappVerifications,
       topProducts: topProductsRaw.map((p) => ({
         name: p.productName,
         quantity: p._sum.quantity ?? 0,

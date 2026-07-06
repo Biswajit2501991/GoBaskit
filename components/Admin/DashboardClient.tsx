@@ -20,6 +20,7 @@ interface DashboardStats {
   lowStockCount: number;
   staffOnline: number;
   unreadNotifications: number;
+  pendingWhatsappVerifications: number;
   topProducts: Array<{ name: string; quantity: number; revenue: number }>;
   dailyTrend: Array<{ day: string; orders: number; revenue: number }>;
   recentOrders: Array<{
@@ -87,6 +88,12 @@ export default function DashboardClient() {
         <div className={cardClass}><p className="text-xs text-gray-500">Products</p><p className="text-2xl font-bold mt-1">{stats.productCount}</p></div>
         <div className={cardClass}><p className="text-xs text-gray-500">Low Stock</p><p className="text-2xl font-bold mt-1">{stats.lowStockCount}</p></div>
         <div className={cardClass}><p className="text-xs text-gray-500">Unread Notifications</p><p className="text-2xl font-bold mt-1">{stats.unreadNotifications}</p></div>
+        <div className={cardClass}>
+          <p className="text-xs text-gray-500">Pending WhatsApp Verifications</p>
+          <p className={`text-2xl font-bold mt-1 ${stats.pendingWhatsappVerifications > 0 ? 'text-red-600' : ''}`}>
+            {stats.pendingWhatsappVerifications}
+          </p>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">

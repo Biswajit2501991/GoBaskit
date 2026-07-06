@@ -10,6 +10,8 @@ import { CustomerProfileService } from '@/services/CustomerProfileService';
 import { InventoryService } from '@/services/InventoryService';
 import { profileFromCheckout } from '@/utils/customerProfile';
 import { normalizeMobile } from '@/utils/mobile';
+import { toE164 } from '@/utils/phone';
+import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationService';
 import { CUSTOMER_MOBILE_COOKIE } from '@/lib/customer-session';
 
 export async function POST(req: NextRequest) {
@@ -68,6 +70,19 @@ export async function POST(req: NextRequest) {
     );
     await InventoryService.validateCheckoutItems(stockItems);
 
+    const mobileE164 = toE164('91', parsed.data.mobile) ?? `+91${parsed.data.mobile}`;
+    const needsVerification = await WhatsAppVerificationService.needsVerification(mobileE164);
+    if (needsVerification) {
+      const verified = await WhatsAppVerificationService.isMobileVerified(mobileE164);
+      if (!verified) {
+        return NextResponse.json(
+          { error: 'WhatsApp verification required before placing your first order.', code: 'VERIFICATION_REQUIRED' },
+          { status: 403 },
+        );
+      }
+    }
+    const isWhatsappVerified = await WhatsAppVerificationService.isMobileVerified(mobileE164);
+
     let inventoryUpdates: { updated: Awaited<ReturnType<typeof InventoryService.reserveForOrder>>['updated']; previousStock: Map<string, number> };
 
     const order = await prisma.$transaction(async (tx) => {
@@ -84,6 +99,7 @@ export async function POST(req: NextRequest) {
           city: parsed.data.city,
           state: parsed.data.state,
           pincode: parsed.data.pincode || '',
+          isWhatsappVerified,
         },
       });
 

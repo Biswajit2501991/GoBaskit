@@ -5,6 +5,7 @@ export type AdminRealtimeEvent =
   | { type: 'order_created'; payload: Record<string, unknown> }
   | { type: 'order_updated'; payload: Record<string, unknown> }
   | { type: 'orders_archived'; payload: Record<string, unknown> }
+  | { type: 'whatsapp_verification_updated'; payload: Record<string, unknown> }
   | { type: 'notification_created'; payload: Record<string, unknown> };
 
 type Listener = (event: AdminRealtimeEvent) => void;
