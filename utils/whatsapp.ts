@@ -1,3 +1,4 @@
+import type { CartItem, CheckoutFormData } from '@/types';
 import { formatCustomerName } from '@/utils/customer';
 import { PAYMENT_METHODS } from '@/constants';
 import { formatCurrency } from '@/utils/formatter';
