@@ -1,4 +1,33 @@
 import { z } from 'zod';
+import { STAFF_ROLES } from '@/types/staff';
+
+function emptyToUndefined(val: unknown) {
+  if (val === '' || val === null || val === undefined) return undefined;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    return trimmed === '' ? undefined : trimmed;
+  }
+  return val;
+}
+
+function emptyToNull(val: unknown) {
+  if (val === '' || val === null || val === undefined) return null;
+  const n = Number(val);
+  return Number.isFinite(n) ? n : val;
+}
+
+export function formatZodFlattenError(error: {
+  fieldErrors: Record<string, string[] | undefined>;
+  formErrors: string[];
+}): string {
+  const fieldMsgs = Object.entries(error.fieldErrors).flatMap(([field, msgs]) =>
+    (msgs ?? []).map((m) => `${field}: ${m}`)
+  );
+  const all = [...error.formErrors, ...fieldMsgs];
+  return all.join('. ') || 'Invalid data';
+}
+
+const staffRoleEnum = z.enum(STAFF_ROLES as [typeof STAFF_ROLES[number], ...typeof STAFF_ROLES[number][]]);
 
 export const checkoutSchema = z
   .object({
@@ -40,21 +69,30 @@ export const staffLoginSchema = z.object({
 });
 
 export const staffCreateSchema = z.object({
-  name: z.string().min(2),
-  mobile: z.string().min(10).max(15),
-  email: z.string().email().optional().or(z.literal('')),
-  role: z.enum([
-    'SUPER_ADMIN', 'MANAGER', 'ORDER_MANAGER', 'INVENTORY_MANAGER', 'DELIVERY_MANAGER',
-    'CUSTOMER_SUPPORT', 'FINANCE', 'MARKETING', 'READ_ONLY', 'CUSTOM',
-  ]),
-  password: z.string().min(6).optional(),
+  name: z.string().trim().min(2, 'Name must be at least 2 characters'),
+  mobile: z.string().min(10, 'Enter a valid mobile number').max(15),
+  email: z.preprocess(
+    emptyToUndefined,
+    z.string().email('Enter a valid email or leave blank').optional()
+  ),
+  role: staffRoleEnum,
+  password: z.string().min(6, 'Password must be at least 6 characters').optional(),
   permissions: z.array(z.string()).optional(),
   active: z.boolean().optional(),
-  assignedCity: z.string().max(120).optional().or(z.literal('')),
+  assignedCity: z.preprocess(emptyToUndefined, z.string().max(120).optional()),
   assignedAreas: z.array(z.string().max(120)).optional(),
-  latitude: z.number().min(-90).max(90).optional().nullable(),
-  longitude: z.number().min(-180).max(180).optional().nullable(),
-  deliveryRadius: z.number().min(0).max(500).optional().nullable(),
+  latitude: z.preprocess(
+    emptyToNull,
+    z.number().min(-90).max(90).optional().nullable()
+  ),
+  longitude: z.preprocess(
+    emptyToNull,
+    z.number().min(-180).max(180).optional().nullable()
+  ),
+  deliveryRadius: z.preprocess(
+    emptyToNull,
+    z.number().min(0).max(500).optional().nullable()
+  ),
 });
 
 export const staffUpdateSchema = staffCreateSchema.partial().extend({

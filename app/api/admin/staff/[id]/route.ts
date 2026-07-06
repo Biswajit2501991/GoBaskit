@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword, revokeStaffRefreshTokens } from '@/lib/auth';
-import { staffUpdateSchema } from '@/lib/validations';
+import { staffUpdateSchema, formatZodFlattenError } from '@/lib/validations';
 import { normalizeMobile, isValidIndianMobile } from '@/utils/mobile';
 import { requireStaffPermission } from '@/lib/staff-auth';
 import { StaffService } from '@/services/StaffService';
@@ -17,7 +17,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const body = await req.json();
   const parsed = staffUpdateSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: formatZodFlattenError(parsed.error.flatten()) },
+      { status: 400 }
+    );
   }
 
   const existing = await prisma.staffAccount.findFirst({ where: { id, deletedAt: null } });

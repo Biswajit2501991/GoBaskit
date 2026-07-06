@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { StaffRole } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth';
-import { staffCreateSchema } from '@/lib/validations';
+import { staffCreateSchema, formatZodFlattenError } from '@/lib/validations';
 import { normalizeMobile, isValidIndianMobile } from '@/utils/mobile';
 import { requireStaffPermission } from '@/lib/staff-auth';
 import { StaffService } from '@/services/StaffService';
@@ -31,7 +31,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const parsed = staffCreateSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: formatZodFlattenError(parsed.error.flatten()) },
+      { status: 400 }
+    );
   }
 
   const mobile = normalizeMobile(parsed.data.mobile);

@@ -40,6 +40,29 @@ const emptyForm = {
   deliveryRadius: '',
 };
 
+function parseOptionalNumber(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : null;
+}
+
+function staffPayloadError(form: typeof emptyForm, editingId: string | null): string | null {
+  if (!form.name.trim()) return 'Name is required';
+  if (form.mobile.length < 10) return 'Enter a valid 10-digit mobile number';
+  if (!editingId && form.password.length < 6) return 'Password must be at least 6 characters';
+  const email = form.email.trim();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return 'Enter a valid email or leave the email field blank';
+  }
+  if (form.latitude.trim() && parseOptionalNumber(form.latitude) === null) return 'Latitude must be a valid number';
+  if (form.longitude.trim() && parseOptionalNumber(form.longitude) === null) return 'Longitude must be a valid number';
+  if (form.deliveryRadius.trim() && parseOptionalNumber(form.deliveryRadius) === null) {
+    return 'Radius must be a valid number';
+  }
+  return null;
+}
+
 export default function StaffManager() {
   const router = useRouter();
   const [items, setItems] = useState<StaffRow[]>([]);
@@ -95,21 +118,28 @@ export default function StaffManager() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    const validationError = staffPayloadError(form, editingId);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    const email = form.email.trim();
     const payload = {
-      name: form.name,
+      name: form.name.trim(),
       mobile: form.mobile,
-      email: form.email || undefined,
-      password: form.password || undefined,
       role: form.role,
       active: form.active,
-      assignedCity: form.assignedCity || '',
+      assignedCity: form.assignedCity.trim() || undefined,
       assignedAreas: form.assignedAreas
         .split(',')
         .map((a) => a.trim())
         .filter(Boolean),
-      latitude: form.latitude ? Number(form.latitude) : null,
-      longitude: form.longitude ? Number(form.longitude) : null,
-      deliveryRadius: form.deliveryRadius ? Number(form.deliveryRadius) : null,
+      latitude: parseOptionalNumber(form.latitude),
+      longitude: parseOptionalNumber(form.longitude),
+      deliveryRadius: parseOptionalNumber(form.deliveryRadius),
+      ...(email ? { email } : {}),
+      ...(form.password ? { password: form.password } : {}),
     };
     const url = editingId ? `/api/admin/staff/${editingId}` : '/api/admin/staff';
     try {
@@ -192,7 +222,13 @@ export default function StaffManager() {
               </div>
               <div>
                 <Label>Email (optional)</Label>
-                <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1" />
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="name@example.com"
+                  className="mt-1"
+                />
               </div>
               <div>
                 <Label>Role</Label>
