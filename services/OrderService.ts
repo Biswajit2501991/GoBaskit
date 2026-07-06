@@ -84,6 +84,7 @@ export class OrderService {
     const page = params.page ?? 1;
     const pageSize = Math.min(params.pageSize ?? 20, 100);
     const where: Prisma.OrderWhereInput = {
+      archivedAt: null,
       ...(params.status ? { status: params.status } : {}),
       ...(params.assignedStaffId ? { assignedStaffId: params.assignedStaffId } : {}),
       ...(params.search

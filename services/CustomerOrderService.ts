@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { normalizeMobile } from '@/utils/mobile';
 import { isActiveOrderStatus } from '@/utils/orderTracking';
 import { CustomerProfileService } from '@/services/CustomerProfileService';
+import { OrderArchiveService } from '@/services/OrderArchiveService';
 import type { SavedCheckoutProfile } from '@/utils/customerProfile';
 
 export interface CustomerOrderSummary {
@@ -18,6 +19,8 @@ export interface CustomerOrderDetail extends CustomerOrderSummary {
   subtotal: number;
   deliveryCharge: number;
   paymentMethod: string;
+  cancelNotice?: string | null;
+  customerVisibleUntil?: string | null;
   items: Array<{
     id: string;
     productName: string;
@@ -46,8 +49,9 @@ export class CustomerOrderService {
     const orders = await prisma.order.findMany({
       where: {
         customer: customerMobileWhere(mobile),
+        ...OrderArchiveService.customerVisibilityFilter(),
         ...(options?.activeOnly
-          ? { status: { in: ['PENDING', 'ACCEPTED', 'PACKED', 'OUT_FOR_DELIVERY'] } }
+          ? { status: { in: ['PENDING', 'ACCEPTED', 'PACKED', 'OUT_FOR_DELIVERY'] }, archivedAt: null }
           : {}),
       },
       orderBy: { createdAt: 'desc' },
@@ -69,6 +73,7 @@ export class CustomerOrderService {
     return prisma.order.count({
       where: {
         customer: customerMobileWhere(mobile),
+        archivedAt: null,
         status: { in: ['PENDING', 'ACCEPTED', 'PACKED', 'OUT_FOR_DELIVERY'] },
       },
     });
@@ -79,6 +84,7 @@ export class CustomerOrderService {
       where: {
         id: orderId,
         customer: customerMobileWhere(mobile),
+        ...OrderArchiveService.customerVisibilityFilter(),
       },
       include: {
         customer: {
@@ -112,6 +118,8 @@ export class CustomerOrderService {
       subtotal: order.subtotal,
       deliveryCharge: order.deliveryCharge,
       paymentMethod: order.paymentMethod,
+      cancelNotice: order.cancelNotice,
+      customerVisibleUntil: order.customerVisibleUntil?.toISOString() ?? null,
       createdAt: order.createdAt.toISOString(),
       itemCount: order.items.length,
       items: order.items,
@@ -125,7 +133,10 @@ export class CustomerOrderService {
 
   static async getLatestProfileForMobile(mobile: string): Promise<SavedCheckoutProfile | null> {
     const order = await prisma.order.findFirst({
-      where: { customer: customerMobileWhere(mobile) },
+      where: {
+        customer: customerMobileWhere(mobile),
+        ...OrderArchiveService.customerVisibilityFilter(),
+      },
       orderBy: { createdAt: 'desc' },
       include: { customer: true },
     });

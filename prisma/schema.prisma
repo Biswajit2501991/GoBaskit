@@ -138,6 +138,11 @@ model Order {
   priority        OrderPriority @default(NORMAL)
   adminNotes      String?       @map("admin_notes")
   stockReserved   Boolean       @default(false) @map("stock_reserved")
+  archivedAt           DateTime?     @map("archived_at")
+  customerVisibleUntil DateTime?     @map("customer_visible_until")
+  purgeAt              DateTime?     @map("purge_at")
+  cancelNotice         String?       @map("cancel_notice")
+  smsSentAt            DateTime?     @map("sms_sent_at")
   items           OrderItem[]
   statusHistory   OrderStatusHistory[]
   createdAt       DateTime      @default(now()) @map("created_at")
@@ -146,7 +151,20 @@ model Order {
   @@index([status, createdAt])
   @@index([assignedStaffId])
   @@index([priority, createdAt])
+  @@index([archivedAt, purgeAt])
   @@map("orders")
+}
+
+model CustomerNotice {
+  id        String   @id @default(cuid())
+  mobile    String
+  orderId   String?  @map("order_id")
+  message   String
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([mobile, expiresAt])
+  @@map("customer_notices")
 }
 
 model OrderStatusHistory {

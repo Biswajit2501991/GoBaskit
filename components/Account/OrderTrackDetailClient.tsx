@@ -18,6 +18,8 @@ interface OrderDetail {
   status: OrderStatus;
   grandTotal: number;
   createdAt: string;
+  cancelNotice?: string | null;
+  customerVisibleUntil?: string | null;
   items: Array<{ productName: string; quantity: number; unit: string; totalPrice: number }>;
 }
 
@@ -100,7 +102,7 @@ export default function OrderTrackDetailClient({ orderId }: { orderId: string })
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 p-5">
-              <OrderProgressTracker status={order.status} />
+              <OrderProgressTracker status={order.status} cancelMessage={order.cancelNotice} />
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 p-5">

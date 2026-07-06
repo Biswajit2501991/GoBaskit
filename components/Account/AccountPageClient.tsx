@@ -19,6 +19,7 @@ export default function AccountPageClient() {
   const [mobile, setMobile] = useState<string | null>(null);
   const [profile, setProfile] = useState<SavedCheckoutProfile | null>(null);
   const [activeCount, setActiveCount] = useState(0);
+  const [notices, setNotices] = useState<Array<{ id: string; message: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [tracking, setTracking] = useState(false);
 
@@ -33,9 +34,10 @@ export default function AccountPageClient() {
       return;
     }
 
-    const [profileRes, ordersRes] = await Promise.all([
+    const [profileRes, ordersRes, noticesRes] = await Promise.all([
       fetch('/api/customer/profile'),
       fetch('/api/customer/orders?active=1'),
+      fetch('/api/customer/notices'),
     ]);
 
     if (profileRes.ok) {
@@ -53,6 +55,11 @@ export default function AccountPageClient() {
     if (ordersRes.ok) {
       const ordersData = await ordersRes.json();
       setActiveCount(ordersData.activeCount ?? 0);
+    }
+
+    if (noticesRes.ok) {
+      const noticesData = await noticesRes.json();
+      setNotices(Array.isArray(noticesData.notices) ? noticesData.notices : []);
     }
 
     setLoading(false);
@@ -120,6 +127,17 @@ export default function AccountPageClient() {
           </div>
         ) : (
           <div className="space-y-4">
+            {notices.length > 0 && (
+              <section className="bg-red-50 border border-red-200 rounded-2xl p-4 space-y-2">
+                <h2 className="font-semibold text-red-800 text-sm">Order updates</h2>
+                {notices.map((notice) => (
+                  <p key={notice.id} className="text-sm text-red-700">
+                    {notice.message}
+                  </p>
+                ))}
+                <p className="text-[11px] text-red-500">These notices are shown for 24 hours after cancellation.</p>
+              </section>
+            )}
             <section className="bg-white rounded-2xl border border-gray-100 p-5">
               <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                 <User className="w-4 h-4 text-blinkit-green" />

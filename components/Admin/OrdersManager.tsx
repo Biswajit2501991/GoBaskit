@@ -356,12 +356,14 @@ function OrderCard({
 export default function OrdersManager({
   currentStaffId,
   canEdit,
+  canDelete,
   canAssign,
   canOverrideLock,
   forceAssignedToMe = false,
 }: {
   currentStaffId: string;
   canEdit: boolean;
+  canDelete: boolean;
   canAssign: boolean;
   canOverrideLock: boolean;
   forceAssignedToMe?: boolean;
@@ -373,6 +375,7 @@ export default function OrdersManager({
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [archivingAll, setArchivingAll] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [draggingOrderId, setDraggingOrderId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
@@ -453,7 +456,7 @@ export default function OrdersManager({
         return;
       }
 
-      if (data.type === 'order_created') {
+      if (data.type === 'order_created' || data.type === 'orders_archived') {
         scheduleSilentReload();
       }
     });
@@ -575,6 +578,29 @@ export default function OrdersManager({
     void updateOrder(orderId, { status: targetStatus }, { status: targetStatus });
   }
 
+  async function archiveAllOrders() {
+    if (!canDelete || archivingAll) return;
+    const confirmed = window.confirm(
+      'Delete ALL active orders?\n\nCustomers will be notified that their order was cancelled due to unavailability or product quality. Orders move to Archive for 72 hours, then are permanently deleted. Customers see the notice for 24 hours.',
+    );
+    if (!confirmed) return;
+
+    setArchivingAll(true);
+    try {
+      const res = await fetch('/api/admin/orders/archive-all', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(typeof data.error === 'string' ? data.error : 'Failed to archive orders');
+        return;
+      }
+      alert(`Archived ${data.archivedCount ?? 0} order(s). SMS sent to ${data.smsRecipients ?? 0} customer(s) (if SMS is configured).`);
+      setPage(1);
+      await load();
+    } finally {
+      setArchivingAll(false);
+    }
+  }
+
   return (
     <div className="p-6 w-full max-w-[100vw]">
       <div className="flex items-center gap-3 mb-2">
@@ -585,13 +611,24 @@ export default function OrdersManager({
         Kanban board by status — drag cards between columns or use the status dropdown. Status updates automatically when dropped.
       </p>
 
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <Input
           placeholder="Search order #, customer, mobile..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           className="max-w-sm"
         />
+        {canDelete && (
+          <Button
+            type="button"
+            variant="outline"
+            className="text-red-600 border-red-200 hover:bg-red-50"
+            disabled={archivingAll || total === 0}
+            onClick={archiveAllOrders}
+          >
+            {archivingAll ? 'Archiving...' : 'Delete all orders'}
+          </Button>
+        )}
       </div>
 
       {loading ? (

@@ -11,6 +11,7 @@ export default async function DeliveryDeskPage() {
     <OrdersManager
       currentStaffId={staff!.id}
       canEdit={staffHasPermission(staff!.role, perms, 'delivery:update')}
+      canDelete={false}
       canAssign={false}
       canOverrideLock={staffHasPermission(staff!.role, perms, 'orders:override_lock')}
       forceAssignedToMe

@@ -4,13 +4,21 @@ import type { OrderStatus } from '@prisma/client';
 import { Check, Package, ShoppingBag, Truck, XCircle } from 'lucide-react';
 import { TRACKING_STEPS, getTrackingHeadline, getTrackingStepIndex } from '@/utils/orderTracking';
 
-export default function OrderProgressTracker({ status }: { status: OrderStatus }) {
+export default function OrderProgressTracker({
+  status,
+  cancelMessage,
+}: {
+  status: OrderStatus;
+  cancelMessage?: string | null;
+}) {
   if (status === 'CANCELLED') {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
         <XCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
         <h2 className="text-lg font-bold text-red-800">Order cancelled</h2>
-        <p className="text-sm text-red-600 mt-1">This order was cancelled and will not be delivered.</p>
+        <p className="text-sm text-red-600 mt-1">
+          {cancelMessage || 'This order was cancelled and will not be delivered.'}
+        </p>
       </div>
     );
   }

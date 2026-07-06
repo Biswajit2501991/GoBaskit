@@ -11,6 +11,7 @@ export default async function AdminOrdersPage() {
     <OrdersManager
       currentStaffId={staff!.id}
       canEdit={staffHasPermission(staff!.role, perms, 'orders:edit')}
+      canDelete={staffHasPermission(staff!.role, perms, 'orders:delete')}
       canAssign={staffHasPermission(staff!.role, perms, 'orders:assign')}
       canOverrideLock={staffHasPermission(staff!.role, perms, 'orders:override_lock')}
       forceAssignedToMe={staff!.role === 'DELIVERY_MANAGER'}

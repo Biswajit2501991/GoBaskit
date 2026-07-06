@@ -42,4 +42,21 @@ fi
 
 if $local_ok && $public_ok; then
   log "OK (local + public)"
+  PURGE_STAMP="$ROOT/logs/.last-purge"
+  if [[ ! -f "$PURGE_STAMP" ]] || [[ -n "$(find "$PURGE_STAMP" -mmin +30 2>/dev/null)" ]]; then
+    if [[ -f "$ROOT/.env" ]]; then
+      set -a
+      # shellcheck disable=SC1091
+      source "$ROOT/.env"
+      set +a
+    fi
+    if [[ -n "${CRON_SECRET:-}" ]]; then
+      curl -sf -X POST -H "x-cron-secret: $CRON_SECRET" http://127.0.0.1:3000/api/cron/purge-archived-orders >> "$LOG" 2>&1 \
+        || (cd "$ROOT" && npx tsx scripts/purge-archived-orders.ts >> "$LOG" 2>&1) \
+        || true
+    else
+      (cd "$ROOT" && npx tsx scripts/purge-archived-orders.ts >> "$LOG" 2>&1) || true
+    fi
+    touch "$PURGE_STAMP"
+  fi
 fi

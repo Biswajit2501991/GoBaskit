@@ -14,6 +14,7 @@ const nav: { href: string; label: string; permission: Permission }[] = [
   { href: '/admin/bulk-upload', label: 'Bulk Upload', permission: 'bulk_upload:use' },
   { href: '/admin/staff', label: 'Staff', permission: 'staff:view' },
   { href: '/admin/settings', label: 'Settings', permission: 'settings:view' },
+  { href: '/admin/archive', label: 'Archive', permission: 'orders:view' },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
