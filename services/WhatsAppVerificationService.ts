@@ -87,7 +87,7 @@ export class WhatsAppVerificationService {
     if (await this.isMobileVerified(mobileE164)) return false;
 
     const checkoutMobile = e164ToCheckoutMobile(mobileE164);
-    const orderCount = await CustomerOrderService.orderCountForMobile(checkoutMobile);
+    const orderCount = await CustomerOrderService.completedOrderCountForMobile(checkoutMobile);
     return orderCount === 0;
   }
 
@@ -224,6 +224,7 @@ export class WhatsAppVerificationService {
       mobile: mobileE164,
       verified,
       needsVerification,
+      canCheckout: verified || !needsVerification,
       verification: pending ? this.serializeVerification(pending) : null,
     };
   }

@@ -10,6 +10,7 @@ import { useStaffPortalStore } from '@/store/staffPortalStore';
 import LocationBar from '@/components/Header/LocationBar';
 import AccountMobileModal from '@/components/Header/AccountMobileModal';
 import StaffAdminLoginModal from '@/components/Header/StaffAdminLoginModal';
+import { clearCheckoutProfileLocal } from '@/utils/customerProfile';
 
 interface HeaderProps {
   search?: string;
@@ -60,6 +61,7 @@ export default function Header({ search = '', onSearchChange, showSearch = true 
 
   async function handleCustomerLogout() {
     await fetch('/api/customer/account', { method: 'DELETE' }).catch(() => null);
+    clearCheckoutProfileLocal();
     clearAccount();
     setAccountMenuOpen(false);
     if (pathname?.startsWith('/account')) {

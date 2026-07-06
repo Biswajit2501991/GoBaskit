@@ -88,6 +88,17 @@ export class CustomerOrderService {
     });
   }
 
+  /** Orders that exempt a customer from first-time WhatsApp verification. */
+  static async completedOrderCountForMobile(mobile: string): Promise<number> {
+    return prisma.order.count({
+      where: {
+        customer: customerMobileWhere(mobile),
+        archivedAt: null,
+        status: { notIn: ['CANCELLED'] },
+      },
+    });
+  }
+
   static async getByIdForMobile(orderId: string, mobile: string): Promise<CustomerOrderDetail | null> {
     const order = await prisma.order.findFirst({
       where: {

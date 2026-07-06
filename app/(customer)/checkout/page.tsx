@@ -85,10 +85,13 @@ export default function CheckoutPage() {
     if (profileLoaded) return;
 
     async function loadProfile() {
-      const mobile = customerMobile || checkedMobile;
-      let profile = loadCheckoutProfileLocal();
+      const accountRes = await fetch('/api/customer/account');
+      const accountData = accountRes.ok ? await accountRes.json() : { mobile: null };
+      const sessionMobile = accountData.mobile ? normalizeMobile(accountData.mobile) : '';
+      const mobile = sessionMobile || customerMobile || checkedMobile;
+      let profile = sessionMobile ? loadCheckoutProfileLocal() : null;
 
-      if (mobile) {
+      if (sessionMobile && mobile) {
         try {
           const res = await fetch('/api/customer/profile');
           if (res.ok) {
@@ -151,6 +154,7 @@ export default function CheckoutPage() {
   const isWhatsAppPatternValid = /^\d{10}$/.test(enteredMobile);
   const mobileE164 = isWhatsAppPatternValid ? (toE164('91', enteredMobile) ?? '') : '';
   const [whatsappVerified, setWhatsappVerified] = useState(false);
+  const [needsWhatsappVerification, setNeedsWhatsappVerification] = useState(true);
   const [verifiedMobileE164, setVerifiedMobileE164] = useState<string | null>(null);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [pendingSubmitSource, setPendingSubmitSource] = useState<'website' | 'whatsapp' | null>(null);
@@ -175,12 +179,14 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!isWhatsAppPatternValid || !mobileE164) {
       setWhatsappVerified(false);
+      setNeedsWhatsappVerification(true);
       setVerifiedMobileE164(null);
       return;
     }
 
     if (verifiedMobileE164 && verifiedMobileE164 !== mobileE164) {
       setWhatsappVerified(false);
+      setNeedsWhatsappVerification(true);
       setVerifiedMobileE164(null);
     }
 
@@ -189,11 +195,9 @@ export default function CheckoutPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!alive || !data) return;
+        setWhatsappVerified(data.verified === true);
+        setNeedsWhatsappVerification(data.needsVerification !== false);
         if (data.verified) {
-          setWhatsappVerified(true);
-          setVerifiedMobileE164(mobileE164);
-        } else if (!data.needsVerification) {
-          setWhatsappVerified(true);
           setVerifiedMobileE164(mobileE164);
         }
       })
@@ -260,15 +264,21 @@ export default function CheckoutPage() {
     try {
       const res = await fetch(`/api/customer/verification/status?mobile=${encodeURIComponent(e164)}`);
       const status = res.ok ? await res.json() : null;
-      if (status?.verified || status?.needsVerification === false) {
+      if (status?.verified) {
         setWhatsappVerified(true);
+        setNeedsWhatsappVerification(false);
         setVerifiedMobileE164(e164);
+        return true;
+      }
+      if (status?.canCheckout) {
+        setNeedsWhatsappVerification(false);
         return true;
       }
     } catch {
       /* fall through to modal */
     }
 
+    setNeedsWhatsappVerification(true);
     setShowVerificationModal(true);
     return false;
   }
@@ -289,6 +299,10 @@ export default function CheckoutPage() {
 
   async function submitOrder(data: CheckoutSchema, source: 'website' | 'whatsapp') {
     if (!validateBeforeSubmit(data)) return;
+    if (!(await ensureWhatsAppVerified(data))) {
+      setPendingSubmitSource(source);
+      return;
+    }
 
     const payload = {
       customer: data,
@@ -326,15 +340,17 @@ export default function CheckoutPage() {
       const result = await res.json().catch(() => ({}));
       if (!res.ok) {
         setOrderError(typeof result.error === 'string' ? result.error : 'Failed to place order');
-        if (source === 'website') return;
+        if (result.code === 'VERIFICATION_REQUIRED') {
+          setNeedsWhatsappVerification(true);
+          setShowVerificationModal(true);
+        }
+        return;
       } else {
         orderPlaced = true;
       }
     } catch {
-      if (source === 'website') {
-        setOrderError('Network error. Please try again.');
-        return;
-      }
+      setOrderError('Network error. Please try again.');
+      return;
     }
 
     await persistProfile(data);
@@ -361,25 +377,16 @@ export default function CheckoutPage() {
   }
 
   async function onSubmitWebsite(data: CheckoutSchema) {
-    if (!validateBeforeSubmit(data)) return;
-    if (!(await ensureWhatsAppVerified(data))) {
-      setPendingSubmitSource('website');
-      return;
-    }
     await submitOrder(data, 'website');
   }
 
   async function onSubmitWhatsApp(data: CheckoutSchema) {
-    if (!validateBeforeSubmit(data)) return;
-    if (!(await ensureWhatsAppVerified(data))) {
-      setPendingSubmitSource('whatsapp');
-      return;
-    }
     await submitOrder(data, 'whatsapp');
   }
 
   async function handleVerified(mobile: string) {
     setWhatsappVerified(true);
+    setNeedsWhatsappVerification(false);
     setVerifiedMobileE164(mobile);
     setShowVerificationModal(false);
     const checkoutMobile = e164ToCheckoutMobile(mobile);
@@ -615,7 +622,7 @@ export default function CheckoutPage() {
                     ? 'Delivery unavailable at this address'
                     : !isWhatsAppPatternValid
                       ? 'Enter valid mobile number'
-                      : !whatsappVerified
+                      : needsWhatsappVerification && !whatsappVerified
                       ? 'Verify WhatsApp to place order'
                       : 'Place Order'}
               </Button>

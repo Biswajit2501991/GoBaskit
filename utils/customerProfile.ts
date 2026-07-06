@@ -55,3 +55,12 @@ export function loadCheckoutProfileLocal(): SavedCheckoutProfile | null {
     return null;
   }
 }
+
+export function clearCheckoutProfileLocal(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* private mode */
+  }
+}
