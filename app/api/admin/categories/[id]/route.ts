@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { categorySchema } from '@/lib/validations';
+import { categorySchema, formatZodFlattenError } from '@/lib/validations';
 import { slugify } from '@/lib/utils';
 import { requireStaffPermission } from '@/lib/staff-auth';
 import { requireSameOrigin } from '@/lib/security';
@@ -18,7 +18,10 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   const body = await req.json();
   const parsed = categorySchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
+    return NextResponse.json(
+      { error: formatZodFlattenError(parsed.error.flatten()) },
+      { status: 400 },
+    );
   }
 
   const existing = await prisma.category.findUnique({ where: { id } });
@@ -29,7 +32,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     where: { slug, NOT: { id } },
   });
   if (slugConflict) {
-    return NextResponse.json({ error: { slug: ['Slug already in use'] } }, { status: 400 });
+    return NextResponse.json({ error: 'Slug already in use' }, { status: 400 });
   }
 
   const category = await prisma.category.update({

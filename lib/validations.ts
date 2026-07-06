@@ -133,7 +133,7 @@ export const categorySchema = z.object({
   slug: z.string().optional(),
   imageUrl: z.string().optional(),
   sortOrder: z.coerce.number().int().optional(),
-  isActive: z.boolean().optional(),
+  isActive: z.coerce.boolean().optional(),
 });
 
 export type CategoryFormData = z.input<typeof categorySchema>;

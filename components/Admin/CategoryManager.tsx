@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { categorySchema, type CategoryFormData } from '@/lib/validations';
+import { categorySchema, type CategoryFormData, formatZodFlattenError } from '@/lib/validations';
 import { resolvePublicImageUrl } from '@/utils/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -124,21 +124,35 @@ export default function CategoryManager({
     const url = editingId ? `/api/admin/categories/${editingId}` : '/api/admin/categories';
     const method = editingId ? 'PUT' : 'POST';
 
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...data,
+          slug: data.slug?.trim() || undefined,
+          imageUrl: data.imageUrl?.trim() || undefined,
+        }),
+      });
 
-    if (!res.ok) {
-      const err = await res.json();
-      setError(typeof err.error === 'string' ? err.error : 'Failed to save category');
-      return;
+      const err = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (typeof err.error === 'string') {
+          setError(err.error);
+        } else if (err.error && typeof err.error === 'object') {
+          setError(formatZodFlattenError({ fieldErrors: err.error, formErrors: [] }));
+        } else {
+          setError('Failed to save category');
+        }
+        return;
+      }
+
+      closeForm();
+      await load();
+      router.refresh();
+    } catch {
+      setError('Network error. Please try again.');
     }
-
-    closeForm();
-    await load();
-    router.refresh();
   }
 
   async function handleDelete(id: string) {
@@ -176,48 +190,60 @@ export default function CategoryManager({
       />
 
       {showForm && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold">{editingId ? 'Edit Category' : 'New Category'}</h2>
-            <button onClick={closeForm} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-bold">{editingId ? 'Edit Category' : 'New Category'}</h2>
+              <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600" aria-label="Close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Name *</Label>
+                <Input {...register('name')} placeholder="e.g. Vegetables" className="mt-1" disabled={!canEdit} />
+                {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
+              </div>
+              <div>
+                <Label>Slug (optional)</Label>
+                <Input {...register('slug')} placeholder="auto-generated from name" className="mt-1" disabled={!canEdit} />
+                {errors.slug && <p className="text-red-500 text-xs mt-1">{errors.slug.message}</p>}
+              </div>
+              <div>
+                <Label>Sort Order</Label>
+                <Input {...register('sortOrder')} type="number" className="mt-1" disabled={!canEdit} />
+                {errors.sortOrder && <p className="text-red-500 text-xs mt-1">{errors.sortOrder.message}</p>}
+              </div>
+              <div className="md:col-span-2">
+                <ProductImageUpload
+                  value={imageUrl}
+                  onChange={(url) => setValue('imageUrl', url, { shouldDirty: true })}
+                  label="Category Image"
+                  disabled={!canEdit}
+                  uploadType="category"
+                  showWebSuggestions={false}
+                  searchName={categoryName}
+                />
+              </div>
+              <div className="flex items-center gap-2 md:col-span-2">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  {...register('isActive')}
+                  className="accent-blinkit-green"
+                  disabled={!canEdit}
+                />
+                <label htmlFor="isActive" className="text-sm font-medium">Active (visible on store)</label>
+              </div>
+              {error && <p className="text-red-500 text-sm md:col-span-2">{error}</p>}
+              <div className="flex gap-2 md:col-span-2">
+                <Button type="submit" disabled={isSubmitting || !canEdit}>
+                  {isSubmitting ? 'Saving...' : editingId ? 'Update Category' : 'Create Category'}
+                </Button>
+                <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
+              </div>
+            </form>
           </div>
-          <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>Name *</Label>
-              <Input {...register('name')} placeholder="e.g. Vegetables" className="mt-1" disabled={!canEdit} />
-              {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
-            </div>
-            <div>
-              <Label>Slug (optional)</Label>
-              <Input {...register('slug')} placeholder="auto-generated from name" className="mt-1" disabled={!canEdit} />
-            </div>
-            <div>
-              <Label>Sort Order</Label>
-              <Input {...register('sortOrder')} type="number" className="mt-1" disabled={!canEdit} />
-            </div>
-            <div className="md:col-span-2">
-              <ProductImageUpload
-                value={imageUrl}
-                onChange={(url) => setValue('imageUrl', url, { shouldDirty: true })}
-                label="Category Image"
-                disabled={!canEdit}
-                uploadType="category"
-                showWebSuggestions={false}
-                searchName={categoryName}
-              />
-            </div>
-            <div className="flex items-center gap-2 md:col-span-2">
-              <input type="checkbox" id="isActive" {...register('isActive')} className="accent-blinkit-green" disabled={!canEdit} />
-              <label htmlFor="isActive" className="text-sm font-medium">Active (visible on store)</label>
-            </div>
-            {error && <p className="text-red-500 text-sm md:col-span-2">{error}</p>}
-            <div className="flex gap-2 md:col-span-2">
-              <Button type="submit" disabled={isSubmitting || !canEdit}>
-                {isSubmitting ? 'Saving...' : editingId ? 'Update Category' : 'Create Category'}
-              </Button>
-              <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
-            </div>
-          </form>
         </div>
       )}
 
@@ -246,7 +272,7 @@ export default function CategoryManager({
             )}
             <div className="flex-1">
               <h3 className="font-bold text-gray-900">{cat.name}</h3>
-              <p className="text-sm text-gray-500 mt-1">{cat._count.products} products</p>
+              <p className="text-sm text-gray-500 mt-1">{cat._count?.products ?? 0} products</p>
               <p className="text-xs text-gray-400 mt-0.5">/{cat.slug}</p>
               <span className={`text-xs font-semibold mt-2 inline-block px-2 py-0.5 rounded ${cat.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
                 {cat.isActive ? 'Active' : 'Disabled'}
@@ -260,8 +286,8 @@ export default function CategoryManager({
                 variant="destructive"
                 size="sm"
                 onClick={() => handleDelete(cat.id)}
-                disabled={deletingId === cat.id || cat._count.products > 0 || !canEdit}
-                title={cat._count.products > 0 ? 'Move products before deleting' : 'Delete'}
+                disabled={deletingId === cat.id || (cat._count?.products ?? 0) > 0 || !canEdit}
+                title={(cat._count?.products ?? 0) > 0 ? 'Move products before deleting' : 'Delete'}
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </Button>
