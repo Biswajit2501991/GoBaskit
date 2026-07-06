@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatCustomerName } from '@/utils/customer';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,7 @@ interface StaffOption {
 
 const STATUSES = ['PENDING', 'ACCEPTED', 'PACKED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
 const PRIORITIES = ['NORMAL', 'HIGH', 'URGENT'];
+const SSE_RELOAD_DEBOUNCE_MS = 800;
 
 function getWhatsAppMessage(order: OrderRow) {
   return [
@@ -56,6 +57,28 @@ function getWhatsAppMessage(order: OrderRow) {
     `Total: ${formatCurrency(order.grandTotal)}.`,
     'Thank you for shopping with us.',
   ].join('\n');
+}
+
+function patchOrderFromEvent(order: OrderRow, payload: Record<string, unknown>): OrderRow {
+  const assignedStaff = payload.assignedStaff as { id: string; name: string } | null | undefined;
+  const customer = payload.customer as { firstName: string; lastName: string; mobile: string } | undefined;
+  return {
+    ...order,
+    ...(payload.status ? { status: String(payload.status) } : {}),
+    ...(payload.priority ? { priority: String(payload.priority) } : {}),
+    ...(payload.grandTotal != null ? { grandTotal: Number(payload.grandTotal) } : {}),
+    ...(payload.assignedStaffId !== undefined
+      ? { assignedStaffId: payload.assignedStaffId ? String(payload.assignedStaffId) : null }
+      : {}),
+    ...(assignedStaff !== undefined ? { assignedStaff: assignedStaff ?? null } : {}),
+    ...(payload.lockedAt !== undefined
+      ? { lockedAt: payload.lockedAt ? String(payload.lockedAt) : null }
+      : {}),
+    ...(payload.adminNotes !== undefined
+      ? { adminNotes: payload.adminNotes ? String(payload.adminNotes) : null }
+      : {}),
+    ...(customer ? { customer } : {}),
+  };
 }
 
 export default function OrdersManager({
@@ -78,24 +101,46 @@ export default function OrdersManager({
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const initialLoadDone = useRef(false);
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadRef = useRef<(options?: { silent?: boolean }) => Promise<void>>(async () => {});
+
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? initialLoadDone.current;
+    if (silent) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
     const params = new URLSearchParams({ page: String(page), pageSize: '20' });
     if (search) params.set('search', search);
     if (statusFilter) params.set('status', statusFilter);
     if (forceAssignedToMe) params.set('assignedStaffId', currentStaffId);
-    const res = await fetch(`/api/admin/orders?${params}`);
-    if (res.ok) {
-      const data = await res.json();
-      setOrders(data.items);
-      setTotal(data.total);
+
+    try {
+      const res = await fetch(`/api/admin/orders?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data.items);
+        setTotal(data.total);
+      }
+    } finally {
+      if (silent) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
+      initialLoadDone.current = true;
     }
-    setLoading(false);
   }, [page, search, statusFilter, forceAssignedToMe, currentStaffId]);
 
+  loadRef.current = load;
+
   useEffect(() => {
-    const t = setTimeout(load, 300);
+    const t = setTimeout(() => load(), 300);
     return () => clearTimeout(t);
   }, [load]);
 
@@ -106,13 +151,44 @@ export default function OrdersManager({
   }, []);
 
   useEffect(() => {
+    function scheduleSilentReload() {
+      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+      reloadTimerRef.current = setTimeout(() => {
+        reloadTimerRef.current = null;
+        void loadRef.current({ silent: true });
+      }, SSE_RELOAD_DEBOUNCE_MS);
+    }
+
     const unsubscribe = subscribeToAdminEvents((data) => {
-      if (data.type === 'order_created' || data.type === 'order_updated') {
-        load();
+      if (data.type === 'order_updated') {
+        const payload = data.payload;
+        const id = String(payload.id ?? '');
+        if (id) {
+          setOrders((prev) => {
+            const index = prev.findIndex((o) => o.id === id);
+            if (index === -1) {
+              scheduleSilentReload();
+              return prev;
+            }
+            return prev.map((o) => (o.id === id ? patchOrderFromEvent(o, payload) : o));
+          });
+        }
+        return;
+      }
+
+      if (data.type === 'order_created') {
+        scheduleSilentReload();
       }
     });
-    return unsubscribe;
-  }, [load]);
+
+    return () => {
+      unsubscribe();
+      if (reloadTimerRef.current) {
+        clearTimeout(reloadTimerRef.current);
+        reloadTimerRef.current = null;
+      }
+    };
+  }, []);
 
   async function updateOrder(id: string, patch: Record<string, unknown>, optimistic: Partial<OrderRow>) {
     if (!canEdit) return;
@@ -123,7 +199,7 @@ export default function OrdersManager({
       body: JSON.stringify({ id, ...patch }),
     });
     if (!res.ok) {
-      load();
+      void load({ silent: true });
       const data = await res.json();
       alert(data.error || 'Update failed');
       return;
@@ -148,7 +224,7 @@ export default function OrdersManager({
       body: JSON.stringify({ staffId }),
     });
     if (!res.ok) {
-      load();
+      void load({ silent: true });
       const data = await res.json();
       alert(data.error || 'Assign failed');
       return;
@@ -169,7 +245,7 @@ export default function OrdersManager({
     );
     const res = await fetch(`/api/admin/orders/${id}/release`, { method: 'POST' });
     if (!res.ok) {
-      load();
+      void load({ silent: true });
       const data = await res.json();
       alert(data.error || 'Release failed');
       return;
@@ -182,7 +258,12 @@ export default function OrdersManager({
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Orders ({total})</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <h1 className="text-2xl font-bold">Orders ({total})</h1>
+        {refreshing && (
+          <span className="text-xs text-gray-400 animate-pulse">Updating…</span>
+        )}
+      </div>
 
       <div className="flex flex-wrap gap-3 mb-4">
         <Input

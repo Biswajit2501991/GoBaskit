@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
     assignedStaffId: searchParams.get('assignedStaffId') || undefined,
     page: Number(searchParams.get('page') || 1),
     pageSize: Number(searchParams.get('pageSize') || 20),
+    includeHistory: searchParams.get('includeHistory') === '1',
   });
 
   return NextResponse.json(data);

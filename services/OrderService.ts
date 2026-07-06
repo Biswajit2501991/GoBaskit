@@ -12,6 +12,7 @@ export interface OrderListParams {
   assignedStaffId?: string;
   page?: number;
   pageSize?: number;
+  includeHistory?: boolean;
 }
 
 function orderPayload(order: {
@@ -70,11 +71,15 @@ export class OrderService {
           customer: { select: { firstName: true, lastName: true, mobile: true } },
           assignedStaff: { select: { id: true, name: true } },
           items: true,
-          statusHistory: {
-            orderBy: { createdAt: 'desc' },
-            take: 5,
-            include: { staff: { select: { name: true } } },
-          },
+          ...(params.includeHistory
+            ? {
+                statusHistory: {
+                  orderBy: { createdAt: 'desc' as const },
+                  take: 5,
+                  include: { staff: { select: { name: true } } },
+                },
+              }
+            : {}),
         },
         orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,

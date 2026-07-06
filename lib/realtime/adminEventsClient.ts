@@ -11,10 +11,15 @@ type Listener = (event: AdminRealtimeEvent) => void;
 let source: EventSource | null = null;
 const listeners = new Set<Listener>();
 let closeTimer: ReturnType<typeof setTimeout> | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let reconnectAttempts = 0;
 
 function connect() {
-  if (source) return;
+  if (source || reconnectTimer) return;
   source = new EventSource('/api/admin/events');
+  source.onopen = () => {
+    reconnectAttempts = 0;
+  };
   source.onmessage = (ev) => {
     try {
       const event = JSON.parse(ev.data) as AdminRealtimeEvent;
@@ -24,12 +29,16 @@ function connect() {
     }
   };
   source.onerror = () => {
-    // Keep the stream healthy by forcing a reconnect.
     source?.close();
     source = null;
-    if (listeners.size > 0) {
+    if (listeners.size === 0) return;
+
+    reconnectAttempts += 1;
+    const delay = Math.min(30_000, 1_000 * 2 ** Math.min(reconnectAttempts - 1, 5));
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
       connect();
-    }
+    }, delay);
   };
 }
 
@@ -47,6 +56,10 @@ export function subscribeToAdminEvents(listener: Listener) {
   if (closeTimer) {
     clearTimeout(closeTimer);
     closeTimer = null;
+  }
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
   }
   listeners.add(listener);
   connect();
