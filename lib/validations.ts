@@ -99,19 +99,32 @@ export const staffUpdateSchema = staffCreateSchema.partial().extend({
   password: z.string().min(6).optional(),
 });
 
-export const productSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  description: z.string().optional(),
-  price: z.coerce.number().positive('Price must be positive'),
-  unit: z.string().min(1, 'Unit is required'),
-  stock: z.coerce.number().int().min(0, 'Stock cannot be negative'),
-  categoryId: z.string().min(1, 'Please select a category'),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'OUT_OF_STOCK']).optional(),
-  imageUrl: z.string().optional(),
-  discount: z.coerce.number().min(0).max(100).optional(),
-  isFeatured: z.boolean().optional(),
-  isVisible: z.boolean().optional(),
-});
+export const productSchema = z
+  .object({
+    name: z.string().min(2, 'Name must be at least 2 characters'),
+    description: z.string().optional(),
+    price: z.coerce.number().positive('Current price must be positive'),
+    actualPrice: z.preprocess(
+      emptyToNull,
+      z.coerce.number().positive('Actual price must be positive').optional().nullable()
+    ),
+    unit: z.string().min(1, 'Unit is required'),
+    stock: z.coerce.number().int().min(0, 'Stock cannot be negative'),
+    categoryId: z.string().min(1, 'Please select a category'),
+    status: z.enum(['ACTIVE', 'INACTIVE', 'OUT_OF_STOCK']).optional(),
+    imageUrl: z.string().optional(),
+    isFeatured: z.boolean().optional(),
+    isVisible: z.boolean().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.actualPrice != null && data.actualPrice < data.price) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Actual price must be greater than or equal to current price',
+        path: ['actualPrice'],
+      });
+    }
+  });
 
 export type ProductFormData = z.input<typeof productSchema>;
 

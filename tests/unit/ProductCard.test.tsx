@@ -30,6 +30,7 @@ const mockProduct = {
   status: 'ACTIVE',
   imageUrl: null,
   discount: 0,
+  actualPrice: null,
   isFeatured: false,
   isVisible: true,
   categoryId: 'cat1',

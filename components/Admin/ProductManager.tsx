@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { productSchema, type ProductFormData } from '@/lib/validations';
-import { formatCurrency } from '@/utils/formatter';
+import { calculateDiscountPercent } from '@/utils/pricing';
 import { resolvePublicImageUrl } from '@/utils/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,12 +13,14 @@ import { Label } from '@/components/ui/label';
 import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { AdminCategory } from './CategoryManager';
 import ProductImageUpload from './ProductImageUpload';
+import ProductPriceDisplay from '@/components/ProductCard/ProductPriceDisplay';
 
 export interface AdminProduct {
   id: string;
   name: string;
   description: string;
   price: number;
+  actualPrice: number | null;
   unit: string;
   stock: number;
   status: string;
@@ -34,12 +36,12 @@ const emptyProduct: ProductFormData = {
   name: '',
   description: '',
   price: 1,
+  actualPrice: null,
   unit: '1 pc',
   stock: 0,
   categoryId: '',
   status: 'ACTIVE',
   imageUrl: '',
-  discount: 0,
   isFeatured: false,
   isVisible: true,
 };
@@ -81,6 +83,13 @@ export default function ProductManager({
   const currentCategoryId = watch('categoryId') || '';
   const currentCategoryName =
     categories.find((c) => c.id === currentCategoryId)?.name || '';
+  const sellingPrice = Number(watch('price')) || 0;
+  const actualPriceRaw = watch('actualPrice');
+  const actualPrice =
+    actualPriceRaw === null || actualPriceRaw === undefined || actualPriceRaw === ''
+      ? null
+      : Number(actualPriceRaw);
+  const calculatedDiscount = calculateDiscountPercent(actualPrice, sellingPrice);
 
   function openCreate() {
     setEditingId(null);
@@ -99,12 +108,12 @@ export default function ProductManager({
       name: product.name,
       description: product.description,
       price: product.price,
+      actualPrice: product.actualPrice,
       unit: product.unit,
       stock: product.stock,
       categoryId: product.categoryId,
       status: product.status as ProductFormData['status'],
       imageUrl: product.imageUrl || '',
-      discount: product.discount,
       isFeatured: product.isFeatured,
       isVisible: product.isVisible,
     });
@@ -127,7 +136,11 @@ export default function ProductManager({
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        actualPrice:
+          data.actualPrice == null || data.actualPrice === '' ? null : Number(data.actualPrice),
+      }),
     });
 
     if (!res.ok) {
@@ -207,9 +220,33 @@ export default function ProductManager({
               </div>
 
               <div>
-                <Label>Price (₹) *</Label>
+                <Label>Actual Price (₹)</Label>
+                <Input
+                  {...register('actualPrice')}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="e.g. 45 (optional MRP)"
+                  className="mt-1"
+                  disabled={!canEdit}
+                />
+                {errors.actualPrice && <p className="text-red-500 text-xs mt-1">{errors.actualPrice.message}</p>}
+              </div>
+
+              <div>
+                <Label>Current Price (₹) *</Label>
                 <Input {...register('price')} type="number" step="0.01" min="0" className="mt-1" disabled={!canEdit} />
                 {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price.message}</p>}
+              </div>
+
+              <div>
+                <Label>Discount (%)</Label>
+                <Input
+                  value={calculatedDiscount > 0 ? calculatedDiscount : 0}
+                  readOnly
+                  className="mt-1 bg-gray-50"
+                />
+                <p className="text-[11px] text-gray-400 mt-1">Auto-calculated from actual and current price</p>
               </div>
 
               <div>
@@ -222,11 +259,6 @@ export default function ProductManager({
                 <Label>Stock *</Label>
                 <Input {...register('stock')} type="number" min="0" className="mt-1" disabled={!canEdit} />
                 {errors.stock && <p className="text-red-500 text-xs mt-1">{errors.stock.message}</p>}
-              </div>
-
-              <div>
-                <Label>Discount (%)</Label>
-                <Input {...register('discount')} type="number" min="0" max="100" className="mt-1" disabled={!canEdit} />
               </div>
 
               <div>
@@ -308,7 +340,9 @@ export default function ProductManager({
                       {p.category.name}
                     </span>
                   </td>
-                  <td className="p-3">{formatCurrency(p.price)}</td>
+                  <td className="p-3">
+                    <ProductPriceDisplay price={p.price} actualPrice={p.actualPrice} size="sm" />
+                  </td>
                   <td className="p-3 text-gray-500">{p.unit}</td>
                   <td className="p-3">{p.stock}</td>
                   <td className="p-3">

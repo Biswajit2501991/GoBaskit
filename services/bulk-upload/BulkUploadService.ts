@@ -21,6 +21,7 @@ import {
   saveHistoryBatch,
   saveSession,
 } from './ImportHistoryStore';
+import { buildProductPricingData } from '@/utils/pricing';
 
 export interface LegacyPreviewResult {
   preview: { name: string; categoryName: string; price: number; unit: string; stock: number }[];
@@ -41,10 +42,11 @@ function rowToProductData(
   categoryId: string,
   imageMap: Record<string, string>
 ) {
-  const discount =
-    row.salePrice && row.price && row.salePrice < row.price
-      ? Math.round(((row.price - row.salePrice) / row.price) * 100)
-      : 0;
+  const hasSale =
+    row.salePrice != null && row.price != null && row.salePrice < row.price;
+  const sellingPrice = hasSale ? row.salePrice! : (row.price ?? 0);
+  const actualPrice = hasSale ? row.price : null;
+  const pricing = buildProductPricingData({ price: sellingPrice, actualPrice });
 
   const description = embedMetadata(row.description, {
     sku: row.sku || undefined,
@@ -70,13 +72,14 @@ function rowToProductData(
   return {
     name: row.productName,
     description,
-    price: row.price ?? 0,
+    price: pricing.price,
+    actualPrice: pricing.actualPrice,
     unit: row.unit,
     stock: row.stock,
     categoryId,
     status,
     imageUrl: imageUrl || null,
-    discount,
+    discount: pricing.discount,
     isFeatured: row.featured,
     isVisible: row.active,
   };

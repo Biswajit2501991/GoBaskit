@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { productSchema } from '@/lib/validations';
+import { buildProductPricingData } from '@/utils/pricing';
 import { requireStaffPermission } from '@/lib/staff-auth';
 import { requireSameOrigin } from '@/lib/security';
 import { AuditService } from '@/services/AuditService';
@@ -26,18 +27,24 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   const category = await prisma.category.findUnique({ where: { id: parsed.data.categoryId } });
   if (!category) return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
 
+  const pricing = buildProductPricingData({
+    price: parsed.data.price,
+    actualPrice: parsed.data.actualPrice,
+  });
+
   const product = await prisma.product.update({
     where: { id },
     data: {
       name: parsed.data.name,
       description: parsed.data.description ?? '',
-      price: parsed.data.price,
+      price: pricing.price,
+      actualPrice: pricing.actualPrice,
       unit: parsed.data.unit,
       stock: parsed.data.stock,
       categoryId: parsed.data.categoryId,
       status: parsed.data.status ?? 'ACTIVE',
       imageUrl: parsed.data.imageUrl || null,
-      discount: parsed.data.discount ?? 0,
+      discount: pricing.discount,
       isFeatured: parsed.data.isFeatured ?? false,
       isVisible: parsed.data.isVisible ?? true,
     },

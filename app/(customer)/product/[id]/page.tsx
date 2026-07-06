@@ -10,8 +10,10 @@ import ProductCard from '@/components/ProductCard/ProductCard';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
-import { formatCurrency, getEffectivePrice } from '@/utils/formatter';
+import { formatCurrency } from '@/utils/formatter';
+import { getListPrice } from '@/utils/pricing';
 import { resolvePublicImageUrl } from '@/utils/image';
+import ProductPriceDisplay from '@/components/ProductCard/ProductPriceDisplay';
 import { CATEGORY_ICONS } from '@/constants';
 import { Button } from '@/components/ui/button';
 import type { ProductWithCategory } from '@/types';
@@ -48,9 +50,10 @@ export default function ProductPage() {
     );
   }
 
-  const price = getEffectivePrice(product.price, product.discount);
-  const hasDiscount = product.discount > 0;
-  const savings = hasDiscount ? Math.round((product.price - price) * 100) / 100 : 0;
+  const sellingPrice = product.price;
+  const listPrice = getListPrice(product.actualPrice, sellingPrice);
+  const hasDiscount = listPrice !== null;
+  const savings = hasDiscount ? Math.round((listPrice - sellingPrice) * 100) / 100 : 0;
   const inStock = product.stock > 0 && product.status === 'ACTIVE';
   const categoryIcon = CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒';
   const imageUrl = resolvePublicImageUrl(product.imageUrl);
@@ -103,13 +106,10 @@ export default function ProductPage() {
             <h1 className="text-2xl font-bold text-gray-900">{product.name}</h1>
             <p className="text-sm text-gray-400">{product.unit}</p>
 
-            <div className="flex items-end gap-2">
-              <span className="text-2xl font-extrabold text-gray-900">{formatCurrency(price)}</span>
+            <div className="flex items-end gap-2 flex-wrap">
+              <ProductPriceDisplay price={sellingPrice} actualPrice={product.actualPrice} size="md" />
               {hasDiscount && (
-                <>
-                  <span className="text-base text-gray-400 line-through">{formatCurrency(product.price)}</span>
-                  <span className="text-sm font-bold text-blinkit-green mb-0.5">Save {formatCurrency(savings)}</span>
-                </>
+                <span className="text-sm font-bold text-blinkit-green mb-0.5">Save {formatCurrency(savings)}</span>
               )}
             </div>
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-blinkit-green bg-blinkit-green-light px-2 py-1 rounded-md">
@@ -140,7 +140,7 @@ export default function ProductPage() {
                 <Button
                   size="lg"
                   className="w-full"
-                  onClick={() => addItem({ productId: product.id, name: product.name, price, unit: product.unit, imageUrl: product.imageUrl, stock: product.stock })}
+                  onClick={() => addItem({ productId: product.id, name: product.name, price: sellingPrice, unit: product.unit, imageUrl: product.imageUrl, stock: product.stock })}
                 >
                   ADD TO CART
                 </Button>

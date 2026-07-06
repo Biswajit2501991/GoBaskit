@@ -78,6 +78,7 @@ model Product {
   name        String
   description String        @default("")
   price       Float
+  actualPrice Float?        @map("actual_price")
   unit        String
   stock       Int           @default(0)
   status      ProductStatus @default(ACTIVE)

@@ -14,7 +14,6 @@ export function formatDateTime(date: string | Date): string {
   }).format(new Date(date));
 }
 
-export function getEffectivePrice(price: number, discount: number): number {
-  if (discount <= 0) return price;
-  return Math.round(price * (1 - discount / 100) * 100) / 100;
+export function getEffectivePrice(price: number, _discount?: number): number {
+  return price;
 }

@@ -29,6 +29,7 @@ export interface ProductWithCategory {
   name: string;
   description: string;
   price: number;
+  actualPrice?: number | null;
   unit: string;
   stock: number;
   status: string;

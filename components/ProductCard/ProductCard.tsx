@@ -3,11 +3,11 @@
 import Link from 'next/link';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
-import { formatCurrency, getEffectivePrice } from '@/utils/formatter';
 import { CATEGORY_ICONS } from '@/constants';
 import { resolvePublicImageUrl } from '@/utils/image';
 import type { ProductWithCategory } from '@/types';
 import { Button } from '@/components/ui/button';
+import ProductPriceDisplay from '@/components/ProductCard/ProductPriceDisplay';
 
 interface ProductCardProps {
   product: ProductWithCategory;
@@ -18,7 +18,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { items, addItem, updateQuantity } = useCartStore();
   const cartItem = items.find((i) => i.productId === product.id);
   const cartQty = hydrated ? (cartItem?.quantity ?? 0) : 0;
-  const price = getEffectivePrice(product.price, product.discount);
+  const sellingPrice = product.price;
   const inStock = product.stock > 0 && product.status === 'ACTIVE';
   const imageUrl = resolvePublicImageUrl(product.imageUrl);
 
@@ -26,7 +26,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     addItem({
       productId: product.id,
       name: product.name,
-      price,
+      price: sellingPrice,
       unit: product.unit,
       imageUrl: product.imageUrl,
       stock: product.stock,
@@ -72,10 +72,11 @@ export default function ProductCard({ product }: ProductCardProps) {
         <p className="text-[10px] text-gray-400 mt-0.5 truncate">{product.unit}</p>
         <div className="flex items-end justify-between mt-1.5 gap-1">
           <div className="min-w-0">
-            <p className="font-bold text-gray-900 text-xs leading-none">{formatCurrency(price)}</p>
-            {product.discount > 0 && (
-              <p className="text-[9px] text-gray-400 line-through">{formatCurrency(product.price)}</p>
-            )}
+            <ProductPriceDisplay
+              price={product.price}
+              actualPrice={product.actualPrice}
+              size="xs"
+            />
           </div>
           {cartQty > 0 ? (
             <div className="flex items-center bg-blinkit-green rounded-md overflow-hidden shrink-0">
