@@ -12,6 +12,18 @@ const nextConfig: NextConfig = {
     '*.gobaskitkaro.com',
     '*.trycloudflare.com',
   ],
+  async headers() {
+    // Client-heavy pages must not be cached for a year — stale HTML references
+    // old hashed JS chunks after deploy and breaks hydration ("This page couldn't load").
+    const noStore = 'private, no-cache, no-store, max-age=0, must-revalidate';
+    return [
+      { source: '/checkout', headers: [{ key: 'Cache-Control', value: noStore }] },
+      { source: '/cart', headers: [{ key: 'Cache-Control', value: noStore }] },
+      { source: '/account', headers: [{ key: 'Cache-Control', value: noStore }] },
+      { source: '/account/:path*', headers: [{ key: 'Cache-Control', value: noStore }] },
+      { source: '/success', headers: [{ key: 'Cache-Control', value: noStore }] },
+    ];
+  },
 };
 
 export default nextConfig;

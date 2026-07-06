@@ -7,10 +7,10 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>/Users/biswajit/Desktop/GoBaskit/scripts/serve-app.sh</string>
+    <string>/Users/biswajit/Projects/GoBaskit/scripts/serve-app.sh</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>/Users/biswajit/Desktop/GoBaskit</string>
+  <string>/Users/biswajit/Projects/GoBaskit</string>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>

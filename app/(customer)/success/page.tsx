@@ -46,6 +46,11 @@ export default function SuccessPage() {
             </a>
           </Button>
         )}
+        {isWebsite && (
+          <Button asChild variant="outline" className="mb-4">
+            <Link href="/account">Track my order</Link>
+          </Button>
+        )}
         <Button asChild><Link href="/">Continue Shopping</Link></Button>
       </main>
     </div>

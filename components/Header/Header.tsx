@@ -131,6 +131,15 @@ export default function Header({ search = '', onSearchChange, showSearch = true 
               {accountMenuOpen && hasAccountIdentity && (
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl border border-gray-200 shadow-lg p-2 z-20">
                   <p className="px-2 py-1 text-[11px] text-gray-500 truncate">{accountLabel}</p>
+                  {customerMobile && (
+                    <Link
+                      href="/account"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="block w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-blinkit-green"
+                    >
+                      My Account
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
