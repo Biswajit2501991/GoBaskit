@@ -13,6 +13,8 @@ interface ProductImageUploadProps {
   disabled?: boolean;
   searchName?: string;
   searchCategory?: string;
+  uploadType?: 'product' | 'category';
+  showWebSuggestions?: boolean;
 }
 
 export default function ProductImageUpload({
@@ -22,6 +24,8 @@ export default function ProductImageUpload({
   disabled = false,
   searchName = '',
   searchCategory = '',
+  uploadType = 'product',
+  showWebSuggestions = uploadType === 'product',
 }: ProductImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -38,7 +42,7 @@ export default function ProductImageUpload({
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('type', 'product');
+      formData.append('type', uploadType);
 
       const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
       const data = await res.json();
@@ -54,7 +58,7 @@ export default function ProductImageUpload({
     } finally {
       setUploading(false);
     }
-  }, [onChange, disabled]);
+  }, [onChange, disabled, uploadType]);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -106,7 +110,7 @@ export default function ProductImageUpload({
       const res = await fetch('/api/admin/upload/from-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, type: 'product' }),
+        body: JSON.stringify({ url, type: uploadType }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -129,7 +133,7 @@ export default function ProductImageUpload({
       {value && (
         <div className="relative inline-block">
           <div className="w-32 h-32 rounded-xl border border-gray-200 overflow-hidden bg-gray-50">
-            <img src={resolvePublicImageUrl(value)} alt="Product preview" className="w-full h-full object-contain" />
+            <img src={resolvePublicImageUrl(value)} alt="Image preview" className="w-full h-full object-contain" />
           </div>
           <button
             type="button"
@@ -183,47 +187,49 @@ export default function ProductImageUpload({
         <Input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="https://... or /uploads/products/..."
+          placeholder={`https://... or /uploads/${uploadType === 'category' ? 'categories' : 'products'}/...`}
           className="mt-1"
           disabled={disabled}
         />
       </div>
 
-      <div className="pt-1 border-t border-gray-100">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-gray-500">
-            Find image online by product name (India-focused suggestions).
-          </p>
-          <button
-            type="button"
-            onClick={loadWebSuggestions}
-            disabled={disabled || webLoading}
-            className="text-xs px-2.5 py-1 rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-60"
-          >
-            {webLoading ? 'Loading...' : 'Get from Web'}
-          </button>
-        </div>
-        {suggestions.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
-            {suggestions.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => importFromWeb(s.url, s.id)}
-                disabled={disabled || uploading}
-                className="border rounded-lg overflow-hidden hover:border-blinkit-green transition-colors text-left"
-              >
-                <div className="aspect-square bg-gray-50">
-                  <img src={s.url} alt={s.label} className="w-full h-full object-cover" />
-                </div>
-                <div className="px-2 py-1 text-[11px] text-gray-600">
-                  {importingId === s.id ? 'Saving...' : 'Use this image'}
-                </div>
-              </button>
-            ))}
+      {showWebSuggestions && (
+        <div className="pt-1 border-t border-gray-100">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-gray-500">
+              Find image online by product name (India-focused suggestions).
+            </p>
+            <button
+              type="button"
+              onClick={loadWebSuggestions}
+              disabled={disabled || webLoading}
+              className="text-xs px-2.5 py-1 rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-60"
+            >
+              {webLoading ? 'Loading...' : 'Get from Web'}
+            </button>
           </div>
-        )}
-      </div>
+          {suggestions.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+              {suggestions.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => importFromWeb(s.url, s.id)}
+                  disabled={disabled || uploading}
+                  className="border rounded-lg overflow-hidden hover:border-blinkit-green transition-colors text-left"
+                >
+                  <div className="aspect-square bg-gray-50">
+                    <img src={s.url} alt={s.label} className="w-full h-full object-cover" />
+                  </div>
+                  <div className="px-2 py-1 text-[11px] text-gray-600">
+                    {importingId === s.id ? 'Saving...' : 'Use this image'}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

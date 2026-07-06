@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { CATEGORY_ICONS } from '@/constants';
+import { resolvePublicImageUrl } from '@/utils/image';
 import type { CategoryItem } from '@/types';
 
 interface CategoryCardProps {
@@ -23,7 +24,7 @@ export default function CategoryCard({ category, active }: CategoryCardProps) {
         }`}
       >
         {category.imageUrl ? (
-          <img src={category.imageUrl} alt={category.name} className="w-full h-full object-cover" />
+          <img src={resolvePublicImageUrl(category.imageUrl)} alt={category.name} className="w-full h-full object-cover" />
         ) : (
           <span className="transition-transform group-hover:scale-110">{icon}</span>
         )}

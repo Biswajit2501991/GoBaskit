@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { categorySchema, type CategoryFormData } from '@/lib/validations';
+import { resolvePublicImageUrl } from '@/utils/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Pencil, Plus, Trash2, X } from 'lucide-react';
+import ProductImageUpload from './ProductImageUpload';
 
 export interface AdminCategory {
   id: string;
@@ -45,11 +47,16 @@ export default function CategoryManager({
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<CategoryFormData>({
     resolver: zodResolver(categorySchema),
     defaultValues: emptyCategory,
   });
+
+  const imageUrl = watch('imageUrl') || '';
+  const categoryName = watch('name') || '';
 
   function openCreate() {
     setEditingId(null);
@@ -146,9 +153,16 @@ export default function CategoryManager({
               <Label>Sort Order</Label>
               <Input {...register('sortOrder')} type="number" className="mt-1" disabled={!canEdit} />
             </div>
-            <div>
-              <Label>Image URL (optional)</Label>
-              <Input {...register('imageUrl')} placeholder="https://..." className="mt-1" disabled={!canEdit} />
+            <div className="md:col-span-2">
+              <ProductImageUpload
+                value={imageUrl}
+                onChange={(url) => setValue('imageUrl', url, { shouldDirty: true })}
+                label="Category Image"
+                disabled={!canEdit}
+                uploadType="category"
+                showWebSuggestions={false}
+                searchName={categoryName}
+              />
             </div>
             <div className="flex items-center gap-2 md:col-span-2">
               <input type="checkbox" id="isActive" {...register('isActive')} className="accent-blinkit-green" disabled={!canEdit} />
@@ -168,6 +182,19 @@ export default function CategoryManager({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {categories.map((cat) => (
           <div key={cat.id} className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col">
+            {cat.imageUrl ? (
+              <div className="w-full h-28 rounded-lg overflow-hidden bg-gray-50 mb-3 border border-gray-100">
+                <img
+                  src={resolvePublicImageUrl(cat.imageUrl)}
+                  alt={cat.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="w-full h-28 rounded-lg bg-gradient-to-br from-yellow-50 to-green-50 mb-3 border border-gray-100 flex items-center justify-center text-3xl">
+                🏪
+              </div>
+            )}
             <div className="flex-1">
               <h3 className="font-bold text-gray-900">{cat.name}</h3>
               <p className="text-sm text-gray-500 mt-1">{cat._count.products} products</p>
