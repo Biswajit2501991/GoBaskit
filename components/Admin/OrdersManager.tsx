@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { formatCustomerAddress, formatCustomerName } from '@/utils/customer';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Lock, MapPin, MessageCircle, Phone, Unlock } from 'lucide-react';
+import { GripVertical, Lock, MapPin, MessageCircle, Phone, Unlock } from 'lucide-react';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 import { buildWhatsAppUrl } from '@/utils/whatsapp';
 import { PAYMENT_METHODS } from '@/constants';
@@ -69,6 +69,12 @@ const STATUSES = ['PENDING', 'ACCEPTED', 'PACKED', 'OUT_FOR_DELIVERY', 'DELIVERE
 const PRIORITIES = ['NORMAL', 'HIGH', 'URGENT'];
 const SSE_RELOAD_DEBOUNCE_MS = 800;
 const BOARD_PAGE_SIZE = 100;
+const ORDER_DRAG_TYPE = 'application/gobaskit-order-id';
+
+function isInteractiveDragTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest('select, input, button, textarea, a, label'));
+}
 
 const STATUS_SECTION_STYLES: Record<string, { header: string; border: string }> = {
   PENDING: { header: 'bg-amber-50 text-amber-900 border-amber-200', border: 'border-amber-100' },
@@ -113,7 +119,10 @@ function patchOrderFromEvent(order: OrderRow, payload: Record<string, unknown>):
 function OrderCard({
   order,
   expanded,
+  isDragging,
   onToggle,
+  onDragStart,
+  onDragEnd,
   canEdit,
   canAssign,
   canOverrideLock,
@@ -127,7 +136,10 @@ function OrderCard({
 }: {
   order: OrderRow;
   expanded: boolean;
+  isDragging: boolean;
   onToggle: () => void;
+  onDragStart: () => void;
+  onDragEnd: () => void;
   canEdit: boolean;
   canAssign: boolean;
   canOverrideLock: boolean;
@@ -142,20 +154,49 @@ function OrderCard({
   const isLocked = Boolean(order.lockedAt && order.assignedStaffId);
   const isMine = order.assignedStaffId === currentStaffId;
   const lockedByOther = isLocked && !isMine && !canOverrideLock;
+  const canDrag = canEdit && !lockedByOther;
   const address = formatCustomerAddress(order.customer);
   const paymentLabel =
     PAYMENT_METHODS[order.paymentMethod as keyof typeof PAYMENT_METHODS] ?? order.paymentMethod;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
-      <button
-        type="button"
+    <div
+      draggable={canDrag}
+      onDragStart={(e) => {
+        if (!canDrag || isInteractiveDragTarget(e.target)) {
+          e.preventDefault();
+          return;
+        }
+        e.dataTransfer.setData(ORDER_DRAG_TYPE, order.id);
+        e.dataTransfer.setData('text/plain', order.id);
+        e.dataTransfer.effectAllowed = 'move';
+        onDragStart();
+      }}
+      onDragEnd={onDragEnd}
+      className={`bg-white rounded-lg border shadow-sm overflow-hidden transition-all ${
+        isDragging ? 'opacity-40 border-dashed border-blinkit-green scale-[0.98]' : 'border-gray-100'
+      } ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''}`}
+    >
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
         className="w-full text-left p-3 hover:bg-gray-50/80 transition-colors"
       >
         <div className="space-y-1.5">
           <div className="flex items-start justify-between gap-2">
-            <p className="font-bold text-sm leading-tight">{order.orderNumber}</p>
+            <div className="flex items-start gap-1 min-w-0">
+              {canDrag && (
+                <GripVertical className="w-3.5 h-3.5 text-gray-300 shrink-0 mt-0.5" aria-hidden />
+              )}
+              <p className="font-bold text-sm leading-tight">{order.orderNumber}</p>
+            </div>
             <p className="font-bold text-sm text-blinkit-green shrink-0">{formatCurrency(order.grandTotal)}</p>
           </div>
           <div className="flex flex-wrap items-center gap-1">
@@ -199,7 +240,7 @@ function OrderCard({
           </select>
           <p className="text-[10px] text-gray-400">{formatDateTime(order.createdAt)}</p>
         </div>
-      </button>
+      </div>
 
       {expanded && (
         <div className="px-3 pb-3 border-t border-gray-50 space-y-3">
@@ -331,6 +372,8 @@ export default function OrdersManager({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [draggingOrderId, setDraggingOrderId] = useState<string | null>(null);
+  const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
 
   const initialLoadDone = useRef(false);
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -503,6 +546,33 @@ export default function OrdersManager({
     return status.replace(/_/g, ' ');
   }
 
+  function clearDragState() {
+    setDraggingOrderId(null);
+    setDragOverStatus(null);
+  }
+
+  function handleStatusDrop(targetStatus: string, e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    clearDragState();
+    if (!canEdit) return;
+
+    const orderId = e.dataTransfer.getData(ORDER_DRAG_TYPE) || e.dataTransfer.getData('text/plain');
+    if (!orderId) return;
+
+    const order = orders.find((o) => o.id === orderId);
+    if (!order || order.status === targetStatus) return;
+
+    const isLocked = Boolean(order.lockedAt && order.assignedStaffId);
+    const isMine = order.assignedStaffId === currentStaffId;
+    const lockedByOther = isLocked && !isMine && !canOverrideLock;
+    if (lockedByOther) {
+      alert('This order is locked to another staff member.');
+      return;
+    }
+
+    void updateOrder(orderId, { status: targetStatus }, { status: targetStatus });
+  }
+
   const pageCount = Math.ceil(total / BOARD_PAGE_SIZE);
 
   return (
@@ -512,7 +582,7 @@ export default function OrdersManager({
         {refreshing && <span className="text-xs text-gray-400 animate-pulse">Updating…</span>}
       </div>
       <p className="text-sm text-gray-500 mb-6">
-        Kanban board by status — scroll horizontally across columns. Change status from the dropdown and the order moves to that column. Click an order for full details.
+        Kanban board by status — drag cards between columns or use the status dropdown. Status updates automatically when dropped.
       </p>
 
       <div className="flex flex-wrap gap-3 mb-6">
@@ -538,23 +608,50 @@ export default function OrdersManager({
               return (
                 <section
                   key={status}
-                  className={`flex flex-col w-[min(300px,78vw)] shrink-0 rounded-xl border ${styles.border} overflow-hidden max-h-[calc(100vh-13rem)]`}
+                  className={`flex flex-col w-[min(300px,78vw)] shrink-0 rounded-xl border overflow-hidden max-h-[calc(100vh-13rem)] transition-shadow ${
+                    styles.border
+                  } ${dragOverStatus === status ? 'ring-2 ring-blinkit-green shadow-md' : ''}`}
                 >
                   <div className={`px-3 py-2.5 border-b shrink-0 ${styles.header}`}>
                     <p className="font-semibold text-xs leading-tight">{statusLabel(status)}</p>
                     <p className="text-[11px] opacity-80 mt-0.5">{sectionOrders.length} order{sectionOrders.length === 1 ? '' : 's'}</p>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-gray-50/60 min-h-[120px]">
+                  <div
+                    className={`flex-1 overflow-y-auto p-2 space-y-2 min-h-[120px] transition-colors ${
+                      dragOverStatus === status ? 'bg-blinkit-green-light/50' : 'bg-gray-50/60'
+                    }`}
+                    onDragOver={(e) => {
+                      if (!canEdit) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      setDragOverStatus(status);
+                    }}
+                    onDragLeave={(e) => {
+                      if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                      setDragOverStatus((prev) => (prev === status ? null : prev));
+                    }}
+                    onDrop={(e) => handleStatusDrop(status, e)}
+                  >
                     {sectionOrders.length === 0 ? (
-                      <p className="text-[11px] text-gray-400 text-center py-6 px-2">No orders</p>
+                      <p className={`text-[11px] text-center py-6 px-2 border border-dashed rounded-lg ${
+                        dragOverStatus === status
+                          ? 'text-blinkit-green border-blinkit-green/40 bg-white/60'
+                          : 'text-gray-400 border-transparent'
+                      }`}
+                      >
+                        {dragOverStatus === status ? 'Drop here' : 'No orders'}
+                      </p>
                     ) : (
                       sectionOrders.map((order) => (
                         <OrderCard
                           key={order.id}
                           order={order}
                           expanded={expandedOrderId === order.id}
+                          isDragging={draggingOrderId === order.id}
                           onToggle={() => setExpandedOrderId((id) => (id === order.id ? null : order.id))}
+                          onDragStart={() => setDraggingOrderId(order.id)}
+                          onDragEnd={clearDragState}
                           canEdit={canEdit}
                           canAssign={canAssign}
                           canOverrideLock={canOverrideLock}
