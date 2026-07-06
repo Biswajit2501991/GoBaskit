@@ -9,6 +9,7 @@ import { useConfigStore } from '@/store/configStore';
 import { deliveryChargeFrom } from '@/constants';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { formatCurrency } from '@/utils/formatter';
+import { resolvePublicImageUrl } from '@/utils/image';
 import { Button } from '@/components/ui/button';
 
 export default function CartPage() {
@@ -100,15 +101,17 @@ export default function CartPage() {
         <div className="bg-white rounded-xl border border-gray-100 divide-y">
           {items.map((item) => (
             <div key={item.productId} className="p-4 flex gap-3">
-              <div className="w-16 h-16 rounded-lg bg-gray-50 border border-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100 overflow-hidden flex-shrink-0">
                 {item.imageUrl ? (
                   <img
-                    src={item.imageUrl}
+                    src={resolvePublicImageUrl(item.imageUrl)}
                     alt={item.name}
-                    className="w-full h-full object-contain p-1"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
-                  <span className="text-xl font-bold text-blinkit-green">{item.name.charAt(0)}</span>
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-xl font-bold text-blinkit-green">{item.name.charAt(0)}</span>
+                  </div>
                 )}
               </div>
               <div className="flex-1 min-w-0">

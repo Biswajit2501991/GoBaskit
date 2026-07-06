@@ -74,12 +74,14 @@ export default function ProductPage() {
         </nav>
 
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden md:flex">
-          <div className="relative md:w-1/2 aspect-square bg-gradient-to-br from-green-50 to-yellow-50 flex items-center justify-center p-8">
-            {imageUrl ? (
-              <img src={imageUrl} alt={product.name} className="max-w-full max-h-full object-contain" />
-            ) : (
-              <span className="text-7xl">{categoryIcon}</span>
-            )}
+          <div className="relative md:w-1/2 aspect-square p-4 md:p-8">
+            <div className="w-full h-full rounded-2xl overflow-hidden bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100 flex items-center justify-center">
+              {imageUrl ? (
+                <img src={imageUrl} alt={product.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-7xl">{categoryIcon}</span>
+              )}
+            </div>
             {hasDiscount && (
               <span className="absolute top-3 left-3 bg-blinkit-green text-white text-xs font-bold px-2 py-1 rounded-md">
                 {product.discount}% OFF

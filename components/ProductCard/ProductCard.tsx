@@ -35,23 +35,25 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div className="bg-white rounded-lg border border-gray-100 overflow-hidden flex flex-col hover:shadow-sm transition-shadow group">
-      <Link href={`/product/${product.id}`} className="aspect-[4/5] relative overflow-hidden bg-gray-50 p-1.5 block">
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={product.name}
-            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 text-4xl">
-            <span>{CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒'}</span>
-          </div>
-        )}
-        {!inStock && (
-          <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
-            <span className="bg-gray-800 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase">Out of stock</span>
-          </div>
-        )}
+      <Link href={`/product/${product.id}`} className="block p-2">
+        <div className="aspect-[4/5] relative rounded-2xl overflow-hidden bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={product.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-4xl">
+              <span>{CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒'}</span>
+            </div>
+          )}
+          {!inStock && (
+            <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+              <span className="bg-gray-800 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase">Out of stock</span>
+            </div>
+          )}
+        </div>
       </Link>
 
       <div className="px-2 pb-2 flex flex-col flex-1">
