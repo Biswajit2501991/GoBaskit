@@ -15,6 +15,39 @@ export interface OrderListParams {
   includeHistory?: boolean;
 }
 
+const customerListSelect = {
+  firstName: true,
+  lastName: true,
+  mobile: true,
+  alternateMobile: true,
+  houseNumber: true,
+  street: true,
+  area: true,
+  landmark: true,
+  city: true,
+  state: true,
+  pincode: true,
+} as const;
+
+const staffTimelineSelect = { name: true, mobile: true } as const;
+
+function orderListInclude(includeHistory: boolean) {
+  return {
+    customer: { select: customerListSelect },
+    assignedStaff: { select: { id: true, name: true, mobile: true } },
+    items: true,
+    ...(includeHistory
+      ? {
+          statusHistory: {
+            orderBy: { createdAt: 'desc' as const },
+            take: 10,
+            include: { staff: { select: staffTimelineSelect } },
+          },
+        }
+      : {}),
+  };
+}
+
 function orderPayload(order: {
   id: string;
   orderNumber: string;
@@ -67,20 +100,7 @@ export class OrderService {
     const [items, total] = await Promise.all([
       prisma.order.findMany({
         where,
-        include: {
-          customer: { select: { firstName: true, lastName: true, mobile: true } },
-          assignedStaff: { select: { id: true, name: true } },
-          items: true,
-          ...(params.includeHistory
-            ? {
-                statusHistory: {
-                  orderBy: { createdAt: 'desc' as const },
-                  take: 5,
-                  include: { staff: { select: { name: true } } },
-                },
-              }
-            : {}),
-        },
+        include: orderListInclude(params.includeHistory !== false),
         orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -112,11 +132,7 @@ export class OrderService {
     const updated = await prisma.order.update({
       where: { id: orderId },
       data: { assignedStaffId: staffId, lockedAt: new Date() },
-      include: {
-        customer: { select: { firstName: true, lastName: true, mobile: true } },
-        assignedStaff: { select: { id: true, name: true } },
-        items: true,
-      },
+      include: orderListInclude(true),
     });
 
     await AuditService.log({
@@ -148,11 +164,7 @@ export class OrderService {
     const updated = await prisma.order.update({
       where: { id: orderId },
       data: { assignedStaffId: null, lockedAt: null },
-      include: {
-        customer: { select: { firstName: true, lastName: true, mobile: true } },
-        assignedStaff: { select: { id: true, name: true } },
-        items: true,
-      },
+      include: orderListInclude(true),
     });
 
     await AuditService.log({
@@ -190,28 +202,23 @@ export class OrderService {
       throw new Error('Order is locked to another staff member');
     }
 
-    const updated = await prisma.order.update({
+    await prisma.order.update({
       where: { id: orderId },
       data: {
         ...(data.status ? { status: data.status } : {}),
         ...(data.priority ? { priority: data.priority } : {}),
         ...(data.adminNotes !== undefined ? { adminNotes: data.adminNotes } : {}),
       },
-      include: {
-        customer: { select: { firstName: true, lastName: true, mobile: true } },
-        assignedStaff: { select: { id: true, name: true } },
-        items: true,
-        statusHistory: {
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-          include: { staff: { select: { name: true } } },
-        },
-      },
     });
 
     if (data.status && data.status !== order.status) {
       await this.recordStatusChange(orderId, data.status, actor.id);
     }
+
+    const updated = await prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      include: orderListInclude(true),
+    });
 
     await AuditService.log({
       staffId: actor.id,

@@ -1,13 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { formatCustomerName } from '@/utils/customer';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { formatCustomerAddress, formatCustomerName } from '@/utils/customer';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Lock, MessageCircle, Unlock } from 'lucide-react';
+import { ChevronDown, ChevronUp, Lock, MapPin, MessageCircle, Phone, Unlock } from 'lucide-react';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 import { buildWhatsAppUrl } from '@/utils/whatsapp';
+import { PAYMENT_METHODS } from '@/constants';
 
 interface OrderItem {
   id: string;
@@ -16,12 +17,26 @@ interface OrderItem {
   totalPrice: number;
 }
 
+interface CustomerDetails {
+  firstName: string;
+  lastName: string;
+  mobile: string;
+  alternateMobile?: string | null;
+  houseNumber: string;
+  street: string;
+  area: string;
+  landmark?: string | null;
+  city: string;
+  state: string;
+  pincode: string;
+}
+
 interface StatusHistoryEntry {
   id: string;
   status: string;
   note: string | null;
   createdAt: string;
-  staff?: { name: string } | null;
+  staff?: { name: string; mobile: string } | null;
 }
 
 interface OrderRow {
@@ -30,12 +45,15 @@ interface OrderRow {
   status: string;
   grandTotal: number;
   priority: string;
+  paymentMethod: string;
+  deliveryNotes?: string | null;
+  orderSource?: string;
   assignedStaffId: string | null;
-  assignedStaff: { id: string; name: string } | null;
+  assignedStaff: { id: string; name: string; mobile?: string } | null;
   lockedAt: string | null;
   adminNotes: string | null;
   createdAt: string;
-  customer: { firstName: string; lastName: string; mobile: string };
+  customer: CustomerDetails;
   items: OrderItem[];
   statusHistory?: StatusHistoryEntry[];
 }
@@ -44,11 +62,22 @@ interface StaffOption {
   id: string;
   name: string;
   role: string;
+  mobile?: string;
 }
 
 const STATUSES = ['PENDING', 'ACCEPTED', 'PACKED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
 const PRIORITIES = ['NORMAL', 'HIGH', 'URGENT'];
 const SSE_RELOAD_DEBOUNCE_MS = 800;
+const BOARD_PAGE_SIZE = 100;
+
+const STATUS_SECTION_STYLES: Record<string, { header: string; border: string }> = {
+  PENDING: { header: 'bg-amber-50 text-amber-900 border-amber-200', border: 'border-amber-100' },
+  ACCEPTED: { header: 'bg-blue-50 text-blue-900 border-blue-200', border: 'border-blue-100' },
+  PACKED: { header: 'bg-purple-50 text-purple-900 border-purple-200', border: 'border-purple-100' },
+  OUT_FOR_DELIVERY: { header: 'bg-orange-50 text-orange-900 border-orange-200', border: 'border-orange-100' },
+  DELIVERED: { header: 'bg-green-50 text-green-900 border-green-200', border: 'border-green-100' },
+  CANCELLED: { header: 'bg-gray-100 text-gray-700 border-gray-200', border: 'border-gray-200' },
+};
 
 function getWhatsAppMessage(order: OrderRow) {
   return [
@@ -60,8 +89,8 @@ function getWhatsAppMessage(order: OrderRow) {
 }
 
 function patchOrderFromEvent(order: OrderRow, payload: Record<string, unknown>): OrderRow {
-  const assignedStaff = payload.assignedStaff as { id: string; name: string } | null | undefined;
-  const customer = payload.customer as { firstName: string; lastName: string; mobile: string } | undefined;
+  const assignedStaff = payload.assignedStaff as { id: string; name: string; mobile?: string } | null | undefined;
+  const customer = payload.customer as CustomerDetails | undefined;
   return {
     ...order,
     ...(payload.status ? { status: String(payload.status) } : {}),
@@ -77,8 +106,212 @@ function patchOrderFromEvent(order: OrderRow, payload: Record<string, unknown>):
     ...(payload.adminNotes !== undefined
       ? { adminNotes: payload.adminNotes ? String(payload.adminNotes) : null }
       : {}),
-    ...(customer ? { customer } : {}),
+    ...(customer ? { customer: { ...order.customer, ...customer } } : {}),
   };
+}
+
+function OrderCard({
+  order,
+  expanded,
+  onToggle,
+  canEdit,
+  canAssign,
+  canOverrideLock,
+  currentStaffId,
+  forceAssignedToMe,
+  staffList,
+  onUpdate,
+  onAssign,
+  onRelease,
+  onWhatsApp,
+}: {
+  order: OrderRow;
+  expanded: boolean;
+  onToggle: () => void;
+  canEdit: boolean;
+  canAssign: boolean;
+  canOverrideLock: boolean;
+  currentStaffId: string;
+  forceAssignedToMe: boolean;
+  staffList: StaffOption[];
+  onUpdate: (id: string, patch: Record<string, unknown>, optimistic: Partial<OrderRow>) => void;
+  onAssign: (id: string, staffId: string) => void;
+  onRelease: (id: string) => void;
+  onWhatsApp: (order: OrderRow) => void;
+}) {
+  const isLocked = Boolean(order.lockedAt && order.assignedStaffId);
+  const isMine = order.assignedStaffId === currentStaffId;
+  const lockedByOther = isLocked && !isMine && !canOverrideLock;
+  const address = formatCustomerAddress(order.customer);
+  const paymentLabel =
+    PAYMENT_METHODS[order.paymentMethod as keyof typeof PAYMENT_METHODS] ?? order.paymentMethod;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full text-left p-4 hover:bg-gray-50/80 transition-colors"
+      >
+        <div className="flex flex-wrap justify-between items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-bold">{order.orderNumber}</p>
+              {order.priority !== 'NORMAL' && (
+                <span className="text-xs font-semibold bg-orange-100 text-orange-800 px-2 py-0.5 rounded">
+                  {order.priority}
+                </span>
+              )}
+              {order.orderSource === 'whatsapp' && (
+                <span className="text-[10px] font-medium bg-green-100 text-green-800 px-1.5 py-0.5 rounded">WhatsApp</span>
+              )}
+              {isLocked && (
+                <span className="text-xs flex items-center gap-1 text-gray-500">
+                  <Lock className="w-3 h-3" /> {order.assignedStaff?.name ?? 'Assigned'}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-gray-700 mt-1">
+              {formatCustomerName(order.customer.firstName, order.customer.lastName)}
+              {' · '}
+              <span className="inline-flex items-center gap-0.5">
+                <Phone className="w-3 h-3" /> +91 {order.customer.mobile}
+              </span>
+            </p>
+            <p className="text-xs text-gray-500 mt-1 flex items-start gap-1 line-clamp-2">
+              <MapPin className="w-3 h-3 shrink-0 mt-0.5" />
+              {address}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">{formatDateTime(order.createdAt)}</p>
+          </div>
+          <div className="text-right shrink-0 flex flex-col items-end gap-1">
+            <p className="font-bold text-blinkit-green">{formatCurrency(order.grandTotal)}</p>
+            <select
+              value={order.status}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                e.stopPropagation();
+                onUpdate(order.id, { status: e.target.value }, { status: e.target.value });
+              }}
+              className="text-xs font-semibold border rounded px-2 py-1"
+              disabled={!canEdit || lockedByOther}
+            >
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+              ))}
+            </select>
+            {expanded ? <ChevronUp className="w-4 h-4 text-gray-400 mt-1" /> : <ChevronDown className="w-4 h-4 text-gray-400 mt-1" />}
+          </div>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 border-t border-gray-50 space-y-4">
+          <div className="grid sm:grid-cols-2 gap-4 pt-3">
+            <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Customer</p>
+              <p className="font-medium">{formatCustomerName(order.customer.firstName, order.customer.lastName)}</p>
+              <p>+91 {order.customer.mobile}</p>
+              {order.customer.alternateMobile && <p>Alt: +91 {order.customer.alternateMobile}</p>}
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Delivery Address</p>
+              <p>{order.customer.houseNumber}, {order.customer.street}</p>
+              <p>{order.customer.area}{order.customer.landmark ? `, ${order.customer.landmark}` : ''}</p>
+              <p>{order.customer.city}, {order.customer.state}</p>
+              <p>PIN {order.customer.pincode}</p>
+              {order.deliveryNotes && (
+                <p className="text-xs text-gray-600 mt-1">Notes: {order.deliveryNotes}</p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold text-gray-500 mb-2">Items</p>
+            <div className="text-sm text-gray-600 space-y-1">
+              {order.items.map((item) => (
+                <p key={item.id}>{item.productName} × {item.quantity} = {formatCurrency(item.totalPrice)}</p>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">Payment: {paymentLabel}</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-50">
+            <select
+              value={order.priority}
+              onChange={(e) => onUpdate(order.id, { priority: e.target.value }, { priority: e.target.value })}
+              className="text-xs border rounded px-2 py-1"
+              disabled={!canEdit || lockedByOther}
+            >
+              {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+
+            {!forceAssignedToMe && (
+              <select
+                value={order.assignedStaffId ?? ''}
+                onChange={(e) => e.target.value && onAssign(order.id, e.target.value)}
+                className="text-xs border rounded px-2 py-1"
+                disabled={!canAssign || lockedByOther}
+              >
+                <option value="">Assign to...</option>
+                {staffList.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.role.replace(/_/g, ' ')})</option>
+                ))}
+              </select>
+            )}
+
+            {order.assignedStaffId && canEdit && (isMine || !isLocked || canOverrideLock) && (
+              <Button type="button" variant="outline" size="sm" onClick={() => onRelease(order.id)} className="gap-1 h-7 text-xs">
+                <Unlock className="w-3 h-3" /> Release
+              </Button>
+            )}
+
+            <Button type="button" variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={() => onWhatsApp(order)}>
+              <MessageCircle className="w-3 h-3" /> Send WhatsApp
+            </Button>
+
+            <Input
+              placeholder="Admin notes..."
+              defaultValue={order.adminNotes ?? ''}
+              onBlur={(e) => {
+                if (e.target.value !== (order.adminNotes ?? '')) {
+                  onUpdate(order.id, { adminNotes: e.target.value }, { adminNotes: e.target.value });
+                }
+              }}
+              className="max-w-xs h-7 text-xs"
+              disabled={!canEdit || lockedByOther}
+            />
+          </div>
+
+          {order.statusHistory && order.statusHistory.length > 0 && (
+            <div className="pt-2 border-t border-gray-50">
+              <p className="text-xs font-semibold text-gray-500 mb-2">Status timeline</p>
+              <div className="space-y-2">
+                {order.statusHistory.map((h) => (
+                  <div key={h.id} className="text-xs bg-gray-50 rounded-lg px-3 py-2">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span className="font-semibold text-gray-800">{h.status.replace(/_/g, ' ')}</span>
+                      <span className="text-gray-400">·</span>
+                      <span className="text-gray-500">{formatDateTime(h.createdAt)}</span>
+                    </div>
+                    {h.staff ? (
+                      <p className="text-gray-600 mt-0.5">
+                        Staff: <span className="font-medium">{h.staff.name}</span>
+                        {' · '}+91 {h.staff.mobile}
+                      </p>
+                    ) : (
+                      <p className="text-gray-400 mt-0.5">System</p>
+                    )}
+                    {h.note && <p className="text-gray-500 mt-0.5">{h.note}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function OrdersManager({
@@ -97,11 +330,12 @@ export default function OrdersManager({
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [staffList, setStaffList] = useState<StaffOption[]>([]);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   const initialLoadDone = useRef(false);
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -115,9 +349,12 @@ export default function OrdersManager({
       setLoading(true);
     }
 
-    const params = new URLSearchParams({ page: String(page), pageSize: '20' });
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(BOARD_PAGE_SIZE),
+      includeHistory: '1',
+    });
     if (search) params.set('search', search);
-    if (statusFilter) params.set('status', statusFilter);
     if (forceAssignedToMe) params.set('assignedStaffId', currentStaffId);
 
     try {
@@ -135,7 +372,7 @@ export default function OrdersManager({
       }
       initialLoadDone.current = true;
     }
-  }, [page, search, statusFilter, forceAssignedToMe, currentStaffId]);
+  }, [page, search, forceAssignedToMe, currentStaffId]);
 
   loadRef.current = load;
 
@@ -190,6 +427,14 @@ export default function OrdersManager({
     };
   }, []);
 
+  const ordersByStatus = useMemo(() => {
+    const grouped: Record<string, OrderRow[]> = {};
+    for (const status of STATUSES) {
+      grouped[status] = orders.filter((o) => o.status === status);
+    }
+    return grouped;
+  }, [orders]);
+
   async function updateOrder(id: string, patch: Record<string, unknown>, optimistic: Partial<OrderRow>) {
     if (!canEdit) return;
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...optimistic } : o)));
@@ -214,7 +459,12 @@ export default function OrdersManager({
     setOrders((prev) =>
       prev.map((o) =>
         o.id === id
-          ? { ...o, assignedStaffId: staffId, assignedStaff: staff ? { id: staff.id, name: staff.name } : null, lockedAt: new Date().toISOString() }
+          ? {
+              ...o,
+              assignedStaffId: staffId,
+              assignedStaff: staff ? { id: staff.id, name: staff.name, mobile: staff.mobile } : null,
+              lockedAt: new Date().toISOString(),
+            }
           : o,
       ),
     );
@@ -254,32 +504,29 @@ export default function OrdersManager({
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
   }
 
-  const pageCount = Math.ceil(total / 20);
+  function toggleSection(status: string) {
+    setCollapsedSections((prev) => ({ ...prev, [status]: !prev[status] }));
+  }
+
+  const pageCount = Math.ceil(total / BOARD_PAGE_SIZE);
 
   return (
-    <div className="p-6">
-      <div className="flex items-center gap-3 mb-6">
+    <div className="p-6 max-w-6xl">
+      <div className="flex items-center gap-3 mb-2">
         <h1 className="text-2xl font-bold">Orders ({total})</h1>
-        {refreshing && (
-          <span className="text-xs text-gray-400 animate-pulse">Updating…</span>
-        )}
+        {refreshing && <span className="text-xs text-gray-400 animate-pulse">Updating…</span>}
       </div>
+      <p className="text-sm text-gray-500 mb-6">
+        Orders are grouped by status. Change status from the dropdown and the order moves to that section. Click an order to see full details.
+      </p>
 
-      <div className="flex flex-wrap gap-3 mb-4">
+      <div className="flex flex-wrap gap-3 mb-6">
         <Input
           placeholder="Search order #, customer, mobile..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="max-w-xs"
+          className="max-w-sm"
         />
-        <select
-          value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className="border rounded-lg px-3 py-2 text-sm"
-        >
-          <option value="">All statuses</option>
-          {STATUSES.map((s) => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
-        </select>
       </div>
 
       {loading ? (
@@ -287,119 +534,52 @@ export default function OrdersManager({
       ) : orders.length === 0 ? (
         <p className="text-gray-500">No orders found</p>
       ) : (
-        <div className="space-y-4">
-          {orders.map((order) => {
-            const isLocked = Boolean(order.lockedAt && order.assignedStaffId);
-            const isMine = order.assignedStaffId === currentStaffId;
-            const lockedByOther = isLocked && !isMine && !canOverrideLock;
+        <div className="space-y-6">
+          {STATUSES.map((status) => {
+            const sectionOrders = ordersByStatus[status] ?? [];
+            const styles = STATUS_SECTION_STYLES[status];
+            const collapsed = collapsedSections[status];
+
             return (
-              <div key={order.id} className="bg-white rounded-xl border border-gray-100 p-5">
-                <div className="flex flex-wrap justify-between items-start gap-3 mb-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold">{order.orderNumber}</p>
-                      {order.priority !== 'NORMAL' && (
-                        <span className="text-xs font-semibold bg-orange-100 text-orange-800 px-2 py-0.5 rounded">
-                          {order.priority}
-                        </span>
-                      )}
-                      {isLocked && (
-                        <span className="text-xs flex items-center gap-1 text-gray-500">
-                          <Lock className="w-3 h-3" /> {order.assignedStaff?.name ?? 'Assigned'}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-500">
-                      {formatCustomerName(order.customer.firstName, order.customer.lastName)} · +91 {order.customer.mobile}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">{formatDateTime(order.createdAt)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-blinkit-green">{formatCurrency(order.grandTotal)}</p>
-                    <select
-                      value={order.status}
-                      onChange={(e) => updateOrder(order.id, { status: e.target.value }, { status: e.target.value })}
-                      className="text-xs font-semibold border rounded px-2 py-1 mt-1"
-                      disabled={!canEdit || lockedByOther}
-                    >
-                      {STATUSES.map((s) => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
-                    </select>
-                  </div>
-                </div>
+              <section key={status} className={`rounded-xl border ${styles.border} overflow-hidden`}>
+                <button
+                  type="button"
+                  onClick={() => toggleSection(status)}
+                  className={`w-full flex items-center justify-between px-4 py-3 border-b ${styles.header}`}
+                >
+                  <span className="font-semibold text-sm">
+                    {status.replace(/_/g, ' ')} ({sectionOrders.length})
+                  </span>
+                  {collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                </button>
 
-                <div className="text-sm text-gray-600 space-y-1 mb-3">
-                  {order.items.map((item) => (
-                    <p key={item.id}>{item.productName} × {item.quantity} = {formatCurrency(item.totalPrice)}</p>
-                  ))}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-50">
-                  <select
-                    value={order.priority}
-                    onChange={(e) => updateOrder(order.id, { priority: e.target.value }, { priority: e.target.value })}
-                    className="text-xs border rounded px-2 py-1"
-                    disabled={!canEdit || lockedByOther}
-                  >
-                    {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-                  </select>
-
-                  {!forceAssignedToMe && (
-                    <select
-                      value={order.assignedStaffId ?? ''}
-                      onChange={(e) => e.target.value && assignOrder(order.id, e.target.value)}
-                      className="text-xs border rounded px-2 py-1"
-                      disabled={!canAssign || lockedByOther}
-                    >
-                      <option value="">Assign to...</option>
-                      {staffList.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name} ({s.role.replace(/_/g, ' ')})</option>
-                      ))}
-                    </select>
-                  )}
-
-                  {order.assignedStaffId && canEdit && (isMine || !isLocked || canOverrideLock) && (
-                    <Button type="button" variant="outline" size="sm" onClick={() => releaseOrder(order.id)} className="gap-1 h-7 text-xs">
-                      <Unlock className="w-3 h-3" /> Release
-                    </Button>
-                  )}
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1 h-7 text-xs"
-                    onClick={() => sendWhatsAppUpdate(order)}
-                  >
-                    <MessageCircle className="w-3 h-3" /> Send WhatsApp
-                  </Button>
-
-                  <Input
-                    placeholder="Admin notes..."
-                    defaultValue={order.adminNotes ?? ''}
-                    onBlur={(e) => {
-                      if (e.target.value !== (order.adminNotes ?? '')) {
-                        updateOrder(order.id, { adminNotes: e.target.value }, { adminNotes: e.target.value });
-                      }
-                    }}
-                    className="max-w-xs h-7 text-xs"
-                    disabled={!canEdit || lockedByOther}
-                  />
-                </div>
-
-                {order.statusHistory && order.statusHistory.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-gray-50">
-                    <p className="text-xs font-semibold text-gray-400 mb-1">Status timeline</p>
-                    <div className="flex flex-wrap gap-2">
-                      {order.statusHistory.map((h) => (
-                        <span key={h.id} className="text-[10px] bg-gray-50 px-2 py-0.5 rounded">
-                          {h.status.replace(/_/g, ' ')} · {formatDateTime(h.createdAt)}
-                          {h.staff?.name && ` · ${h.staff.name}`}
-                        </span>
-                      ))}
-                    </div>
+                {!collapsed && (
+                  <div className="p-3 space-y-3 bg-gray-50/50">
+                    {sectionOrders.length === 0 ? (
+                      <p className="text-xs text-gray-400 text-center py-4">No orders in this stage</p>
+                    ) : (
+                      sectionOrders.map((order) => (
+                        <OrderCard
+                          key={order.id}
+                          order={order}
+                          expanded={expandedOrderId === order.id}
+                          onToggle={() => setExpandedOrderId((id) => (id === order.id ? null : order.id))}
+                          canEdit={canEdit}
+                          canAssign={canAssign}
+                          canOverrideLock={canOverrideLock}
+                          currentStaffId={currentStaffId}
+                          forceAssignedToMe={forceAssignedToMe}
+                          staffList={staffList}
+                          onUpdate={updateOrder}
+                          onAssign={assignOrder}
+                          onRelease={releaseOrder}
+                          onWhatsApp={sendWhatsAppUpdate}
+                        />
+                      ))
+                    )}
                   </div>
                 )}
-              </div>
+              </section>
             );
           })}
         </div>
