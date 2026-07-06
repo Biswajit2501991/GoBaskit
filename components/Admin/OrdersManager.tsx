@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { GripVertical, Lock, MapPin, MessageCircle, Phone, Unlock } from 'lucide-react';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 import { buildWhatsAppUrl } from '@/utils/whatsapp';
-import { PAYMENT_METHODS } from '@/constants';
+import { PAYMENT_METHODS, ADMIN_LIST_PAGE_SIZE } from '@/constants';
+import ListPagination from './ListPagination';
 
 interface OrderItem {
   id: string;
@@ -68,7 +69,7 @@ interface StaffOption {
 const STATUSES = ['PENDING', 'ACCEPTED', 'PACKED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
 const PRIORITIES = ['NORMAL', 'HIGH', 'URGENT'];
 const SSE_RELOAD_DEBOUNCE_MS = 800;
-const BOARD_PAGE_SIZE = 100;
+const BOARD_PAGE_SIZE = ADMIN_LIST_PAGE_SIZE;
 const ORDER_DRAG_TYPE = 'application/gobaskit-order-id';
 
 function isInteractiveDragTarget(target: EventTarget | null): boolean {
@@ -573,8 +574,6 @@ export default function OrdersManager({
     void updateOrder(orderId, { status: targetStatus }, { status: targetStatus });
   }
 
-  const pageCount = Math.ceil(total / BOARD_PAGE_SIZE);
-
   return (
     <div className="p-6 w-full max-w-[100vw]">
       <div className="flex items-center gap-3 mb-2">
@@ -673,13 +672,7 @@ export default function OrdersManager({
         </div>
       )}
 
-      {pageCount > 1 && (
-        <div className="flex gap-2 mt-6 justify-center">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</Button>
-          <span className="text-sm text-gray-500 self-center">Page {page} of {pageCount}</span>
-          <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => setPage((p) => p + 1)}>Next</Button>
-        </div>
-      )}
+      <ListPagination page={page} total={total} onPageChange={setPage} className="mt-6" />
     </div>
   );
 }

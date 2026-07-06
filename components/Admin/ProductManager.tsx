@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,6 +14,8 @@ import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { AdminCategory } from './CategoryManager';
 import ProductImageUpload from './ProductImageUpload';
 import ProductPriceDisplay from '@/components/ProductCard/ProductPriceDisplay';
+import ListPagination from './ListPagination';
+import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
 
 export interface AdminProduct {
   id: string;
@@ -47,21 +49,58 @@ const emptyProduct: ProductFormData = {
 };
 
 export default function ProductManager({
-  products,
   categories,
   canEdit,
   canDelete,
+  sort = 'name',
+  title = 'Products',
+  subtitle = 'assign each to a category',
 }: {
-  products: AdminProduct[];
   categories: AdminCategory[];
   canEdit: boolean;
   canDelete: boolean;
+  sort?: 'name' | 'stock';
+  title?: string;
+  subtitle?: string;
 }) {
   const router = useRouter();
+  const [products, setProducts] = useState<AdminProduct[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(ADMIN_LIST_PAGE_SIZE),
+      sort,
+    });
+    if (search.trim()) params.set('search', search.trim());
+    if (categoryFilter) params.set('categoryId', categoryFilter);
+
+    try {
+      const res = await fetch(`/api/admin/products?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setProducts(data.items);
+        setTotal(data.total);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [page, search, categoryFilter, sort]);
+
+  useEffect(() => {
+    const t = setTimeout(() => load(), 300);
+    return () => clearTimeout(t);
+  }, [load]);
 
   const {
     register,
@@ -150,6 +189,7 @@ export default function ProductManager({
     }
 
     closeForm();
+    await load();
     router.refresh();
   }
 
@@ -163,6 +203,7 @@ export default function ProductManager({
       alert('Failed to delete product');
       return;
     }
+    await load();
     router.refresh();
   }
 
@@ -173,12 +214,31 @@ export default function ProductManager({
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Products</h1>
-          <p className="text-sm text-gray-500 mt-1">{products.length} products · assign each to a category</p>
+          <h1 className="text-2xl font-bold">{title}</h1>
+          <p className="text-sm text-gray-500 mt-1">{total} products · {subtitle}</p>
         </div>
         <Button onClick={openCreate} className="gap-2" disabled={categories.length === 0 || !canEdit}>
           <Plus className="w-4 h-4" /> Add Product
         </Button>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <Input
+          placeholder="Search by product name..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          className="max-w-xs"
+        />
+        <select
+          value={categoryFilter}
+          onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+          className={`max-w-xs ${selectClass}`}
+        >
+          <option value="">All categories</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>{cat.name}</option>
+          ))}
+        </select>
       </div>
 
       {categories.length === 0 && (
@@ -318,7 +378,18 @@ export default function ProductManager({
               </tr>
             </thead>
             <tbody>
-              {products.map((p) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-gray-400">Loading...</td>
+                </tr>
+              ) : products.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-gray-500">
+                    {search || categoryFilter ? 'No products match your filters.' : 'No products yet. Click Add Product to create one.'}
+                  </td>
+                </tr>
+              ) : (
+                products.map((p) => (
                 <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="p-3">
                     {p.imageUrl ? (
@@ -366,16 +437,14 @@ export default function ProductManager({
                     </div>
                   </td>
                 </tr>
-              ))}
-              {products.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="p-8 text-center text-gray-500">No products yet. Click Add Product to create one.</td>
-                </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      <ListPagination page={page} total={total} onPageChange={setPage} />
     </div>
   );
 }

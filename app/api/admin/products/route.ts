@@ -5,15 +5,23 @@ import { buildProductPricingData } from '@/utils/pricing';
 import { requireStaffPermission } from '@/lib/staff-auth';
 import { requireSameOrigin } from '@/lib/security';
 import { AuditService } from '@/services/AuditService';
+import { ProductService } from '@/services/ProductService';
+import { ADMIN_LIST_PAGE_SIZE } from '@/constants';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requireStaffPermission('products:view');
   if (auth.error) return auth.error;
-  const products = await prisma.product.findMany({
-    include: { category: true },
-    orderBy: { createdAt: 'desc' },
+
+  const { searchParams } = new URL(req.url);
+  const data = await ProductService.listAdmin({
+    search: searchParams.get('search') || undefined,
+    categoryId: searchParams.get('categoryId') || undefined,
+    page: Number(searchParams.get('page') || 1),
+    pageSize: Number(searchParams.get('pageSize') || ADMIN_LIST_PAGE_SIZE),
+    sort: searchParams.get('sort') === 'stock' ? 'stock' : 'name',
   });
-  return NextResponse.json(products);
+
+  return NextResponse.json(data);
 }
 
 export async function POST(req: NextRequest) {

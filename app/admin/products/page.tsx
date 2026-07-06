@@ -12,20 +12,13 @@ export default async function AdminProductsPage() {
     redirect('/admin/dashboard');
   }
 
-  const [products, categories] = await Promise.all([
-    prisma.product.findMany({
-      include: { category: { select: { id: true, name: true, slug: true } } },
-      orderBy: { name: 'asc' },
-    }),
-    prisma.category.findMany({
-      orderBy: { sortOrder: 'asc' },
-      include: { _count: { select: { products: true } } },
-    }),
-  ]);
+  const categories = await prisma.category.findMany({
+    orderBy: { sortOrder: 'asc' },
+    include: { _count: { select: { products: true } } },
+  });
 
   return (
     <ProductManager
-      products={products}
       categories={categories}
       canEdit={staffHasPermission(staff.role, perms, 'products:edit')}
       canDelete={staffHasPermission(staff.role, perms, 'products:delete')}

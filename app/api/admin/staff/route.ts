@@ -12,16 +12,21 @@ export async function GET(req: NextRequest) {
   const auth = await requireStaffPermission('staff:view');
   if (auth.error) return auth.error;
 
-  const { searchParams } = new URL(req.url);
-  const data = await StaffService.list({
-    search: searchParams.get('search') || undefined,
-    role: (searchParams.get('role') as StaffRole) || undefined,
-    active: searchParams.get('active') === 'false' ? false : searchParams.get('active') === 'true' ? true : undefined,
-    page: Number(searchParams.get('page') || 1),
-    pageSize: Number(searchParams.get('pageSize') || 20),
-  });
+  try {
+    const { searchParams } = new URL(req.url);
+    const data = await StaffService.list({
+      search: searchParams.get('search') || undefined,
+      role: (searchParams.get('role') as StaffRole) || undefined,
+      active: searchParams.get('active') === 'false' ? false : searchParams.get('active') === 'true' ? true : undefined,
+      page: Number(searchParams.get('page') || 1),
+      pageSize: Number(searchParams.get('pageSize') || 20),
+    });
 
-  return NextResponse.json(data);
+    return NextResponse.json(data);
+  } catch (err) {
+    console.error('[admin/staff GET]', err);
+    return NextResponse.json({ error: 'Failed to load staff list' }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {

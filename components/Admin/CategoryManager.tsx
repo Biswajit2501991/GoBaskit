@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import ProductImageUpload from './ProductImageUpload';
+import ListPagination from './ListPagination';
+import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
 
 export interface AdminCategory {
   id: string;
@@ -31,17 +33,45 @@ const emptyCategory: CategoryFormData = {
 };
 
 export default function CategoryManager({
-  categories,
   canEdit,
 }: {
-  categories: AdminCategory[];
   canEdit: boolean;
 }) {
   const router = useRouter();
+  const [categories, setCategories] = useState<AdminCategory[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(ADMIN_LIST_PAGE_SIZE),
+    });
+    if (search.trim()) params.set('search', search.trim());
+
+    try {
+      const res = await fetch(`/api/admin/categories?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(data.items);
+        setTotal(data.total);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [page, search]);
+
+  useEffect(() => {
+    const t = setTimeout(() => load(), 300);
+    return () => clearTimeout(t);
+  }, [load]);
 
   const {
     register,
@@ -104,6 +134,7 @@ export default function CategoryManager({
     }
 
     closeForm();
+    await load();
     router.refresh();
   }
 
@@ -118,20 +149,28 @@ export default function CategoryManager({
       alert(err.error || 'Failed to delete');
       return;
     }
+    await load();
     router.refresh();
   }
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Categories</h1>
-          <p className="text-sm text-gray-500 mt-1">{categories.length} categories · map products via category dropdown</p>
+          <p className="text-sm text-gray-500 mt-1">{total} categories · map products via category dropdown</p>
         </div>
         <Button onClick={openCreate} className="gap-2" disabled={!canEdit}>
           <Plus className="w-4 h-4" /> Add Category
         </Button>
       </div>
+
+      <Input
+        placeholder="Search by name or slug..."
+        value={search}
+        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+        className="max-w-md"
+      />
 
       {showForm && (
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
@@ -179,6 +218,13 @@ export default function CategoryManager({
         </div>
       )}
 
+      {loading ? (
+        <p className="text-gray-400 text-sm">Loading...</p>
+      ) : categories.length === 0 ? (
+        <p className="text-gray-500 text-sm">
+          {search ? 'No categories match your search.' : 'No categories yet. Click Add Category to create one.'}
+        </p>
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {categories.map((cat) => (
           <div key={cat.id} className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col">
@@ -220,6 +266,9 @@ export default function CategoryManager({
           </div>
         ))}
       </div>
+      )}
+
+      <ListPagination page={page} total={total} onPageChange={setPage} />
     </div>
   );
 }

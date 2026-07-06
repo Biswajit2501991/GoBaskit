@@ -1,3 +1,5 @@
+export { ADMIN_LIST_PAGE_SIZE } from './admin';
+
 export const STORE_NAME = process.env.NEXT_PUBLIC_STORE_NAME || 'GoBaskit';
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.gobaskitkaro.com').replace(/\/+$/, '');

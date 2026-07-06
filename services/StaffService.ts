@@ -37,7 +37,7 @@ export class StaffService {
   }
 
   static async list(params: { search?: string; role?: StaffRole; active?: boolean; page?: number; pageSize?: number }) {
-    const page = params.page ?? 1;
+    const page = Math.max(params.page ?? 1, 1);
     const pageSize = Math.min(params.pageSize ?? 20, 100);
     const where = {
       deletedAt: null,

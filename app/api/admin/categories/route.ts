@@ -5,12 +5,21 @@ import { slugify } from '@/lib/utils';
 import { requireStaffPermission } from '@/lib/staff-auth';
 import { requireSameOrigin } from '@/lib/security';
 import { AuditService } from '@/services/AuditService';
+import { CategoryService } from '@/services/ProductService';
+import { ADMIN_LIST_PAGE_SIZE } from '@/constants';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requireStaffPermission('categories:view');
   if (auth.error) return auth.error;
-  const categories = await prisma.category.findMany({ orderBy: { sortOrder: 'asc' }, include: { _count: { select: { products: true } } } });
-  return NextResponse.json(categories);
+
+  const { searchParams } = new URL(req.url);
+  const data = await CategoryService.listAdmin({
+    search: searchParams.get('search') || undefined,
+    page: Number(searchParams.get('page') || 1),
+    pageSize: Number(searchParams.get('pageSize') || ADMIN_LIST_PAGE_SIZE),
+  });
+
+  return NextResponse.json(data);
 }
 
 export async function POST(req: NextRequest) {

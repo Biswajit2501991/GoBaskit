@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Pencil, Trash2, X } from 'lucide-react';
 import StaffBulkImport from '@/components/Admin/StaffBulkImport';
+import ListPagination from './ListPagination';
+import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
 
 interface StaffRow {
   id: string;
@@ -66,6 +68,8 @@ function staffPayloadError(form: typeof emptyForm, editingId: string | null): st
 export default function StaffManager() {
   const router = useRouter();
   const [items, setItems] = useState<StaffRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -75,14 +79,20 @@ export default function StaffManager() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const q = search ? `?search=${encodeURIComponent(search)}` : '';
-    const res = await fetch(`/api/admin/staff${q}`);
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(ADMIN_LIST_PAGE_SIZE),
+    });
+    if (search.trim()) params.set('search', search.trim());
+
+    const res = await fetch(`/api/admin/staff?${params}`);
     if (res.ok) {
       const data = await res.json();
-      setItems(data.items);
+      setItems(Array.isArray(data.items) ? data.items : []);
+      setTotal(typeof data.total === 'number' ? data.total : 0);
     }
     setLoading(false);
-  }, [search]);
+  }, [page, search]);
 
   useEffect(() => {
     const t = setTimeout(load, 300);
@@ -188,7 +198,7 @@ export default function StaffManager() {
       <Input
         placeholder="Search by name, mobile, email..."
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
         className="mb-4 max-w-md"
       />
 
@@ -361,6 +371,8 @@ export default function StaffManager() {
           </tbody>
         </table>
       </div>
+
+      <ListPagination page={page} total={total} onPageChange={setPage} className="mt-4" />
     </div>
   );
 }
