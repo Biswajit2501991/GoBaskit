@@ -5,6 +5,7 @@ import { buildProductPricingData } from '@/utils/pricing';
 import { requireStaffPermission } from '@/lib/staff-auth';
 import { requireSameOrigin } from '@/lib/security';
 import { AuditService } from '@/services/AuditService';
+import { InventoryService } from '@/services/InventoryService';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -32,6 +33,12 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     actualPrice: parsed.data.actualPrice,
   });
 
+  await InventoryService.applyAdminStockUpdate(
+    existing,
+    parsed.data.stock,
+    parsed.data.status ?? existing.status,
+  );
+
   const product = await prisma.product.update({
     where: { id },
     data: {
@@ -40,9 +47,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
       price: pricing.price,
       actualPrice: pricing.actualPrice,
       unit: parsed.data.unit,
-      stock: parsed.data.stock,
       categoryId: parsed.data.categoryId,
-      status: parsed.data.status ?? 'ACTIVE',
       imageUrl: parsed.data.imageUrl || null,
       discount: pricing.discount,
       isFeatured: parsed.data.isFeatured ?? false,

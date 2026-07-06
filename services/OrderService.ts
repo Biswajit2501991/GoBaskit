@@ -5,6 +5,7 @@ import { AuditService } from '@/services/AuditService';
 import { adminEventBus } from '@/lib/realtime/eventBus';
 import { DashboardService } from '@/services/DashboardService';
 import { AnalyticsService } from '@/services/AnalyticsService';
+import { InventoryService } from '@/services/InventoryService';
 
 export interface OrderListParams {
   search?: string;
@@ -213,6 +214,9 @@ export class OrderService {
 
     if (data.status && data.status !== order.status) {
       await this.recordStatusChange(orderId, data.status, actor.id);
+      if (data.status === 'CANCELLED' && order.status !== 'CANCELLED') {
+        await InventoryService.restoreForOrder(orderId);
+      }
     }
 
     const updated = await prisma.order.findUniqueOrThrow({

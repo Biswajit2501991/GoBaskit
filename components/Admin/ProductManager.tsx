@@ -16,6 +16,7 @@ import ProductImageUpload from './ProductImageUpload';
 import ProductPriceDisplay from '@/components/ProductCard/ProductPriceDisplay';
 import ListPagination from './ListPagination';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
+import { isLowStock } from '@/utils/inventory';
 
 export interface AdminProduct {
   id: string;
@@ -25,6 +26,7 @@ export interface AdminProduct {
   actualPrice: number | null;
   unit: string;
   stock: number;
+  stockBaseline: number;
   status: string;
   imageUrl: string | null;
   discount: number;
@@ -322,6 +324,9 @@ export default function ProductManager({
                 <Label>Stock *</Label>
                 <Input {...register('stock')} type="number" min="0" className="mt-1" disabled={!canEdit} />
                 {errors.stock && <p className="text-red-500 text-xs mt-1">{errors.stock.message}</p>}
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Reduces automatically when orders are placed. At 0, status becomes Out of Stock. Alert at ≤25% of stocked level.
+                </p>
               </div>
 
               <div>
@@ -331,6 +336,7 @@ export default function ProductManager({
                   <option value="INACTIVE">Inactive</option>
                   <option value="OUT_OF_STOCK">Out of Stock</option>
                 </select>
+                <p className="text-[11px] text-gray-400 mt-1">Active / Out of Stock sync from stock unless set to Inactive.</p>
               </div>
 
               <ProductImageUpload
@@ -418,7 +424,22 @@ export default function ProductManager({
                     <ProductPriceDisplay price={p.price} actualPrice={p.actualPrice} size="sm" />
                   </td>
                   <td className="p-3 text-gray-500">{p.unit}</td>
-                  <td className="p-3">{p.stock}</td>
+                  <td className="p-3">
+                    <span
+                      className={`font-medium ${
+                        p.stock <= 0
+                          ? 'text-red-600'
+                          : isLowStock(p.stock, p.stockBaseline ?? p.stock)
+                            ? 'text-amber-600'
+                            : ''
+                      }`}
+                    >
+                      {p.stock}
+                    </span>
+                    {(p.stockBaseline ?? 0) > 0 && (
+                      <p className="text-[10px] text-gray-400">of {p.stockBaseline} stocked</p>
+                    )}
+                  </td>
                   <td className="p-3">
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded ${p.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
                       {p.status.replace('_', ' ')}

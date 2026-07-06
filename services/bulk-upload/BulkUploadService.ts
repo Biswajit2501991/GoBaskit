@@ -22,6 +22,7 @@ import {
   saveSession,
 } from './ImportHistoryStore';
 import { buildProductPricingData } from '@/utils/pricing';
+import { InventoryService } from '@/services/InventoryService';
 
 export interface LegacyPreviewResult {
   preview: { name: string; categoryName: string; price: number; unit: string; stock: number }[];
@@ -65,9 +66,7 @@ function rowToProductData(
 
   const status: ProductStatus = !row.active
     ? ProductStatus.INACTIVE
-    : row.stock <= 0
-      ? ProductStatus.OUT_OF_STOCK
-      : ProductStatus.ACTIVE;
+    : InventoryService.resolveStatus(row.stock, ProductStatus.ACTIVE);
 
   return {
     name: row.productName,
@@ -76,6 +75,7 @@ function rowToProductData(
     actualPrice: pricing.actualPrice,
     unit: row.unit,
     stock: row.stock,
+    stockBaseline: row.stock,
     categoryId,
     status,
     imageUrl: imageUrl || null,

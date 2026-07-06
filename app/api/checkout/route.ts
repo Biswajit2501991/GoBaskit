@@ -7,6 +7,7 @@ import { SettingsService } from '@/services/SettingsService';
 import { OrderService } from '@/services/OrderService';
 import { NotificationService } from '@/services/NotificationService';
 import { CustomerProfileService } from '@/services/CustomerProfileService';
+import { InventoryService } from '@/services/InventoryService';
 import { profileFromCheckout } from '@/utils/customerProfile';
 
 export async function POST(req: NextRequest) {
@@ -57,49 +58,66 @@ export async function POST(req: NextRequest) {
     const orderNumber = `GB${Date.now().toString().slice(-8)}`;
     const source = orderSource === 'whatsapp' ? 'whatsapp' : 'website';
 
-    const dbCustomer = await prisma.customer.create({
-      data: {
-        firstName: parsed.data.firstName,
-        lastName: parsed.data.lastName,
-        mobile: parsed.data.mobile,
-        alternateMobile: parsed.data.alternateMobile || null,
-        houseNumber: parsed.data.houseNumber,
-        street: parsed.data.street,
-        area: parsed.data.area,
-        landmark: parsed.data.landmark || null,
-        city: parsed.data.city,
-        state: parsed.data.state,
-        pincode: parsed.data.pincode || '',
-      },
+    const stockItems = items.map(
+      (item: { productId: string; quantity: number }) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+      }),
+    );
+    await InventoryService.validateCheckoutItems(stockItems);
+
+    let inventoryUpdates: { updated: Awaited<ReturnType<typeof InventoryService.reserveForOrder>>['updated']; previousStock: Map<string, number> };
+
+    const order = await prisma.$transaction(async (tx) => {
+      const dbCustomer = await tx.customer.create({
+        data: {
+          firstName: parsed.data.firstName,
+          lastName: parsed.data.lastName,
+          mobile: parsed.data.mobile,
+          alternateMobile: parsed.data.alternateMobile || null,
+          houseNumber: parsed.data.houseNumber,
+          street: parsed.data.street,
+          area: parsed.data.area,
+          landmark: parsed.data.landmark || null,
+          city: parsed.data.city,
+          state: parsed.data.state,
+          pincode: parsed.data.pincode || '',
+        },
+      });
+
+      const created = await tx.order.create({
+        data: {
+          orderNumber,
+          customerId: dbCustomer.id,
+          subtotal,
+          deliveryCharge,
+          grandTotal,
+          paymentMethod: parsed.data.paymentMethod,
+          deliveryNotes: parsed.data.deliveryNotes || null,
+          orderSource: source,
+          customerLat: typeof customerLat === 'number' ? customerLat : null,
+          customerLng: typeof customerLng === 'number' ? customerLng : null,
+          items: {
+            create: items.map(
+              (item: { productId: string; name: string; quantity: number; price: number; unit: string }) => ({
+                productId: item.productId,
+                productName: item.name,
+                quantity: item.quantity,
+                unitPrice: item.price,
+                unit: item.unit,
+                totalPrice: item.price * item.quantity,
+              }),
+            ),
+          },
+        },
+        include: { items: true, customer: true },
+      });
+
+      inventoryUpdates = await InventoryService.reserveForOrder(tx, created.id, stockItems);
+      return created;
     });
 
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        customerId: dbCustomer.id,
-        subtotal,
-        deliveryCharge,
-        grandTotal,
-        paymentMethod: parsed.data.paymentMethod,
-        deliveryNotes: parsed.data.deliveryNotes || null,
-        orderSource: source,
-        customerLat: typeof customerLat === 'number' ? customerLat : null,
-        customerLng: typeof customerLng === 'number' ? customerLng : null,
-        items: {
-          create: items.map(
-            (item: { productId: string; name: string; quantity: number; price: number; unit: string }) => ({
-              productId: item.productId,
-              productName: item.name,
-              quantity: item.quantity,
-              unitPrice: item.price,
-              unit: item.unit,
-              totalPrice: item.price * item.quantity,
-            }),
-          ),
-        },
-      },
-      include: { items: true, customer: true },
-    });
+    await InventoryService.afterOrderReserved(inventoryUpdates!.updated, inventoryUpdates!.previousStock);
 
     await OrderService.onOrderCreated(order);
     await NotificationService.notifyNewOrder({
@@ -124,7 +142,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ order, orderNumber });
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to place order';
     console.error('Checkout error:', error);
-    return NextResponse.json({ error: 'Failed to place order' }, { status: 500 });
+    const status = message.includes('stock') || message.includes('unavailable') ? 400 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

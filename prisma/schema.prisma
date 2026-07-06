@@ -80,7 +80,9 @@ model Product {
   price       Float
   actualPrice Float?        @map("actual_price")
   unit        String
-  stock       Int           @default(0)
+  stock            Int           @default(0)
+  stockBaseline    Int           @default(0) @map("stock_baseline")
+  lowStockNotifiedAt DateTime?   @map("low_stock_notified_at")
   status      ProductStatus @default(ACTIVE)
   imageUrl    String?       @map("image_url")
   discount    Float         @default(0)
@@ -135,6 +137,7 @@ model Order {
   lockedAt        DateTime?     @map("locked_at")
   priority        OrderPriority @default(NORMAL)
   adminNotes      String?       @map("admin_notes")
+  stockReserved   Boolean       @default(false) @map("stock_reserved")
   items           OrderItem[]
   statusHistory   OrderStatusHistory[]
   createdAt       DateTime      @default(now()) @map("created_at")

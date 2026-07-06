@@ -6,6 +6,9 @@ import { SettingsService } from '@/services/SettingsService';
 import { StaffAssignmentService } from '@/services/StaffAssignmentService';
 import { formatCustomerName } from '@/utils/customer';
 import { PAYMENT_METHODS } from '@/constants';
+import { parsePermissions, staffHasPermission } from '@/types/staff';
+import type { StaffRole } from '@prisma/client';
+import { InventoryService } from '@/services/InventoryService';
 
 export interface NewOrderNotificationInput {
   id: string;
@@ -97,6 +100,79 @@ export class NotificationService {
             message,
             entityType: 'orders',
             entityId: order.id,
+          },
+        }),
+      ),
+    );
+
+    DashboardService.invalidateCache();
+
+    for (const notification of notifications) {
+      await emitNotification(notification);
+    }
+
+    return notifications;
+  }
+
+  static async getInventoryNotificationRecipients(): Promise<string[]> {
+    const staff = await prisma.staffAccount.findMany({
+      where: { active: true, deletedAt: null },
+      select: { id: true, role: true, permissions: true },
+    });
+
+    return staff
+      .filter((member) => {
+        if (member.role === 'SUPER_ADMIN' || member.role === 'INVENTORY_MANAGER' || member.role === 'MANAGER') {
+          return true;
+        }
+        const perms = parsePermissions(member.permissions);
+        return staffHasPermission(member.role as StaffRole, perms, 'products:edit');
+      })
+      .map((member) => member.id);
+  }
+
+  static async notifyLowStock(product: {
+    id: string;
+    name: string;
+    stock: number;
+    stockBaseline: number;
+  }) {
+    const threshold = InventoryService.lowStockThreshold(product.stockBaseline);
+    const title = `Low Stock · ${product.name}`;
+    const message = [
+      `${product.name} has only ${product.stock} unit${product.stock === 1 ? '' : 's'} left`,
+      `(≤25% of ${product.stockBaseline} stocked). Please update inventory.`,
+    ].join(' — ');
+
+    await this.createInventoryNotifications('low_stock', title, message, product.id);
+  }
+
+  static async notifyOutOfStock(product: { id: string; name: string }) {
+    const title = `Out of Stock · ${product.name}`;
+    const message = `${product.name} is now out of stock and hidden from customers until restocked.`;
+
+    await this.createInventoryNotifications('out_of_stock', title, message, product.id);
+  }
+
+  private static async createInventoryNotifications(
+    type: string,
+    title: string,
+    message: string,
+    productId: string,
+  ) {
+    const recipientIds = await this.getInventoryNotificationRecipients();
+    if (!recipientIds.length) return [];
+
+    const notifications = await Promise.all(
+      recipientIds.map((staffId) =>
+        prisma.adminNotification.create({
+          data: {
+            staffId,
+            type,
+            title,
+            message,
+            entityType: 'products',
+            entityId: productId,
           },
         }),
       ),

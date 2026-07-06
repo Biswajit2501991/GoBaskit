@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@prisma/client';
+import { InventoryService } from '@/services/InventoryService';
 
 const CACHE_TTL_MS = 60 * 1000;
 let cache: { data: DashboardStats; expires: number } | null = null;
@@ -66,7 +67,7 @@ export class DashboardService {
       customerCount,
       productCount,
       categoryCount,
-      lowStockCount,
+      lowStockProducts,
       staffOnline,
       unreadNotifications,
       recentOrders,
@@ -90,7 +91,10 @@ export class DashboardService {
       prisma.customer.count(),
       prisma.product.count(),
       prisma.category.count(),
-      prisma.product.count({ where: { stock: { lte: 5 }, status: 'ACTIVE' } }),
+      prisma.product.findMany({
+        where: { status: { not: 'INACTIVE' } },
+        select: { stock: true, stockBaseline: true },
+      }),
       prisma.staffAccount.count({
         where: { active: true, deletedAt: null, lastLogin: { gte: onlineThreshold } },
       }),
@@ -131,6 +135,10 @@ export class DashboardService {
       const row = trendMap.get(day) ?? { orders: 0, revenue: 0 };
       return { day, ...row };
     });
+
+    const lowStockCount = lowStockProducts.filter(
+      (p) => p.stock <= 0 || InventoryService.isLowStock(p.stock, p.stockBaseline),
+    ).length;
 
     const data: DashboardStats = {
       todayOrders: todayAgg._count.id,

@@ -176,6 +176,8 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
                 >
                   <option value="">All types</option>
                   <option value="new_order">New Order</option>
+                  <option value="low_stock">Low Stock</option>
+                  <option value="out_of_stock">Out of Stock</option>
                   <option value="system">System</option>
                 </select>
               </div>
@@ -208,6 +210,11 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
                     {n.entityType === 'orders' && n.entityId && (
                       <Link href="/admin/orders" className="text-xs text-blinkit-green mt-1 inline-block" onClick={() => setOpen(false)}>
                         View orders →
+                      </Link>
+                    )}
+                    {n.entityType === 'products' && n.entityId && (
+                      <Link href="/admin/products" className="text-xs text-blinkit-green mt-1 inline-block" onClick={() => setOpen(false)}>
+                        Update stock →
                       </Link>
                     )}
                   </button>

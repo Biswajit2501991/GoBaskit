@@ -5,6 +5,7 @@ import { buildProductPricingData } from '@/utils/pricing';
 import { requireStaffPermission } from '@/lib/staff-auth';
 import { requireSameOrigin } from '@/lib/security';
 import { AuditService } from '@/services/AuditService';
+import { InventoryService } from '@/services/InventoryService';
 import { ProductService } from '@/services/ProductService';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants';
 
@@ -56,8 +57,9 @@ export async function POST(req: NextRequest) {
       actualPrice: pricing.actualPrice,
       unit: parsed.data.unit,
       stock: parsed.data.stock,
+      stockBaseline: parsed.data.stock,
       categoryId: parsed.data.categoryId,
-      status: parsed.data.status ?? 'ACTIVE',
+      status: InventoryService.resolveStatus(parsed.data.stock, parsed.data.status ?? 'ACTIVE'),
       imageUrl: parsed.data.imageUrl || null,
       discount: pricing.discount,
       isFeatured: parsed.data.isFeatured ?? false,
