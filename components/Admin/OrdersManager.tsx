@@ -5,7 +5,7 @@ import { formatCustomerAddress, formatCustomerName } from '@/utils/customer';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ChevronDown, ChevronUp, Lock, MapPin, MessageCircle, Phone, Unlock } from 'lucide-react';
+import { Lock, MapPin, MessageCircle, Phone, Unlock } from 'lucide-react';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 import { buildWhatsAppUrl } from '@/utils/whatsapp';
 import { PAYMENT_METHODS } from '@/constants';
@@ -147,66 +147,62 @@ function OrderCard({
     PAYMENT_METHODS[order.paymentMethod as keyof typeof PAYMENT_METHODS] ?? order.paymentMethod;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full text-left p-4 hover:bg-gray-50/80 transition-colors"
+        className="w-full text-left p-3 hover:bg-gray-50/80 transition-colors"
       >
-        <div className="flex flex-wrap justify-between items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-bold">{order.orderNumber}</p>
-              {order.priority !== 'NORMAL' && (
-                <span className="text-xs font-semibold bg-orange-100 text-orange-800 px-2 py-0.5 rounded">
-                  {order.priority}
-                </span>
-              )}
-              {order.orderSource === 'whatsapp' && (
-                <span className="text-[10px] font-medium bg-green-100 text-green-800 px-1.5 py-0.5 rounded">WhatsApp</span>
-              )}
-              {isLocked && (
-                <span className="text-xs flex items-center gap-1 text-gray-500">
-                  <Lock className="w-3 h-3" /> {order.assignedStaff?.name ?? 'Assigned'}
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-gray-700 mt-1">
-              {formatCustomerName(order.customer.firstName, order.customer.lastName)}
-              {' · '}
-              <span className="inline-flex items-center gap-0.5">
-                <Phone className="w-3 h-3" /> +91 {order.customer.mobile}
+        <div className="space-y-1.5">
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-bold text-sm leading-tight">{order.orderNumber}</p>
+            <p className="font-bold text-sm text-blinkit-green shrink-0">{formatCurrency(order.grandTotal)}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
+            {order.priority !== 'NORMAL' && (
+              <span className="text-[10px] font-semibold bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded">
+                {order.priority}
               </span>
-            </p>
-            <p className="text-xs text-gray-500 mt-1 flex items-start gap-1 line-clamp-2">
-              <MapPin className="w-3 h-3 shrink-0 mt-0.5" />
-              {address}
-            </p>
-            <p className="text-xs text-gray-400 mt-1">{formatDateTime(order.createdAt)}</p>
+            )}
+            {order.orderSource === 'whatsapp' && (
+              <span className="text-[10px] font-medium bg-green-100 text-green-800 px-1.5 py-0.5 rounded">WA</span>
+            )}
+            {isLocked && (
+              <span className="text-[10px] flex items-center gap-0.5 text-gray-500">
+                <Lock className="w-3 h-3" /> {order.assignedStaff?.name ?? 'Assigned'}
+              </span>
+            )}
           </div>
-          <div className="text-right shrink-0 flex flex-col items-end gap-1">
-            <p className="font-bold text-blinkit-green">{formatCurrency(order.grandTotal)}</p>
-            <select
-              value={order.status}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => {
-                e.stopPropagation();
-                onUpdate(order.id, { status: e.target.value }, { status: e.target.value });
-              }}
-              className="text-xs font-semibold border rounded px-2 py-1"
-              disabled={!canEdit || lockedByOther}
-            >
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
-              ))}
-            </select>
-            {expanded ? <ChevronUp className="w-4 h-4 text-gray-400 mt-1" /> : <ChevronDown className="w-4 h-4 text-gray-400 mt-1" />}
-          </div>
+          <p className="text-xs text-gray-700 leading-snug">
+            {formatCustomerName(order.customer.firstName, order.customer.lastName)}
+          </p>
+          <p className="text-[11px] text-gray-500 flex items-center gap-0.5">
+            <Phone className="w-3 h-3 shrink-0" /> +91 {order.customer.mobile}
+          </p>
+          <p className="text-[11px] text-gray-500 flex items-start gap-1 line-clamp-2 leading-snug">
+            <MapPin className="w-3 h-3 shrink-0 mt-0.5" />
+            {address}
+          </p>
+          <select
+            value={order.status}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              e.stopPropagation();
+              onUpdate(order.id, { status: e.target.value }, { status: e.target.value });
+            }}
+            className="w-full text-[11px] font-semibold border rounded px-2 py-1 mt-1"
+            disabled={!canEdit || lockedByOther}
+          >
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+            ))}
+          </select>
+          <p className="text-[10px] text-gray-400">{formatDateTime(order.createdAt)}</p>
         </div>
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 border-t border-gray-50 space-y-4">
+        <div className="px-3 pb-3 border-t border-gray-50 space-y-3">
           <div className="grid sm:grid-cols-2 gap-4 pt-3">
             <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Customer</p>
@@ -335,7 +331,6 @@ export default function OrdersManager({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   const initialLoadDone = useRef(false);
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -504,20 +499,20 @@ export default function OrdersManager({
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
   }
 
-  function toggleSection(status: string) {
-    setCollapsedSections((prev) => ({ ...prev, [status]: !prev[status] }));
+  function statusLabel(status: string) {
+    return status.replace(/_/g, ' ');
   }
 
   const pageCount = Math.ceil(total / BOARD_PAGE_SIZE);
 
   return (
-    <div className="p-6 max-w-6xl">
+    <div className="p-6 w-full max-w-[100vw]">
       <div className="flex items-center gap-3 mb-2">
         <h1 className="text-2xl font-bold">Orders ({total})</h1>
         {refreshing && <span className="text-xs text-gray-400 animate-pulse">Updating…</span>}
       </div>
       <p className="text-sm text-gray-500 mb-6">
-        Orders are grouped by status. Change status from the dropdown and the order moves to that section. Click an order to see full details.
+        Kanban board by status — scroll horizontally across columns. Change status from the dropdown and the order moves to that column. Click an order for full details.
       </p>
 
       <div className="flex flex-wrap gap-3 mb-6">
@@ -534,29 +529,25 @@ export default function OrdersManager({
       ) : orders.length === 0 ? (
         <p className="text-gray-500">No orders found</p>
       ) : (
-        <div className="space-y-6">
-          {STATUSES.map((status) => {
-            const sectionOrders = ordersByStatus[status] ?? [];
-            const styles = STATUS_SECTION_STYLES[status];
-            const collapsed = collapsedSections[status];
+        <div className="overflow-x-auto pb-4 -mx-2 px-2">
+          <div className="flex gap-3 items-start min-h-[calc(100vh-13rem)]">
+            {STATUSES.map((status) => {
+              const sectionOrders = ordersByStatus[status] ?? [];
+              const styles = STATUS_SECTION_STYLES[status];
 
-            return (
-              <section key={status} className={`rounded-xl border ${styles.border} overflow-hidden`}>
-                <button
-                  type="button"
-                  onClick={() => toggleSection(status)}
-                  className={`w-full flex items-center justify-between px-4 py-3 border-b ${styles.header}`}
+              return (
+                <section
+                  key={status}
+                  className={`flex flex-col w-[min(300px,78vw)] shrink-0 rounded-xl border ${styles.border} overflow-hidden max-h-[calc(100vh-13rem)]`}
                 >
-                  <span className="font-semibold text-sm">
-                    {status.replace(/_/g, ' ')} ({sectionOrders.length})
-                  </span>
-                  {collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-                </button>
+                  <div className={`px-3 py-2.5 border-b shrink-0 ${styles.header}`}>
+                    <p className="font-semibold text-xs leading-tight">{statusLabel(status)}</p>
+                    <p className="text-[11px] opacity-80 mt-0.5">{sectionOrders.length} order{sectionOrders.length === 1 ? '' : 's'}</p>
+                  </div>
 
-                {!collapsed && (
-                  <div className="p-3 space-y-3 bg-gray-50/50">
+                  <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-gray-50/60 min-h-[120px]">
                     {sectionOrders.length === 0 ? (
-                      <p className="text-xs text-gray-400 text-center py-4">No orders in this stage</p>
+                      <p className="text-[11px] text-gray-400 text-center py-6 px-2">No orders</p>
                     ) : (
                       sectionOrders.map((order) => (
                         <OrderCard
@@ -578,10 +569,10 @@ export default function OrdersManager({
                       ))
                     )}
                   </div>
-                )}
-              </section>
-            );
-          })}
+                </section>
+              );
+            })}
+          </div>
         </div>
       )}
 
