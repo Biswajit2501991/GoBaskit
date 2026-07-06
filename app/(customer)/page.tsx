@@ -5,7 +5,7 @@ import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
 import Link from 'next/link';
 import ProductCard from '@/components/ProductCard/ProductCard';
-import CategoryCard from '@/components/CategoryCard/CategoryCard';
+import CategoryScroller from '@/components/CategoryCard/CategoryScroller';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { PROMO_BANNERS } from '@/constants';
 import type { ProductWithCategory, CategoryItem } from '@/types';
@@ -131,13 +131,7 @@ export default function HomePage() {
         )}
 
         {homepageConfig.showCategories && categories.length > 0 && (
-          <div className="mb-5 overflow-x-auto scrollbar-hide">
-            <div className="flex gap-4 pb-1">
-              {categories.map((cat) => (
-                <CategoryCard key={cat.id} category={cat} />
-              ))}
-            </div>
-          </div>
+          <CategoryScroller categories={categories} />
         )}
 
         {showFeaturedSection && (

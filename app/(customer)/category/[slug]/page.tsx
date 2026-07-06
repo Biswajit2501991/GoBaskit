@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
 import ProductCard from '@/components/ProductCard/ProductCard';
-import CategoryCard from '@/components/CategoryCard/CategoryCard';
+import CategoryScroller from '@/components/CategoryCard/CategoryScroller';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { CATEGORY_ICONS } from '@/constants';
 import type { ProductWithCategory, CategoryItem } from '@/types';
@@ -59,13 +59,7 @@ export default function CategoryPage() {
           </div>
         </div>
 
-        <div className="mb-5 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-4 pb-1">
-            {categories.map((cat) => (
-              <CategoryCard key={cat.id} category={cat} active={cat.slug === slug} />
-            ))}
-          </div>
-        </div>
+        <CategoryScroller categories={categories} activeSlug={slug} />
 
         {loading ? (
           <div className={PRODUCT_GRID}>
