@@ -62,6 +62,11 @@ export default function Header({ search = '', onSearchChange, showSearch = true 
     await fetch('/api/customer/account', { method: 'DELETE' }).catch(() => null);
     clearAccount();
     setAccountMenuOpen(false);
+    if (pathname?.startsWith('/account')) {
+      window.location.replace('/account');
+    } else {
+      window.location.reload();
+    }
   }
 
   return (
