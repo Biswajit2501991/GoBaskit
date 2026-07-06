@@ -10,7 +10,14 @@ import { useCartStore } from '@/store/cartStore';
 import { useConfigStore } from '@/store/configStore';
 import { useLocationStore } from '@/store/locationStore';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
-import { deliveryChargeFrom, pinIsServiceable } from '@/constants';
+import { deliveryChargeFrom } from '@/constants';
+import { cityIsServiceable, pinIsServiceable } from '@/utils/delivery';
+import { SURNAME_LABEL } from '@/utils/customer';
+import {
+  loadCheckoutProfileLocal,
+  profileFromCheckout,
+  saveCheckoutProfileLocal,
+} from '@/utils/customerProfile';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { checkoutSchema, type CheckoutSchema } from '@/lib/validations';
 import { buildWhatsAppMessage, buildWhatsAppUrl, openWhatsAppUrl } from '@/utils/whatsapp';
@@ -24,11 +31,19 @@ export default function CheckoutPage() {
   const router = useRouter();
   const hydrated = useCartHydrated();
   const { items, getSubtotal, clearCart } = useCartStore();
-  const { serviceablePins, serviceableCities, deliverySlabs, minOrderValue, fetchConfig } = useConfigStore();
+  const {
+    serviceablePins,
+    serviceableCities,
+    cityAliases,
+    deliverySlabs,
+    minOrderValue,
+    checkoutMode,
+    refreshConfig,
+  } = useConfigStore();
 
   useEffect(() => {
-    fetchConfig();
-  }, [fetchConfig]);
+    refreshConfig();
+  }, [refreshConfig]);
 
   const subtotal = getSubtotal();
   const deliveryCharge = deliveryChargeFrom(deliverySlabs, subtotal);
@@ -38,6 +53,7 @@ export default function CheckoutPage() {
   const locationPin = useLocationStore((s) => s.pin);
   const locationCity = useLocationStore((s) => s.city);
   const checkedMobile = useStaffPortalStore((s) => s.checkedMobile);
+  const customerMobile = useStaffPortalStore((s) => s.customerMobile);
 
   const {
     register,
@@ -45,6 +61,7 @@ export default function CheckoutPage() {
     watch,
     setValue,
     getValues,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<CheckoutSchema>({
     resolver: zodResolver(checkoutSchema),
@@ -57,7 +74,50 @@ export default function CheckoutPage() {
     },
   });
 
-  // Prefill the pincode from the delivery location the customer picked in the header.
+  const [profileLoaded, setProfileLoaded] = useState(false);
+
+  useEffect(() => {
+    if (profileLoaded) return;
+
+    async function loadProfile() {
+      const mobile = customerMobile || checkedMobile;
+      let profile = loadCheckoutProfileLocal();
+
+      if (mobile) {
+        try {
+          const res = await fetch('/api/customer/profile');
+          if (res.ok) {
+            const data = await res.json();
+            if (data.profile) profile = data.profile;
+          }
+        } catch {
+          /* use local */
+        }
+      }
+
+      if (profile) {
+        reset({
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          mobile: profile.mobile || mobile || '',
+          alternateMobile: profile.alternateMobile || '',
+          houseNumber: profile.houseNumber,
+          street: profile.street,
+          area: profile.area,
+          landmark: profile.landmark || '',
+          city: profile.city,
+          state: profile.state,
+          pincode: profile.pincode || '',
+          paymentMethod: 'COD',
+          deliveryNotes: profile.deliveryNotes || '',
+        });
+      }
+      setProfileLoaded(true);
+    }
+
+    loadProfile();
+  }, [profileLoaded, customerMobile, checkedMobile, reset]);
+
   useEffect(() => {
     if (locationPin && !getValues('pincode')) {
       setValue('pincode', locationPin, { shouldValidate: true });
@@ -76,15 +136,17 @@ export default function CheckoutPage() {
   const pinServiceable = pinChecked ? pinIsServiceable(serviceablePins, pincodeValue) : null;
   const cityValue = (formValues.city ?? '').trim();
   const cityServiceable = cityValue
-    ? serviceableCities.some((city) => city.toLowerCase() === cityValue.toLowerCase())
+    ? cityIsServiceable(serviceableCities, cityValue, cityAliases)
     : null;
   const deliveryMatchByPin = pinServiceable === true;
   const deliveryMatchByCity = cityServiceable === true;
   const deliveryServiceable = deliveryMatchByPin || deliveryMatchByCity;
+  const pincodeOptional = deliveryMatchByCity && !deliveryMatchByPin;
   const enteredMobile = (formValues.mobile ?? '').trim();
   const isWhatsAppPatternValid = /^\d{10}$/.test(enteredMobile);
   const [whatsAppConfirmed, setWhatsAppConfirmed] = useState(false);
   const [highlightSection, setHighlightSection] = useState<'customer' | 'address' | 'summary' | null>(null);
+  const [orderError, setOrderError] = useState('');
   const customerSectionRef = useRef<HTMLDivElement | null>(null);
   const addressSectionRef = useRef<HTMLDivElement | null>(null);
   const summarySectionRef = useRef<HTMLDivElement | null>(null);
@@ -94,6 +156,12 @@ export default function CheckoutPage() {
       setValue('mobile', checkedMobile, { shouldValidate: true });
     }
   }, [checkedMobile, getValues, setValue]);
+
+  useEffect(() => {
+    if (customerMobile && !getValues('mobile')) {
+      setValue('mobile', customerMobile, { shouldValidate: true });
+    }
+  }, [customerMobile, getValues, setValue]);
 
   useEffect(() => {
     setWhatsAppConfirmed(false);
@@ -126,59 +194,102 @@ export default function CheckoutPage() {
     });
   }, [items, formValues, subtotal, deliveryCharge, grandTotal]);
 
-  async function onSubmit(data: CheckoutSchema) {
+  function validateBeforeSubmit(data: CheckoutSchema): boolean {
+    setOrderError('');
     if (belowMinimum) {
       focusSection('summary');
-      return;
+      return false;
     }
-    const pinMatched = pinIsServiceable(serviceablePins, data.pincode);
-    const cityMatched = serviceableCities.some(
-      (city) => city.toLowerCase() === data.city.trim().toLowerCase(),
-    );
+    const pinMatched = data.pincode ? pinIsServiceable(serviceablePins, data.pincode) : false;
+    const cityMatched = cityIsServiceable(serviceableCities, data.city, cityAliases);
     if (!pinMatched && !cityMatched) {
       focusSection('address');
-      return;
+      return false;
     }
     if (!isWhatsAppPatternValid || !whatsAppConfirmed) {
       focusSection('customer');
-      return;
+      return false;
     }
+    return true;
+  }
 
-    const message = buildWhatsAppMessage({
-      items,
-      customer: data,
-      subtotal,
-      deliveryCharge,
-      grandTotal,
-      storeName: STORE_NAME,
-    });
-    const url = buildWhatsAppUrl(WHATSAPP_NUMBER, message);
-
-    // Open WhatsApp immediately (before await) so the browser keeps the click gesture.
-    openWhatsAppUrl(url);
-
+  async function persistProfile(data: CheckoutSchema) {
+    const profile = profileFromCheckout(data);
+    saveCheckoutProfileLocal(profile);
     try {
-      await fetch('/api/checkout', {
+      await fetch('/api/customer/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer: data,
-          items: items.map((i) => ({
-            productId: i.productId,
-            name: i.name,
-            quantity: i.quantity,
-            price: i.price,
-            unit: i.unit,
-          })),
-          paymentMethod: data.paymentMethod,
-        }),
+        body: JSON.stringify({ mobile: data.mobile, profile }),
       });
     } catch {
-      // Order already opened in WhatsApp; DB save is best-effort
+      /* best-effort */
+    }
+  }
+
+  async function submitOrder(data: CheckoutSchema, source: 'website' | 'whatsapp') {
+    if (!validateBeforeSubmit(data)) return;
+
+    const payload = {
+      customer: data,
+      items: items.map((i) => ({
+        productId: i.productId,
+        name: i.name,
+        quantity: i.quantity,
+        price: i.price,
+        unit: i.unit,
+      })),
+      paymentMethod: data.paymentMethod,
+      orderSource: source,
+    };
+
+    if (source === 'whatsapp') {
+      const message = buildWhatsAppMessage({
+        items,
+        customer: data,
+        subtotal,
+        deliveryCharge,
+        grandTotal,
+        storeName: STORE_NAME,
+      });
+      const url = buildWhatsAppUrl(WHATSAPP_NUMBER, message);
+      openWhatsAppUrl(url);
     }
 
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setOrderError(typeof result.error === 'string' ? result.error : 'Failed to place order');
+        if (source === 'website') return;
+      }
+    } catch {
+      if (source === 'website') {
+        setOrderError('Network error. Please try again.');
+        return;
+      }
+    }
+
+    await persistProfile(data);
     clearCart();
+    try {
+      sessionStorage.setItem('gobaskit_last_order_source', source);
+    } catch {
+      /* ignore */
+    }
     router.push('/success');
+  }
+
+  async function onSubmitWebsite(data: CheckoutSchema) {
+    await submitOrder(data, 'website');
+  }
+
+  async function onSubmitWhatsApp(data: CheckoutSchema) {
+    await submitOrder(data, 'whatsapp');
   }
 
   function onInvalid(formErrors: Partial<Record<keyof CheckoutSchema, unknown>>) {
@@ -202,6 +313,16 @@ export default function CheckoutPage() {
     }
     focusSection('summary');
   }
+
+  const showWebsite = checkoutMode === 'website' || checkoutMode === 'both';
+  const showWhatsApp = checkoutMode === 'whatsapp' || checkoutMode === 'both';
+
+  const canSubmit =
+    deliveryServiceable &&
+    isWhatsAppPatternValid &&
+    whatsAppConfirmed &&
+    !belowMinimum &&
+    !isSubmitting;
 
   if (!hydrated) {
     return (
@@ -232,7 +353,11 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-4">
+        {orderError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{orderError}</div>
+        )}
+
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
           <div
             ref={customerSectionRef}
             className={`bg-white rounded-xl border p-4 space-y-3 transition-colors ${
@@ -243,18 +368,18 @@ export default function CheckoutPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>First Name *</Label>
-                <Input {...register('firstName')} placeholder="John" className="mt-1" />
+                <Input {...register('firstName')} placeholder="Rahul" className="mt-1" />
                 {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName.message}</p>}
               </div>
               <div>
-                <Label>Last Name *</Label>
-                <Input {...register('lastName')} placeholder="Smith" className="mt-1" />
+                <Label>{SURNAME_LABEL} *</Label>
+                <Input {...register('lastName')} placeholder="Sharma" className="mt-1" />
                 {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName.message}</p>}
               </div>
             </div>
             <div>
-              <Label>WhatsApp Number *</Label>
-              <Input {...register('mobile')} placeholder="10-digit WhatsApp number" maxLength={10} inputMode="numeric" className="mt-1" />
+              <Label>Mobile *</Label>
+              <Input {...register('mobile')} placeholder="10-digit mobile number" maxLength={10} inputMode="numeric" className="mt-1" />
               <p className="text-[11px] text-gray-400 mt-1">We&apos;ll confirm your order on this WhatsApp number.</p>
               {errors.mobile && <p className="text-red-500 text-xs mt-1">{errors.mobile.message}</p>}
             </div>
@@ -287,7 +412,7 @@ export default function CheckoutPage() {
           >
             <h3 className="font-bold text-sm">Delivery Address</h3>
             <div>
-              <Label>House / Flat No. *</Label>
+              <Label>Address (House / Flat No.) *</Label>
               <Input {...register('houseNumber')} className="mt-1" />
               {errors.houseNumber && <p className="text-red-500 text-xs mt-1">{errors.houseNumber.message}</p>}
             </div>
@@ -310,12 +435,12 @@ export default function CheckoutPage() {
                 <Label>City *</Label>
                 <Input {...register('city')} className="mt-1" />
                 {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city.message}</p>}
-              {!errors.city && cityServiceable === false && pinServiceable !== true && (
-                <p className="text-red-500 text-xs mt-1">We currently deliver to: {serviceableCities.join(', ')}.</p>
-              )}
-              {!errors.city && cityServiceable === true && (
-                <p className="text-green-600 text-xs mt-1">✓ City is serviceable.</p>
-              )}
+                {!errors.city && cityServiceable === false && pinServiceable !== true && (
+                  <p className="text-red-500 text-xs mt-1">We currently deliver to: {serviceableCities.join(', ')}.</p>
+                )}
+                {!errors.city && cityServiceable === true && (
+                  <p className="text-green-600 text-xs mt-1">✓ City is serviceable.</p>
+                )}
               </div>
               <div>
                 <Label>State *</Label>
@@ -324,13 +449,13 @@ export default function CheckoutPage() {
               </div>
             </div>
             <div>
-              <Label>Pincode *</Label>
+              <Label>Postcode {pincodeOptional ? '(Optional — city matched)' : '*'}</Label>
               <Input {...register('pincode')} maxLength={6} inputMode="numeric" className="mt-1" />
               {errors.pincode && <p className="text-red-500 text-xs mt-1">{errors.pincode.message}</p>}
               {!errors.pincode && pinServiceable === true && (
                 <p className="text-green-600 text-xs mt-1">✓ Great! We deliver to your area.</p>
               )}
-              {!errors.pincode && pinServiceable === false && (
+              {!errors.pincode && pinServiceable === false && pincodeValue && (
                 <p className="text-red-500 text-xs mt-1">
                   Sorry, delivery is unavailable at {pincodeValue}. We currently serve: {serviceablePins.join(', ')}.
                 </p>
@@ -376,31 +501,46 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {whatsappMessage && (
+          {whatsappMessage && showWhatsApp && (
             <details className="bg-gray-50 rounded-xl border border-gray-200 p-3 text-xs">
               <summary className="font-semibold cursor-pointer text-gray-600">Preview WhatsApp Message</summary>
               <pre className="mt-2 whitespace-pre-wrap text-gray-700 font-mono text-[11px]">{whatsappMessage}</pre>
             </details>
           )}
 
-          <Button
-            type="submit"
-            size="lg"
-            className="w-full"
-            disabled={isSubmitting}
-          >
-            {isSubmitting
-              ? 'Placing Order...'
-              : pinServiceable === false
-                ? deliveryServiceable
-                  ? 'Place Order via WhatsApp'
-                  : 'Delivery unavailable at this address'
-                : !isWhatsAppPatternValid
-                  ? 'Enter valid WhatsApp number'
-                  : !whatsAppConfirmed
-                    ? 'Confirm WhatsApp number'
-                : 'Place Order via WhatsApp'}
-          </Button>
+          <div className="space-y-2">
+            {showWebsite && (
+              <Button
+                type="button"
+                size="lg"
+                className="w-full"
+                disabled={!canSubmit}
+                onClick={handleSubmit(onSubmitWebsite, onInvalid)}
+              >
+                {isSubmitting
+                  ? 'Placing Order...'
+                  : !deliveryServiceable
+                    ? 'Delivery unavailable at this address'
+                    : !isWhatsAppPatternValid
+                      ? 'Enter valid mobile number'
+                      : !whatsAppConfirmed
+                        ? 'Confirm WhatsApp number'
+                        : 'Place Order'}
+              </Button>
+            )}
+            {showWhatsApp && (
+              <Button
+                type="button"
+                size="lg"
+                variant={showWebsite ? 'outline' : 'default'}
+                className="w-full"
+                disabled={!canSubmit}
+                onClick={handleSubmit(onSubmitWhatsApp, onInvalid)}
+              >
+                {isSubmitting ? 'Opening WhatsApp...' : 'Order via WhatsApp'}
+              </Button>
+            )}
+          </div>
         </form>
       </main>
     </div>

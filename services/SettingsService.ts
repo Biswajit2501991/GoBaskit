@@ -10,6 +10,7 @@ import {
 export interface StoreConfig {
   serviceablePins: string[];
   serviceableCities: string[];
+  cityAliases: Record<string, string[]>;
   deliverySlabs: DeliverySlab[];
   minOrderValue: number;
   storeTiming: string;
@@ -17,6 +18,8 @@ export interface StoreConfig {
   holidayMode: boolean;
   paymentMethods: string[];
   whatsappTemplates: Record<string, string>;
+  checkoutMode: 'website' | 'whatsapp' | 'both';
+  notificationSoundEnabled: boolean;
   homepageConfig: {
     showHeroBanner: boolean;
     showCategories: boolean;
@@ -45,6 +48,7 @@ type StoreConfigUpdate = Partial<Omit<StoreConfig, 'homepageConfig'>> & {
 
 const KEY_PINS = 'serviceable_pins';
 const KEY_CITIES = 'serviceable_cities';
+const KEY_CITY_ALIASES = 'city_aliases';
 const KEY_SLABS = 'delivery_slabs';
 const KEY_MIN = 'min_order_value';
 const KEY_TIMING = 'store_timing';
@@ -52,17 +56,22 @@ const KEY_STATUS = 'store_status';
 const KEY_HOLIDAY = 'holiday_mode';
 const KEY_PAYMENT_METHODS = 'payment_methods';
 const KEY_WHATSAPP_TEMPLATES = 'whatsapp_templates';
+const KEY_CHECKOUT_MODE = 'checkout_mode';
+const KEY_NOTIFICATION_SOUND = 'notification_sound_enabled';
 const KEY_HOMEPAGE_CONFIG = 'homepage_config';
 
 const DEFAULTS: StoreConfig = {
   serviceablePins: SERVICEABLE_PINS,
   serviceableCities: ['Kolkata'],
+  cityAliases: {},
   deliverySlabs: DELIVERY_SLABS,
   minOrderValue: MIN_ORDER_VALUE,
   storeTiming: '08:00-22:00',
   storeStatus: 'OPEN',
   holidayMode: false,
   paymentMethods: ['COD', 'QR_ON_DELIVERY'],
+  checkoutMode: 'both',
+  notificationSoundEnabled: true,
   whatsappTemplates: {
     ORDER_RECEIVED: 'Your order is received and will be confirmed shortly.',
     ORDER_ACCEPTED: 'Your order has been accepted and is being prepared.',
@@ -168,6 +177,31 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     }
   }
 
+  let cityAliases = DEFAULTS.cityAliases;
+  const rawAliases = map.get(KEY_CITY_ALIASES);
+  if (rawAliases) {
+    try {
+      const parsed = JSON.parse(rawAliases) as Record<string, unknown>;
+      cityAliases = Object.fromEntries(
+        Object.entries(parsed).map(([k, v]) => [
+          k,
+          Array.isArray(v) ? v.map((a) => String(a).trim()).filter(Boolean) : [],
+        ]),
+      );
+    } catch {
+      cityAliases = DEFAULTS.cityAliases;
+    }
+  }
+
+  let checkoutMode = DEFAULTS.checkoutMode;
+  const rawCheckoutMode = map.get(KEY_CHECKOUT_MODE);
+  if (rawCheckoutMode === 'website' || rawCheckoutMode === 'whatsapp' || rawCheckoutMode === 'both') {
+    checkoutMode = rawCheckoutMode;
+  }
+
+  const notificationSoundEnabled =
+    (map.get(KEY_NOTIFICATION_SOUND) ?? 'true').toLowerCase() !== 'false';
+
   let minOrderValue = DEFAULTS.minOrderValue;
   const rawMin = map.get(KEY_MIN);
   if (rawMin != null && rawMin !== '') {
@@ -247,6 +281,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
   return {
     serviceablePins: pins,
     serviceableCities: cities,
+    cityAliases,
     deliverySlabs: slabs,
     minOrderValue,
     storeTiming,
@@ -254,6 +289,8 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     holidayMode,
     paymentMethods,
     whatsappTemplates,
+    checkoutMode,
+    notificationSoundEnabled,
     homepageConfig,
   };
 }
@@ -269,6 +306,7 @@ export const SettingsService = {
             in: [
               KEY_PINS,
               KEY_CITIES,
+              KEY_CITY_ALIASES,
               KEY_SLABS,
               KEY_MIN,
               KEY_TIMING,
@@ -276,6 +314,8 @@ export const SettingsService = {
               KEY_HOLIDAY,
               KEY_PAYMENT_METHODS,
               KEY_WHATSAPP_TEMPLATES,
+              KEY_CHECKOUT_MODE,
+              KEY_NOTIFICATION_SOUND,
               KEY_HOMEPAGE_CONFIG,
             ],
           },
@@ -306,6 +346,23 @@ export const SettingsService = {
         .map((c) => String(c).trim())
         .filter(Boolean);
       writes.push(upsert(KEY_CITIES, JSON.stringify([...new Set(cities)])));
+    }
+    if (partial.cityAliases) {
+      const sanitized = Object.fromEntries(
+        Object.entries(partial.cityAliases).map(([k, v]) => [
+          String(k).trim().toLowerCase(),
+          [...new Set(v.map((a) => String(a).trim()).filter(Boolean))],
+        ]),
+      );
+      writes.push(upsert(KEY_CITY_ALIASES, JSON.stringify(sanitized)));
+    }
+    if (partial.checkoutMode) {
+      writes.push(upsert(KEY_CHECKOUT_MODE, partial.checkoutMode));
+    }
+    if (partial.notificationSoundEnabled != null) {
+      writes.push(
+        upsert(KEY_NOTIFICATION_SOUND, partial.notificationSoundEnabled ? 'true' : 'false'),
+      );
     }
     if (partial.deliverySlabs) {
       const slabs = partial.deliverySlabs

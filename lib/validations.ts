@@ -1,20 +1,26 @@
 import { z } from 'zod';
 
-export const checkoutSchema = z.object({
-  firstName: z.string().min(2, 'First name must be at least 2 characters'),
-  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-  mobile: z.string().regex(/^\d{10}$/, 'Enter a valid 10-digit mobile number'),
-  alternateMobile: z.union([z.literal(''), z.string().regex(/^\d{10}$/, 'Enter a valid 10-digit number')]).optional(),
-  houseNumber: z.string().min(1, 'House number is required'),
-  street: z.string().min(2, 'Street is required'),
-  area: z.string().min(2, 'Area is required'),
-  landmark: z.string().optional(),
-  city: z.string().min(2, 'City is required'),
-  state: z.string().min(2, 'State is required'),
-  pincode: z.string().regex(/^\d{6}$/, 'Enter a valid 6-digit pincode'),
-  deliveryNotes: z.string().optional(),
-  paymentMethod: z.enum(['COD', 'QR_ON_DELIVERY']),
-});
+export const checkoutSchema = z
+  .object({
+    firstName: z.string().min(2, 'First name must be at least 2 characters'),
+    lastName: z.string().min(2, 'Surname must be at least 2 characters'),
+    mobile: z.string().regex(/^\d{10}$/, 'Enter a valid 10-digit mobile number'),
+    alternateMobile: z
+      .union([z.literal(''), z.string().regex(/^\d{10}$/, 'Enter a valid 10-digit number')])
+      .optional(),
+    houseNumber: z.string().min(1, 'House number is required'),
+    street: z.string().min(2, 'Street is required'),
+    area: z.string().min(2, 'Area is required'),
+    landmark: z.string().optional(),
+    city: z.string().min(2, 'City is required'),
+    state: z.string().min(2, 'State is required'),
+    pincode: z.union([
+      z.literal(''),
+      z.string().regex(/^\d{6}$/, 'Enter a valid 6-digit pincode'),
+    ]),
+    deliveryNotes: z.string().optional(),
+    paymentMethod: z.enum(['COD', 'QR_ON_DELIVERY']),
+  });
 
 export type CheckoutSchema = z.infer<typeof checkoutSchema>;
 
@@ -44,6 +50,11 @@ export const staffCreateSchema = z.object({
   password: z.string().min(6).optional(),
   permissions: z.array(z.string()).optional(),
   active: z.boolean().optional(),
+  assignedCity: z.string().max(120).optional().or(z.literal('')),
+  assignedAreas: z.array(z.string().max(120)).optional(),
+  latitude: z.number().min(-90).max(90).optional().nullable(),
+  longitude: z.number().min(-180).max(180).optional().nullable(),
+  deliveryRadius: z.number().min(0).max(500).optional().nullable(),
 });
 
 export const staffUpdateSchema = staffCreateSchema.partial().extend({

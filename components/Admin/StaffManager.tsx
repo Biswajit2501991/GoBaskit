@@ -19,6 +19,11 @@ interface StaffRow {
   permissions: string[];
   active: boolean;
   lastLogin: string | null;
+  assignedCity: string | null;
+  assignedAreas: string[];
+  latitude: number | null;
+  longitude: number | null;
+  deliveryRadius: number | null;
 }
 
 const emptyForm = {
@@ -28,6 +33,11 @@ const emptyForm = {
   role: 'READ_ONLY' as StaffRole,
   password: '',
   active: true,
+  assignedCity: '',
+  assignedAreas: '',
+  latitude: '',
+  longitude: '',
+  deliveryRadius: '',
 };
 
 export default function StaffManager() {
@@ -72,6 +82,11 @@ export default function StaffManager() {
       role: row.role,
       password: '',
       active: row.active,
+      assignedCity: row.assignedCity || '',
+      assignedAreas: (row.assignedAreas ?? []).join(', '),
+      latitude: row.latitude != null ? String(row.latitude) : '',
+      longitude: row.longitude != null ? String(row.longitude) : '',
+      deliveryRadius: row.deliveryRadius != null ? String(row.deliveryRadius) : '',
     });
     setShowForm(true);
     setError('');
@@ -81,9 +96,20 @@ export default function StaffManager() {
     e.preventDefault();
     setError('');
     const payload = {
-      ...form,
+      name: form.name,
+      mobile: form.mobile,
       email: form.email || undefined,
       password: form.password || undefined,
+      role: form.role,
+      active: form.active,
+      assignedCity: form.assignedCity || '',
+      assignedAreas: form.assignedAreas
+        .split(',')
+        .map((a) => a.trim())
+        .filter(Boolean),
+      latitude: form.latitude ? Number(form.latitude) : null,
+      longitude: form.longitude ? Number(form.longitude) : null,
+      deliveryRadius: form.deliveryRadius ? Number(form.deliveryRadius) : null,
     };
     const url = editingId ? `/api/admin/staff/${editingId}` : '/api/admin/staff';
     try {
@@ -188,6 +214,56 @@ export default function StaffManager() {
               <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
               Active
             </label>
+            <div className="border-t pt-3 space-y-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Delivery Zone</p>
+              <div>
+                <Label>Assigned City</Label>
+                <Input
+                  value={form.assignedCity}
+                  onChange={(e) => setForm({ ...form, assignedCity: e.target.value })}
+                  placeholder="e.g. Craigieburn"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Assigned Areas (comma-separated)</Label>
+                <Input
+                  value={form.assignedAreas}
+                  onChange={(e) => setForm({ ...form, assignedAreas: e.target.value })}
+                  placeholder="Area 1, Area 2"
+                  className="mt-1"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <Label>Latitude</Label>
+                  <Input
+                    value={form.latitude}
+                    onChange={(e) => setForm({ ...form, latitude: e.target.value })}
+                    placeholder="-37.59"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Longitude</Label>
+                  <Input
+                    value={form.longitude}
+                    onChange={(e) => setForm({ ...form, longitude: e.target.value })}
+                    placeholder="144.94"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Radius (KM)</Label>
+                  <Input
+                    value={form.deliveryRadius}
+                    onChange={(e) => setForm({ ...form, deliveryRadius: e.target.value })}
+                    placeholder="10"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+            </div>
             {error && <p className="text-red-500 text-xs">{error}</p>}
             <Button type="submit" className="w-full">Save</Button>
           </form>
@@ -201,21 +277,26 @@ export default function StaffManager() {
               <th className="p-3">Name</th>
               <th className="p-3">Mobile</th>
               <th className="p-3">Role</th>
+              <th className="p-3">Zone</th>
               <th className="p-3">Status</th>
               <th className="p-3 w-24">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="p-6 text-center text-gray-400">Loading...</td></tr>
+              <tr><td colSpan={6} className="p-6 text-center text-gray-400">Loading...</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={5} className="p-6 text-center text-gray-400">No staff found</td></tr>
+              <tr><td colSpan={6} className="p-6 text-center text-gray-400">No staff found</td></tr>
             ) : (
               items.map((row) => (
                 <tr key={row.id} className="border-t">
                   <td className="p-3 font-medium">{row.name}</td>
                   <td className="p-3">{row.mobile}</td>
                   <td className="p-3">{row.role.replace(/_/g, ' ')}</td>
+                  <td className="p-3 text-xs text-gray-500">
+                    {row.assignedCity || '—'}
+                    {row.deliveryRadius ? ` · ${row.deliveryRadius}km` : ''}
+                  </td>
                   <td className="p-3">
                     <span className={row.active ? 'text-green-600' : 'text-red-500'}>
                       {row.active ? 'Active' : 'Inactive'}

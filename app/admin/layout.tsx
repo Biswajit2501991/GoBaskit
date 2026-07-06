@@ -29,7 +29,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <AdminShell
-      staff={{ name: staff.name, role: staff.role }}
+      staff={{ id: staff.id, name: staff.name, role: staff.role }}
       visibleNav={visibleNav.map((item) => ({ href: item.href, label: item.label }))}
     >
       {children}

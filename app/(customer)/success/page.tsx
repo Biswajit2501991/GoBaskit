@@ -7,15 +7,20 @@ import { Button } from '@/components/ui/button';
 
 export default function SuccessPage() {
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
+  const [orderSource, setOrderSource] = useState<'website' | 'whatsapp'>('whatsapp');
 
   useEffect(() => {
     try {
       const url = sessionStorage.getItem('gobaskit_last_whatsapp_url');
       if (url) setWhatsappUrl(url);
+      const source = sessionStorage.getItem('gobaskit_last_order_source');
+      if (source === 'website' || source === 'whatsapp') setOrderSource(source);
     } catch {
       /* ignore */
     }
   }, []);
+
+  const isWebsite = orderSource === 'website';
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -26,11 +31,15 @@ export default function SuccessPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold mb-2">Order sent on WhatsApp!</h1>
+        <h1 className="text-2xl font-bold mb-2">
+          {isWebsite ? 'Order placed successfully!' : 'Order sent on WhatsApp!'}
+        </h1>
         <p className="text-gray-500 text-sm max-w-sm mb-6">
-          Your order has been shared with GoBaskit. We&apos;ll confirm shortly and deliver in ~15 minutes.
+          {isWebsite
+            ? 'Your order has been received. We will confirm shortly and deliver in ~15 minutes.'
+            : 'Your order has been shared with GoBaskit. We will confirm shortly and deliver in ~15 minutes.'}
         </p>
-        {whatsappUrl && (
+        {!isWebsite && whatsappUrl && (
           <Button asChild variant="outline" className="mb-4">
             <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
               Open WhatsApp again

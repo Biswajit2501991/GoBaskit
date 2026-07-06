@@ -11,8 +11,11 @@ import {
 interface ConfigState {
   serviceablePins: string[];
   serviceableCities: string[];
+  cityAliases: Record<string, string[]>;
   deliverySlabs: DeliverySlab[];
   minOrderValue: number;
+  checkoutMode: 'website' | 'whatsapp' | 'both';
+  notificationSoundEnabled: boolean;
   homepageConfig: {
     showHeroBanner: boolean;
     showCategories: boolean;
@@ -33,6 +36,7 @@ interface ConfigState {
   };
   loaded: boolean;
   fetchConfig: () => Promise<void>;
+  refreshConfig: () => Promise<void>;
 }
 
 // Guards against duplicate in-flight requests when several components mount together.
@@ -42,8 +46,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   // Sensible defaults so the UI works before the fetch resolves (and if it fails).
   serviceablePins: SERVICEABLE_PINS,
   serviceableCities: ['Kolkata'],
+  cityAliases: {},
   deliverySlabs: DELIVERY_SLABS,
   minOrderValue: MIN_ORDER_VALUE,
+  checkoutMode: 'both',
+  notificationSoundEnabled: true,
   homepageConfig: {
     showHeroBanner: true,
     showCategories: true,
@@ -59,32 +66,53 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   fetchConfig: async () => {
     if (get().loaded) return;
     if (inFlight) return inFlight;
-    inFlight = (async () => {
-      try {
-        const res = await fetch('/api/config');
-        if (res.ok) {
-          const c = await res.json();
-          set({
-            serviceablePins: Array.isArray(c.serviceablePins) ? c.serviceablePins : get().serviceablePins,
-            serviceableCities: Array.isArray(c.serviceableCities) ? c.serviceableCities : get().serviceableCities,
-            deliverySlabs: Array.isArray(c.deliverySlabs) ? c.deliverySlabs : get().deliverySlabs,
-            minOrderValue: typeof c.minOrderValue === 'number' ? c.minOrderValue : get().minOrderValue,
-            homepageConfig:
-              typeof c.homepageConfig === 'object' && c.homepageConfig
-                ? {
-                    ...get().homepageConfig,
-                    ...c.homepageConfig,
-                  }
-                : get().homepageConfig,
-            loaded: true,
-          });
-        }
-      } catch {
-        /* keep defaults */
-      } finally {
-        inFlight = null;
-      }
-    })();
+    inFlight = loadConfig(set, get);
+    return inFlight;
+  },
+
+  refreshConfig: async () => {
+    if (inFlight) return inFlight;
+    inFlight = loadConfig(set, get);
     return inFlight;
   },
 }));
+
+async function loadConfig(
+  set: (partial: Partial<ConfigState>) => void,
+  get: () => ConfigState,
+) {
+  try {
+    const res = await fetch('/api/config');
+    if (res.ok) {
+      const c = await res.json();
+      set({
+        serviceablePins: Array.isArray(c.serviceablePins) ? c.serviceablePins : get().serviceablePins,
+        serviceableCities: Array.isArray(c.serviceableCities) ? c.serviceableCities : get().serviceableCities,
+        cityAliases:
+          typeof c.cityAliases === 'object' && c.cityAliases ? c.cityAliases : get().cityAliases,
+        deliverySlabs: Array.isArray(c.deliverySlabs) ? c.deliverySlabs : get().deliverySlabs,
+        minOrderValue: typeof c.minOrderValue === 'number' ? c.minOrderValue : get().minOrderValue,
+        checkoutMode:
+          c.checkoutMode === 'website' || c.checkoutMode === 'whatsapp' || c.checkoutMode === 'both'
+            ? c.checkoutMode
+            : get().checkoutMode,
+        notificationSoundEnabled:
+          typeof c.notificationSoundEnabled === 'boolean'
+            ? c.notificationSoundEnabled
+            : get().notificationSoundEnabled,
+        homepageConfig:
+          typeof c.homepageConfig === 'object' && c.homepageConfig
+            ? {
+                ...get().homepageConfig,
+                ...c.homepageConfig,
+              }
+            : get().homepageConfig,
+        loaded: true,
+      });
+    }
+  } catch {
+    /* keep defaults */
+  } finally {
+    inFlight = null;
+  }
+}

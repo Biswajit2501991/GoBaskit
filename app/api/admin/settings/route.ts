@@ -23,6 +23,9 @@ const settingsSchema = z.object({
   holidayMode: z.boolean().optional(),
   paymentMethods: z.array(z.string().min(1)).optional(),
   whatsappTemplates: z.record(z.string(), z.string().max(500)).optional(),
+  checkoutMode: z.enum(['website', 'whatsapp', 'both']).optional(),
+  notificationSoundEnabled: z.boolean().optional(),
+  cityAliases: z.record(z.string(), z.array(z.string().min(1))).optional(),
   homepageConfig: z
     .object({
       showHeroBanner: z.boolean().optional(),

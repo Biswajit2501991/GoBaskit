@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { formatCustomerName } from '@/utils/customer';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -228,7 +229,7 @@ export default function OrdersManager({
                       )}
                     </div>
                     <p className="text-sm text-gray-500">
-                      {order.customer.firstName} {order.customer.lastName} · +91 {order.customer.mobile}
+                      {formatCustomerName(order.customer.firstName, order.customer.lastName)} · +91 {order.customer.mobile}
                     </p>
                     <p className="text-xs text-gray-400 mt-1">{formatDateTime(order.createdAt)}</p>
                   </div>

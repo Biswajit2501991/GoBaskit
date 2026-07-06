@@ -33,6 +33,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (parsed.data.role) data.role = parsed.data.role;
   if (parsed.data.permissions) data.permissions = parsed.data.permissions;
   if (parsed.data.active !== undefined) data.active = parsed.data.active;
+  if (parsed.data.assignedCity !== undefined) data.assignedCity = parsed.data.assignedCity || null;
+  if (parsed.data.assignedAreas) data.assignedAreas = parsed.data.assignedAreas;
+  if (parsed.data.latitude !== undefined) data.latitude = parsed.data.latitude;
+  if (parsed.data.longitude !== undefined) data.longitude = parsed.data.longitude;
+  if (parsed.data.deliveryRadius !== undefined) data.deliveryRadius = parsed.data.deliveryRadius;
 
   let nextMobile: string | undefined;
   if (parsed.data.mobile) {
@@ -79,7 +84,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       where: { id },
       data,
       select: {
-        id: true, name: true, mobile: true, email: true, role: true, permissions: true, active: true, updatedAt: true,
+        id: true, name: true, mobile: true, email: true, role: true, permissions: true, active: true,
+        assignedCity: true, assignedAreas: true, latitude: true, longitude: true, deliveryRadius: true,
+        updatedAt: true,
       },
     });
   } catch {

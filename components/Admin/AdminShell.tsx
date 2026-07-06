@@ -7,7 +7,7 @@ import { NotificationCenter } from '@/components/Admin/NotificationCenter';
 import { AdminNavLink } from '@/components/Admin/AdminNavLink';
 
 type AdminShellProps = {
-  staff: { name: string; role: string };
+  staff: { id: string; name: string; role: string };
   visibleNav: Array<{ href: string; label: string }>;
   children: React.ReactNode;
 };
@@ -89,7 +89,7 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
             <p className="text-xs font-semibold text-gray-700">{staff.name}</p>
             <p className="text-[10px] text-gray-400">{staff.role.replace(/_/g, ' ')}</p>
           </div>
-          <NotificationCenter />
+          <NotificationCenter staffId={staff.id} />
         </header>
         <div className="flex-1">{children}</div>
       </main>

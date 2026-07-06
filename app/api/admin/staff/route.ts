@@ -56,9 +56,16 @@ export async function POST(req: NextRequest) {
       passwordHash: await hashPassword(password),
       permissions: parsed.data.permissions ?? [],
       active: parsed.data.active ?? true,
+      assignedCity: parsed.data.assignedCity || null,
+      assignedAreas: parsed.data.assignedAreas ?? [],
+      latitude: parsed.data.latitude ?? null,
+      longitude: parsed.data.longitude ?? null,
+      deliveryRadius: parsed.data.deliveryRadius ?? null,
     },
     select: {
-      id: true, name: true, mobile: true, email: true, role: true, permissions: true, active: true, createdAt: true,
+      id: true, name: true, mobile: true, email: true, role: true, permissions: true, active: true,
+      assignedCity: true, assignedAreas: true, latitude: true, longitude: true, deliveryRadius: true,
+      createdAt: true,
     },
   });
 

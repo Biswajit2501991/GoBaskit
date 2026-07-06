@@ -1,40 +1,114 @@
+import type { PaymentMethod } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { adminEventBus } from '@/lib/realtime/eventBus';
 import { DashboardService } from '@/services/DashboardService';
+import { SettingsService } from '@/services/SettingsService';
+import { StaffAssignmentService } from '@/services/StaffAssignmentService';
+import { formatCustomerName } from '@/utils/customer';
+import { PAYMENT_METHODS } from '@/constants';
+
+export interface NewOrderNotificationInput {
+  id: string;
+  orderNumber: string;
+  grandTotal: number;
+  paymentMethod: PaymentMethod;
+  orderSource?: string;
+  customer: {
+    firstName: string;
+    lastName: string;
+    mobile: string;
+    city: string;
+    houseNumber: string;
+    street: string;
+    area: string;
+    pincode: string;
+  };
+  customerLat?: number | null;
+  customerLng?: number | null;
+}
+
+function formatAddress(customer: NewOrderNotificationInput['customer']): string {
+  return [customer.houseNumber, customer.street, customer.area, customer.city, customer.pincode]
+    .filter(Boolean)
+    .join(', ');
+}
+
+function buildOrderMessage(order: NewOrderNotificationInput): string {
+  const name = formatCustomerName(order.customer.firstName, order.customer.lastName);
+  const payment = PAYMENT_METHODS[order.paymentMethod] ?? order.paymentMethod;
+  const source = order.orderSource === 'whatsapp' ? 'WhatsApp' : 'Website';
+  const time = new Date().toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return [
+    `${order.orderNumber} · ${name}`,
+    `+91 ${order.customer.mobile} · ${order.customer.city}`,
+    `₹${order.grandTotal} · ${payment} · ${source}`,
+    formatAddress(order.customer),
+    time,
+  ].join('\n');
+}
+
+async function emitNotification(notification: {
+  id: string;
+  staffId: string | null;
+  type: string;
+  title: string;
+  message: string;
+  entityType: string | null;
+  entityId: string | null;
+  createdAt: Date;
+}) {
+  adminEventBus.emit({
+    type: 'notification_created',
+    payload: {
+      id: notification.id,
+      staffId: notification.staffId,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      entityType: notification.entityType,
+      entityId: notification.entityId,
+      createdAt: notification.createdAt.toISOString(),
+    },
+  });
+}
 
 export class NotificationService {
-  static async notifyNewOrder(order: {
-    id: string;
-    orderNumber: string;
-    grandTotal: number;
-    customer: { firstName: string; lastName: string };
-  }) {
-    const notification = await prisma.adminNotification.create({
-      data: {
-        type: 'new_order',
-        title: 'New Order',
-        message: `${order.orderNumber} — ${order.customer.firstName} ${order.customer.lastName} · ₹${order.grandTotal}`,
-        entityType: 'orders',
-        entityId: order.id,
-      },
+  static async notifyNewOrder(order: NewOrderNotificationInput) {
+    const config = await SettingsService.getStoreConfig();
+    const message = buildOrderMessage(order);
+    const title = `New Order · ${order.orderNumber}`;
+
+    const recipientIds = await StaffAssignmentService.getNotificationRecipients({
+      city: order.customer.city,
+      pincode: order.customer.pincode,
+      latitude: order.customerLat,
+      longitude: order.customerLng,
+      cityAliases: config.cityAliases,
+      serviceableCities: config.serviceableCities,
     });
+
+    const notifications = await Promise.all(
+      recipientIds.map((staffId) =>
+        prisma.adminNotification.create({
+          data: {
+            staffId,
+            type: 'new_order',
+            title,
+            message,
+            entityType: 'orders',
+            entityId: order.id,
+          },
+        }),
+      ),
+    );
 
     DashboardService.invalidateCache();
 
-    adminEventBus.emit({
-      type: 'notification_created',
-      payload: {
-        id: notification.id,
-        type: notification.type,
-        title: notification.title,
-        message: notification.message,
-        entityType: notification.entityType,
-        entityId: notification.entityId,
-        createdAt: notification.createdAt.toISOString(),
-      },
-    });
+    for (const notification of notifications) {
+      await emitNotification(notification);
+    }
 
-    return notification;
+    return notifications;
   }
 
   static async list(

@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { checkoutSchema } from '@/lib/validations';
-import { deliveryChargeFrom, pinIsServiceable } from '@/constants';
+import { deliveryChargeFrom } from '@/constants';
+import { deliveryIsServiceable } from '@/utils/delivery';
 import { SettingsService } from '@/services/SettingsService';
 import { OrderService } from '@/services/OrderService';
 import { NotificationService } from '@/services/NotificationService';
-
-function cityIsServiceable(serviceableCities: string[], city: string): boolean {
-  return serviceableCities.some((c) => c.toLowerCase() === city.trim().toLowerCase());
-}
+import { CustomerProfileService } from '@/services/CustomerProfileService';
+import { profileFromCheckout } from '@/utils/customerProfile';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { customer, items, paymentMethod } = body;
+    const { customer, items, paymentMethod, orderSource, customerLat, customerLng } = body;
 
     const parsed = checkoutSchema.safeParse({ ...customer, paymentMethod });
     if (!parsed.success) {
@@ -26,9 +25,15 @@ export async function POST(req: NextRequest) {
 
     const config = await SettingsService.getStoreConfig();
 
-    const pinMatched = pinIsServiceable(config.serviceablePins, parsed.data.pincode);
-    const cityMatched = cityIsServiceable(config.serviceableCities, parsed.data.city);
-    if (!pinMatched && !cityMatched) {
+    const serviceable = deliveryIsServiceable({
+      serviceablePins: config.serviceablePins,
+      serviceableCities: config.serviceableCities,
+      city: parsed.data.city,
+      pincode: parsed.data.pincode,
+      cityAliases: config.cityAliases,
+    });
+
+    if (!serviceable) {
       return NextResponse.json(
         { error: 'Sorry, delivery is currently unavailable in your area.' },
         { status: 400 },
@@ -37,20 +42,20 @@ export async function POST(req: NextRequest) {
 
     const subtotal = items.reduce(
       (sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity,
-      0
+      0,
     );
 
     if (config.minOrderValue > 0 && subtotal < config.minOrderValue) {
       return NextResponse.json(
         { error: `Minimum order value is ₹${config.minOrderValue}.` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const deliveryCharge = deliveryChargeFrom(config.deliverySlabs, subtotal);
     const grandTotal = subtotal + deliveryCharge;
-
     const orderNumber = `GB${Date.now().toString().slice(-8)}`;
+    const source = orderSource === 'whatsapp' ? 'whatsapp' : 'website';
 
     const dbCustomer = await prisma.customer.create({
       data: {
@@ -64,7 +69,7 @@ export async function POST(req: NextRequest) {
         landmark: parsed.data.landmark || null,
         city: parsed.data.city,
         state: parsed.data.state,
-        pincode: parsed.data.pincode,
+        pincode: parsed.data.pincode || '',
       },
     });
 
@@ -77,22 +82,45 @@ export async function POST(req: NextRequest) {
         grandTotal,
         paymentMethod: parsed.data.paymentMethod,
         deliveryNotes: parsed.data.deliveryNotes || null,
+        orderSource: source,
+        customerLat: typeof customerLat === 'number' ? customerLat : null,
+        customerLng: typeof customerLng === 'number' ? customerLng : null,
         items: {
-          create: items.map((item: { productId: string; name: string; quantity: number; price: number; unit: string }) => ({
-            productId: item.productId,
-            productName: item.name,
-            quantity: item.quantity,
-            unitPrice: item.price,
-            unit: item.unit,
-            totalPrice: item.price * item.quantity,
-          })),
+          create: items.map(
+            (item: { productId: string; name: string; quantity: number; price: number; unit: string }) => ({
+              productId: item.productId,
+              productName: item.name,
+              quantity: item.quantity,
+              unitPrice: item.price,
+              unit: item.unit,
+              totalPrice: item.price * item.quantity,
+            }),
+          ),
         },
       },
       include: { items: true, customer: true },
     });
 
     await OrderService.onOrderCreated(order);
-    await NotificationService.notifyNewOrder(order);
+    await NotificationService.notifyNewOrder({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      grandTotal: order.grandTotal,
+      paymentMethod: order.paymentMethod,
+      orderSource: source,
+      customer: order.customer,
+      customerLat: order.customerLat,
+      customerLng: order.customerLng,
+    });
+
+    try {
+      await CustomerProfileService.save(
+        parsed.data.mobile,
+        profileFromCheckout(parsed.data),
+      );
+    } catch {
+      /* profile save is best-effort */
+    }
 
     return NextResponse.json({ order, orderNumber });
   } catch (error) {

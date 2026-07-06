@@ -11,6 +11,7 @@ import type { DeliverySlab } from '@/constants';
 interface StoreConfig {
   serviceablePins: string[];
   serviceableCities: string[];
+  cityAliases: Record<string, string[]>;
   deliverySlabs: DeliverySlab[];
   minOrderValue: number;
   storeTiming: string;
@@ -18,6 +19,8 @@ interface StoreConfig {
   holidayMode: boolean;
   paymentMethods: string[];
   whatsappTemplates: Record<string, string>;
+  checkoutMode: 'website' | 'whatsapp' | 'both';
+  notificationSoundEnabled: boolean;
   homepageConfig: {
     showHeroBanner: boolean;
     showCategories: boolean;
@@ -82,6 +85,10 @@ export default function SettingsManager({
     initialConfig.whatsappTemplates,
   );
   const [homepageConfig, setHomepageConfig] = useState(initialConfig.homepageConfig);
+  const [checkoutMode, setCheckoutMode] = useState<StoreConfig['checkoutMode']>(initialConfig.checkoutMode ?? 'both');
+  const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(
+    initialConfig.notificationSoundEnabled ?? true,
+  );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
@@ -192,6 +199,8 @@ export default function SettingsManager({
           holidayMode,
           paymentMethods,
           whatsappTemplates,
+          checkoutMode,
+          notificationSoundEnabled,
           homepageConfig,
         }),
       });
@@ -209,6 +218,8 @@ export default function SettingsManager({
       setHolidayMode(updated.holidayMode);
       setPaymentMethods(updated.paymentMethods);
       setWhatsappTemplates(updated.whatsappTemplates);
+      setCheckoutMode(updated.checkoutMode ?? 'both');
+      setNotificationSoundEnabled(updated.notificationSoundEnabled ?? true);
       setHomepageConfig(updated.homepageConfig);
       setMessage({ type: 'ok', text: 'Settings saved.' });
       router.refresh();
@@ -297,7 +308,7 @@ export default function SettingsManager({
 
       <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Serviceable Cities</h2>
-        <p className="text-xs text-gray-400">Orders can only be placed for these cities.</p>
+        <p className="text-xs text-gray-400">Delivery is available when city OR pincode matches (either one is enough).</p>
         <div className="flex flex-wrap gap-2">
           {cities.length === 0 && <span className="text-sm text-gray-400">No cities added yet.</span>}
           {cities.map((city) => (
@@ -329,6 +340,35 @@ export default function SettingsManager({
             <Plus size={16} /> Add
           </Button>
         </div>
+      </section>
+
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <h2 className="font-bold text-sm">Checkout Mode</h2>
+        <p className="text-xs text-gray-400">Control which order placement buttons customers see. Changes apply immediately.</p>
+        <select
+          value={checkoutMode}
+          onChange={(e) => setCheckoutMode(e.target.value as StoreConfig['checkoutMode'])}
+          disabled={!canEdit}
+          className="border rounded-lg px-3 py-2 text-sm max-w-xs"
+        >
+          <option value="both">Both — Website + WhatsApp</option>
+          <option value="website">Website Orders Only</option>
+          <option value="whatsapp">WhatsApp Orders Only</option>
+        </select>
+      </section>
+
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <h2 className="font-bold text-sm">Notification Sound</h2>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={notificationSoundEnabled}
+            onChange={(e) => setNotificationSoundEnabled(e.target.checked)}
+            disabled={!canEdit}
+            className="accent-blinkit-green"
+          />
+          Play sound when a new order arrives
+        </label>
       </section>
 
       {/* Delivery slabs */}

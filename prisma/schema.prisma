@@ -126,6 +126,9 @@ model Order {
   grandTotal      Float         @map("grand_total")
   paymentMethod   PaymentMethod @map("payment_method")
   deliveryNotes   String?       @map("delivery_notes")
+  orderSource     String        @default("website") @map("order_source")
+  customerLat     Float?        @map("customer_lat")
+  customerLng     Float?        @map("customer_lng")
   assignedStaffId String?       @map("assigned_staff_id")
   assignedStaff   StaffAccount? @relation("AssignedOrders", fields: [assignedStaffId], references: [id], onDelete: SetNull)
   lockedAt        DateTime?     @map("locked_at")
@@ -208,18 +211,23 @@ model Upload {
 }
 
 model StaffAccount {
-  id           String    @id @default(cuid())
-  mobile       String    @unique
-  email        String?   @unique
-  name         String
-  role         StaffRole @default(READ_ONLY)
-  passwordHash String    @map("password_hash")
-  permissions  Json      @default("[]")
-  active       Boolean   @default(true)
-  deletedAt    DateTime? @map("deleted_at")
-  lastLogin    DateTime? @map("last_login")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  id              String    @id @default(cuid())
+  mobile          String    @unique
+  email           String?   @unique
+  name            String
+  role            StaffRole @default(READ_ONLY)
+  passwordHash    String    @map("password_hash")
+  permissions     Json      @default("[]")
+  assignedCity    String?   @map("assigned_city")
+  assignedAreas   Json      @default("[]") @map("assigned_areas")
+  latitude        Float?
+  longitude       Float?
+  deliveryRadius  Float?    @map("delivery_radius_km")
+  active          Boolean   @default(true)
+  deletedAt       DateTime? @map("deleted_at")
+  lastLogin       DateTime? @map("last_login")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   refreshTokens     StaffRefreshToken[]
   auditLogs         AuditLog[]              @relation("AuditActor")

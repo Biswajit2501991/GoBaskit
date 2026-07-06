@@ -1,4 +1,4 @@
-import type { CartItem, CheckoutFormData } from '@/types';
+import { formatCustomerName } from '@/utils/customer';
 import { PAYMENT_METHODS } from '@/constants';
 import { formatCurrency } from '@/utils/formatter';
 
@@ -26,7 +26,7 @@ export function buildWhatsAppMessage({
     '',
     'Customer',
     '',
-    `Name: ${customer.firstName} ${customer.lastName}`,
+    `Name: ${formatCustomerName(customer.firstName, customer.lastName)}`,
     `Phone: ${customer.mobile}`,
   ];
 

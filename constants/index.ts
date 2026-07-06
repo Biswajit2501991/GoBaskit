@@ -45,6 +45,14 @@ export function pinIsServiceable(pins: string[], pin: string): boolean {
   return pins.includes(String(pin).trim());
 }
 
+// Re-export enhanced delivery helpers (city OR pin, aliases, GPS radius).
+export {
+  cityIsServiceable,
+  deliveryIsServiceable,
+  normalizeLocationToken,
+  distanceKm,
+} from '@/utils/delivery';
+
 // Convenience helper using the default pins.
 export function isPinServiceable(pin: string): boolean {
   return pinIsServiceable(SERVICEABLE_PINS, pin);

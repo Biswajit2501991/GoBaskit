@@ -16,14 +16,29 @@ interface NotificationItem {
   createdAt: string;
 }
 
-export function NotificationCenter() {
+export function NotificationCenter({ staffId }: { staffId: string }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState<NotificationItem | null>(null);
   const [readState, setReadState] = useState<'all' | 'read' | 'unread'>('all');
   const [typeFilter, setTypeFilter] = useState('');
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastSoundAtRef = useRef(0);
+
+  useEffect(() => {
+    fetch('/api/config')
+      .then((r) => r.json())
+      .then((c) => {
+        if (typeof c.notificationSoundEnabled === 'boolean') {
+          setSoundEnabled(c.notificationSoundEnabled);
+        }
+      })
+      .catch(() => {
+        /* keep default */
+      });
+  }, []);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams({ pageSize: '20', readState });
@@ -40,10 +55,23 @@ export function NotificationCenter() {
     load();
   }, [load]);
 
+  function playNotificationSound() {
+    if (!soundEnabled) return;
+    const now = Date.now();
+    if (now - lastSoundAtRef.current < 400) return;
+    lastSoundAtRef.current = now;
+    audioRef.current?.play().catch(() => {
+      // browsers can block autoplay until user interaction
+    });
+  }
+
   useEffect(() => {
     const unsubscribe = subscribeToAdminEvents((data) => {
       if (data.type !== 'notification_created') return;
       const payload = data.payload as Record<string, unknown>;
+      const targetStaffId = payload.staffId ? String(payload.staffId) : null;
+      if (targetStaffId && targetStaffId !== staffId) return;
+
       const n: NotificationItem = {
         id: String(payload.id ?? ''),
         type: String(payload.type ?? ''),
@@ -59,16 +87,14 @@ export function NotificationCenter() {
       setToast(n);
       setTimeout(() => setToast(null), 5000);
 
-      audioRef.current?.play().catch(() => {
-        // browsers can block autoplay until user interaction
-      });
+      playNotificationSound();
 
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(n.title, { body: n.message });
       }
     });
     return unsubscribe;
-  }, []);
+  }, [staffId, soundEnabled]);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -178,7 +204,7 @@ export function NotificationCenter() {
                     className={`w-full text-left p-3 border-b hover:bg-gray-50 ${!n.readAt ? 'bg-green-50/50' : ''}`}
                   >
                     <p className="text-sm font-medium">{n.title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-line">{n.message}</p>
                     {n.entityType === 'orders' && n.entityId && (
                       <Link href="/admin/orders" className="text-xs text-blinkit-green mt-1 inline-block" onClick={() => setOpen(false)}>
                         View orders →
@@ -197,7 +223,7 @@ export function NotificationCenter() {
           <Bell className="w-5 h-5 text-blinkit-green shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="font-semibold text-sm">{toast.title}</p>
-            <p className="text-xs text-gray-600 mt-0.5">{toast.message}</p>
+            <p className="text-xs text-gray-600 mt-0.5 whitespace-pre-line">{toast.message}</p>
           </div>
           <button type="button" onClick={() => setToast(null)}><X className="w-4 h-4 text-gray-400" /></button>
         </div>
