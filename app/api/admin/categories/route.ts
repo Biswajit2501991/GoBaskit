@@ -12,14 +12,19 @@ export async function GET(req: NextRequest) {
   const auth = await requireStaffPermission('categories:view');
   if (auth.error) return auth.error;
 
-  const { searchParams } = new URL(req.url);
-  const data = await CategoryService.listAdmin({
-    search: searchParams.get('search') || undefined,
-    page: Number(searchParams.get('page') || 1),
-    pageSize: Number(searchParams.get('pageSize') || ADMIN_LIST_PAGE_SIZE),
-  });
+  try {
+    const { searchParams } = new URL(req.url);
+    const data = await CategoryService.listAdmin({
+      search: searchParams.get('search') || undefined,
+      page: Number(searchParams.get('page') || 1),
+      pageSize: Number(searchParams.get('pageSize') || ADMIN_LIST_PAGE_SIZE),
+    });
 
-  return NextResponse.json(data);
+    return NextResponse.json(data);
+  } catch (err) {
+    console.error('[admin/categories GET]', err);
+    return NextResponse.json({ error: 'Failed to load categories' }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {

@@ -12,16 +12,21 @@ export async function GET(req: NextRequest) {
   const auth = await requireStaffPermission('products:view');
   if (auth.error) return auth.error;
 
-  const { searchParams } = new URL(req.url);
-  const data = await ProductService.listAdmin({
-    search: searchParams.get('search') || undefined,
-    categoryId: searchParams.get('categoryId') || undefined,
-    page: Number(searchParams.get('page') || 1),
-    pageSize: Number(searchParams.get('pageSize') || ADMIN_LIST_PAGE_SIZE),
-    sort: searchParams.get('sort') === 'stock' ? 'stock' : 'name',
-  });
+  try {
+    const { searchParams } = new URL(req.url);
+    const data = await ProductService.listAdmin({
+      search: searchParams.get('search') || undefined,
+      categoryId: searchParams.get('categoryId') || undefined,
+      page: Number(searchParams.get('page') || 1),
+      pageSize: Number(searchParams.get('pageSize') || ADMIN_LIST_PAGE_SIZE),
+      sort: searchParams.get('sort') === 'stock' ? 'stock' : 'name',
+    });
 
-  return NextResponse.json(data);
+    return NextResponse.json(data);
+  } catch (err) {
+    console.error('[admin/products GET]', err);
+    return NextResponse.json({ error: 'Failed to load products' }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {

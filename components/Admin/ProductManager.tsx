@@ -89,9 +89,12 @@ export default function ProductManager({
       const res = await fetch(`/api/admin/products?${params}`);
       if (res.ok) {
         const data = await res.json();
-        setProducts(data.items);
-        setTotal(data.total);
+        setProducts(Array.isArray(data.items) ? data.items : []);
+        setTotal(typeof data.total === 'number' ? data.total : 0);
       }
+    } catch {
+      setProducts([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }

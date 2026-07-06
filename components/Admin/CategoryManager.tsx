@@ -60,9 +60,12 @@ export default function CategoryManager({
       const res = await fetch(`/api/admin/categories?${params}`);
       if (res.ok) {
         const data = await res.json();
-        setCategories(data.items);
-        setTotal(data.total);
+        setCategories(Array.isArray(data.items) ? data.items : []);
+        setTotal(typeof data.total === 'number' ? data.total : 0);
       }
+    } catch {
+      setCategories([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }

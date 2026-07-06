@@ -1,22 +1,18 @@
-import { redirect } from 'next/navigation';
 import { getStaffFromSession } from '@/lib/auth';
+import { staffHasPermission } from '@/types/staff';
+import { requireAdminPage } from '@/lib/admin-page';
 import OrdersManager from '@/components/Admin/OrdersManager';
-import { parsePermissions, staffHasPermission } from '@/types/staff';
 
 export default async function DeliveryDeskPage() {
   const staff = await getStaffFromSession();
-  if (!staff) redirect('/admin');
-  const perms = parsePermissions(staff.permissions);
-  if (!staffHasPermission(staff.role, perms, 'delivery:view')) {
-    redirect('/admin/dashboard');
-  }
+  const { perms } = requireAdminPage(staff, 'delivery:view');
 
   return (
     <OrdersManager
-      currentStaffId={staff.id}
-      canEdit={staffHasPermission(staff.role, perms, 'delivery:update')}
+      currentStaffId={staff!.id}
+      canEdit={staffHasPermission(staff!.role, perms, 'delivery:update')}
       canAssign={false}
-      canOverrideLock={staffHasPermission(staff.role, perms, 'orders:override_lock')}
+      canOverrideLock={staffHasPermission(staff!.role, perms, 'orders:override_lock')}
       forceAssignedToMe
     />
   );

@@ -1,16 +1,12 @@
-import { redirect } from 'next/navigation';
 import { getStaffFromSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import ProductManager from '@/components/Admin/ProductManager';
-import { parsePermissions, staffHasPermission } from '@/types/staff';
+import { staffHasPermission } from '@/types/staff';
+import { requireAdminPage } from '@/lib/admin-page';
 
 export default async function InventoryDeskPage() {
   const staff = await getStaffFromSession();
-  if (!staff) redirect('/admin');
-  const perms = parsePermissions(staff.permissions);
-  if (!staffHasPermission(staff.role, perms, 'products:view')) {
-    redirect('/admin/dashboard');
-  }
+  const { perms } = requireAdminPage(staff, 'products:view');
 
   const categories = await prisma.category.findMany({
     orderBy: { sortOrder: 'asc' },
@@ -20,8 +16,8 @@ export default async function InventoryDeskPage() {
   return (
     <ProductManager
       categories={categories}
-      canEdit={staffHasPermission(staff.role, perms, 'products:edit')}
-      canDelete={staffHasPermission(staff.role, perms, 'products:delete')}
+      canEdit={staffHasPermission(staff!.role, perms, 'products:edit')}
+      canDelete={staffHasPermission(staff!.role, perms, 'products:delete')}
       sort="stock"
       title="Inventory"
       subtitle="sorted by stock level"

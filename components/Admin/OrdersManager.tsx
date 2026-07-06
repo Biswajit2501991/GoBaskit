@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { GripVertical, Lock, MapPin, MessageCircle, Phone, Unlock } from 'lucide-react';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 import { buildWhatsAppUrl } from '@/utils/whatsapp';
-import { PAYMENT_METHODS, ADMIN_LIST_PAGE_SIZE } from '@/constants';
+import { PAYMENT_METHODS } from '@/constants';
+import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
 import ListPagination from './ListPagination';
 
 interface OrderItem {
@@ -400,8 +401,8 @@ export default function OrdersManager({
       const res = await fetch(`/api/admin/orders?${params}`);
       if (res.ok) {
         const data = await res.json();
-        setOrders(data.items);
-        setTotal(data.total);
+        setOrders(Array.isArray(data.items) ? data.items : []);
+        setTotal(typeof data.total === 'number' ? data.total : 0);
       }
     } finally {
       if (silent) {
