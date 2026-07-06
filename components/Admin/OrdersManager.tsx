@@ -5,7 +5,7 @@ import { formatCustomerAddress, formatCustomerName } from '@/utils/customer';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { GripVertical, Lock, MapPin, MessageCircle, Phone, Unlock } from 'lucide-react';
+import { GripVertical, Lock, MapPin, MessageCircle, Phone, Trash2, Unlock } from 'lucide-react';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 import { buildWhatsAppUrl } from '@/utils/whatsapp';
 import { PAYMENT_METHODS } from '@/constants';
@@ -118,6 +118,9 @@ function patchOrderFromEvent(order: OrderRow, payload: Record<string, unknown>):
   };
 }
 
+const ARCHIVE_CONFIRM_MESSAGE =
+  'Customers will be notified that their order was cancelled due to unavailability or product quality. Orders move to Archive for 72 hours, then are permanently deleted. Customers see the notice for 24 hours.';
+
 function OrderCard({
   order,
   expanded,
@@ -126,8 +129,13 @@ function OrderCard({
   onDragStart,
   onDragEnd,
   canEdit,
+  canDelete,
   canAssign,
   canOverrideLock,
+  selected,
+  onToggleSelect,
+  onArchiveOne,
+  archivingOne,
   currentStaffId,
   forceAssignedToMe,
   staffList,
@@ -143,8 +151,13 @@ function OrderCard({
   onDragStart: () => void;
   onDragEnd: () => void;
   canEdit: boolean;
+  canDelete: boolean;
   canAssign: boolean;
   canOverrideLock: boolean;
+  selected: boolean;
+  onToggleSelect: (checked: boolean) => void;
+  onArchiveOne: () => void;
+  archivingOne: boolean;
   currentStaffId: string;
   forceAssignedToMe: boolean;
   staffList: StaffOption[];
@@ -194,12 +207,41 @@ function OrderCard({
         <div className="space-y-1.5">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-start gap-1 min-w-0">
+              {canDelete && (
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  aria-label={`Select ${order.orderNumber}`}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    onToggleSelect(e.target.checked);
+                  }}
+                  className="mt-0.5 shrink-0 rounded border-gray-300"
+                />
+              )}
               {canDrag && (
                 <GripVertical className="w-3.5 h-3.5 text-gray-300 shrink-0 mt-0.5" aria-hidden />
               )}
               <p className="font-bold text-sm leading-tight">{order.orderNumber}</p>
             </div>
-            <p className="font-bold text-sm text-blinkit-green shrink-0">{formatCurrency(order.grandTotal)}</p>
+            <div className="flex items-start gap-1 shrink-0">
+              {canDelete && (
+                <button
+                  type="button"
+                  aria-label={`Delete ${order.orderNumber}`}
+                  disabled={archivingOne}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onArchiveOne();
+                  }}
+                  className="p-0.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded disabled:opacity-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <p className="font-bold text-sm text-blinkit-green">{formatCurrency(order.grandTotal)}</p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-1">
             {order.priority !== 'NORMAL' && (
@@ -309,6 +351,19 @@ function OrderCard({
               <MessageCircle className="w-3 h-3" /> Send WhatsApp
             </Button>
 
+            {canDelete && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={archivingOne}
+                onClick={onArchiveOne}
+                className="gap-1 h-7 text-xs text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <Trash2 className="w-3 h-3" /> Delete order
+              </Button>
+            )}
+
             <Input
               placeholder="Admin notes..."
               defaultValue={order.adminNotes ?? ''}
@@ -376,6 +431,9 @@ export default function OrdersManager({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [archivingAll, setArchivingAll] = useState(false);
+  const [archivingSelected, setArchivingSelected] = useState(false);
+  const [archivingOrderId, setArchivingOrderId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [draggingOrderId, setDraggingOrderId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
@@ -478,6 +536,86 @@ export default function OrdersManager({
     return grouped;
   }, [orders]);
 
+  const selectedCount = selectedIds.size;
+  const allOnPageSelected = orders.length > 0 && orders.every((o) => selectedIds.has(o.id));
+  const archivingBusy = archivingAll || archivingSelected || archivingOrderId !== null;
+
+  function toggleOrderSelection(orderId: string, checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(orderId);
+      else next.delete(orderId);
+      return next;
+    });
+  }
+
+  function toggleSelectAllOnPage() {
+    if (allOnPageSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const order of orders) next.delete(order.id);
+        return next;
+      });
+      return;
+    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const order of orders) next.add(order.id);
+      return next;
+    });
+  }
+
+  async function archiveOrdersRequest(orderIds: string[]) {
+    const res = await fetch('/api/admin/orders/archive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderIds }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(typeof data.error === 'string' ? data.error : 'Failed to archive orders');
+      return null;
+    }
+    alert(`Archived ${data.archivedCount ?? 0} order(s). SMS sent to ${data.smsRecipients ?? 0} customer(s) (if SMS is configured).`);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of orderIds) next.delete(id);
+      return next;
+    });
+    await load();
+    return data;
+  }
+
+  async function archiveSelectedOrders() {
+    if (!canDelete || archivingBusy || selectedCount === 0) return;
+    const confirmed = window.confirm(
+      `Delete ${selectedCount} selected order${selectedCount === 1 ? '' : 's'}?\n\n${ARCHIVE_CONFIRM_MESSAGE}`,
+    );
+    if (!confirmed) return;
+
+    setArchivingSelected(true);
+    try {
+      await archiveOrdersRequest([...selectedIds]);
+    } finally {
+      setArchivingSelected(false);
+    }
+  }
+
+  async function archiveOneOrder(order: OrderRow) {
+    if (!canDelete || archivingBusy) return;
+    const confirmed = window.confirm(
+      `Delete order ${order.orderNumber}?\n\n${ARCHIVE_CONFIRM_MESSAGE}`,
+    );
+    if (!confirmed) return;
+
+    setArchivingOrderId(order.id);
+    try {
+      await archiveOrdersRequest([order.id]);
+    } finally {
+      setArchivingOrderId(null);
+    }
+  }
+
   async function updateOrder(id: string, patch: Record<string, unknown>, optimistic: Partial<OrderRow>) {
     if (!canEdit) return;
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...optimistic } : o)));
@@ -579,9 +717,9 @@ export default function OrdersManager({
   }
 
   async function archiveAllOrders() {
-    if (!canDelete || archivingAll) return;
+    if (!canDelete || archivingBusy) return;
     const confirmed = window.confirm(
-      'Delete ALL active orders?\n\nCustomers will be notified that their order was cancelled due to unavailability or product quality. Orders move to Archive for 72 hours, then are permanently deleted. Customers see the notice for 24 hours.',
+      `Delete ALL active orders?\n\n${ARCHIVE_CONFIRM_MESSAGE}`,
     );
     if (!confirmed) return;
 
@@ -594,6 +732,7 @@ export default function OrdersManager({
         return;
       }
       alert(`Archived ${data.archivedCount ?? 0} order(s). SMS sent to ${data.smsRecipients ?? 0} customer(s) (if SMS is configured).`);
+      setSelectedIds(new Set());
       setPage(1);
       await load();
     } finally {
@@ -612,22 +751,48 @@ export default function OrdersManager({
       </p>
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <Input
-          placeholder="Search order #, customer, mobile..."
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="max-w-sm"
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <Input
+            placeholder="Search order #, customer, mobile..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="max-w-sm"
+          />
+          {canDelete && orders.length > 0 && (
+            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={allOnPageSelected}
+                onChange={toggleSelectAllOnPage}
+                className="rounded border-gray-300"
+              />
+              Select all on page
+            </label>
+          )}
+        </div>
         {canDelete && (
-          <Button
-            type="button"
-            variant="outline"
-            className="text-red-600 border-red-200 hover:bg-red-50"
-            disabled={archivingAll || total === 0}
-            onClick={archiveAllOrders}
-          >
-            {archivingAll ? 'Archiving...' : 'Delete all orders'}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedCount > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                className="text-red-600 border-red-200 hover:bg-red-50"
+                disabled={archivingBusy}
+                onClick={archiveSelectedOrders}
+              >
+                {archivingSelected ? 'Archiving...' : `Delete selected (${selectedCount})`}
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              className="text-red-600 border-red-200 hover:bg-red-50"
+              disabled={archivingBusy || total === 0}
+              onClick={archiveAllOrders}
+            >
+              {archivingAll ? 'Archiving...' : 'Delete all orders'}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -690,8 +855,13 @@ export default function OrdersManager({
                           onDragStart={() => setDraggingOrderId(order.id)}
                           onDragEnd={clearDragState}
                           canEdit={canEdit}
+                          canDelete={canDelete}
                           canAssign={canAssign}
                           canOverrideLock={canOverrideLock}
+                          selected={selectedIds.has(order.id)}
+                          onToggleSelect={(checked) => toggleOrderSelection(order.id, checked)}
+                          onArchiveOne={() => archiveOneOrder(order)}
+                          archivingOne={archivingOrderId === order.id}
                           currentStaffId={currentStaffId}
                           forceAssignedToMe={forceAssignedToMe}
                           staffList={staffList}

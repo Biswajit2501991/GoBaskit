@@ -49,16 +49,82 @@ export class OrderArchiveService {
   }
 
   static async archiveAllOrders(actorId: string) {
-    const now = new Date();
-    const customerVisibleUntil = addHours(now, CUSTOMER_ORDER_VISIBLE_HOURS);
-    const purgeAt = addHours(now, ORDER_ARCHIVE_RETENTION_HOURS);
-
     const orders = await prisma.order.findMany({
       where: { archivedAt: null },
       include: { customer: { select: customerListSelect } },
       orderBy: { createdAt: 'asc' },
     });
 
+    const result = await this.archiveOrderRecords(
+      orders,
+      actorId,
+      'Bulk archived by admin — unavailability or product quality',
+    );
+
+    await AuditService.log({
+      staffId: actorId,
+      action: 'orders_archive_all',
+      entity: 'orders',
+      meta: result,
+    });
+
+    DashboardService.invalidateCache();
+    AnalyticsService.invalidateCache();
+    adminEventBus.emit({ type: 'orders_archived', payload: { archivedCount: result.archivedCount } });
+
+    return { archivedCount: result.archivedCount, smsRecipients: result.smsRecipients };
+  }
+
+  static async archiveOrdersByIds(orderIds: string[], actorId: string) {
+    const uniqueIds = [...new Set(orderIds.filter(Boolean))];
+    if (uniqueIds.length === 0) {
+      throw new Error('Select at least one order to delete');
+    }
+
+    const orders = await prisma.order.findMany({
+      where: { id: { in: uniqueIds }, archivedAt: null },
+      include: { customer: { select: customerListSelect } },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (orders.length === 0) {
+      throw new Error('No active orders found for the selected items');
+    }
+
+    const result = await this.archiveOrderRecords(
+      orders,
+      actorId,
+      'Archived by admin — unavailability or product quality',
+    );
+
+    await AuditService.log({
+      staffId: actorId,
+      action: 'orders_archive_selected',
+      entity: 'orders',
+      meta: { ...result, orderIds: orders.map((o) => o.id) },
+    });
+
+    DashboardService.invalidateCache();
+    AnalyticsService.invalidateCache();
+    adminEventBus.emit({ type: 'orders_archived', payload: { archivedCount: result.archivedCount } });
+
+    return { archivedCount: result.archivedCount, smsRecipients: result.smsRecipients };
+  }
+
+  private static async archiveOrderRecords(
+    orders: Array<{
+      id: string;
+      orderNumber: string;
+      status: OrderStatus;
+      stockReserved: boolean;
+      customer: { mobile: string };
+    }>,
+    actorId: string,
+    historyNote: string,
+  ) {
+    const now = new Date();
+    const customerVisibleUntil = addHours(now, CUSTOMER_ORDER_VISIBLE_HOURS);
+    const purgeAt = addHours(now, ORDER_ARCHIVE_RETENTION_HOURS);
     const smsSentMobiles = new Set<string>();
     let archivedCount = 0;
 
@@ -80,12 +146,7 @@ export class OrderArchiveService {
         },
       });
 
-      await OrderService.recordStatusChange(
-        order.id,
-        'CANCELLED',
-        actorId,
-        'Bulk archived by admin — unavailability or product quality',
-      );
+      await OrderService.recordStatusChange(order.id, 'CANCELLED', actorId, historyNote);
 
       const mobile = normalizeMobile(order.customer.mobile);
       const noticeMessage = `${BULK_CANCEL_CUSTOMER_MESSAGE} Order ${order.orderNumber}.`;
@@ -111,18 +172,12 @@ export class OrderArchiveService {
       archivedCount += 1;
     }
 
-    await AuditService.log({
-      staffId: actorId,
-      action: 'orders_archive_all',
-      entity: 'orders',
-      meta: { archivedCount, customerVisibleUntil, purgeAt },
-    });
-
-    DashboardService.invalidateCache();
-    AnalyticsService.invalidateCache();
-    adminEventBus.emit({ type: 'orders_archived', payload: { archivedCount } });
-
-    return { archivedCount, smsRecipients: smsSentMobiles.size };
+    return {
+      archivedCount,
+      smsRecipients: smsSentMobiles.size,
+      customerVisibleUntil: customerVisibleUntil.toISOString(),
+      purgeAt: purgeAt.toISOString(),
+    };
   }
 
   static async listArchived(params: { search?: string; page?: number; pageSize?: number }) {
