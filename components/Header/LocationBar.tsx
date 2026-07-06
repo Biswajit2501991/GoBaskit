@@ -130,8 +130,6 @@ export default function LocationBar() {
             }}
           />
           {error && <p className="text-xs text-red-500">{error}</p>}
-          <p className="text-[11px] text-gray-400">Serving PINs: {serviceablePins.join(', ')}</p>
-          <p className="text-[11px] text-gray-400">Serving cities: {serviceableCities.join(', ')}</p>
         </div>
       )}
     </div>
