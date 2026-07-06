@@ -7,6 +7,8 @@ import Header from '@/components/Header/Header';
 import { Button } from '@/components/ui/button';
 import { formatCustomerName } from '@/utils/customer';
 import type { SavedCheckoutProfile } from '@/utils/customerProfile';
+import { loadCheckoutProfileLocal } from '@/utils/customerProfile';
+import { normalizeMobile } from '@/utils/mobile';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
 import { MapPin, Package, User } from 'lucide-react';
 
@@ -38,7 +40,14 @@ export default function AccountPageClient() {
 
     if (profileRes.ok) {
       const profileData = await profileRes.json();
-      setProfile(profileData.profile ?? null);
+      let resolvedProfile: SavedCheckoutProfile | null = profileData.profile ?? null;
+      if (!resolvedProfile) {
+        const local = loadCheckoutProfileLocal();
+        if (local && normalizeMobile(local.mobile) === normalizeMobile(resolvedMobile)) {
+          resolvedProfile = local;
+        }
+      }
+      setProfile(resolvedProfile);
     }
 
     if (ordersRes.ok) {

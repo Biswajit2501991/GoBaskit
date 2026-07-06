@@ -1,17 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CustomerProfileService } from '@/services/CustomerProfileService';
+import { CustomerOrderService } from '@/services/CustomerOrderService';
+import { getCustomerMobileFromRequest } from '@/lib/customer-session';
 import { isValidIndianMobile, normalizeMobile } from '@/utils/mobile';
 import type { SavedCheckoutProfile } from '@/utils/customerProfile';
 
-const COOKIE_NAME = 'gobaskit_customer_mobile';
-
 export async function GET(req: NextRequest) {
-  const raw = req.cookies.get(COOKIE_NAME)?.value || req.nextUrl.searchParams.get('mobile') || '';
-  const mobile = normalizeMobile(raw);
-  if (!isValidIndianMobile(mobile)) {
+  const fromCookie = getCustomerMobileFromRequest(req);
+  const fromQuery = normalizeMobile(req.nextUrl.searchParams.get('mobile') || '');
+  const mobile = fromCookie || (isValidIndianMobile(fromQuery) ? fromQuery : '');
+  if (!mobile) {
     return NextResponse.json({ profile: null });
   }
-  const profile = await CustomerProfileService.load(mobile);
+
+  let profile = await CustomerProfileService.load(mobile);
+  if (!profile) {
+    profile = await CustomerOrderService.getLatestProfileForMobile(mobile);
+    if (profile) {
+      try {
+        await CustomerProfileService.save(mobile, profile);
+      } catch {
+        /* backfill is best-effort */
+      }
+    }
+  }
+
   return NextResponse.json({ profile });
 }
 

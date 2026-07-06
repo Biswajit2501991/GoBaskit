@@ -2,6 +2,8 @@ import type { OrderStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { normalizeMobile } from '@/utils/mobile';
 import { isActiveOrderStatus } from '@/utils/orderTracking';
+import { CustomerProfileService } from '@/services/CustomerProfileService';
+import type { SavedCheckoutProfile } from '@/utils/customerProfile';
 
 export interface CustomerOrderSummary {
   id: string;
@@ -119,5 +121,15 @@ export class CustomerOrderService {
 
   static isActiveStatus(status: OrderStatus): boolean {
     return isActiveOrderStatus(status);
+  }
+
+  static async getLatestProfileForMobile(mobile: string): Promise<SavedCheckoutProfile | null> {
+    const order = await prisma.order.findFirst({
+      where: { customer: customerMobileWhere(mobile) },
+      orderBy: { createdAt: 'desc' },
+      include: { customer: true },
+    });
+    if (!order) return null;
+    return CustomerProfileService.profileFromCustomer(order.customer);
   }
 }

@@ -9,6 +9,8 @@ import { NotificationService } from '@/services/NotificationService';
 import { CustomerProfileService } from '@/services/CustomerProfileService';
 import { InventoryService } from '@/services/InventoryService';
 import { profileFromCheckout } from '@/utils/customerProfile';
+import { normalizeMobile } from '@/utils/mobile';
+import { CUSTOMER_MOBILE_COOKIE } from '@/lib/customer-session';
 
 export async function POST(req: NextRequest) {
   try {
@@ -140,7 +142,15 @@ export async function POST(req: NextRequest) {
       /* profile save is best-effort */
     }
 
-    return NextResponse.json({ order, orderNumber });
+    const res = NextResponse.json({ order, orderNumber });
+    res.cookies.set(CUSTOMER_MOBILE_COOKIE, normalizeMobile(parsed.data.mobile), {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 30 * 24 * 60 * 60,
+      path: '/',
+    });
+    return res;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to place order';
     console.error('Checkout error:', error);

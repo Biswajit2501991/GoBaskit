@@ -23,6 +23,7 @@ import { checkoutSchema, type CheckoutSchema } from '@/lib/validations';
 import { buildWhatsAppMessage, buildWhatsAppUrl, openWhatsAppUrl } from '@/utils/whatsapp';
 import { formatCurrency } from '@/utils/formatter';
 import { WHATSAPP_NUMBER, STORE_NAME } from '@/constants';
+import { normalizeMobile } from '@/utils/mobile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,6 +55,7 @@ export default function CheckoutPage() {
   const locationCity = useLocationStore((s) => s.city);
   const checkedMobile = useStaffPortalStore((s) => s.checkedMobile);
   const customerMobile = useStaffPortalStore((s) => s.customerMobile);
+  const setCustomerMobile = useStaffPortalStore((s) => s.setCustomerMobile);
 
   const {
     register,
@@ -256,6 +258,7 @@ export default function CheckoutPage() {
       openWhatsAppUrl(url);
     }
 
+    let orderPlaced = false;
     try {
       const res = await fetch('/api/checkout', {
         method: 'POST',
@@ -266,6 +269,8 @@ export default function CheckoutPage() {
       if (!res.ok) {
         setOrderError(typeof result.error === 'string' ? result.error : 'Failed to place order');
         if (source === 'website') return;
+      } else {
+        orderPlaced = true;
       }
     } catch {
       if (source === 'website') {
@@ -275,6 +280,19 @@ export default function CheckoutPage() {
     }
 
     await persistProfile(data);
+    if (orderPlaced) {
+      const normalized = normalizeMobile(data.mobile);
+      setCustomerMobile(normalized);
+      try {
+        await fetch('/api/customer/account', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mobile: normalized }),
+        });
+      } catch {
+        /* best-effort */
+      }
+    }
     clearCart();
     try {
       sessionStorage.setItem('gobaskit_last_order_source', source);
