@@ -10,24 +10,61 @@ interface CategoryScrollerProps {
 }
 
 const MOBILE_MQ = '(max-width: 767px)';
-const SCROLL_SPEED = 0.4;
-const PEEK_PAUSE_MS = 1200;
-const START_DELAY_MS = 600;
+const PEEK_DURATION_MS = 2200;
+const END_PAUSE_MS = 900;
+const START_PAUSE_MS = 1400;
+
+function sleep(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer);
+        reject(new DOMException('Aborted', 'AbortError'));
+      },
+      { once: true },
+    );
+  });
+}
+
+function animateScroll(el: HTMLElement, to: number, duration: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const from = el.scrollLeft;
+    const start = performance.now();
+
+    function step(now: number) {
+      if (signal.aborted) {
+        reject(new DOMException('Aborted', 'AbortError'));
+        return;
+      }
+
+      const t = Math.min(1, (now - start) / duration);
+      const eased = t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2;
+      el.scrollLeft = from + (to - from) * eased;
+
+      if (t < 1) {
+        requestAnimationFrame(step);
+      } else {
+        resolve();
+      }
+    }
+
+    requestAnimationFrame(step);
+  });
+}
 
 export default function CategoryScroller({ categories, activeSlug }: CategoryScrollerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hintActive, setHintActive] = useState(false);
   const userInteractedRef = useRef(false);
-  const animRef = useRef<number | null>(null);
+  const autoScrollingRef = useRef(false);
+  const loopRunningRef = useRef(false);
 
   const stopAutoScroll = useCallback(() => {
     if (userInteractedRef.current) return;
     userInteractedRef.current = true;
     setHintActive(false);
-    if (animRef.current !== null) {
-      cancelAnimationFrame(animRef.current);
-      animRef.current = null;
-    }
   }, []);
 
   useEffect(() => {
@@ -38,68 +75,85 @@ export default function CategoryScroller({ categories, activeSlug }: CategoryScr
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (!mq.matches || reducedMotion) return;
 
-    let startTimer: ReturnType<typeof setTimeout> | undefined;
-    let direction = 1;
-    let paused = false;
-    let pauseUntil = 0;
-    let targetScroll = 0;
+    const abort = new AbortController();
+    let resizeObserver: ResizeObserver | undefined;
 
-    function computeTarget() {
+    function maxScroll() {
       const container = scrollRef.current;
       if (!container) return 0;
-      const max = container.scrollWidth - container.clientWidth;
+      return Math.max(0, container.scrollWidth - container.clientWidth);
+    }
+
+    function peekTarget() {
+      const max = maxScroll();
       if (max <= 0) return 0;
-      return Math.min(max, Math.max(96, max * 0.45));
+      return Math.min(max, Math.max(120, max * 0.55));
     }
 
-    function tick(now: number) {
+    async function runPeekLoop() {
       const container = scrollRef.current;
-      if (!container || userInteractedRef.current) return;
+      if (!container || userInteractedRef.current || loopRunningRef.current) return;
 
-      if (paused) {
-        if (now >= pauseUntil) paused = false;
-        animRef.current = requestAnimationFrame(tick);
-        return;
-      }
+      const target = peekTarget();
+      if (target <= 0) return;
 
-      targetScroll = computeTarget();
-      if (targetScroll <= 0) return;
-
-      container.scrollLeft += SCROLL_SPEED * direction;
-
-      if (direction > 0 && container.scrollLeft >= targetScroll) {
-        container.scrollLeft = targetScroll;
-        direction = -1;
-        paused = true;
-        pauseUntil = now + PEEK_PAUSE_MS;
-      } else if (direction < 0 && container.scrollLeft <= 0) {
-        container.scrollLeft = 0;
-        direction = 1;
-        paused = true;
-        pauseUntil = now + PEEK_PAUSE_MS + 400;
-      }
-
-      animRef.current = requestAnimationFrame(tick);
-    }
-
-    function start() {
-      targetScroll = computeTarget();
-      if (targetScroll <= 0) return;
+      loopRunningRef.current = true;
+      autoScrollingRef.current = true;
       setHintActive(true);
-      animRef.current = requestAnimationFrame(tick);
+
+      try {
+        while (!userInteractedRef.current && !abort.signal.aborted) {
+          await animateScroll(container, target, PEEK_DURATION_MS, abort.signal);
+          await sleep(END_PAUSE_MS, abort.signal);
+          await animateScroll(container, 0, PEEK_DURATION_MS, abort.signal);
+          await sleep(START_PAUSE_MS, abort.signal);
+        }
+      } catch {
+        /* aborted or user interrupted */
+      } finally {
+        autoScrollingRef.current = false;
+        loopRunningRef.current = false;
+        if (!userInteractedRef.current) setHintActive(false);
+      }
     }
 
-    startTimer = setTimeout(start, START_DELAY_MS);
+    function tryStart() {
+      if (userInteractedRef.current || abort.signal.aborted) return;
+      if (peekTarget() <= 0) return;
+      void runPeekLoop();
+    }
+
+    const startTimer = window.setTimeout(tryStart, 400);
+
+    resizeObserver = new ResizeObserver(() => {
+      tryStart();
+    });
+    resizeObserver.observe(el);
 
     const onMqChange = (e: MediaQueryListEvent) => {
       if (!e.matches) stopAutoScroll();
     };
     mq.addEventListener('change', onMqChange);
 
+    const onUserScroll = () => {
+      if (autoScrollingRef.current) return;
+      stopAutoScroll();
+    };
+
+    el.addEventListener('touchstart', stopAutoScroll, { passive: true });
+    el.addEventListener('pointerdown', stopAutoScroll);
+    el.addEventListener('wheel', stopAutoScroll, { passive: true });
+    el.addEventListener('scroll', onUserScroll, { passive: true });
+
     return () => {
       clearTimeout(startTimer);
+      abort.abort();
+      resizeObserver?.disconnect();
       mq.removeEventListener('change', onMqChange);
-      if (animRef.current !== null) cancelAnimationFrame(animRef.current);
+      el.removeEventListener('touchstart', stopAutoScroll);
+      el.removeEventListener('pointerdown', stopAutoScroll);
+      el.removeEventListener('wheel', stopAutoScroll);
+      el.removeEventListener('scroll', onUserScroll);
     };
   }, [categories.length, stopAutoScroll]);
 
@@ -107,19 +161,15 @@ export default function CategoryScroller({ categories, activeSlug }: CategoryScr
     <div className="mb-5 relative">
       {hintActive && (
         <div
-          className="pointer-events-none absolute right-0 top-0 bottom-1 w-12 bg-gradient-to-l from-gray-50 via-gray-50/80 to-transparent z-10 md:hidden"
+          className="pointer-events-none absolute right-0 top-0 bottom-1 w-14 bg-gradient-to-l from-gray-50 via-gray-50/90 to-transparent z-10 md:hidden"
           aria-hidden
         />
       )}
       <div
         ref={scrollRef}
-        className="overflow-x-auto scrollbar-hide"
-        onTouchStart={stopAutoScroll}
-        onPointerDown={stopAutoScroll}
-        onWheel={stopAutoScroll}
-        onClick={stopAutoScroll}
+        className="overflow-x-auto md:overflow-x-auto scrollbar-hide overscroll-x-contain touch-pan-x"
       >
-        <div className="flex gap-4 pb-1">
+        <div className="flex gap-4 pb-1 w-max">
           {categories.map((cat) => (
             <CategoryCard key={cat.id} category={cat} active={cat.slug === activeSlug} />
           ))}
