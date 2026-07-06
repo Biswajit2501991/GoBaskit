@@ -163,109 +163,118 @@ export default function StaffManager() {
       />
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <form onSubmit={handleSave} className="bg-white rounded-xl p-6 w-full max-w-md space-y-3 shadow-xl">
-            <div className="flex justify-between items-center">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/30 p-4 overflow-y-auto">
+          <form
+            onSubmit={handleSave}
+            className="bg-white rounded-xl w-full max-w-md shadow-xl max-h-[min(90vh,calc(100vh-2rem))] flex flex-col my-auto"
+          >
+            <div className="flex justify-between items-center p-6 pb-4 shrink-0 border-b border-gray-100">
               <h2 className="font-bold">{editingId ? 'Edit Staff' : 'Add Staff'}</h2>
-              <button type="button" onClick={() => setShowForm(false)}><X className="w-5 h-5" /></button>
+              <button type="button" onClick={() => setShowForm(false)} aria-label="Close">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div>
-              <Label>Name</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="mt-1" />
-            </div>
-            <div>
-              <Label>Mobile</Label>
-              <Input
-                value={form.mobile}
-                onChange={(e) => setForm({ ...form, mobile: e.target.value.replace(/\D/g, '').slice(-10) })}
-                required
-                className="mt-1"
-                inputMode="numeric"
-                maxLength={10}
-              />
-            </div>
-            <div>
-              <Label>Email (optional)</Label>
-              <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1" />
-            </div>
-            <div>
-              <Label>Role</Label>
-              <select
-                value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value as StaffRole })}
-                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
-              >
-                {STAFF_ROLES.map((r) => (
-                  <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label>{editingId ? 'New Password (optional)' : 'Password'}</Label>
-              <Input
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="mt-1"
-                required={!editingId}
-              />
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-              Active
-            </label>
-            <div className="border-t pt-3 space-y-3">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Delivery Zone</p>
+            <div className="overflow-y-auto flex-1 p-6 space-y-3">
               <div>
-                <Label>Assigned City</Label>
+                <Label>Name</Label>
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="mt-1" />
+              </div>
+              <div>
+                <Label>Mobile</Label>
                 <Input
-                  value={form.assignedCity}
-                  onChange={(e) => setForm({ ...form, assignedCity: e.target.value })}
-                  placeholder="e.g. Craigieburn"
+                  value={form.mobile}
+                  onChange={(e) => setForm({ ...form, mobile: e.target.value.replace(/\D/g, '').slice(-10) })}
+                  required
                   className="mt-1"
+                  inputMode="numeric"
+                  maxLength={10}
                 />
               </div>
               <div>
-                <Label>Assigned Areas (comma-separated)</Label>
+                <Label>Email (optional)</Label>
+                <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1" />
+              </div>
+              <div>
+                <Label>Role</Label>
+                <select
+                  value={form.role}
+                  onChange={(e) => setForm({ ...form, role: e.target.value as StaffRole })}
+                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                >
+                  {STAFF_ROLES.map((r) => (
+                    <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>{editingId ? 'New Password (optional)' : 'Password'}</Label>
                 <Input
-                  value={form.assignedAreas}
-                  onChange={(e) => setForm({ ...form, assignedAreas: e.target.value })}
-                  placeholder="Area 1, Area 2"
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
                   className="mt-1"
+                  required={!editingId}
                 />
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
+                Active
+              </label>
+              <div className="border-t pt-3 space-y-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Delivery Zone</p>
                 <div>
-                  <Label>Latitude</Label>
+                  <Label>Assigned City</Label>
                   <Input
-                    value={form.latitude}
-                    onChange={(e) => setForm({ ...form, latitude: e.target.value })}
-                    placeholder="-37.59"
+                    value={form.assignedCity}
+                    onChange={(e) => setForm({ ...form, assignedCity: e.target.value })}
+                    placeholder="e.g. Craigieburn"
                     className="mt-1"
                   />
                 </div>
                 <div>
-                  <Label>Longitude</Label>
+                  <Label>Assigned Areas (comma-separated)</Label>
                   <Input
-                    value={form.longitude}
-                    onChange={(e) => setForm({ ...form, longitude: e.target.value })}
-                    placeholder="144.94"
+                    value={form.assignedAreas}
+                    onChange={(e) => setForm({ ...form, assignedAreas: e.target.value })}
+                    placeholder="Area 1, Area 2"
                     className="mt-1"
                   />
                 </div>
-                <div>
-                  <Label>Radius (KM)</Label>
-                  <Input
-                    value={form.deliveryRadius}
-                    onChange={(e) => setForm({ ...form, deliveryRadius: e.target.value })}
-                    placeholder="10"
-                    className="mt-1"
-                  />
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label>Latitude</Label>
+                    <Input
+                      value={form.latitude}
+                      onChange={(e) => setForm({ ...form, latitude: e.target.value })}
+                      placeholder="-37.59"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Longitude</Label>
+                    <Input
+                      value={form.longitude}
+                      onChange={(e) => setForm({ ...form, longitude: e.target.value })}
+                      placeholder="144.94"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Radius (KM)</Label>
+                    <Input
+                      value={form.deliveryRadius}
+                      onChange={(e) => setForm({ ...form, deliveryRadius: e.target.value })}
+                      placeholder="10"
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-            {error && <p className="text-red-500 text-xs">{error}</p>}
-            <Button type="submit" className="w-full">Save</Button>
+            <div className="p-6 pt-4 shrink-0 border-t border-gray-100 space-y-3">
+              {error && <p className="text-red-500 text-xs">{error}</p>}
+              <Button type="submit" className="w-full">Save</Button>
+            </div>
           </form>
         </div>
       )}
