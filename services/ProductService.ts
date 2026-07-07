@@ -34,7 +34,10 @@ export class ProductService {
     const [items, total] = await Promise.all([
       prisma.product.findMany({
         where,
-        include: { category: { select: { id: true, name: true, slug: true } } },
+        include: {
+          category: { select: { id: true, name: true, slug: true } },
+          _count: { select: { variants: true } },
+        },
         orderBy,
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -77,7 +80,13 @@ export class ProductService {
 
     return prisma.product.findMany({
       where,
-      include: { category: { select: { id: true, name: true, slug: true } } },
+      include: {
+        category: { select: { id: true, name: true, slug: true } },
+        variants: {
+          where: { isActive: true },
+          orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        },
+      },
       orderBy,
     });
   }
@@ -85,7 +94,13 @@ export class ProductService {
   static async getById(id: string) {
     return prisma.product.findUnique({
       where: { id },
-      include: { category: true },
+      include: {
+        category: true,
+        variants: {
+          where: { isActive: true },
+          orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        },
+      },
     });
   }
 

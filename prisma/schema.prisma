@@ -88,15 +88,47 @@ model Product {
   discount    Float         @default(0)
   isFeatured  Boolean       @default(false) @map("is_featured")
   isVisible   Boolean       @default(true) @map("is_visible")
+  hasVariants Boolean       @default(false) @map("has_variants")
   categoryId  String        @map("category_id")
   category    Category      @relation(fields: [categoryId], references: [id])
   orderItems  OrderItem[]
+  variants    ProductVariant[]
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
   @@index([categoryId])
   @@index([isFeatured, isVisible])
   @@map("products")
+}
+
+model ProductVariant {
+  id          String   @id @default(cuid())
+  productId   String   @map("product_id")
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  brand       String   @default("")
+  variantName String   @default("") @map("variant_name")
+  weight      String   @default("")
+  unit        String   @default("")
+  price       Float
+  mrp         Float?
+  discount    Float    @default(0)
+  sku         String?
+  barcode     String?
+  stock       Int      @default(0)
+  stockBaseline Int    @default(0) @map("stock_baseline")
+  imageUrl    String?  @map("image_url")
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  // Reserved for future variant-specific data (colour, flavour, gst, supplier,
+  // expiry, nutrition, bundle/subscription config, etc.) without schema changes.
+  attributes  Json?
+  orderItems  OrderItem[]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([productId, sortOrder])
+  @@index([productId, isActive])
+  @@map("product_variants")
 }
 
 enum WhatsAppVerificationStatus {
@@ -265,6 +297,7 @@ model OrderItem {
   id          String  @id @default(cuid())
   orderId     String  @map("order_id")
   productId   String  @map("product_id")
+  variantId   String? @map("variant_id")
   productName String  @map("product_name")
   quantity    Int
   unitPrice   Float   @map("unit_price")
@@ -272,7 +305,9 @@ model OrderItem {
   totalPrice  Float   @map("total_price")
   order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product     Product @relation(fields: [productId], references: [id])
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
 
+  @@index([variantId])
   @@map("order_items")
 }
 

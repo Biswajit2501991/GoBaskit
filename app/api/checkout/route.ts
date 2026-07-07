@@ -63,8 +63,9 @@ export async function POST(req: NextRequest) {
     const source = orderSource === 'whatsapp' ? 'whatsapp' : 'website';
 
     const stockItems = items.map(
-      (item: { productId: string; quantity: number }) => ({
+      (item: { productId: string; variantId?: string | null; quantity: number }) => ({
         productId: item.productId,
+        variantId: item.variantId ?? null,
         quantity: item.quantity,
       }),
     );
@@ -117,8 +118,9 @@ export async function POST(req: NextRequest) {
           customerLng: typeof customerLng === 'number' ? customerLng : null,
           items: {
             create: items.map(
-              (item: { productId: string; name: string; quantity: number; price: number; unit: string }) => ({
+              (item: { productId: string; variantId?: string | null; name: string; quantity: number; price: number; unit: string }) => ({
                 productId: item.productId,
+                variantId: item.variantId ?? null,
                 productName: item.name,
                 quantity: item.quantity,
                 unitPrice: item.price,

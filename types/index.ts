@@ -1,6 +1,9 @@
 export interface CartItem {
   productId: string;
+  variantId?: string | null;
   name: string;
+  variantLabel?: string | null;
+  sku?: string | null;
   price: number;
   unit: string;
   quantity: number;
@@ -24,6 +27,25 @@ export interface CheckoutFormData {
   paymentMethod: 'COD' | 'QR_ON_DELIVERY';
 }
 
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  brand: string;
+  variantName: string;
+  weight: string;
+  unit: string;
+  price: number;
+  mrp?: number | null;
+  discount: number;
+  sku?: string | null;
+  barcode?: string | null;
+  stock: number;
+  imageUrl?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  attributes?: unknown;
+}
+
 export interface ProductWithCategory {
   id: string;
   name: string;
@@ -37,8 +59,10 @@ export interface ProductWithCategory {
   discount: number;
   isFeatured: boolean;
   isVisible: boolean;
+  hasVariants?: boolean;
   categoryId: string;
   category?: { id: string; name: string; slug: string };
+  variants?: ProductVariant[];
 }
 
 export interface CategoryItem {

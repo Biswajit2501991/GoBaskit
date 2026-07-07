@@ -8,12 +8,14 @@ import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
 import ProductCard from '@/components/ProductCard/ProductCard';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
-import { useCartStore } from '@/store/cartStore';
+import { useCartStore, cartLineKey } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { formatCurrency } from '@/utils/formatter';
 import { getListPrice } from '@/utils/pricing';
 import { resolvePublicImageUrl } from '@/utils/image';
+import { minVariantPrice } from '@/utils/variant';
 import ProductPriceDisplay from '@/components/ProductCard/ProductPriceDisplay';
+import VariantSelector, { addVariantToCart } from '@/components/Product/VariantSelector';
 import { CATEGORY_ICONS } from '@/constants';
 import { Button } from '@/components/ui/button';
 import type { ProductWithCategory } from '@/types';
@@ -25,8 +27,6 @@ export default function ProductPage() {
   const [similar, setSimilar] = useState<ProductWithCategory[]>([]);
   const hydrated = useCartHydrated();
   const { items, addItem, updateQuantity } = useCartStore();
-  const cartItem = items.find((i) => i.productId === id);
-  const cartQty = hydrated ? (cartItem?.quantity ?? 0) : 0;
 
   useEffect(() => {
     fetch(`/api/products/${id}`)
@@ -50,11 +50,29 @@ export default function ProductPage() {
     );
   }
 
-  const sellingPrice = product.price;
-  const listPrice = getListPrice(product.actualPrice, sellingPrice);
+  const activeVariants = product.variants ?? [];
+  const showVariants = (product.hasVariants ?? false) && activeVariants.length > 1;
+  const singleVariant =
+    (product.hasVariants ?? false) && activeVariants.length === 1 ? activeVariants[0] : null;
+
+  const lineKey = singleVariant ? cartLineKey(product.id, singleVariant.id) : product.id;
+  const cartItem = items.find((i) => cartLineKey(i.productId, i.variantId) === lineKey);
+  const cartQty = hydrated ? (cartItem?.quantity ?? 0) : 0;
+
+  const sellingPrice = singleVariant ? singleVariant.price : product.price;
+  const displayFrom = showVariants ? minVariantPrice(activeVariants) : null;
+  const listPrice = getListPrice(
+    singleVariant ? singleVariant.mrp ?? null : product.actualPrice,
+    sellingPrice,
+  );
   const hasDiscount = listPrice !== null;
   const savings = hasDiscount ? Math.round((listPrice - sellingPrice) * 100) / 100 : 0;
-  const inStock = product.stock > 0 && product.status === 'ACTIVE';
+  const effectiveStock = singleVariant ? singleVariant.stock : product.stock;
+  const inStock = showVariants
+    ? activeVariants.some((v) => v.stock > 0)
+    : singleVariant
+      ? singleVariant.stock > 0
+      : product.stock > 0 && product.status === 'ACTIVE';
   const categoryIcon = CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒';
   const imageUrl = resolvePublicImageUrl(product.imageUrl);
 
@@ -107,8 +125,21 @@ export default function ProductPage() {
             <p className="text-sm text-gray-400">{product.unit}</p>
 
             <div className="flex items-end gap-2 flex-wrap">
-              <ProductPriceDisplay price={sellingPrice} actualPrice={product.actualPrice} size="md" />
-              {hasDiscount && (
+              {showVariants ? (
+                <div>
+                  <p className="text-xs text-gray-400 leading-none">From</p>
+                  <p className="text-2xl font-bold text-gray-900 leading-none mt-1">
+                    {displayFrom != null ? formatCurrency(displayFrom) : formatCurrency(product.price)}
+                  </p>
+                </div>
+              ) : (
+                <ProductPriceDisplay
+                  price={sellingPrice}
+                  actualPrice={singleVariant ? singleVariant.mrp ?? null : product.actualPrice}
+                  size="md"
+                />
+              )}
+              {hasDiscount && !showVariants && (
                 <span className="text-sm font-bold text-blinkit-green mb-0.5">Save {formatCurrency(savings)}</span>
               )}
             </div>
@@ -125,14 +156,23 @@ export default function ProductPage() {
             </div>
 
             <div className="pt-2">
-              {!inStock ? (
+              {showVariants ? (
+                <VariantSelector
+                  product={product}
+                  variants={activeVariants}
+                  label="Choose Option"
+                  size="lg"
+                  fullWidth
+                  className="w-full"
+                />
+              ) : !inStock ? (
                 <div className="text-sm font-semibold text-red-500 bg-red-50 rounded-lg px-3 py-2">Out of stock</div>
               ) : cartQty > 0 ? (
                 <div className="flex items-center gap-4">
                   <div className="flex items-center bg-blinkit-green rounded-lg">
-                    <button onClick={() => updateQuantity(id, cartQty - 1)} className="w-10 h-10 text-white font-bold text-xl">−</button>
+                    <button onClick={() => updateQuantity(lineKey, cartQty - 1)} className="w-10 h-10 text-white font-bold text-xl">−</button>
                     <span className="text-white font-bold w-8 text-center">{cartQty}</span>
-                    <button onClick={() => updateQuantity(id, cartQty + 1)} disabled={cartQty >= product.stock} className="w-10 h-10 text-white font-bold text-xl disabled:opacity-40">+</button>
+                    <button onClick={() => updateQuantity(lineKey, cartQty + 1)} disabled={cartQty >= effectiveStock} className="w-10 h-10 text-white font-bold text-xl disabled:opacity-40">+</button>
                   </div>
                   <Button asChild variant="secondary"><Link href="/cart">View Cart</Link></Button>
                 </div>
@@ -140,7 +180,11 @@ export default function ProductPage() {
                 <Button
                   size="lg"
                   className="w-full"
-                  onClick={() => addItem({ productId: product.id, name: product.name, price: sellingPrice, unit: product.unit, imageUrl: product.imageUrl, stock: product.stock })}
+                  onClick={() =>
+                    singleVariant
+                      ? addVariantToCart(addItem, product, singleVariant)
+                      : addItem({ productId: product.id, name: product.name, price: sellingPrice, unit: product.unit, imageUrl: product.imageUrl, stock: product.stock })
+                  }
                 >
                   ADD TO CART
                 </Button>

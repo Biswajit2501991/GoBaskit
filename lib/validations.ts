@@ -115,6 +115,7 @@ export const productSchema = z
     imageUrl: z.string().optional(),
     isFeatured: z.boolean().optional(),
     isVisible: z.boolean().optional(),
+    hasVariants: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.actualPrice != null && data.actualPrice < data.price) {
@@ -127,6 +128,49 @@ export const productSchema = z
   });
 
 export type ProductFormData = z.input<typeof productSchema>;
+
+export const variantSchema = z
+  .object({
+    brand: z.string().max(120).optional(),
+    variantName: z.string().max(120).optional(),
+    weight: z.string().max(60).optional(),
+    unit: z.string().max(20).optional(),
+    price: z.coerce.number().positive('Selling price must be positive'),
+    mrp: z.preprocess(
+      emptyToNull,
+      z.coerce.number().positive('MRP must be positive').optional().nullable(),
+    ),
+    sku: z.preprocess(emptyToNull, z.string().max(80).optional().nullable()),
+    barcode: z.preprocess(emptyToNull, z.string().max(80).optional().nullable()),
+    stock: z.coerce.number().int().min(0, 'Stock cannot be negative'),
+    imageUrl: z.preprocess(emptyToNull, z.string().optional().nullable()),
+    sortOrder: z.coerce.number().int().optional(),
+    isActive: z.boolean().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.mrp != null && data.mrp < data.price) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'MRP must be greater than or equal to selling price',
+        path: ['mrp'],
+      });
+    }
+    const hasIdentity = [data.brand, data.variantName, data.weight]
+      .some((v) => (v ?? '').trim().length > 0);
+    if (!hasIdentity) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Add a brand, variant name, or weight/size',
+        path: ['brand'],
+      });
+    }
+  });
+
+export type VariantFormData = z.input<typeof variantSchema>;
+
+export const variantReorderSchema = z.object({
+  orderedIds: z.array(z.string().min(1)).min(1),
+});
 
 export const categorySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),

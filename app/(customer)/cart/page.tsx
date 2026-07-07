@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
-import { useCartStore } from '@/store/cartStore';
+import { useCartStore, itemLineKey } from '@/store/cartStore';
 import { useConfigStore } from '@/store/configStore';
 import { deliveryChargeFrom } from '@/constants';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
@@ -100,7 +100,7 @@ export default function CartPage() {
 
         <div className="bg-white rounded-xl border border-gray-100 divide-y">
           {items.map((item) => (
-            <div key={item.productId} className="p-4 flex gap-3">
+            <div key={itemLineKey(item)} className="p-4 flex gap-3">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100 overflow-hidden flex-shrink-0">
                 {item.imageUrl ? (
                   <img
@@ -116,15 +116,18 @@ export default function CartPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-sm truncate">{item.name}</h3>
+                {item.variantLabel ? (
+                  <p className="text-xs text-blinkit-green font-medium truncate">{item.variantLabel}</p>
+                ) : null}
                 <p className="text-xs text-gray-400">{item.unit}</p>
                 <p className="font-bold text-sm mt-1">{formatCurrency(item.price)}</p>
               </div>
               <div className="flex flex-col items-end justify-between">
-                <button onClick={() => removeItem(item.productId)} className="text-xs text-red-400 hover:text-red-600">Remove</button>
+                <button onClick={() => removeItem(itemLineKey(item))} className="text-xs text-red-400 hover:text-red-600">Remove</button>
                 <div className="flex items-center bg-blinkit-green rounded-lg">
-                  <button onClick={() => updateQuantity(item.productId, item.quantity - 1)} className="w-7 h-7 text-white font-bold">−</button>
+                  <button onClick={() => updateQuantity(itemLineKey(item), item.quantity - 1)} className="w-7 h-7 text-white font-bold">−</button>
                   <span className="text-white font-bold text-sm w-5 text-center">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.productId, item.quantity + 1)} disabled={item.quantity >= item.stock} className="w-7 h-7 text-white font-bold disabled:opacity-40">+</button>
+                  <button onClick={() => updateQuantity(itemLineKey(item), item.quantity + 1)} disabled={item.quantity >= item.stock} className="w-7 h-7 text-white font-bold disabled:opacity-40">+</button>
                 </div>
                 <p className="text-sm font-bold">{formatCurrency(item.price * item.quantity)}</p>
               </div>

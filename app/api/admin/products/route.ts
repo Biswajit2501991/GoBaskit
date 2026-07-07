@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
       discount: pricing.discount,
       isFeatured: parsed.data.isFeatured ?? false,
       isVisible: parsed.data.isVisible ?? true,
+      hasVariants: parsed.data.hasVariants ?? false,
     },
     include: { category: true },
   });

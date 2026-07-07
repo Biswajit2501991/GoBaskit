@@ -14,6 +14,7 @@ import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { AdminCategory } from './CategoryManager';
 import ProductImageUpload from './ProductImageUpload';
 import ProductPriceDisplay from '@/components/ProductCard/ProductPriceDisplay';
+import VariantAdminTable from './VariantAdminTable';
 import ListPagination from './ListPagination';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
 import { isLowStock } from '@/utils/inventory';
@@ -32,8 +33,10 @@ export interface AdminProduct {
   discount: number;
   isFeatured: boolean;
   isVisible: boolean;
+  hasVariants: boolean;
   categoryId: string;
   category: { id: string; name: string; slug: string };
+  _count?: { variants: number };
 }
 
 const emptyProduct: ProductFormData = {
@@ -48,6 +51,7 @@ const emptyProduct: ProductFormData = {
   imageUrl: '',
   isFeatured: false,
   isVisible: true,
+  hasVariants: false,
 };
 
 export default function ProductManager({
@@ -123,6 +127,7 @@ export default function ProductManager({
   });
 
   const imageUrl = watch('imageUrl') || '';
+  const hasVariants = watch('hasVariants') ?? false;
   const currentName = watch('name') || '';
   const currentCategoryId = watch('categoryId') || '';
   const currentCategoryName =
@@ -160,6 +165,7 @@ export default function ProductManager({
       imageUrl: product.imageUrl || '',
       isFeatured: product.isFeatured,
       isVisible: product.isVisible,
+      hasVariants: product.hasVariants,
     });
     setShowForm(true);
     setError('');
@@ -358,6 +364,31 @@ export default function ProductManager({
                 </label>
               </div>
 
+              <div className="md:col-span-2 lg:col-span-3 border-t border-gray-100 pt-4">
+                <h3 className="font-semibold text-sm mb-1">Product Options</h3>
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" {...register('hasVariants')} className="accent-blinkit-green" disabled={!canEdit} />
+                  This product has multiple options (brands / sizes / weights)
+                </label>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  When enabled, customers pick a specific option. Price, stock, and image come from the option they choose.
+                </p>
+              </div>
+
+              {hasVariants && (
+                editingId ? (
+                  <VariantAdminTable
+                    productId={editingId}
+                    productName={currentName}
+                    categoryName={currentCategoryName}
+                  />
+                ) : (
+                  <div className="md:col-span-2 lg:col-span-3 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                    Save the product first, then reopen it to add and manage options.
+                  </div>
+                )
+              )}
+
               {error && <p className="text-red-500 text-sm md:col-span-2 lg:col-span-3">{error}</p>}
 
               <div className="flex gap-2 md:col-span-2 lg:col-span-3">
@@ -413,6 +444,11 @@ export default function ProductManager({
                     {p.name}
                     {p.isFeatured && (
                       <span className="ml-2 text-[10px] bg-blinkit-yellow px-1.5 py-0.5 rounded font-bold">FEATURED</span>
+                    )}
+                    {p.hasVariants && (p._count?.variants ?? 0) > 0 && (
+                      <span className="ml-2 text-[10px] bg-blinkit-green-light text-blinkit-green px-1.5 py-0.5 rounded font-bold">
+                        {p._count?.variants} OPTIONS
+                      </span>
                     )}
                   </td>
                   <td className="p-3">

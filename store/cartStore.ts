@@ -10,11 +10,20 @@ import {
   SERVICEABLE_PINS,
 } from '@/constants';
 
+/** Unique key for a cart line: a product, or a specific variant of a product. */
+export function cartLineKey(productId: string, variantId?: string | null): string {
+  return variantId ? `${productId}::${variantId}` : productId;
+}
+
+export function itemLineKey(item: Pick<CartItem, 'productId' | 'variantId'>): string {
+  return cartLineKey(item.productId, item.variantId);
+}
+
 interface CartState {
   items: CartItem[];
   addItem: (item: Omit<CartItem, 'quantity'>) => void;
-  removeItem: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  removeItem: (key: string) => void;
+  updateQuantity: (key: string, quantity: number) => void;
   clearCart: () => void;
   getSubtotal: () => number;
   getItemCount: () => number;
@@ -28,17 +37,19 @@ export const useCartStore = create<CartState>()(
 
       addItem: (item) =>
         set((state) => {
-          const existing = state.items.find((i) => i.productId === item.productId);
+          const key = itemLineKey(item);
+          const existing = state.items.find((i) => itemLineKey(i) === key);
           if (existing) {
             const newQty = Math.min(existing.quantity + 1, item.stock);
             return {
               items: state.items.map((i) =>
-                i.productId === item.productId
+                itemLineKey(i) === key
                   ? {
                       ...i,
                       quantity: newQty,
                       imageUrl: item.imageUrl ?? i.imageUrl,
                       price: item.price,
+                      stock: item.stock,
                     }
                   : i
               ),
@@ -47,19 +58,19 @@ export const useCartStore = create<CartState>()(
           return { items: [...state.items, { ...item, quantity: 1 }] };
         }),
 
-      removeItem: (productId) =>
+      removeItem: (key) =>
         set((state) => ({
-          items: state.items.filter((i) => i.productId !== productId),
+          items: state.items.filter((i) => itemLineKey(i) !== key),
         })),
 
-      updateQuantity: (productId, quantity) =>
+      updateQuantity: (key, quantity) =>
         set((state) => {
           if (quantity <= 0) {
-            return { items: state.items.filter((i) => i.productId !== productId) };
+            return { items: state.items.filter((i) => itemLineKey(i) !== key) };
           }
           return {
             items: state.items.map((i) =>
-              i.productId === productId
+              itemLineKey(i) === key
                 ? { ...i, quantity: Math.min(quantity, i.stock) }
                 : i
             ),

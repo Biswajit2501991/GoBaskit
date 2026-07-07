@@ -13,6 +13,7 @@ export { LOW_STOCK_RATIO } from '@/utils/inventory';
 
 export interface OrderStockItem {
   productId: string;
+  variantId?: string | null;
   quantity: number;
 }
 
@@ -43,32 +44,68 @@ export class InventoryService {
     if (!items.length) return;
 
     const byProduct = new Map<string, number>();
+    const byVariant = new Map<string, number>();
     for (const item of items) {
-      byProduct.set(item.productId, (byProduct.get(item.productId) ?? 0) + item.quantity);
+      if (item.variantId) {
+        byVariant.set(item.variantId, (byVariant.get(item.variantId) ?? 0) + item.quantity);
+      } else {
+        byProduct.set(item.productId, (byProduct.get(item.productId) ?? 0) + item.quantity);
+      }
     }
 
-    const products = await prisma.product.findMany({
-      where: { id: { in: [...byProduct.keys()] } },
-      select: { id: true, name: true, stock: true, status: true },
-    });
+    if (byProduct.size) {
+      const products = await prisma.product.findMany({
+        where: { id: { in: [...byProduct.keys()] } },
+        select: { id: true, name: true, stock: true, status: true },
+      });
+      const productMap = new Map(products.map((p) => [p.id, p]));
 
-    const productMap = new Map(products.map((p) => [p.id, p]));
+      for (const [productId, qty] of byProduct) {
+        const product = productMap.get(productId);
+        if (!product) {
+          throw new Error('A product in your cart is no longer available.');
+        }
+        if (product.status === 'INACTIVE') {
+          throw new Error(`${product.name} is currently unavailable.`);
+        }
+        if (product.stock < qty) {
+          const left = product.stock;
+          throw new Error(
+            left > 0
+              ? `Only ${left} unit${left === 1 ? '' : 's'} of ${product.name} left in stock.`
+              : `${product.name} is out of stock.`,
+          );
+        }
+      }
+    }
 
-    for (const [productId, qty] of byProduct) {
-      const product = productMap.get(productId);
-      if (!product) {
-        throw new Error('A product in your cart is no longer available.');
-      }
-      if (product.status === 'INACTIVE') {
-        throw new Error(`${product.name} is currently unavailable.`);
-      }
-      if (product.stock < qty) {
-        const left = product.stock;
-        throw new Error(
-          left > 0
-            ? `Only ${left} unit${left === 1 ? '' : 's'} of ${product.name} left in stock.`
-            : `${product.name} is out of stock.`,
-        );
+    if (byVariant.size) {
+      const variants = await prisma.productVariant.findMany({
+        where: { id: { in: [...byVariant.keys()] } },
+        select: { id: true, brand: true, variantName: true, weight: true, unit: true, stock: true, isActive: true },
+      });
+      const variantMap = new Map(variants.map((v) => [v.id, v]));
+
+      for (const [variantId, qty] of byVariant) {
+        const variant = variantMap.get(variantId);
+        if (!variant) {
+          throw new Error('A product option in your cart is no longer available.');
+        }
+        const label = [variant.brand, variant.variantName, `${variant.weight}${variant.unit}`]
+          .filter(Boolean)
+          .join(' ')
+          .trim() || 'selected option';
+        if (!variant.isActive) {
+          throw new Error(`${label} is currently unavailable.`);
+        }
+        if (variant.stock < qty) {
+          const left = variant.stock;
+          throw new Error(
+            left > 0
+              ? `Only ${left} unit${left === 1 ? '' : 's'} of ${label} left in stock.`
+              : `${label} is out of stock.`,
+          );
+        }
       }
     }
   }
@@ -110,8 +147,13 @@ export class InventoryService {
     items: OrderStockItem[],
   ): Promise<{ updated: ProductRow[]; previousStock: Map<string, number> }> {
     const byProduct = new Map<string, number>();
+    const byVariant = new Map<string, number>();
     for (const item of items) {
-      byProduct.set(item.productId, (byProduct.get(item.productId) ?? 0) + item.quantity);
+      if (item.variantId) {
+        byVariant.set(item.variantId, (byVariant.get(item.variantId) ?? 0) + item.quantity);
+      } else {
+        byProduct.set(item.productId, (byProduct.get(item.productId) ?? 0) + item.quantity);
+      }
     }
 
     const updated: ProductRow[] = [];
@@ -142,6 +184,17 @@ export class InventoryService {
       updated.push(row);
     }
 
+    for (const [variantId, qty] of byVariant) {
+      const variant = await tx.productVariant.findUnique({ where: { id: variantId } });
+      if (!variant || variant.stock < qty) {
+        throw new Error(`Insufficient stock for ${variant?.brand ?? 'selected option'}`);
+      }
+      await tx.productVariant.update({
+        where: { id: variantId },
+        data: { stock: variant.stock - qty },
+      });
+    }
+
     await tx.order.update({
       where: { id: orderId },
       data: { stockReserved: true },
@@ -153,7 +206,7 @@ export class InventoryService {
   static async restoreForOrder(orderId: string): Promise<void> {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: { items: { select: { productId: true, quantity: true } } },
+      include: { items: { select: { productId: true, variantId: true, quantity: true } } },
     });
     if (!order?.stockReserved) return;
 
@@ -161,6 +214,16 @@ export class InventoryService {
 
     await prisma.$transaction(async (tx) => {
       for (const item of order.items) {
+        if (item.variantId) {
+          const variant = await tx.productVariant.findUnique({ where: { id: item.variantId } });
+          if (variant) {
+            await tx.productVariant.update({
+              where: { id: item.variantId },
+              data: { stock: variant.stock + item.quantity },
+            });
+          }
+          continue;
+        }
         const product = await tx.product.findUnique({ where: { id: item.productId } });
         if (!product) continue;
 

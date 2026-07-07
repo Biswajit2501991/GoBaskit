@@ -52,6 +52,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
       discount: pricing.discount,
       isFeatured: parsed.data.isFeatured ?? false,
       isVisible: parsed.data.isVisible ?? true,
+      hasVariants: parsed.data.hasVariants ?? false,
     },
     include: { category: true },
   });

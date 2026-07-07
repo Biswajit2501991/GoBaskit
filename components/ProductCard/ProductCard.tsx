@@ -1,13 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useCartStore } from '@/store/cartStore';
+import { useCartStore, cartLineKey } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { CATEGORY_ICONS } from '@/constants';
 import { resolvePublicImageUrl } from '@/utils/image';
+import { formatCurrency } from '@/utils/formatter';
+import { minVariantPrice } from '@/utils/variant';
 import type { ProductWithCategory } from '@/types';
 import { Button } from '@/components/ui/button';
 import ProductPriceDisplay from '@/components/ProductCard/ProductPriceDisplay';
+import VariantSelector, { addVariantToCart } from '@/components/Product/VariantSelector';
 
 interface ProductCardProps {
   product: ProductWithCategory;
@@ -16,17 +19,34 @@ interface ProductCardProps {
 export default function ProductCard({ product }: ProductCardProps) {
   const hydrated = useCartHydrated();
   const { items, addItem, updateQuantity } = useCartStore();
-  const cartItem = items.find((i) => i.productId === product.id);
+
+  const activeVariants = product.variants ?? [];
+  const showVariants = (product.hasVariants ?? false) && activeVariants.length > 1;
+  const singleVariant =
+    (product.hasVariants ?? false) && activeVariants.length === 1 ? activeVariants[0] : null;
+
+  const lineKey = singleVariant ? cartLineKey(product.id, singleVariant.id) : product.id;
+  const cartItem = items.find((i) => cartLineKey(i.productId, i.variantId) === lineKey);
   const cartQty = hydrated ? (cartItem?.quantity ?? 0) : 0;
-  const sellingPrice = product.price;
-  const inStock = product.stock > 0 && product.status === 'ACTIVE';
+
+  const effectivePrice = singleVariant ? singleVariant.price : product.price;
+  const effectiveActual = singleVariant ? singleVariant.mrp ?? null : product.actualPrice;
+  const effectiveStock = singleVariant ? singleVariant.stock : product.stock;
+  const inStock = singleVariant
+    ? singleVariant.stock > 0
+    : product.stock > 0 && product.status === 'ACTIVE';
   const imageUrl = resolvePublicImageUrl(product.imageUrl);
+  const fromPrice = showVariants ? minVariantPrice(activeVariants) : null;
 
   function handleAdd() {
+    if (singleVariant) {
+      addVariantToCart(addItem, product, singleVariant);
+      return;
+    }
     addItem({
       productId: product.id,
       name: product.name,
-      price: sellingPrice,
+      price: product.price,
       unit: product.unit,
       imageUrl: product.imageUrl,
       stock: product.stock,
@@ -48,7 +68,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               <span>{CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒'}</span>
             </div>
           )}
-          {!inStock && (
+          {!showVariants && !inStock && (
             <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
               <span className="bg-gray-800 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase">Out of stock</span>
             </div>
@@ -69,22 +89,32 @@ export default function ProductCard({ product }: ProductCardProps) {
             {product.name}
           </h3>
         </Link>
-        <p className="text-[10px] text-gray-400 mt-0.5 truncate">{product.unit}</p>
+        <p className="text-[10px] text-gray-400 mt-0.5 truncate">
+          {showVariants ? `${activeVariants.length} options` : singleVariant ? (`${singleVariant.weight}${singleVariant.unit}`.trim() || product.unit) : product.unit}
+        </p>
         <div className="flex items-end justify-between mt-1.5 gap-1">
           <div className="min-w-0">
-            <ProductPriceDisplay
-              price={product.price}
-              actualPrice={product.actualPrice}
-              size="xs"
-            />
+            {showVariants ? (
+              <div>
+                <p className="text-[9px] text-gray-400 leading-none">From</p>
+                <p className="text-xs font-bold text-gray-900 leading-none mt-0.5">
+                  {fromPrice != null ? formatCurrency(fromPrice) : formatCurrency(product.price)}
+                </p>
+              </div>
+            ) : (
+              <ProductPriceDisplay price={effectivePrice} actualPrice={effectiveActual} size="xs" />
+            )}
           </div>
-          {cartQty > 0 ? (
+
+          {showVariants ? (
+            <VariantSelector product={product} variants={activeVariants} label="Options" />
+          ) : cartQty > 0 ? (
             <div className="flex items-center bg-blinkit-green rounded-md overflow-hidden shrink-0">
-              <button onClick={() => updateQuantity(product.id, cartQty - 1)} className="w-6 h-6 text-white text-sm font-bold hover:bg-blinkit-green-dark">−</button>
+              <button onClick={() => updateQuantity(lineKey, cartQty - 1)} className="w-6 h-6 text-white text-sm font-bold hover:bg-blinkit-green-dark">−</button>
               <span className="font-bold text-white text-xs w-4 text-center">{cartQty}</span>
               <button
-                onClick={() => updateQuantity(product.id, cartQty + 1)}
-                disabled={cartQty >= product.stock}
+                onClick={() => updateQuantity(lineKey, cartQty + 1)}
+                disabled={cartQty >= effectiveStock}
                 className="w-6 h-6 text-white text-sm font-bold hover:bg-blinkit-green-dark disabled:opacity-40"
               >+</button>
             </div>

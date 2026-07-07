@@ -308,7 +308,8 @@ export default function CheckoutPage() {
       customer: data,
       items: items.map((i) => ({
         productId: i.productId,
-        name: i.name,
+        variantId: i.variantId ?? null,
+        name: i.variantLabel ? `${i.name} — ${i.variantLabel}` : i.name,
         quantity: i.quantity,
         price: i.price,
         unit: i.unit,
