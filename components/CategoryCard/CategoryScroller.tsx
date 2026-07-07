@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { LayoutGrid } from 'lucide-react';
 import CategoryCard from '@/components/CategoryCard/CategoryCard';
+import AllCategoriesModal from '@/components/CategoryCard/AllCategoriesModal';
 import type { CategoryItem } from '@/types';
 
 interface CategoryScrollerProps {
@@ -57,6 +59,7 @@ function animateScroll(el: HTMLElement, to: number, duration: number, signal: Ab
 export default function CategoryScroller({ categories, activeSlug }: CategoryScrollerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hintActive, setHintActive] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const userInteractedRef = useRef(false);
   const autoScrollingRef = useRef(false);
   const loopRunningRef = useRef(false);
@@ -159,9 +162,20 @@ export default function CategoryScroller({ categories, activeSlug }: CategoryScr
 
   return (
     <div className="mb-5 relative">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="font-bold text-gray-900 text-sm">Shop by category</h2>
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-blinkit-green hover:underline"
+        >
+          <LayoutGrid className="w-3.5 h-3.5" />
+          See all
+        </button>
+      </div>
       {hintActive && (
         <div
-          className="pointer-events-none absolute right-0 top-0 bottom-1 w-14 bg-gradient-to-l from-gray-50 via-gray-50/90 to-transparent z-10 md:hidden"
+          className="pointer-events-none absolute right-0 top-8 bottom-1 w-14 bg-gradient-to-l from-gray-50 via-gray-50/90 to-transparent z-10 md:hidden"
           aria-hidden
         />
       )}
@@ -175,6 +189,13 @@ export default function CategoryScroller({ categories, activeSlug }: CategoryScr
           ))}
         </div>
       </div>
+
+      <AllCategoriesModal
+        open={showAll}
+        categories={categories}
+        activeSlug={activeSlug}
+        onClose={() => setShowAll(false)}
+      />
     </div>
   );
 }
