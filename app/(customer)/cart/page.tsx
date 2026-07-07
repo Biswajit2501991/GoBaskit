@@ -65,7 +65,7 @@ export default function CartPage() {
   if (!hydrated) {
     return (
       <div className="min-h-screen flex flex-col bg-gray-50">
-        <Header showSearch={false} />
+        <Header />
         <div className="flex-1 max-w-lg mx-auto w-full px-4 py-8 space-y-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-20 skeleton rounded-xl" />
@@ -78,7 +78,7 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <div className="min-h-screen flex flex-col bg-gray-50">
-        <Header showSearch={false} />
+        <Header />
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
           <div className="w-24 h-24 bg-blinkit-green-light rounded-full flex items-center justify-center mb-5 text-4xl">🛒</div>
           <h2 className="text-xl font-bold mb-2">Your cart is empty</h2>
@@ -92,7 +92,7 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header showSearch={false} />
+      <Header />
       <main className="flex-1 max-w-lg mx-auto w-full px-4 py-4 pb-28 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">My Cart ({items.length})</h2>

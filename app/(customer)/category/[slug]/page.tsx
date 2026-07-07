@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header/Header';
@@ -9,37 +9,36 @@ import ProductCard from '@/components/ProductCard/ProductCard';
 import CategoryScroller from '@/components/CategoryCard/CategoryScroller';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { CATEGORY_ICONS } from '@/constants';
-import type { ProductWithCategory, CategoryItem } from '@/types';
+import { useCatalogStore } from '@/store/catalogStore';
 
 const PRODUCT_GRID = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2';
 
 export default function CategoryPage() {
   const params = useParams();
   const slug = params.slug as string;
-  const [products, setProducts] = useState<ProductWithCategory[]>([]);
-  const [category, setCategory] = useState<CategoryItem | null>(null);
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const allProducts = useCatalogStore((s) => s.products);
+  const categories = useCatalogStore((s) => s.categories);
+  const loaded = useCatalogStore((s) => s.loaded);
+  const loading = useCatalogStore((s) => s.loading);
+  const fetchCatalog = useCatalogStore((s) => s.fetchCatalog);
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      const [productsRes, categoriesRes] = await Promise.all([
-        fetch(`/api/products?category=${slug}`),
-        fetch('/api/categories'),
-      ]);
-      const [productsData, categoriesData] = await Promise.all([productsRes.json(), categoriesRes.json()]);
-      setProducts(productsData);
-      setCategories(categoriesData);
-      setCategory(categoriesData.find((c: CategoryItem) => c.slug === slug) || null);
-      setLoading(false);
-    }
-    load();
-  }, [slug]);
+    fetchCatalog();
+  }, [fetchCatalog]);
+
+  const products = useMemo(
+    () => allProducts.filter((p) => p.category?.slug === slug),
+    [allProducts, slug],
+  );
+  const category = useMemo(
+    () => categories.find((c) => c.slug === slug) ?? null,
+    [categories, slug],
+  );
+  const showSkeleton = loading && !loaded;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header showSearch={false} />
+      <Header />
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-4 pb-24">
         <nav className="text-xs text-gray-400 mb-3">
           <Link href="/" className="hover:text-blinkit-green">Home</Link>
@@ -54,14 +53,14 @@ export default function CategoryPage() {
           <div>
             <h1 className="text-xl font-extrabold text-gray-900">{category?.name || slug}</h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              {loading ? 'Loading…' : `${products.length} product${products.length === 1 ? '' : 's'} available`}
+              {showSkeleton ? 'Loading…' : `${products.length} product${products.length === 1 ? '' : 's'} available`}
             </p>
           </div>
         </div>
 
         <CategoryScroller categories={categories} activeSlug={slug} />
 
-        {loading ? (
+        {showSkeleton ? (
           <div className={PRODUCT_GRID}>
             {[...Array(8)].map((_, i) => <div key={i} className="aspect-[4/5] skeleton rounded-lg" />)}
           </div>

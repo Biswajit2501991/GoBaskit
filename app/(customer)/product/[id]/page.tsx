@@ -53,7 +53,7 @@ export default function ProductPage() {
   if (!product) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header showSearch={false} />
+        <Header />
         <div className="max-w-3xl mx-auto p-8 skeleton h-96 rounded-xl mt-8" />
       </div>
     );
@@ -96,7 +96,7 @@ export default function ProductPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header showSearch={false} />
+      <Header />
       <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 pb-28">
         <nav className="text-xs text-gray-400 mb-3">
           <Link href="/" className="hover:text-blinkit-green">Home</Link>

@@ -3,26 +3,25 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShoppingCart, Search, Clock, User, Shield, MessageCircle } from 'lucide-react';
+import { ShoppingCart, Clock, User, Shield, MessageCircle } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
 import LocationBar from '@/components/Header/LocationBar';
+import GlobalSearch from '@/components/Header/GlobalSearch';
 import AccountMobileModal from '@/components/Header/AccountMobileModal';
 import StaffAdminLoginModal from '@/components/Header/StaffAdminLoginModal';
 import { clearCheckoutProfileLocal } from '@/utils/customerProfile';
 
 interface HeaderProps {
-  search?: string;
-  onSearchChange?: (value: string) => void;
+  /** Set false to hide the global product search (e.g. focused flows like checkout). */
   showSearch?: boolean;
 }
 
-export default function Header({ search = '', onSearchChange, showSearch = true }: HeaderProps) {
+export default function Header({ showSearch = true }: HeaderProps) {
   const pathname = usePathname();
   const hydrated = useCartHydrated();
   const itemCount = useCartStore((s) => s.getItemCount());
-  const isHome = pathname === '/';
   const staffEligible = useStaffPortalStore((s) => s.staffEligible);
   const checkedMobile = useStaffPortalStore((s) => s.checkedMobile);
   const customerMobile = useStaffPortalStore((s) => s.customerMobile);
@@ -190,18 +189,9 @@ export default function Header({ search = '', onSearchChange, showSearch = true 
 
       <LocationBar />
 
-      {isHome && showSearch && onSearchChange && (
+      {showSearch && (
         <div className="max-w-7xl mx-auto px-4 py-3 border-b border-gray-100">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder='Search "milk"'
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green focus:bg-white"
-            />
-          </div>
+          <GlobalSearch />
         </div>
       )}
     </header>

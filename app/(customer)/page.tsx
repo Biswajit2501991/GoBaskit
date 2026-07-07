@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
 import Link from 'next/link';
@@ -8,20 +8,24 @@ import ProductCard from '@/components/ProductCard/ProductCard';
 import CategoryScroller from '@/components/CategoryCard/CategoryScroller';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { PROMO_BANNERS } from '@/constants';
-import type { ProductWithCategory, CategoryItem } from '@/types';
 import { useConfigStore } from '@/store/configStore';
+import { useCatalogStore } from '@/store/catalogStore';
 
 const PRODUCT_GRID = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2';
 
 export default function HomePage() {
-  const [products, setProducts] = useState<ProductWithCategory[]>([]);
-  const [featured, setFeatured] = useState<ProductWithCategory[]>([]);
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
   const [activeBanner, setActiveBanner] = useState(0);
   const { homepageConfig, fetchConfig } = useConfigStore();
-  const showFeaturedSection = !search && homepageConfig.showBestSellers && featured.length > 0;
+  const products = useCatalogStore((s) => s.products);
+  const categories = useCatalogStore((s) => s.categories);
+  const loaded = useCatalogStore((s) => s.loaded);
+  const loading = useCatalogStore((s) => s.loading);
+  const fetchCatalog = useCatalogStore((s) => s.fetchCatalog);
+  // Only show skeletons on the very first load; cached data renders instantly
+  // when navigating back so the screen never re-flashes.
+  const showSkeleton = loading && !loaded;
+  const featured = useMemo(() => products.filter((p) => p.isFeatured).slice(0, 8), [products]);
+  const showFeaturedSection = homepageConfig.showBestSellers && featured.length > 0;
   const homepageBanners = (homepageConfig.promoSections ?? [])
     .filter((section) => section.enabled)
     .map((section) => ({
@@ -43,38 +47,9 @@ export default function HomePage() {
     link: '',
   }));
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (search) params.set('search', search);
-
-      const [productsRes, categoriesRes, featuredRes] = await Promise.all([
-        fetch(`/api/products?${params}`),
-        fetch('/api/categories'),
-        fetch('/api/products?featured=true'),
-      ]);
-
-      const [productsData, categoriesData, featuredData] = await Promise.all([
-        productsRes.json(),
-        categoriesRes.json(),
-        featuredRes.json(),
-      ]);
-
-      setProducts(productsData);
-      setCategories(categoriesData);
-      setFeatured(featuredData.slice(0, 8));
-    } catch {
-      setProducts([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [search]);
-
   useEffect(() => {
-    const timer = setTimeout(fetchData, search ? 300 : 0);
-    return () => clearTimeout(timer);
-  }, [fetchData, search]);
+    fetchCatalog();
+  }, [fetchCatalog]);
 
   useEffect(() => {
     fetchConfig();
@@ -88,7 +63,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header search={search} onSearchChange={setSearch} />
+      <Header />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-4 pb-24">
         {homepageConfig.announcementBarText && (
@@ -97,7 +72,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {!search && homepageConfig.showHeroBanner && (
+        {homepageConfig.showHeroBanner && (
           <div className="mb-5 relative overflow-hidden rounded-2xl h-[156px]">
             {rotatingBanners.map((banner, i) => (
               <div
@@ -146,14 +121,14 @@ export default function HomePage() {
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-gray-900 text-base">
-              {search ? `Results for "${search}"` : 'Buy groceries & essentials'}
+              Buy groceries & essentials
             </h2>
             <span className="text-xs text-gray-400">
               {homepageConfig.deliveryTimeText} · {products.length} items
             </span>
           </div>
 
-          {loading ? (
+          {showSkeleton ? (
             <div className={PRODUCT_GRID}>
               {[...Array(12)].map((_, i) => (
                 <div key={i} className="bg-white rounded-lg border border-gray-100 overflow-hidden">
