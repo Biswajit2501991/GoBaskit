@@ -385,20 +385,6 @@ export default function ProductManager({
                 </p>
               </div>
 
-              {hasVariants && (
-                editingId ? (
-                  <VariantAdminTable
-                    productId={editingId}
-                    productName={currentName}
-                    categoryName={currentCategoryName}
-                  />
-                ) : (
-                  <div className="md:col-span-2 lg:col-span-3 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-                    Fill in the product details above and click <strong>Create Product</strong>. The option manager will appear here right after saving so you can add each brand / size.
-                  </div>
-                )
-              )}
-
               {error && <p className="text-red-500 text-sm md:col-span-2 lg:col-span-3">{error}</p>}
 
               <div className="flex gap-2 md:col-span-2 lg:col-span-3">
@@ -408,6 +394,24 @@ export default function ProductManager({
                 <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
               </div>
             </form>
+
+            {/* Variant manager lives OUTSIDE the product <form> so its own form
+                controls never submit or interfere with the product form. */}
+            {hasVariants && (
+              editingId ? (
+                <div className="mt-4">
+                  <VariantAdminTable
+                    productId={editingId}
+                    productName={currentName}
+                    categoryName={currentCategoryName}
+                  />
+                </div>
+              ) : (
+                <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                  Fill in the product details above and click <strong>Create Product</strong>. The option manager will appear here right after saving so you can add each brand / size.
+                </div>
+              )
+            )}
           </div>
         </div>
       )}
@@ -459,6 +463,9 @@ export default function ProductManager({
                       <span className="ml-2 text-[10px] bg-blinkit-green-light text-blinkit-green px-1.5 py-0.5 rounded font-bold">
                         {p._count?.variants} OPTIONS
                       </span>
+                    )}
+                    {!p.isVisible && (
+                      <span className="ml-2 text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-bold">HIDDEN</span>
                     )}
                   </td>
                   <td className="p-3">
