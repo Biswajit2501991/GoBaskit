@@ -2,25 +2,31 @@
 
 import { useMemo } from 'react';
 import {
+  buildProductOptions,
   getActiveVariants,
-  hasVariants as productHasVariants,
-  minVariantPrice,
+  minOptionPrice,
   optionsButtonLabel,
   selectedVariant,
 } from '@/utils/variant';
-import type { ProductVariant, ProductWithCategory } from '@/types';
+import type { ProductOption, ProductVariant, ProductWithCategory } from '@/types';
 
 export function useProductVariants(product: ProductWithCategory | null | undefined) {
   return useMemo(() => {
     const variants = getActiveVariants(product?.variants);
-    const showOptions = productHasVariants(product ?? { variants: [] });
+    // Options exist only when there is at least one active variant. The parent
+    // product then becomes the first option, so the count is variants + 1.
+    const showOptions = variants.length > 0;
+    const options: ProductOption[] = showOptions && product ? buildProductOptions(product) : [];
+    const optionCount = options.length;
     return {
       variants,
+      options,
       showOptions,
-      optionsLabel: optionsButtonLabel(variants.length),
-      fromPrice: minVariantPrice(variants),
+      optionCount,
+      optionsLabel: optionsButtonLabel(optionCount),
+      fromPrice: minOptionPrice(options),
     };
-  }, [product?.variants, product?.hasVariants]);
+  }, [product]);
 }
 
 export function useSelectedVariant(

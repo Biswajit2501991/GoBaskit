@@ -3,23 +3,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import VariantCard from './VariantCard';
-import { getActiveVariants } from '@/utils/variant';
-import type { ProductVariant, ProductWithCategory } from '@/types';
+import type { ProductOption } from '@/types';
 
 interface VariantDrawerProps {
   open: boolean;
-  product: Pick<ProductWithCategory, 'name' | 'imageUrl'>;
-  variants: ProductVariant[];
-  cartQtyByVariant?: Record<string, number>;
-  onAdd: (variant: ProductVariant) => void;
+  productName: string;
+  options: ProductOption[];
+  cartQtyByKey?: Record<string, number>;
+  onAdd: (option: ProductOption) => void;
   onClose: () => void;
 }
 
 export default function VariantDrawer({
   open,
-  product,
-  variants,
-  cartQtyByVariant = {},
+  productName,
+  options,
+  cartQtyByKey = {},
   onAdd,
   onClose,
 }: VariantDrawerProps) {
@@ -60,8 +59,6 @@ export default function VariantDrawer({
   }, [open, onClose]);
 
   if (!mounted) return null;
-
-  const list = getActiveVariants(variants);
 
   function handleTouchStart(e: React.TouchEvent) {
     touchStartY.current = e.touches[0].clientY;
@@ -107,7 +104,7 @@ export default function VariantDrawer({
 
         <div className="flex items-start justify-between px-4 pt-3 pb-3 border-b border-gray-100 shrink-0">
           <div className="min-w-0 pr-3">
-            <h2 className="text-base font-bold text-gray-900 leading-snug">{product.name}</h2>
+            <h2 className="text-base font-bold text-gray-900 leading-snug">{productName}</h2>
             <p className="text-xs text-gray-500 mt-0.5">Select your preferred brand and size</p>
           </div>
           <button
@@ -121,15 +118,14 @@ export default function VariantDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-2">
-          {list.length === 0 ? (
+          {options.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-10">No options available right now.</p>
           ) : (
-            list.map((v) => (
+            options.map((o) => (
               <VariantCard
-                key={v.id}
-                variant={v}
-                product={product}
-                inCartQty={cartQtyByVariant[v.id] ?? 0}
+                key={o.key}
+                option={o}
+                inCartQty={cartQtyByKey[o.key] ?? 0}
                 onAdd={onAdd}
               />
             ))

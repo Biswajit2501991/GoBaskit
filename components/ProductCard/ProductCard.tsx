@@ -20,7 +20,7 @@ interface ProductCardProps {
 export default function ProductCard({ product }: ProductCardProps) {
   const hydrated = useCartHydrated();
   const { items, addItem, updateQuantity } = useCartStore();
-  const { variants, showOptions, optionsLabel, fromPrice } = useProductVariants(product);
+  const { showOptions, optionCount, optionsLabel, fromPrice } = useProductVariants(product);
 
   const cartItem = items.find((i) => i.productId === product.id && !i.variantId);
   const cartQty = hydrated ? (cartItem?.quantity ?? 0) : 0;
@@ -84,7 +84,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           </h3>
         </Link>
         <p className="text-[10px] text-gray-400 mt-0.5 truncate">
-          {showOptions ? `${variants.length} option${variants.length === 1 ? '' : 's'}` : product.unit}
+          {showOptions ? `${optionCount} option${optionCount === 1 ? '' : 's'}` : product.unit}
         </p>
         <div className="flex items-end justify-between mt-1.5 gap-1">
           <div className="min-w-0">

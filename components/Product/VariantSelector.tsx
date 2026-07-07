@@ -7,7 +7,9 @@ import { useProductVariants } from '@/hooks/useProductVariants';
 import { variantLabel, variantImageUrl, variantSizeLabel } from '@/utils/variant';
 import { Button } from '@/components/ui/button';
 import VariantDrawer from './VariantDrawer';
-import type { ProductVariant, ProductWithCategory } from '@/types';
+import type { ProductOption, ProductVariant, ProductWithCategory } from '@/types';
+
+type AddItemFn = (item: Parameters<ReturnType<typeof useCartStore.getState>['addItem']>[0]) => void;
 
 interface VariantSelectorProps {
   product: ProductWithCategory;
@@ -17,11 +19,7 @@ interface VariantSelectorProps {
   fullWidth?: boolean;
 }
 
-export function addVariantToCart(
-  add: (item: Parameters<ReturnType<typeof useCartStore.getState>['addItem']>[0]) => void,
-  product: ProductWithCategory,
-  variant: ProductVariant,
-) {
+export function addVariantToCart(add: AddItemFn, product: ProductWithCategory, variant: ProductVariant) {
   const size = variantSizeLabel(variant);
   add({
     productId: product.id,
@@ -37,6 +35,29 @@ export function addVariantToCart(
   });
 }
 
+/** Add either the base product or a specific variant, based on the option. */
+export function addOptionToCart(
+  add: AddItemFn,
+  product: ProductWithCategory,
+  option: ProductOption,
+  variants: ProductVariant[],
+) {
+  if (!option.variantId) {
+    add({
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+      mrp: product.actualPrice ?? null,
+      unit: product.unit,
+      imageUrl: product.imageUrl,
+      stock: product.stock,
+    });
+    return;
+  }
+  const variant = variants.find((v) => v.id === option.variantId);
+  if (variant) addVariantToCart(add, product, variant);
+}
+
 export default function VariantSelector({
   product,
   className = '',
@@ -48,21 +69,23 @@ export default function VariantSelector({
   const hydrated = useCartHydrated();
   const items = useCartStore((s) => s.items);
   const addItem = useCartStore((s) => s.addItem);
-  const { variants, optionsLabel } = useProductVariants(product);
+  const { variants, options, optionsLabel } = useProductVariants(product);
   const buttonLabel = label ?? optionsLabel;
 
-  const cartQtyByVariant = useMemo(() => {
+  const cartQtyByKey = useMemo(() => {
     const map: Record<string, number> = {};
     if (!hydrated) return map;
-    for (const v of variants) {
-      const line = items.find((i) => cartLineKey(i.productId, i.variantId) === cartLineKey(product.id, v.id));
-      if (line) map[v.id] = line.quantity;
+    for (const o of options) {
+      const line = items.find(
+        (i) => cartLineKey(i.productId, i.variantId) === cartLineKey(product.id, o.variantId),
+      );
+      if (line) map[o.key] = line.quantity;
     }
     return map;
-  }, [hydrated, items, variants, product.id]);
+  }, [hydrated, items, options, product.id]);
 
-  function handleAdd(variant: ProductVariant) {
-    addVariantToCart(addItem, product, variant);
+  function handleAdd(option: ProductOption) {
+    addOptionToCart(addItem, product, option, variants);
     setOpen(false);
   }
 
@@ -84,9 +107,9 @@ export default function VariantSelector({
 
       <VariantDrawer
         open={open}
-        product={product}
-        variants={variants}
-        cartQtyByVariant={cartQtyByVariant}
+        productName={product.name}
+        options={options}
+        cartQtyByKey={cartQtyByKey}
         onAdd={handleAdd}
         onClose={() => setOpen(false)}
       />

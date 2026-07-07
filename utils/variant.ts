@@ -1,4 +1,4 @@
-import type { ProductVariant, ProductWithCategory } from '@/types';
+import type { ProductOption, ProductVariant, ProductWithCategory } from '@/types';
 
 export const VARIANT_UNITS = ['g', 'kg', 'ml', 'L', 'Pack', 'Piece'] as const;
 export type VariantUnit = (typeof VARIANT_UNITS)[number];
@@ -40,6 +40,56 @@ export function optionsButtonLabel(count: number): string {
   if (count <= 0) return 'OPTIONS';
   if (count === 1) return '1 OPTION';
   return `${count} OPTIONS`;
+}
+
+/**
+ * Build the customer-facing option list. The parent product is always the
+ * first option; each active variant follows. Each option carries its OWN
+ * name, price, MRP, image, and stock (image falls back to the parent image).
+ */
+export function buildProductOptions(
+  product: Pick<
+    ProductWithCategory,
+    'id' | 'name' | 'price' | 'actualPrice' | 'unit' | 'stock' | 'status' | 'imageUrl' | 'variants'
+  >,
+): ProductOption[] {
+  const options: ProductOption[] = [
+    {
+      key: 'base',
+      variantId: null,
+      isBase: true,
+      name: product.name,
+      sizeLabel: product.unit,
+      price: product.price,
+      mrp: product.actualPrice ?? null,
+      imageUrl: product.imageUrl ?? null,
+      stock: product.stock,
+      inStock: product.stock > 0 && product.status === 'ACTIVE',
+    },
+  ];
+
+  for (const v of getActiveVariants(product.variants)) {
+    options.push({
+      key: v.id,
+      variantId: v.id,
+      isBase: false,
+      name: variantLabel(v),
+      sizeLabel: variantSizeLabel(v) || product.unit,
+      price: v.price,
+      mrp: v.mrp ?? null,
+      imageUrl: variantImageUrl(v, product),
+      stock: v.stock,
+      inStock: v.stock > 0,
+    });
+  }
+
+  return options;
+}
+
+/** Lowest price across all options (parent + active variants). */
+export function minOptionPrice(options: ProductOption[]): number | null {
+  if (!options.length) return null;
+  return Math.min(...options.map((o) => o.price));
 }
 
 /** Resolve a variant by id, or null. */

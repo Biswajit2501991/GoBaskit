@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Clock, ShieldCheck, Wallet, BadgePercent } from 'lucide-react';
@@ -10,14 +10,13 @@ import ProductCard from '@/components/ProductCard/ProductCard';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { useCartStore, cartLineKey } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
-import { useProductVariants, useSelectedVariant } from '@/hooks/useProductVariants';
+import { useProductVariants } from '@/hooks/useProductVariants';
 import { formatCurrency } from '@/utils/formatter';
-import { getListPrice, calculateDiscountPercentage } from '@/utils/pricing';
+import { getListPrice } from '@/utils/pricing';
 import { resolvePublicImageUrl } from '@/utils/image';
-import { variantImageUrl, variantSizeLabel, variantLabel } from '@/utils/variant';
 import ProductPriceDisplay from '@/components/ProductCard/ProductPriceDisplay';
 import DiscountBadge from '@/components/Product/DiscountBadge';
-import VariantSelector, { addVariantToCart } from '@/components/Product/VariantSelector';
+import { addOptionToCart } from '@/components/Product/VariantSelector';
 import { CATEGORY_ICONS } from '@/constants';
 import { Button } from '@/components/ui/button';
 import type { ProductWithCategory } from '@/types';
@@ -27,7 +26,7 @@ export default function ProductPage() {
   const id = params.id as string;
   const [product, setProduct] = useState<ProductWithCategory | null>(null);
   const [similar, setSimilar] = useState<ProductWithCategory[]>([]);
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string>('base');
   const hydrated = useCartHydrated();
   const { items, addItem, updateQuantity } = useCartStore();
 
@@ -36,8 +35,7 @@ export default function ProductPage() {
       .then((r) => r.json())
       .then((p: ProductWithCategory) => {
         setProduct(p);
-        const first = p.variants?.find((v) => v.isActive);
-        setSelectedVariantId(first?.id ?? null);
+        setSelectedKey('base');
         if (p?.category?.slug) {
           fetch(`/api/products?category=${p.category.slug}`)
             .then((r) => r.json())
@@ -46,8 +44,11 @@ export default function ProductPage() {
       });
   }, [id]);
 
-  const { variants, showOptions, fromPrice } = useProductVariants(product);
-  const selected = useSelectedVariant(variants, selectedVariantId);
+  const { variants, options, showOptions } = useProductVariants(product);
+  const selected = useMemo(
+    () => options.find((o) => o.key === selectedKey) ?? options[0] ?? null,
+    [options, selectedKey],
+  );
 
   if (!product) {
     return (
@@ -58,29 +59,40 @@ export default function ProductPage() {
     );
   }
 
-  const sellingPrice = showOptions && selected ? selected.price : product.price;
-  const displayMrp = showOptions && selected ? selected.mrp ?? null : product.actualPrice;
+  // Display values come from the selected option (parent or variant) when the
+  // product has options, otherwise straight from the product itself.
+  const active = showOptions && selected ? selected : null;
+  const sellingPrice = active ? active.price : product.price;
+  const displayMrp = active ? active.mrp : product.actualPrice ?? null;
   const listPrice = getListPrice(displayMrp, sellingPrice);
-  const discountPct = calculateDiscountPercentage(displayMrp, sellingPrice);
   const savings = listPrice ? Math.round((listPrice - sellingPrice) * 100) / 100 : 0;
-  const effectiveStock = showOptions && selected ? selected.stock : product.stock;
-  const inStock = showOptions && selected
-    ? selected.stock > 0
-    : product.stock > 0 && product.status === 'ACTIVE';
+  const effectiveStock = active ? active.stock : product.stock;
+  const inStock = active ? active.inStock : product.stock > 0 && product.status === 'ACTIVE';
 
-  const lineKey = showOptions && selected
-    ? cartLineKey(product.id, selected.id)
-    : product.id;
+  const selectedVariantId = active?.variantId ?? null;
+  const lineKey = cartLineKey(product.id, selectedVariantId);
   const cartItem = items.find((i) => cartLineKey(i.productId, i.variantId) === lineKey);
   const cartQty = hydrated ? (cartItem?.quantity ?? 0) : 0;
 
   const categoryIcon = CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒';
-  const imageUrl = resolvePublicImageUrl(
-    showOptions && selected ? variantImageUrl(selected, product) : product.imageUrl
-  );
-  const unitLabel = showOptions && selected
-    ? variantSizeLabel(selected) || product.unit
-    : product.unit;
+  const imageUrl = resolvePublicImageUrl(active ? active.imageUrl : product.imageUrl);
+  const unitLabel = active ? active.sizeLabel || product.unit : product.unit;
+
+  function addSelected() {
+    if (active) {
+      addOptionToCart(addItem, product!, active, variants);
+    } else {
+      addItem({
+        productId: product!.id,
+        name: product!.name,
+        price: product!.price,
+        mrp: product!.actualPrice ?? null,
+        unit: product!.unit,
+        imageUrl: product!.imageUrl,
+        stock: product!.stock,
+      });
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -109,14 +121,7 @@ export default function ProductPage() {
                 <span className="text-7xl">{categoryIcon}</span>
               )}
             </div>
-            {discountPct > 0 && (
-              <DiscountBadge
-                mrp={displayMrp}
-                price={sellingPrice}
-                size="sm"
-                className="absolute top-3 left-3"
-              />
-            )}
+            <DiscountBadge mrp={displayMrp} price={sellingPrice} size="sm" className="absolute top-3 left-3" />
             {product.isFeatured && (
               <span className="absolute top-3 right-3 bg-blinkit-yellow text-gray-900 text-[10px] font-bold px-2 py-1 rounded-md">
                 BESTSELLER
@@ -131,51 +136,38 @@ export default function ProductPage() {
               </Link>
             )}
             <h1 className="text-2xl font-bold text-gray-900">{product.name}</h1>
-            {showOptions && selected ? (
-              <p className="text-sm text-gray-600 font-medium">{variantLabel(selected)}</p>
+            {active && !active.isBase ? (
+              <p className="text-sm text-gray-600 font-medium">{active.name}</p>
             ) : null}
             <p className="text-sm text-gray-400">{unitLabel}</p>
 
             <div className="flex items-end gap-2 flex-wrap">
-              {showOptions && !selected ? (
-                <div>
-                  <p className="text-xs text-gray-400 leading-none">From</p>
-                  <p className="text-2xl font-bold text-gray-900 leading-none mt-1">
-                    {fromPrice != null ? formatCurrency(fromPrice) : formatCurrency(product.price)}
-                  </p>
-                </div>
-              ) : (
-                <ProductPriceDisplay price={sellingPrice} actualPrice={displayMrp} size="md" />
-              )}
-              {listPrice && !showOptions ? (
-                <span className="text-sm font-bold text-blinkit-green mb-0.5">Save {formatCurrency(savings)}</span>
-              ) : null}
-              {listPrice && showOptions && selected ? (
+              <ProductPriceDisplay price={sellingPrice} actualPrice={displayMrp} size="md" />
+              {listPrice ? (
                 <span className="text-sm font-bold text-blinkit-green mb-0.5">Save {formatCurrency(savings)}</span>
               ) : null}
             </div>
 
-            {showOptions && variants.length > 0 && (
+            {showOptions && options.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-1">
-                {variants.map((v) => {
-                  const active = selected?.id === v.id;
-                  const out = v.stock <= 0;
+                {options.map((o) => {
+                  const isActive = selected?.key === o.key;
+                  const out = !o.inStock;
                   return (
                     <button
-                      key={v.id}
+                      key={o.key}
                       type="button"
                       disabled={out}
-                      onClick={() => setSelectedVariantId(v.id)}
+                      onClick={() => setSelectedKey(o.key)}
                       className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
-                        active
+                        isActive
                           ? 'border-blinkit-green bg-blinkit-green-light text-blinkit-green'
                           : out
-                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed line-through'
                             : 'border-gray-200 bg-white text-gray-700 hover:border-blinkit-green/50'
                       }`}
                     >
-                      {variantSizeLabel(v) || variantLabel(v)}
-                      {out ? ' · OOS' : ''}
+                      {o.isBase ? (o.sizeLabel || 'Base') : (o.sizeLabel || o.name)}
                     </button>
                   );
                 })}
@@ -194,34 +186,8 @@ export default function ProductPage() {
               <Highlight icon={<ShieldCheck className="w-4 h-4" />} label="Quality checked" />
             </div>
 
-            <div className="pt-2 flex flex-col gap-2">
-              {showOptions ? (
-                <>
-                  {selected && inStock && cartQty > 0 ? (
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center bg-blinkit-green rounded-lg">
-                        <button onClick={() => updateQuantity(lineKey, cartQty - 1)} className="w-10 h-10 text-white font-bold text-xl">−</button>
-                        <span className="text-white font-bold w-8 text-center">{cartQty}</span>
-                        <button onClick={() => updateQuantity(lineKey, cartQty + 1)} disabled={cartQty >= effectiveStock} className="w-10 h-10 text-white font-bold text-xl disabled:opacity-40">+</button>
-                      </div>
-                      <Button asChild variant="secondary"><Link href="/cart">View Cart</Link></Button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      {selected && inStock ? (
-                        <Button
-                          size="lg"
-                          className="flex-1"
-                          onClick={() => addVariantToCart(addItem, product, selected)}
-                        >
-                          ADD TO CART
-                        </Button>
-                      ) : null}
-                      <VariantSelector product={product} size="lg" className={selected && inStock ? 'flex-1' : 'w-full'} />
-                    </div>
-                  )}
-                </>
-              ) : !inStock ? (
+            <div className="pt-2">
+              {!inStock ? (
                 <div className="text-sm font-semibold text-red-500 bg-red-50 rounded-lg px-3 py-2">Out of stock</div>
               ) : cartQty > 0 ? (
                 <div className="flex items-center gap-4">
@@ -233,21 +199,7 @@ export default function ProductPage() {
                   <Button asChild variant="secondary"><Link href="/cart">View Cart</Link></Button>
                 </div>
               ) : (
-                <Button
-                  size="lg"
-                  className="w-full"
-                  onClick={() =>
-                    addItem({
-                      productId: product.id,
-                      name: product.name,
-                      price: product.price,
-                      mrp: product.actualPrice ?? null,
-                      unit: product.unit,
-                      imageUrl: product.imageUrl,
-                      stock: product.stock,
-                    })
-                  }
-                >
+                <Button size="lg" className="w-full" onClick={addSelected}>
                   ADD TO CART
                 </Button>
               )}

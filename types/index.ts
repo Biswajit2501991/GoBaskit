@@ -47,6 +47,23 @@ export interface ProductVariant {
   attributes?: unknown;
 }
 
+/**
+ * A selectable option in the customer UI. The parent product is always the
+ * first option (variantId = null); each active variant is an additional option.
+ */
+export interface ProductOption {
+  key: string;
+  variantId: string | null;
+  isBase: boolean;
+  name: string;
+  sizeLabel: string;
+  price: number;
+  mrp: number | null;
+  imageUrl: string | null;
+  stock: number;
+  inStock: boolean;
+}
+
 export interface ProductWithCategory {
   id: string;
   name: string;
