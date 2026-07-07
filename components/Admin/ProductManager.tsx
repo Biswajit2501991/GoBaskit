@@ -199,9 +199,19 @@ export default function ProductManager({
       return;
     }
 
-    closeForm();
+    const saved = await res.json().catch(() => null);
     await load();
     router.refresh();
+
+    // When creating a product that has options, keep the form open and switch
+    // into edit mode so the option manager (which needs the new product id)
+    // appears immediately instead of forcing a reopen.
+    if (!editingId && data.hasVariants && saved?.id) {
+      setEditingId(saved.id);
+      return;
+    }
+
+    closeForm();
   }
 
   async function handleDelete(id: string) {
@@ -384,7 +394,7 @@ export default function ProductManager({
                   />
                 ) : (
                   <div className="md:col-span-2 lg:col-span-3 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-                    Save the product first, then reopen it to add and manage options.
+                    Fill in the product details above and click <strong>Create Product</strong>. The option manager will appear here right after saving so you can add each brand / size.
                   </div>
                 )
               )}
