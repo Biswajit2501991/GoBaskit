@@ -9,6 +9,7 @@ import { useConfigStore } from '@/store/configStore';
 import { deliveryChargeFrom } from '@/constants';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { formatCurrency } from '@/utils/formatter';
+import { getListPrice } from '@/utils/pricing';
 import { resolvePublicImageUrl } from '@/utils/image';
 import { Button } from '@/components/ui/button';
 
@@ -120,7 +121,14 @@ export default function CartPage() {
                   <p className="text-xs text-blinkit-green font-medium truncate">{item.variantLabel}</p>
                 ) : null}
                 <p className="text-xs text-gray-400">{item.unit}</p>
-                <p className="font-bold text-sm mt-1">{formatCurrency(item.price)}</p>
+                <div className="flex items-baseline gap-1.5 mt-1">
+                  <p className="font-bold text-sm">{formatCurrency(item.price)}</p>
+                  {getListPrice(item.mrp ?? null, item.price) ? (
+                    <p className="text-[11px] text-gray-400 line-through">
+                      {formatCurrency(getListPrice(item.mrp ?? null, item.price)!)}
+                    </p>
+                  ) : null}
+                </div>
               </div>
               <div className="flex flex-col items-end justify-between">
                 <button onClick={() => removeItem(itemLineKey(item))} className="text-xs text-red-400 hover:text-red-600">Remove</button>

@@ -1,32 +1,34 @@
 'use client';
 
 import { formatCurrency } from '@/utils/formatter';
-import { getListPrice } from '@/utils/pricing';
+import { getListPrice, formatDiscountBadge } from '@/utils/pricing';
 import { resolvePublicImageUrl } from '@/utils/image';
-import { variantLabel, variantIsInStock } from '@/utils/variant';
+import { variantLabel, variantIsInStock, variantImageUrl, variantSizeLabel } from '@/utils/variant';
 import { Button } from '@/components/ui/button';
-import type { ProductVariant } from '@/types';
+import type { ProductVariant, ProductWithCategory } from '@/types';
 
 interface VariantCardProps {
   variant: ProductVariant;
+  product: Pick<ProductWithCategory, 'imageUrl'>;
   inCartQty?: number;
   onAdd: (variant: ProductVariant) => void;
 }
 
-export default function VariantCard({ variant, inCartQty = 0, onAdd }: VariantCardProps) {
+export default function VariantCard({ variant, product, inCartQty = 0, onAdd }: VariantCardProps) {
   const label = variantLabel(variant);
   const listPrice = getListPrice(variant.mrp ?? null, variant.price);
+  const discountLabel = formatDiscountBadge(variant.mrp ?? null, variant.price);
   const inStock = variantIsInStock(variant);
-  const imageUrl = resolvePublicImageUrl(variant.imageUrl);
-  const lowStock = inStock && variant.stock <= 5;
+  const imageUrl = resolvePublicImageUrl(variantImageUrl(variant, product));
+  const sizeLabel = variantSizeLabel(variant);
 
   return (
     <div
       className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${
-        inStock ? 'border-gray-100 bg-white' : 'border-gray-100 bg-gray-50 opacity-70'
+        inStock ? 'border-gray-100 bg-white hover:border-blinkit-green/30' : 'border-gray-100 bg-gray-50 opacity-75'
       }`}
     >
-      <div className="w-14 h-14 rounded-lg overflow-hidden bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100 flex-shrink-0">
+      <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100 flex-shrink-0">
         {imageUrl ? (
           <img src={imageUrl} alt={label} loading="lazy" className="w-full h-full object-cover" />
         ) : (
@@ -34,28 +36,26 @@ export default function VariantCard({ variant, inCartQty = 0, onAdd }: VariantCa
             {(variant.brand || label).charAt(0)}
           </div>
         )}
+        {discountLabel ? (
+          <span className="absolute top-0 left-0 bg-blue-600 text-white text-[8px] font-bold px-1 py-0.5 rounded-br-md leading-none">
+            {discountLabel}
+          </span>
+        ) : null}
       </div>
 
       <div className="flex-1 min-w-0">
-        {variant.brand ? (
-          <p className="text-sm font-semibold text-gray-900 truncate">{variant.brand}</p>
+        <p className="text-sm font-semibold text-gray-900 truncate">{label}</p>
+        {sizeLabel ? (
+          <p className="text-xs text-gray-500 mt-0.5">{sizeLabel}</p>
         ) : null}
-        <p className="text-xs text-gray-500 truncate">
-          {[variant.variantName, `${variant.weight}${variant.unit}`.trim()].filter(Boolean).join(' · ')}
-        </p>
-        <div className="flex items-baseline gap-1.5 mt-1">
+        <div className="flex items-baseline gap-1.5 mt-1 flex-wrap">
           <span className="text-sm font-bold text-gray-900">{formatCurrency(variant.price)}</span>
           {listPrice ? (
             <span className="text-[11px] text-gray-400 line-through">{formatCurrency(listPrice)}</span>
           ) : null}
-          {variant.discount > 0 ? (
-            <span className="text-[10px] font-bold text-blinkit-green">{Math.round(variant.discount)}% OFF</span>
-          ) : null}
         </div>
         {!inStock ? (
           <p className="text-[11px] font-semibold text-red-500 mt-0.5">Out of stock</p>
-        ) : lowStock ? (
-          <p className="text-[11px] font-semibold text-amber-600 mt-0.5">Only {variant.stock} left</p>
         ) : null}
       </div>
 
@@ -64,9 +64,9 @@ export default function VariantCard({ variant, inCartQty = 0, onAdd }: VariantCa
         size="sm"
         disabled={!inStock}
         onClick={() => onAdd(variant)}
-        className="text-[11px] uppercase tracking-wide h-8 px-4 shrink-0"
+        className="text-[11px] uppercase tracking-wide h-8 px-4 shrink-0 border-blinkit-green text-blinkit-green hover:bg-blinkit-green-light"
       >
-        {inCartQty > 0 ? `Added · ${inCartQty}` : 'Add'}
+        {inCartQty > 0 ? `${inCartQty}` : 'ADD'}
       </Button>
     </div>
   );

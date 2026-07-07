@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import VariantCard from './VariantCard';
-import { activeVariants } from '@/utils/variant';
-import type { ProductVariant } from '@/types';
+import { getActiveVariants } from '@/utils/variant';
+import type { ProductVariant, ProductWithCategory } from '@/types';
 
 interface VariantDrawerProps {
   open: boolean;
-  productName: string;
+  product: Pick<ProductWithCategory, 'name' | 'imageUrl'>;
   variants: ProductVariant[];
   cartQtyByVariant?: Record<string, number>;
   onAdd: (variant: ProductVariant) => void;
@@ -17,7 +17,7 @@ interface VariantDrawerProps {
 
 export default function VariantDrawer({
   open,
-  productName,
+  product,
   variants,
   cartQtyByVariant = {},
   onAdd,
@@ -25,20 +25,18 @@ export default function VariantDrawer({
 }: VariantDrawerProps) {
   const [mounted, setMounted] = useState(open);
   const [entered, setEntered] = useState(false);
-  const [dragY, setDragY] = useState(0);
   const touchStartY = useRef<number | null>(null);
+  const [dragY, setDragY] = useState(0);
 
   useEffect(() => {
     let exitTimer: ReturnType<typeof setTimeout> | undefined;
-    // Defer all state updates into async callbacks so the enter/exit
-    // transitions run without synchronous setState inside the effect body.
     const raf = requestAnimationFrame(() => {
       if (open) {
         setMounted(true);
         requestAnimationFrame(() => setEntered(true));
       } else {
         setEntered(false);
-        exitTimer = setTimeout(() => setMounted(false), 250);
+        exitTimer = setTimeout(() => setMounted(false), 200);
       }
     });
     return () => {
@@ -63,7 +61,7 @@ export default function VariantDrawer({
 
   if (!mounted) return null;
 
-  const list = activeVariants(variants);
+  const list = getActiveVariants(variants);
 
   function handleTouchStart(e: React.TouchEvent) {
     touchStartY.current = e.touches[0].clientY;
@@ -74,18 +72,16 @@ export default function VariantDrawer({
     if (delta > 0) setDragY(delta);
   }
   function handleTouchEnd() {
-    if (dragY > 120) {
-      onClose();
-    }
+    if (dragY > 100) onClose();
     setDragY(0);
     touchStartY.current = null;
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex sm:items-stretch sm:justify-end">
+    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div
         onClick={onClose}
-        className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${
+        className={`absolute inset-0 bg-black/50 transition-opacity duration-200 ${
           entered ? 'opacity-100' : 'opacity-0'
         }`}
       />
@@ -93,17 +89,15 @@ export default function VariantDrawer({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Choose Option"
+        aria-label="Choose option"
         style={dragY ? { transform: `translateY(${dragY}px)` } : undefined}
-        className={`relative mt-auto w-full max-h-[85vh] rounded-t-2xl bg-white shadow-2xl flex flex-col
-          sm:mt-0 sm:ml-auto sm:h-full sm:max-h-none sm:w-[420px] sm:rounded-none sm:rounded-l-2xl
-          transition-transform duration-250 ease-out
-          ${entered
-            ? 'translate-y-0 sm:translate-x-0'
-            : 'translate-y-full sm:translate-y-0 sm:translate-x-full'}`}
+        className={`relative w-full sm:max-w-md bg-white shadow-2xl flex flex-col
+          rounded-t-2xl sm:rounded-2xl max-h-[85vh] sm:max-h-[min(80vh,640px)]
+          transition-all duration-200 ease-out
+          ${entered ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 sm:translate-y-4 sm:scale-95'}`}
       >
         <div
-          className="pt-2 pb-1 sm:hidden cursor-grab active:cursor-grabbing"
+          className="pt-2 pb-1 sm:hidden cursor-grab active:cursor-grabbing shrink-0"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -111,30 +105,30 @@ export default function VariantDrawer({
           <div className="mx-auto h-1.5 w-10 rounded-full bg-gray-300" />
         </div>
 
-        <div className="flex items-start justify-between px-4 pt-2 pb-3 border-b border-gray-100">
-          <div className="min-w-0">
-            <h2 className="text-base font-bold text-gray-900 truncate">Choose Option</h2>
-            <p className="text-xs text-gray-500 truncate">Select your preferred brand and size</p>
-            <p className="text-[11px] text-gray-400 mt-0.5 truncate">{productName}</p>
+        <div className="flex items-start justify-between px-4 pt-3 pb-3 border-b border-gray-100 shrink-0">
+          <div className="min-w-0 pr-3">
+            <h2 className="text-base font-bold text-gray-900 leading-snug">{product.name}</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Select your preferred brand and size</p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="text-gray-400 hover:text-gray-700 p-1 -mr-1"
+            className="shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center -mt-0.5"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-2">
           {list.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-8">No options available right now.</p>
+            <p className="text-sm text-gray-500 text-center py-10">No options available right now.</p>
           ) : (
             list.map((v) => (
               <VariantCard
                 key={v.id}
                 variant={v}
+                product={product}
                 inCartQty={cartQtyByVariant[v.id] ?? 0}
                 onAdd={onAdd}
               />

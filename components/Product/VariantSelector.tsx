@@ -3,14 +3,14 @@
 import { useMemo, useState } from 'react';
 import { useCartStore, cartLineKey } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
-import { variantLabel } from '@/utils/variant';
+import { useProductVariants } from '@/hooks/useProductVariants';
+import { variantLabel, variantImageUrl, variantSizeLabel } from '@/utils/variant';
 import { Button } from '@/components/ui/button';
 import VariantDrawer from './VariantDrawer';
 import type { ProductVariant, ProductWithCategory } from '@/types';
 
 interface VariantSelectorProps {
   product: ProductWithCategory;
-  variants: ProductVariant[];
   className?: string;
   size?: 'sm' | 'lg';
   label?: string;
@@ -22,7 +22,7 @@ export function addVariantToCart(
   product: ProductWithCategory,
   variant: ProductVariant,
 ) {
-  const size = `${variant.weight ?? ''}${variant.unit ?? ''}`.trim();
+  const size = variantSizeLabel(variant);
   add({
     productId: product.id,
     variantId: variant.id,
@@ -30,24 +30,26 @@ export function addVariantToCart(
     variantLabel: variantLabel(variant),
     sku: variant.sku ?? null,
     price: variant.price,
+    mrp: variant.mrp ?? null,
     unit: size || product.unit,
-    imageUrl: variant.imageUrl ?? product.imageUrl,
+    imageUrl: variantImageUrl(variant, product),
     stock: variant.stock,
   });
 }
 
 export default function VariantSelector({
   product,
-  variants,
   className = '',
   size = 'sm',
-  label = 'Choose Option',
+  label,
   fullWidth = false,
 }: VariantSelectorProps) {
   const [open, setOpen] = useState(false);
   const hydrated = useCartHydrated();
   const items = useCartStore((s) => s.items);
   const addItem = useCartStore((s) => s.addItem);
+  const { variants, optionsLabel } = useProductVariants(product);
+  const buttonLabel = label ?? optionsLabel;
 
   const cartQtyByVariant = useMemo(() => {
     const map: Record<string, number> = {};
@@ -77,12 +79,12 @@ export default function VariantSelector({
             : 'text-[10px] uppercase tracking-wide h-6 px-2 min-w-[2.75rem] shrink-0')
         }
       >
-        {label}
+        {buttonLabel}
       </Button>
 
       <VariantDrawer
         open={open}
-        productName={product.name}
+        product={product}
         variants={variants}
         cartQtyByVariant={cartQtyByVariant}
         onAdd={handleAdd}

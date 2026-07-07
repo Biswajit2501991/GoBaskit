@@ -49,6 +49,7 @@ export const useCartStore = create<CartState>()(
                       quantity: newQty,
                       imageUrl: item.imageUrl ?? i.imageUrl,
                       price: item.price,
+                      mrp: item.mrp ?? i.mrp,
                       stock: item.stock,
                     }
                   : i

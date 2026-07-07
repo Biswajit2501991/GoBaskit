@@ -5,6 +5,7 @@ export interface CartItem {
   variantLabel?: string | null;
   sku?: string | null;
   price: number;
+  mrp?: number | null;
   unit: string;
   quantity: number;
   imageUrl?: string | null;

@@ -14,13 +14,42 @@ export function getListPrice(
   return actualPrice;
 }
 
+/**
+ * Discount % = ((MRP - SellingPrice) / MRP) × 100
+ * Returns 0 when MRP is missing or not greater than selling price.
+ */
+export function calculateDiscountPercentage(
+  mrp: number | null | undefined,
+  sellingPrice: number
+): number {
+  const list = getListPrice(mrp, sellingPrice);
+  if (!list) return 0;
+  return Math.round(((list - sellingPrice) / list) * 100);
+}
+
+/** @deprecated Use calculateDiscountPercentage — kept for existing callers. */
 export function calculateDiscountPercent(
   actualPrice: number | null | undefined,
   sellingPrice: number
 ): number {
-  const list = getListPrice(actualPrice, sellingPrice);
-  if (!list) return 0;
-  return Math.round(((list - sellingPrice) / list) * 10000) / 100;
+  return calculateDiscountPercentage(actualPrice, sellingPrice);
+}
+
+/** Whole-number discount for badges, or null when badge should be hidden. */
+export function formatDiscountBadge(
+  mrp: number | null | undefined,
+  sellingPrice: number
+): string | null {
+  const pct = calculateDiscountPercentage(mrp, sellingPrice);
+  if (pct <= 0) return null;
+  return `${pct}% OFF`;
+}
+
+export function shouldShowDiscountBadge(
+  mrp: number | null | undefined,
+  sellingPrice: number
+): boolean {
+  return formatDiscountBadge(mrp, sellingPrice) !== null;
 }
 
 export function buildProductPricingData(input: {
@@ -29,7 +58,7 @@ export function buildProductPricingData(input: {
 }) {
   const price = input.price;
   const actualPrice = getListPrice(input.actualPrice ?? null, price);
-  const discount = calculateDiscountPercent(actualPrice, price);
+  const discount = calculateDiscountPercentage(actualPrice, price);
   return { price, actualPrice, discount };
 }
 
