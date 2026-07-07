@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
@@ -10,6 +11,7 @@ import { formatCurrency } from '@/utils/formatter';
 import type { ProductWithCategory } from '@/types';
 import { Button } from '@/components/ui/button';
 import ProductPriceDisplay from '@/components/ProductCard/ProductPriceDisplay';
+import ProductImageCarousel from '@/components/ProductCard/ProductImageCarousel';
 import DiscountBadge from '@/components/Product/DiscountBadge';
 import VariantSelector from '@/components/Product/VariantSelector';
 
@@ -20,13 +22,26 @@ interface ProductCardProps {
 export default function ProductCard({ product }: ProductCardProps) {
   const hydrated = useCartHydrated();
   const { items, addItem, updateQuantity } = useCartStore();
-  const { showOptions, optionCount, optionsLabel, fromPrice } = useProductVariants(product);
+  const { showOptions, options, optionCount, optionsLabel, fromPrice } = useProductVariants(product);
 
   const cartItem = items.find((i) => i.productId === product.id && !i.variantId);
   const cartQty = hydrated ? (cartItem?.quantity ?? 0) : 0;
 
   const inStock = product.stock > 0 && product.status === 'ACTIVE';
   const imageUrl = resolvePublicImageUrl(product.imageUrl);
+
+  // For multi-option products, cycle through each option's distinct image.
+  // Variants without their own image fall back to the base image and are
+  // de-duplicated, so a single-image product never animates.
+  const carouselImages = useMemo(() => {
+    if (showOptions) {
+      const urls = options
+        .map((o) => resolvePublicImageUrl(o.imageUrl))
+        .filter((u): u is string => Boolean(u));
+      return Array.from(new Set(urls));
+    }
+    return imageUrl ? [imageUrl] : [];
+  }, [showOptions, options, imageUrl]);
 
   function handleAdd() {
     addItem({
@@ -44,17 +59,11 @@ export default function ProductCard({ product }: ProductCardProps) {
     <div className="bg-white rounded-lg border border-gray-100 overflow-hidden flex flex-col hover:shadow-sm transition-shadow group">
       <Link href={`/product/${product.id}`} className="block p-2">
         <div className="aspect-[4/5] relative rounded-2xl overflow-hidden bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100">
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={product.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-4xl">
-              <span>{CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒'}</span>
-            </div>
-          )}
+          <ProductImageCarousel
+            images={carouselImages}
+            alt={product.name}
+            fallback={<span>{CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒'}</span>}
+          />
           {!showOptions && (
             <DiscountBadge
               mrp={product.actualPrice}
