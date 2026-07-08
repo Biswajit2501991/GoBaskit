@@ -30,15 +30,17 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const inStock = product.stock > 0 && product.status === 'ACTIVE';
 
-  // For multi-option products, cycle through each option's distinct image.
-  // Variants without their own image fall back to the base image and are
-  // de-duplicated, so a single-image product never animates.
+  // Show a single, stable image so the card never visually fluctuates. For
+  // multi-option products we pick the first available option image (base image
+  // preferred), and customers still see every option's photo in the drawer /
+  // product page. (Auto-cycling was distracting — options are framed
+  // differently, making the product appear to grow/shrink.)
   const carouselImages = useMemo(() => {
     if (showOptions) {
-      const urls = options
+      const first = options
         .map((o) => sizedImageUrl(o.imageUrl, 400))
-        .filter((u): u is string => Boolean(u));
-      return Array.from(new Set(urls));
+        .find((u): u is string => Boolean(u));
+      return first ? [first] : [];
     }
     const sized = sizedImageUrl(product.imageUrl, 400);
     return sized ? [sized] : [];
