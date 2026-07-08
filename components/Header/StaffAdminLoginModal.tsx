@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
+import { toE164 } from '@/utils/phone';
 
 export default function StaffAdminLoginModal() {
   const router = useRouter();
@@ -34,6 +35,15 @@ export default function StaffAdminLoginModal() {
         setError(data.error || 'Login failed');
         return;
       }
+      // Dual role: admin session also opens a customer session on their number.
+      const mobileE164 = toE164('91', checkedMobile);
+      if (mobileE164) {
+        await fetch('/api/customer/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mobile: mobileE164 }),
+        }).catch(() => null);
+      }
       closeAdminLoginModal();
       router.push('/admin/dashboard');
       router.refresh();
@@ -55,7 +65,8 @@ export default function StaffAdminLoginModal() {
         >
           <X className="w-5 h-5" />
         </button>
-        <h2 className="text-lg font-bold mb-4">Admin Login</h2>
+        <h2 className="text-lg font-bold mb-1">Admin Login</h2>
+        <p className="text-sm text-gray-500 mb-4">Use your staff password (not your customer account password).</p>
         <form onSubmit={handleLogin} className="space-y-3">
           <div>
             <Label>Mobile Number</Label>

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { normalizeMobile } from '@/utils/mobile';
+import { toE164 } from '@/utils/phone';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -31,6 +32,14 @@ export default function AdminLoginPage() {
       if (!res.ok) {
         setError(data.error || 'Login failed');
         return;
+      }
+      const mobileE164 = toE164('91', normalizeMobile(mobile));
+      if (mobileE164) {
+        await fetch('/api/customer/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mobile: mobileE164 }),
+        }).catch(() => null);
       }
       router.push('/admin/dashboard');
       router.refresh();

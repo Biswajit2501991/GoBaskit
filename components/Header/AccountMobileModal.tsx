@@ -24,7 +24,7 @@ type Phase = 'enter' | 'password' | 'waiting' | 'create-password' | 'verified';
 
 export default function AccountMobileModal() {
   const router = useRouter();
-  const { showAccountModal, closeAccountModal, setStaffEligible, setCustomerMobile, clearStaffEligible } =
+  const { showAccountModal, closeAccountModal, setStaffEligible, setCustomerMobile, clearStaffEligible, openAdminLoginModal } =
     useStaffPortalStore();
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
@@ -168,22 +168,34 @@ export default function AccountMobileModal() {
 
       if (checkData.isStaff) {
         staffNameRef.current = checkData.staffName || '';
-      } else {
-        staffNameRef.current = '';
-        clearStaffEligible();
-      }
+        setStaffEligible(normalized, checkData.staffName);
 
-      // Authenticated staff on their own number can skip customer password.
-      const sessionRes = await fetch('/api/customer/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile: mobileE164 }),
-      });
-      const sessionData = await sessionRes.json().catch(() => ({}));
-      if (sessionRes.ok && sessionData.verified) {
-        finishLogin(normalized);
+        // Already signed in as admin → grant customer session for dual-role shopping.
+        const sessionRes = await fetch('/api/customer/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mobile: mobileE164 }),
+        });
+        const sessionData = await sessionRes.json().catch(() => ({}));
+        if (sessionRes.ok && sessionData.verified) {
+          finishLogin(normalized);
+          return;
+        }
+
+        // Staff number but not admin-signed-in yet → admin password, NOT customer WhatsApp.
+        setMobile('');
+        setPassword('');
+        setError('');
+        setPhase('enter');
+        setVerification(null);
+        setWhatsappUrl(null);
+        closeAccountModal();
+        openAdminLoginModal();
         return;
       }
+
+      staffNameRef.current = '';
+      clearStaffEligible();
 
       const statusRes = await fetch(
         `/api/customer/auth/status?mobile=${encodeURIComponent(mobileE164!)}`,
