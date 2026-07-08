@@ -14,8 +14,10 @@ import { useProductVariants } from '@/hooks/useProductVariants';
 import { formatCurrency } from '@/utils/formatter';
 import { getListPrice } from '@/utils/pricing';
 import { resolvePublicImageUrl } from '@/utils/image';
-import ProductPriceDisplay from '@/components/ProductCard/ProductPriceDisplay';
+import { preloadImages } from '@/utils/imagePreload';
 import DiscountBadge from '@/components/Product/DiscountBadge';
+import ZoomImage from '@/components/Product/ZoomImage';
+import ProductDetailsAccordion from '@/components/Product/ProductDetailsAccordion';
 import { addOptionToCart } from '@/components/Product/VariantSelector';
 import { CATEGORY_ICONS } from '@/constants';
 import { Button } from '@/components/ui/button';
@@ -49,6 +51,12 @@ export default function ProductPage() {
     () => options.find((o) => o.key === selectedKey) ?? options[0] ?? null,
     [options, selectedKey],
   );
+
+  // Preload every option image up-front so switching options is instant.
+  useEffect(() => {
+    if (!product) return;
+    preloadImages([product.imageUrl, ...(product.variants ?? []).map((v) => v.imageUrl)]);
+  }, [product]);
 
   if (!product) {
     return (
@@ -116,12 +124,11 @@ export default function ProductPage() {
           <div className="relative md:w-1/2 aspect-square p-4 md:p-8">
             <div className="w-full h-full rounded-2xl overflow-hidden bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100 flex items-center justify-center">
               {imageUrl ? (
-                <img src={imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                <ZoomImage src={imageUrl} alt={product.name} className="w-full h-full" />
               ) : (
                 <span className="text-7xl">{categoryIcon}</span>
               )}
             </div>
-            <DiscountBadge mrp={displayMrp} price={sellingPrice} size="sm" className="absolute top-3 left-3" />
             {product.isFeatured && (
               <span className="absolute top-3 right-3 bg-blinkit-yellow text-gray-900 text-[10px] font-bold px-2 py-1 rounded-md">
                 BESTSELLER
@@ -143,12 +150,18 @@ export default function ProductPage() {
 
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <ProductPriceDisplay price={sellingPrice} actualPrice={displayMrp} size="md" />
+                <span className="text-2xl font-bold text-gray-900 leading-none">{formatCurrency(sellingPrice)}</span>
+                {listPrice ? (
+                  <span className="text-base text-gray-400 leading-none">
+                    MRP <span className="line-through">{formatCurrency(listPrice)}</span>
+                  </span>
+                ) : null}
                 <DiscountBadge mrp={displayMrp} price={sellingPrice} size="sm" />
               </div>
               {listPrice ? (
                 <span className="block text-sm font-bold text-blinkit-green">Save {formatCurrency(savings)}</span>
               ) : null}
+              <span className="block text-[11px] text-gray-400">Inclusive of all taxes</span>
             </div>
 
             {showOptions && options.length > 0 && (
@@ -209,6 +222,8 @@ export default function ProductPage() {
             </div>
           </div>
         </div>
+
+        <ProductDetailsAccordion details={product.details ?? ''} />
 
         {similar.length > 0 && (
           <section className="mt-8">

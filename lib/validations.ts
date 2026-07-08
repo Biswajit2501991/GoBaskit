@@ -103,6 +103,7 @@ export const productSchema = z
   .object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
     description: z.string().optional(),
+    details: z.string().max(5000, 'Details are too long').optional(),
     price: z.coerce.number().positive('Current price must be positive'),
     actualPrice: z.preprocess(
       emptyToNull,

@@ -44,6 +44,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     data: {
       name: parsed.data.name,
       description: parsed.data.description ?? '',
+      details: parsed.data.details ?? '',
       price: pricing.price,
       actualPrice: pricing.actualPrice,
       unit: parsed.data.unit,

@@ -68,6 +68,7 @@ export interface ProductWithCategory {
   id: string;
   name: string;
   description: string;
+  details?: string;
   price: number;
   actualPrice?: number | null;
   unit: string;

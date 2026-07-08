@@ -77,6 +77,7 @@ model Product {
   id          String        @id @default(cuid())
   name        String
   description String        @default("")
+  details     String        @default("") @map("details")
   price       Float
   actualPrice Float?        @map("actual_price")
   unit        String

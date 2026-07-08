@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
     data: {
       name: parsed.data.name,
       description: parsed.data.description ?? '',
+      details: parsed.data.details ?? '',
       price: pricing.price,
       actualPrice: pricing.actualPrice,
       unit: parsed.data.unit,

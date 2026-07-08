@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import type { ProductWithCategory, CategoryItem } from '@/types';
+import { preloadImagesIdle } from '@/utils/imagePreload';
 
 interface CatalogState {
   products: ProductWithCategory[];
@@ -65,13 +66,24 @@ async function load(
       productsRes.json(),
       categoriesRes.json(),
     ]);
+    const productList: ProductWithCategory[] = Array.isArray(products) ? products : [];
     set({
-      products: Array.isArray(products) ? products : [],
+      products: productList,
       categories: Array.isArray(categories) ? categories : [],
       loaded: true,
       loading: false,
       lastFetched: Date.now(),
     });
+
+    // Warm the browser cache for every product and option image while the
+    // browser is idle, so switching options or navigating feels instant for
+    // the rest of the session.
+    const imageUrls: Array<string | null | undefined> = [];
+    for (const p of productList) {
+      imageUrls.push(p.imageUrl);
+      for (const v of p.variants ?? []) imageUrls.push(v.imageUrl);
+    }
+    preloadImagesIdle(imageUrls);
   } catch {
     set({ loading: false });
   } finally {

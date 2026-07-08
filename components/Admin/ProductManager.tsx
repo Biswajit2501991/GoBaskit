@@ -23,6 +23,7 @@ export interface AdminProduct {
   id: string;
   name: string;
   description: string;
+  details?: string;
   price: number;
   actualPrice: number | null;
   unit: string;
@@ -42,6 +43,7 @@ export interface AdminProduct {
 const emptyProduct: ProductFormData = {
   name: '',
   description: '',
+  details: '',
   price: 1,
   actualPrice: null,
   unit: '1 pc',
@@ -156,6 +158,7 @@ export default function ProductManager({
     reset({
       name: product.name,
       description: product.description,
+      details: product.details ?? '',
       price: product.price,
       actualPrice: product.actualPrice,
       unit: product.unit,
@@ -298,6 +301,21 @@ export default function ProductManager({
               <div className="md:col-span-2 lg:col-span-3">
                 <Label>Description</Label>
                 <Input {...register('description')} placeholder="Short product description" className="mt-1" disabled={!canEdit} />
+              </div>
+
+              <div className="md:col-span-2 lg:col-span-3">
+                <Label>Product Details</Label>
+                <textarea
+                  {...register('details')}
+                  rows={5}
+                  disabled={!canEdit}
+                  placeholder={'Shown in an expandable "Product Details" section on the product page.\nTip: use "Label: Value" per line for a clean spec list, e.g.\nBrand: Aashirvaad\nShelf life: 6 months\nStorage: Cool, dry place'}
+                  className="mt-1 flex w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green disabled:bg-gray-50 resize-y"
+                />
+                {errors.details && <p className="text-red-500 text-xs mt-1">{errors.details.message}</p>}
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Optional. Lines written as <code>Label: Value</code> render as a neat spec table; other lines show as paragraphs.
+                </p>
               </div>
 
               <div>
