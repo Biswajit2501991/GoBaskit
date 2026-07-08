@@ -15,9 +15,11 @@ export function resolvePublicImageUrl(url: string | null | undefined): string {
 export function sizedImageUrl(url: string | null | undefined, width: number): string {
   const resolved = resolvePublicImageUrl(url);
   if (!resolved) return '';
+  // Our own uploads are resized on the fly by the /img route. We must NOT reuse
+  // the /uploads path here: files in public/uploads are static-served and would
+  // ignore the ?w= query, returning the full-size image.
   if (resolved.startsWith('/uploads/')) {
-    const sep = resolved.includes('?') ? '&' : '?';
-    return `${resolved}${sep}w=${Math.round(width)}`;
+    return `/img/${resolved.slice('/uploads/'.length)}?w=${Math.round(width)}`;
   }
   return resolved;
 }
