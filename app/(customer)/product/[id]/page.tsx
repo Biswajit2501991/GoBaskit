@@ -18,11 +18,13 @@ import { sizedImageUrl } from '@/utils/image';
 import { preloadImages } from '@/utils/imagePreload';
 import DiscountBadge from '@/components/Product/DiscountBadge';
 import BestsellerBadge from '@/components/Product/BestsellerBadge';
+import HealthStarRating from '@/components/Product/HealthStarRating';
 import ZoomImage from '@/components/Product/ZoomImage';
 import ProductDetailsAccordion from '@/components/Product/ProductDetailsAccordion';
 import { addOptionToCart } from '@/components/Product/VariantSelector';
 import { CATEGORY_ICONS } from '@/constants';
 import { Button } from '@/components/ui/button';
+import { useConfigStore } from '@/store/configStore';
 import type { ProductWithCategory } from '@/types';
 
 export default function ProductPage() {
@@ -31,6 +33,8 @@ export default function ProductPage() {
   const [selectedKey, setSelectedKey] = useState<string>('base');
   const hydrated = useCartHydrated();
   const { items, addItem, updateQuantity } = useCartStore();
+  const showHealthStarRating = useConfigStore((s) => s.homepageConfig.showHealthStarRating !== false);
+  const fetchConfig = useConfigStore((s) => s.fetchConfig);
 
   const catalogProducts = useCatalogStore((s) => s.products);
   const fetchCatalog = useCatalogStore((s) => s.fetchCatalog);
@@ -47,7 +51,8 @@ export default function ProductPage() {
 
   useEffect(() => {
     fetchCatalog();
-  }, [fetchCatalog]);
+    fetchConfig();
+  }, [fetchCatalog, fetchConfig]);
 
   useEffect(() => {
     let cancelled = false;
@@ -168,7 +173,16 @@ export default function ProductPage() {
                 {product.category.name}
               </Link>
             )}
-            <h1 className="text-2xl font-bold text-gray-900">{product.name}</h1>
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold text-gray-900">{product.name}</h1>
+              {showHealthStarRating && (
+                <HealthStarRating
+                  rating={active?.healthStarRating ?? product.healthStarRating}
+                  variant="inline"
+                  className="shrink-0 mt-1"
+                />
+              )}
+            </div>
             {active && !active.isBase ? (
               <p className="text-sm text-gray-600 font-medium">{active.name}</p>
             ) : null}

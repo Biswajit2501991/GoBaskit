@@ -35,6 +35,7 @@ export interface AdminProduct {
   isFeatured: boolean;
   isVisible: boolean;
   hasVariants: boolean;
+  healthStarRating?: number | null;
   categoryId: string;
   category: { id: string; name: string; slug: string };
   _count?: { variants: number };
@@ -54,6 +55,7 @@ const emptyProduct: ProductFormData = {
   isFeatured: false,
   isVisible: true,
   hasVariants: false,
+  healthStarRating: null,
 };
 
 export default function ProductManager({
@@ -169,6 +171,7 @@ export default function ProductManager({
       isFeatured: product.isFeatured,
       isVisible: product.isVisible,
       hasVariants: product.hasVariants,
+      healthStarRating: product.healthStarRating ?? null,
     });
     setShowForm(true);
     setError('');
@@ -390,6 +393,24 @@ export default function ProductManager({
                   <input type="checkbox" {...register('isVisible')} className="accent-blinkit-green" disabled={!canEdit} />
                   Visible on store
                 </label>
+                <div>
+                  <Label>Health Star Rating</Label>
+                  <select
+                    {...register('healthStarRating')}
+                    disabled={!canEdit}
+                    className="mt-1 flex h-10 w-full max-w-xs rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green"
+                  >
+                    <option value="">None (hidden)</option>
+                    <option value="1">★ 1 star</option>
+                    <option value="2">★★ 2 stars</option>
+                    <option value="3">★★★ 3 stars</option>
+                    <option value="4">★★★★ 4 stars</option>
+                    <option value="5">★★★★★ 5 stars</option>
+                  </select>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Shown on storefront when Health Star Rating is enabled in Settings.
+                  </p>
+                </div>
               </div>
 
               <div className="md:col-span-2 lg:col-span-3 border-t border-gray-100 pt-4">

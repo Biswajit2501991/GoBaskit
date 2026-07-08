@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { useProductVariants } from '@/hooks/useProductVariants';
+import { useConfigStore } from '@/store/configStore';
 import { CATEGORY_ICONS } from '@/constants';
 import { sizedImageUrl } from '@/utils/image';
 import { formatCurrency } from '@/utils/formatter';
@@ -15,6 +16,7 @@ import ProductPriceDisplay from '@/components/ProductCard/ProductPriceDisplay';
 import ProductImageCarousel from '@/components/ProductCard/ProductImageCarousel';
 import DiscountRibbon from '@/components/Product/DiscountRibbon';
 import BestsellerBadge from '@/components/Product/BestsellerBadge';
+import HealthStarRating from '@/components/Product/HealthStarRating';
 import VariantSelector from '@/components/Product/VariantSelector';
 
 interface ProductCardProps {
@@ -25,11 +27,27 @@ export default function ProductCard({ product }: ProductCardProps) {
   const hydrated = useCartHydrated();
   const { items, addItem, updateQuantity } = useCartStore();
   const { showOptions, options, optionCount, optionsLabel, fromPrice } = useProductVariants(product);
+  const showHealthStarRating = useConfigStore((s) => s.homepageConfig.showHealthStarRating !== false);
+  const fetchConfig = useConfigStore((s) => s.fetchConfig);
+
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
 
   const cartItem = items.find((i) => i.productId === product.id && !i.variantId);
   const cartQty = hydrated ? (cartItem?.quantity ?? 0) : 0;
-
   const inStock = product.stock > 0 && product.status === 'ACTIVE';
+
+  /** Best (highest) health rating among the base product + options, when any are set. */
+  const healthRating = useMemo(() => {
+    if (!showHealthStarRating) return null;
+    const ratings = [
+      product.healthStarRating,
+      ...options.map((o) => o.healthStarRating),
+    ].filter((r): r is number => typeof r === 'number' && r >= 1 && r <= 5);
+    if (!ratings.length) return null;
+    return Math.max(...ratings);
+  }, [showHealthStarRating, product.healthStarRating, options]);
 
   // Show a single, stable image so the card never visually fluctuates. For
   // multi-option products we pick the first available option image (base image
@@ -90,11 +108,16 @@ export default function ProductCard({ product }: ProductCardProps) {
       </Link>
 
       <div className="px-2 pb-2 flex flex-col flex-1">
-        {product.isFeatured ? (
-          <BestsellerBadge className="relative self-start text-[8px] px-1.5 py-0.5 mb-1" />
-        ) : (
-          <span className="h-4 mb-1" />
-        )}
+        <div className="flex items-start justify-between gap-1 mb-1 min-h-4">
+          {product.isFeatured ? (
+            <BestsellerBadge className="relative self-start text-[8px] px-1.5 py-0.5" />
+          ) : (
+            <span className="h-4" />
+          )}
+          {healthRating != null && (
+            <HealthStarRating rating={healthRating} variant="card" className="shrink-0" />
+          )}
+        </div>
         <Link href={`/product/${product.id}`}>
           <h3 className="font-medium text-gray-800 text-[11px] leading-tight line-clamp-2 min-h-[1.75rem] hover:text-blinkit-green">
             {product.name}

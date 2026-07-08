@@ -50,10 +50,26 @@ export function optionsButtonLabel(count: number): string {
 export function buildProductOptions(
   product: Pick<
     ProductWithCategory,
-    'id' | 'name' | 'details' | 'price' | 'actualPrice' | 'unit' | 'stock' | 'status' | 'imageUrl' | 'variants'
+    | 'id'
+    | 'name'
+    | 'details'
+    | 'price'
+    | 'actualPrice'
+    | 'unit'
+    | 'stock'
+    | 'status'
+    | 'imageUrl'
+    | 'healthStarRating'
+    | 'variants'
   >,
 ): ProductOption[] {
   const baseDetails = product.details ?? '';
+  const baseRating =
+    typeof product.healthStarRating === 'number' &&
+    product.healthStarRating >= 1 &&
+    product.healthStarRating <= 5
+      ? product.healthStarRating
+      : null;
   const options: ProductOption[] = [
     {
       key: 'base',
@@ -65,12 +81,19 @@ export function buildProductOptions(
       mrp: product.actualPrice ?? null,
       imageUrl: product.imageUrl ?? null,
       details: baseDetails,
+      healthStarRating: baseRating,
       stock: product.stock,
       inStock: product.stock > 0 && product.status === 'ACTIVE',
     },
   ];
 
   for (const v of getActiveVariants(product.variants)) {
+    const variantRating =
+      typeof v.healthStarRating === 'number' &&
+      v.healthStarRating >= 1 &&
+      v.healthStarRating <= 5
+        ? v.healthStarRating
+        : baseRating;
     options.push({
       key: v.id,
       variantId: v.id,
@@ -82,6 +105,7 @@ export function buildProductOptions(
       imageUrl: variantImageUrl(v, product),
       // Fall back to the parent product's details when the option has none.
       details: (v.details ?? '').trim() || baseDetails,
+      healthStarRating: variantRating,
       stock: v.stock,
       inStock: v.stock > 0,
     });

@@ -27,6 +27,7 @@ interface StoreConfig {
     showCategories: boolean;
     showBestSellers: boolean;
     showOffers: boolean;
+    showHealthStarRating: boolean;
     announcementBarText: string;
     deliveryTimeText: string;
     themeColor: string;
@@ -498,6 +499,25 @@ export default function SettingsManager({
             className="accent-blinkit-green"
           />
           Show Featured Products (Best Sellers)
+        </label>
+      </section>
+
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <h2 className="font-bold text-sm">Health Star Rating</h2>
+        <p className="text-xs text-gray-400">
+          When off, Health Star Ratings are hidden everywhere — even if products have a rating set.
+        </p>
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={homepageConfig.showHealthStarRating !== false}
+            onChange={(e) =>
+              setHomepageConfig((prev) => ({ ...prev, showHealthStarRating: e.target.checked }))
+            }
+            disabled={!canEdit}
+            className="accent-blinkit-green"
+          />
+          Show Health Star Rating on storefront
         </label>
       </section>
 

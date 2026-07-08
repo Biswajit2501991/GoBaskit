@@ -45,6 +45,7 @@ export interface ProductVariant {
   imageUrl?: string | null;
   sortOrder: number;
   isActive: boolean;
+  healthStarRating?: number | null;
   attributes?: unknown;
 }
 
@@ -62,6 +63,7 @@ export interface ProductOption {
   mrp: number | null;
   imageUrl: string | null;
   details: string;
+  healthStarRating: number | null;
   stock: number;
   inStock: boolean;
 }
@@ -81,6 +83,7 @@ export interface ProductWithCategory {
   isFeatured: boolean;
   isVisible: boolean;
   hasVariants?: boolean;
+  healthStarRating?: number | null;
   categoryId: string;
   category?: { id: string; name: string; slug: string };
   variants?: ProductVariant[];

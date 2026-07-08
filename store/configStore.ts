@@ -21,6 +21,7 @@ interface ConfigState {
     showCategories: boolean;
     showBestSellers: boolean;
     showOffers: boolean;
+    showHealthStarRating: boolean;
     announcementBarText: string;
     deliveryTimeText: string;
     themeColor: string;
@@ -56,6 +57,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     showCategories: true,
     showBestSellers: true,
     showOffers: true,
+    showHealthStarRating: true,
     announcementBarText: '',
     deliveryTimeText: 'Delivery in 10 minutes',
     themeColor: '#facc15',

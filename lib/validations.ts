@@ -134,6 +134,10 @@ export const productSchema = z
     isFeatured: z.boolean().optional(),
     isVisible: z.boolean().optional(),
     hasVariants: z.boolean().optional(),
+    healthStarRating: z.preprocess(
+      emptyToNull,
+      z.coerce.number().int().min(1).max(5).optional().nullable(),
+    ),
   })
   .superRefine((data, ctx) => {
     if (data.actualPrice != null && data.actualPrice < data.price) {
@@ -165,6 +169,10 @@ export const variantSchema = z
     imageUrl: z.preprocess(emptyToNull, z.string().optional().nullable()),
     sortOrder: z.coerce.number().int().optional(),
     isActive: z.boolean().optional(),
+    healthStarRating: z.preprocess(
+      emptyToNull,
+      z.coerce.number().int().min(1).max(5).optional().nullable(),
+    ),
   })
   .superRefine((data, ctx) => {
     if (data.mrp != null && data.mrp < data.price) {

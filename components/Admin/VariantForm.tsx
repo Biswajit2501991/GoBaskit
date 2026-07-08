@@ -35,6 +35,7 @@ const emptyVariant: VariantFormData = {
   imageUrl: '',
   sortOrder: 0,
   isActive: true,
+  healthStarRating: null,
 };
 
 const selectClass =
@@ -71,6 +72,7 @@ export default function VariantForm({
           imageUrl: variant.imageUrl ?? '',
           sortOrder: variant.sortOrder,
           isActive: variant.isActive,
+          healthStarRating: variant.healthStarRating ?? null,
         }
       : emptyVariant,
   });
@@ -183,11 +185,25 @@ export default function VariantForm({
             searchCategory={categoryName}
           />
 
-          <div className="flex items-center gap-4 md:col-span-2 lg:col-span-3">
+          <div className="flex items-center gap-4 md:col-span-2 lg:col-span-3 flex-wrap">
             <label className="flex items-center gap-2 text-sm font-medium">
               <input type="checkbox" {...register('isActive')} className="accent-blinkit-green" />
               Active
             </label>
+            <div className="min-w-[180px]">
+              <Label>Health Star Rating</Label>
+              <select
+                {...register('healthStarRating')}
+                className="mt-1 flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green"
+              >
+                <option value="">Same as product</option>
+                <option value="1">★ 1 star</option>
+                <option value="2">★★ 2 stars</option>
+                <option value="3">★★★ 3 stars</option>
+                <option value="4">★★★★ 4 stars</option>
+                <option value="5">★★★★★ 5 stars</option>
+              </select>
+            </div>
           </div>
 
           <div className="flex gap-2 md:col-span-2 lg:col-span-3">

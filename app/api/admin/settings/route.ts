@@ -32,6 +32,7 @@ const settingsSchema = z.object({
       showCategories: z.boolean().optional(),
       showBestSellers: z.boolean().optional(),
       showOffers: z.boolean().optional(),
+      showHealthStarRating: z.boolean().optional(),
       announcementBarText: z.string().max(200).optional(),
       deliveryTimeText: z.string().max(120).optional(),
       themeColor: z.string().max(20).optional(),

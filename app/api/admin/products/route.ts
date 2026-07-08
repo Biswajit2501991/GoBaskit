@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
       isFeatured: parsed.data.isFeatured ?? false,
       isVisible: parsed.data.isVisible ?? true,
       hasVariants: parsed.data.hasVariants ?? false,
+      healthStarRating: parsed.data.healthStarRating ?? null,
     },
     include: { category: true },
   });

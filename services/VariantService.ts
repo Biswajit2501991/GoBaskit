@@ -16,6 +16,7 @@ export interface VariantInput {
   imageUrl?: string | null;
   sortOrder?: number;
   isActive?: boolean;
+  healthStarRating?: number | null;
   attributes?: Record<string, unknown> | null;
 }
 
@@ -71,6 +72,10 @@ export class VariantService {
         imageUrl: input.imageUrl?.trim() || null,
         sortOrder,
         isActive: input.isActive ?? true,
+        healthStarRating:
+          input.healthStarRating == null
+            ? null
+            : Math.min(5, Math.max(1, Math.trunc(input.healthStarRating))),
         attributes: (input.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
       },
     });
@@ -106,6 +111,12 @@ export class VariantService {
         imageUrl: input.imageUrl?.trim() || null,
         sortOrder: input.sortOrder ?? existing.sortOrder,
         isActive: input.isActive ?? existing.isActive,
+        healthStarRating:
+          input.healthStarRating === undefined
+            ? existing.healthStarRating
+            : input.healthStarRating == null
+              ? null
+              : Math.min(5, Math.max(1, Math.trunc(input.healthStarRating))),
         attributes: (input.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
       },
     });

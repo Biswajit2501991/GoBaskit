@@ -27,6 +27,8 @@ export interface StoreConfig {
     showCategories: boolean;
     showBestSellers: boolean;
     showOffers: boolean;
+    /** Global Health Star Rating display for products/options with a rating. */
+    showHealthStarRating: boolean;
     announcementBarText: string;
     deliveryTimeText: string;
     themeColor: string;
@@ -90,6 +92,7 @@ const DEFAULTS: StoreConfig = {
     showCategories: true,
     showBestSellers: true,
     showOffers: true,
+    showHealthStarRating: true,
     announcementBarText: '',
     deliveryTimeText: 'Delivery in 10 minutes',
     themeColor: '#facc15',
@@ -258,6 +261,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
         showCategories: parsed.showCategories !== false,
         showBestSellers: parsed.showBestSellers !== false,
         showOffers: parsed.showOffers !== false,
+        showHealthStarRating: parsed.showHealthStarRating !== false,
         announcementBarText: String(parsed.announcementBarText ?? ''),
         deliveryTimeText: String(parsed.deliveryTimeText ?? DEFAULTS.homepageConfig.deliveryTimeText),
         themeColor: String(parsed.themeColor ?? DEFAULTS.homepageConfig.themeColor),
@@ -417,6 +421,7 @@ export const SettingsService = {
         showCategories: partial.homepageConfig.showCategories !== false,
         showBestSellers: partial.homepageConfig.showBestSellers !== false,
         showOffers: partial.homepageConfig.showOffers !== false,
+        showHealthStarRating: partial.homepageConfig.showHealthStarRating !== false,
         announcementBarText: String(partial.homepageConfig.announcementBarText ?? '').trim(),
         deliveryTimeText:
           String(partial.homepageConfig.deliveryTimeText ?? '').trim() || DEFAULTS.homepageConfig.deliveryTimeText,

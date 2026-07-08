@@ -90,6 +90,8 @@ model Product {
   isFeatured  Boolean       @default(false) @map("is_featured")
   isVisible   Boolean       @default(true) @map("is_visible")
   hasVariants Boolean       @default(false) @map("has_variants")
+  /** 1–5 Health Star Rating; null = not set (hidden on storefront). */
+  healthStarRating Int?     @map("health_star_rating")
   categoryId  String        @map("category_id")
   category    Category      @relation(fields: [categoryId], references: [id])
   orderItems  OrderItem[]
@@ -121,6 +123,8 @@ model ProductVariant {
   imageUrl    String?  @map("image_url")
   sortOrder   Int      @default(0) @map("sort_order")
   isActive    Boolean  @default(true) @map("is_active")
+  /** 1–5 Health Star Rating for this option; null falls back to product rating. */
+  healthStarRating Int? @map("health_star_rating")
   // Reserved for future variant-specific data (colour, flavour, gst, supplier,
   // expiry, nutrition, bundle/subscription config, etc.) without schema changes.
   attributes  Json?
