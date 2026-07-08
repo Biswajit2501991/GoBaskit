@@ -6,3 +6,19 @@ export function resolvePublicImageUrl(url: string | null | undefined): string {
   return url;
 }
 
+/**
+ * Returns an image URL sized for the context it's shown in. Our own uploads
+ * support on-the-fly resizing via a `?w=` query (handled by the uploads
+ * route), which drastically cuts bytes for thumbnails/cards. External images
+ * (http/https) are returned unchanged since we can't resize them.
+ */
+export function sizedImageUrl(url: string | null | undefined, width: number): string {
+  const resolved = resolvePublicImageUrl(url);
+  if (!resolved) return '';
+  if (resolved.startsWith('/uploads/')) {
+    const sep = resolved.includes('?') ? '&' : '?';
+    return `${resolved}${sep}w=${Math.round(width)}`;
+  }
+  return resolved;
+}
+

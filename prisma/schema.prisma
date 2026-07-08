@@ -108,6 +108,7 @@ model ProductVariant {
   product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   brand       String   @default("")
   variantName String   @default("") @map("variant_name")
+  details     String   @default("") @map("details")
   weight      String   @default("")
   unit        String   @default("")
   price       Float

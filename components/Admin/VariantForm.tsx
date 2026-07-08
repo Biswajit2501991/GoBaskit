@@ -24,6 +24,7 @@ interface VariantFormProps {
 const emptyVariant: VariantFormData = {
   brand: '',
   variantName: '',
+  details: '',
   weight: '',
   unit: 'kg',
   price: 1,
@@ -59,6 +60,7 @@ export default function VariantForm({
       ? {
           brand: variant.brand,
           variantName: variant.variantName,
+          details: variant.details ?? '',
           weight: variant.weight,
           unit: variant.unit || 'kg',
           price: variant.price,
@@ -160,6 +162,17 @@ export default function VariantForm({
             <Label>Stock Quantity *</Label>
             <Input {...register('stock')} type="number" min="0" className="mt-1" />
             {errors.stock && <p className="text-red-500 text-xs mt-1">{errors.stock.message}</p>}
+          </div>
+
+          <div className="md:col-span-2 lg:col-span-3">
+            <Label>Product Details (optional)</Label>
+            <textarea
+              {...register('details')}
+              rows={4}
+              placeholder={'Shown in the "Product Details" section when this option is selected.\nLeave blank to reuse the product-level details.\nTip: "Label: Value" per line, e.g.\nNet weight: 5 kg\nShelf life: 6 months'}
+              className="mt-1 flex w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green resize-y"
+            />
+            {errors.details && <p className="text-red-500 text-xs mt-1">{errors.details.message}</p>}
           </div>
 
           <ProductImageUpload

@@ -33,6 +33,7 @@ export interface ProductVariant {
   productId: string;
   brand: string;
   variantName: string;
+  details?: string;
   weight: string;
   unit: string;
   price: number;
@@ -60,6 +61,7 @@ export interface ProductOption {
   price: number;
   mrp: number | null;
   imageUrl: string | null;
+  details: string;
   stock: number;
   inStock: boolean;
 }

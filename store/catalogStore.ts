@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import type { ProductWithCategory, CategoryItem } from '@/types';
 import { preloadImagesIdle } from '@/utils/imagePreload';
+import { sizedImageUrl } from '@/utils/image';
 
 interface CatalogState {
   products: ProductWithCategory[];
@@ -80,8 +81,8 @@ async function load(
     // the rest of the session.
     const imageUrls: Array<string | null | undefined> = [];
     for (const p of productList) {
-      imageUrls.push(p.imageUrl);
-      for (const v of p.variants ?? []) imageUrls.push(v.imageUrl);
+      imageUrls.push(sizedImageUrl(p.imageUrl, 400));
+      for (const v of p.variants ?? []) imageUrls.push(sizedImageUrl(v.imageUrl, 400));
     }
     preloadImagesIdle(imageUrls);
   } catch {

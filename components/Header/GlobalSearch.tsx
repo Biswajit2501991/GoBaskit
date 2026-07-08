@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Search, X } from 'lucide-react';
 import { useCatalogStore, searchProducts } from '@/store/catalogStore';
-import { resolvePublicImageUrl } from '@/utils/image';
+import { sizedImageUrl } from '@/utils/image';
 import { formatCurrency } from '@/utils/formatter';
 import { CATEGORY_ICONS } from '@/constants';
 import { useProductVariants } from '@/hooks/useProductVariants';
@@ -12,7 +12,7 @@ import type { ProductWithCategory } from '@/types';
 
 function ResultRow({ product, onPick }: { product: ProductWithCategory; onPick: () => void }) {
   const { showOptions, fromPrice } = useProductVariants(product);
-  const imageUrl = resolvePublicImageUrl(product.imageUrl);
+  const imageUrl = sizedImageUrl(product.imageUrl, 96);
   const price = showOptions && fromPrice != null ? fromPrice : product.price;
 
   return (

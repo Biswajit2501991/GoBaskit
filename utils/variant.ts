@@ -50,9 +50,10 @@ export function optionsButtonLabel(count: number): string {
 export function buildProductOptions(
   product: Pick<
     ProductWithCategory,
-    'id' | 'name' | 'price' | 'actualPrice' | 'unit' | 'stock' | 'status' | 'imageUrl' | 'variants'
+    'id' | 'name' | 'details' | 'price' | 'actualPrice' | 'unit' | 'stock' | 'status' | 'imageUrl' | 'variants'
   >,
 ): ProductOption[] {
+  const baseDetails = product.details ?? '';
   const options: ProductOption[] = [
     {
       key: 'base',
@@ -63,6 +64,7 @@ export function buildProductOptions(
       price: product.price,
       mrp: product.actualPrice ?? null,
       imageUrl: product.imageUrl ?? null,
+      details: baseDetails,
       stock: product.stock,
       inStock: product.stock > 0 && product.status === 'ACTIVE',
     },
@@ -78,6 +80,8 @@ export function buildProductOptions(
       price: v.price,
       mrp: v.mrp ?? null,
       imageUrl: variantImageUrl(v, product),
+      // Fall back to the parent product's details when the option has none.
+      details: (v.details ?? '').trim() || baseDetails,
       stock: v.stock,
       inStock: v.stock > 0,
     });

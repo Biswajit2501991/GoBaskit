@@ -11,9 +11,10 @@ import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { useCartStore, cartLineKey } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { useProductVariants } from '@/hooks/useProductVariants';
+import { useCatalogStore } from '@/store/catalogStore';
 import { formatCurrency } from '@/utils/formatter';
 import { getListPrice } from '@/utils/pricing';
-import { resolvePublicImageUrl } from '@/utils/image';
+import { sizedImageUrl } from '@/utils/image';
 import { preloadImages } from '@/utils/imagePreload';
 import DiscountBadge from '@/components/Product/DiscountBadge';
 import ZoomImage from '@/components/Product/ZoomImage';
@@ -26,25 +27,47 @@ import type { ProductWithCategory } from '@/types';
 export default function ProductPage() {
   const params = useParams();
   const id = params.id as string;
-  const [product, setProduct] = useState<ProductWithCategory | null>(null);
-  const [similar, setSimilar] = useState<ProductWithCategory[]>([]);
   const [selectedKey, setSelectedKey] = useState<string>('base');
   const hydrated = useCartHydrated();
   const { items, addItem, updateQuantity } = useCartStore();
 
+  const catalogProducts = useCatalogStore((s) => s.products);
+  const fetchCatalog = useCatalogStore((s) => s.fetchCatalog);
+  // `fetched` is keyed by id so a stale fetch never leaks onto a new product.
+  const [fetched, setFetched] = useState<{ id: string; product: ProductWithCategory } | null>(null);
+
+  const cached = useMemo(
+    () => catalogProducts.find((p) => p.id === id) ?? null,
+    [catalogProducts, id],
+  );
+  // Show the cached product instantly (from the session catalog); the fresh
+  // fetch then reconciles prices/stock without a loading flash on navigation.
+  const product = (fetched?.id === id ? fetched.product : null) ?? cached;
+
   useEffect(() => {
+    fetchCatalog();
+  }, [fetchCatalog]);
+
+  useEffect(() => {
+    let cancelled = false;
     fetch(`/api/products/${id}`)
       .then((r) => r.json())
       .then((p: ProductWithCategory) => {
-        setProduct(p);
-        setSelectedKey('base');
-        if (p?.category?.slug) {
-          fetch(`/api/products?category=${p.category.slug}`)
-            .then((r) => r.json())
-            .then((list: ProductWithCategory[]) => setSimilar(list.filter((x) => x.id !== p.id).slice(0, 12)));
-        }
-      });
+        if (!cancelled && p?.id) setFetched({ id, product: p });
+      })
+      .catch(() => null);
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
+
+  const similar = useMemo(() => {
+    const slug = product?.category?.slug;
+    if (!slug) return [];
+    return catalogProducts
+      .filter((p) => p.category?.slug === slug && p.id !== product?.id)
+      .slice(0, 12);
+  }, [catalogProducts, product]);
 
   const { variants, options, showOptions } = useProductVariants(product);
   const selected = useMemo(
@@ -52,10 +75,14 @@ export default function ProductPage() {
     [options, selectedKey],
   );
 
-  // Preload every option image up-front so switching options is instant.
+  // Preload every option image up-front (at detail size) so switching options
+  // is instant with no flicker.
   useEffect(() => {
     if (!product) return;
-    preloadImages([product.imageUrl, ...(product.variants ?? []).map((v) => v.imageUrl)]);
+    preloadImages([
+      sizedImageUrl(product.imageUrl, 900),
+      ...(product.variants ?? []).map((v) => sizedImageUrl(v.imageUrl, 900)),
+    ]);
   }, [product]);
 
   if (!product) {
@@ -83,7 +110,7 @@ export default function ProductPage() {
   const cartQty = hydrated ? (cartItem?.quantity ?? 0) : 0;
 
   const categoryIcon = CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒';
-  const imageUrl = resolvePublicImageUrl(active ? active.imageUrl : product.imageUrl);
+  const imageUrl = sizedImageUrl(active ? active.imageUrl : product.imageUrl, 900);
   const unitLabel = active ? active.sizeLabel || product.unit : product.unit;
 
   function addSelected() {
@@ -223,7 +250,7 @@ export default function ProductPage() {
           </div>
         </div>
 
-        <ProductDetailsAccordion details={product.details ?? ''} />
+        <ProductDetailsAccordion details={active?.details ?? product.details ?? ''} />
 
         {similar.length > 0 && (
           <section className="mt-8">

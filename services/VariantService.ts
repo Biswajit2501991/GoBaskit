@@ -5,6 +5,7 @@ import { buildProductPricingData } from '@/utils/pricing';
 export interface VariantInput {
   brand?: string;
   variantName?: string;
+  details?: string;
   weight?: string;
   unit?: string;
   price: number;
@@ -57,6 +58,7 @@ export class VariantService {
         productId,
         brand: input.brand?.trim() ?? '',
         variantName: input.variantName?.trim() ?? '',
+        details: input.details?.trim() ?? '',
         weight: input.weight?.trim() ?? '',
         unit: input.unit?.trim() ?? '',
         price: pricing.price,
@@ -91,6 +93,7 @@ export class VariantService {
       data: {
         brand: input.brand?.trim() ?? existing.brand,
         variantName: input.variantName?.trim() ?? existing.variantName,
+        details: input.details?.trim() ?? existing.details,
         weight: input.weight?.trim() ?? existing.weight,
         unit: input.unit?.trim() ?? existing.unit,
         price: pricing.price,

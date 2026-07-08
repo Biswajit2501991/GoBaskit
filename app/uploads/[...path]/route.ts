@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import { readFile, stat } from 'fs/promises';
+import sharp from 'sharp';
 
 const UPLOADS_ROOT = path.join(process.cwd(), 'public', 'uploads');
 const ALLOWED_FOLDERS = new Set(['products', 'categories']);
@@ -16,7 +17,17 @@ const MIME: Record<string, string> = {
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
-export async function GET(_req: NextRequest, { params }: RouteContext) {
+/** Parse a safe target width from `?w=`; returns null when absent/invalid. */
+function parseWidth(req: NextRequest): number | null {
+  const raw = req.nextUrl.searchParams.get('w');
+  if (!raw) return null;
+  const w = Number(raw);
+  if (!Number.isFinite(w)) return null;
+  // Clamp to a sensible range so callers can't request huge/tiny renders.
+  return Math.min(1600, Math.max(32, Math.round(w)));
+}
+
+export async function GET(req: NextRequest, { params }: RouteContext) {
   const segments = (await params).path;
   if (!segments?.length || segments.some((s) => s.includes('..') || s.includes('\0'))) {
     return new NextResponse('Not found', { status: 404 });
@@ -39,8 +50,30 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     if (!ALLOWED_EXT.has(ext)) return new NextResponse('Not found', { status: 404 });
 
     const data = await readFile(filePath);
+    const width = parseWidth(req);
 
-    return new NextResponse(data, {
+    // Resize on the fly for smaller contexts (cards, thumbnails). GIFs are left
+    // untouched to preserve animation. Cloudflare/browser cache the result, so
+    // sharp only runs on the first request per (path, width).
+    if (width && ext !== '.gif') {
+      try {
+        const resized = await sharp(data)
+          .rotate()
+          .resize({ width, withoutEnlargement: true })
+          .webp({ quality: 78 })
+          .toBuffer();
+        return new NextResponse(resized as unknown as BodyInit, {
+          headers: {
+            'Content-Type': 'image/webp',
+            'Cache-Control': 'public, max-age=31536000, immutable',
+          },
+        });
+      } catch {
+        /* fall through to original on any resize failure */
+      }
+    }
+
+    return new NextResponse(data as unknown as BodyInit, {
       headers: {
         'Content-Type': MIME[ext] || 'application/octet-stream',
         'Cache-Control': 'public, max-age=31536000, immutable',

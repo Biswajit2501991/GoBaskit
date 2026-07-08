@@ -6,7 +6,7 @@ import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { useProductVariants } from '@/hooks/useProductVariants';
 import { CATEGORY_ICONS } from '@/constants';
-import { resolvePublicImageUrl } from '@/utils/image';
+import { sizedImageUrl } from '@/utils/image';
 import { formatCurrency } from '@/utils/formatter';
 import { calculateDiscountPercentage } from '@/utils/pricing';
 import type { ProductWithCategory } from '@/types';
@@ -29,7 +29,6 @@ export default function ProductCard({ product }: ProductCardProps) {
   const cartQty = hydrated ? (cartItem?.quantity ?? 0) : 0;
 
   const inStock = product.stock > 0 && product.status === 'ACTIVE';
-  const imageUrl = resolvePublicImageUrl(product.imageUrl);
 
   // For multi-option products, cycle through each option's distinct image.
   // Variants without their own image fall back to the base image and are
@@ -37,12 +36,13 @@ export default function ProductCard({ product }: ProductCardProps) {
   const carouselImages = useMemo(() => {
     if (showOptions) {
       const urls = options
-        .map((o) => resolvePublicImageUrl(o.imageUrl))
+        .map((o) => sizedImageUrl(o.imageUrl, 400))
         .filter((u): u is string => Boolean(u));
       return Array.from(new Set(urls));
     }
-    return imageUrl ? [imageUrl] : [];
-  }, [showOptions, options, imageUrl]);
+    const sized = sizedImageUrl(product.imageUrl, 400);
+    return sized ? [sized] : [];
+  }, [showOptions, options, product.imageUrl]);
 
   // Best discount shown on the corner ribbon: for multi-option products this is
   // the maximum discount across every option so the customer sees the best deal.

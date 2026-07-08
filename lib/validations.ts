@@ -134,6 +134,7 @@ export const variantSchema = z
   .object({
     brand: z.string().max(120).optional(),
     variantName: z.string().max(120).optional(),
+    details: z.string().max(5000, 'Details are too long').optional(),
     weight: z.string().max(60).optional(),
     unit: z.string().max(20).optional(),
     price: z.coerce.number().positive('Selling price must be positive'),

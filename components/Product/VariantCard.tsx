@@ -2,7 +2,7 @@
 
 import { formatCurrency } from '@/utils/formatter';
 import { getListPrice, formatDiscountBadge } from '@/utils/pricing';
-import { resolvePublicImageUrl } from '@/utils/image';
+import { sizedImageUrl } from '@/utils/image';
 import { Button } from '@/components/ui/button';
 import type { ProductOption } from '@/types';
 
@@ -15,7 +15,7 @@ interface VariantCardProps {
 export default function VariantCard({ option, inCartQty = 0, onAdd }: VariantCardProps) {
   const listPrice = getListPrice(option.mrp, option.price);
   const discountLabel = formatDiscountBadge(option.mrp, option.price);
-  const imageUrl = resolvePublicImageUrl(option.imageUrl);
+  const imageUrl = sizedImageUrl(option.imageUrl, 128);
 
   return (
     <div
@@ -32,7 +32,7 @@ export default function VariantCard({ option, inCartQty = 0, onAdd }: VariantCar
           </div>
         )}
         {discountLabel ? (
-          <span className="absolute top-0 left-0 bg-blue-600 text-white text-[8px] font-bold px-1 py-0.5 rounded-br-md leading-none">
+          <span className="absolute top-0 left-0 bg-blinkit-green text-white text-[8px] font-bold px-1 py-0.5 rounded-br-md leading-none">
             {discountLabel}
           </span>
         ) : null}
