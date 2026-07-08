@@ -536,7 +536,7 @@ export default function CheckoutPage() {
                 <Input {...register('city')} className="mt-1" />
                 {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city.message}</p>}
                 {!errors.city && cityServiceable === false && pinServiceable !== true && (
-                  <p className="text-red-500 text-xs mt-1">We currently deliver to: {serviceableCities.join(', ')}.</p>
+                  <p className="text-red-500 text-xs mt-1">We&apos;re not delivering to your location just yet — we&apos;re expanding fast, so please check back soon!</p>
                 )}
                 {!errors.city && cityServiceable === true && (
                   <p className="text-green-600 text-xs mt-1">✓ City is serviceable.</p>
@@ -557,7 +557,7 @@ export default function CheckoutPage() {
               )}
               {!errors.pincode && pinServiceable === false && pincodeValue && (
                 <p className="text-red-500 text-xs mt-1">
-                  Sorry, delivery is unavailable at {pincodeValue}. We currently serve: {serviceablePins.join(', ')}.
+                  We&apos;re not delivering to your location just yet — we&apos;re expanding fast, so please check back soon!
                 </p>
               )}
               {!errors.pincode && pinServiceable !== true && cityServiceable === true && (

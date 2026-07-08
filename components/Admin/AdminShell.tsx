@@ -15,10 +15,7 @@ type AdminShellProps = {
 const SIDEBAR_PREF_KEY = 'gobaskit_admin_sidebar_collapsed';
 
 async function logoutNow() {
-  await Promise.all([
-    fetch('/api/auth/login', { method: 'DELETE' }),
-    fetch('/api/auth/staff-login', { method: 'DELETE' }),
-  ]);
+  await fetch('/api/auth/staff-login', { method: 'DELETE' }).catch(() => null);
   window.location.href = '/';
 }
 

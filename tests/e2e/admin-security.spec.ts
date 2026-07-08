@@ -17,11 +17,6 @@ async function loginStaff(ctx: Awaited<ReturnType<typeof playwrightRequest.newCo
 async function loginAnyAdmin(ctx: Awaited<ReturnType<typeof playwrightRequest.newContext>>) {
   const staffRes = await loginStaff(ctx, '9046370119', 'admin123');
   if (staffRes.ok()) return 'staff';
-
-  const legacyRes = await ctx.post('/api/auth/login', {
-    data: { email: 'admin@gobaskit.com', password: 'admin123' },
-  });
-  if (legacyRes.ok()) return 'legacy';
   return null;
 }
 
@@ -82,7 +77,6 @@ test.describe('Admin security regression scaffold', () => {
     const authRes = await ctx.get('/api/admin/orders');
     expect(authRes.status()).not.toBe(401);
 
-    await ctx.delete('/api/auth/login');
     await ctx.delete('/api/auth/staff-login');
     const afterLogout = await ctx.get('/api/admin/orders');
     expect([401, 403]).toContain(afterLogout.status());

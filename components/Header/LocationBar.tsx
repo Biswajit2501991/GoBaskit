@@ -44,7 +44,7 @@ export default function LocationBar() {
         return;
       }
       if (!pinIsServiceable(serviceablePins, p)) {
-        setError(`We don't deliver to ${p} yet. We serve: ${serviceablePins.join(', ')}.`);
+        setError("We're not delivering to your location just yet — we're expanding fast, so please check back soon!");
         return;
       }
       setPin(p);
@@ -53,7 +53,7 @@ export default function LocationBar() {
     if (c) {
       const matched = serviceableCities.some((cityOption) => cityOption.toLowerCase() === c.toLowerCase());
       if (!matched) {
-        setError(`We currently deliver to: ${serviceableCities.join(', ')}.`);
+        setError("We're not delivering to your location just yet — we're expanding fast, so please check back soon!");
         return;
       }
       setCity(c);

@@ -97,7 +97,7 @@ NEXT_PUBLIC_WHATSAPP_NUMBER=919046370119
 | GET | `/api/products/[id]` | Single product |
 | GET | `/api/categories` | List categories |
 | POST | `/api/checkout` | Place order |
-| POST | `/api/auth/login` | Admin login |
+| POST | `/api/auth/staff-login` | Admin/staff login (mobile + password) |
 | GET/POST | `/api/admin/products` | Admin product CRUD |
 | POST | `/api/admin/bulk-upload` | Bulk import |
 
