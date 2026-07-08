@@ -11,8 +11,8 @@ interface HealthStarRatingProps {
 }
 
 /**
- * Golden Health Star Rating (1–5). Flashing animation is in `.health-star-rating`
- * (globals.css). Callers must only render when the admin toggle is on.
+ * Solid high-density gold Health Star Rating (1–5). No flash animation.
+ * Callers must only render when the admin toggle is on.
  */
 export default function HealthStarRating({
   rating,
@@ -33,11 +33,7 @@ export default function HealthStarRating({
       >
         <span className="inline-flex items-center gap-0.5">
           {Array.from({ length: stars }, (_, i) => (
-            <Star
-              key={i}
-              className="w-4 h-4 fill-[#F5B800] text-[#F5B800] drop-shadow-sm"
-              strokeWidth={0}
-            />
+            <Star key={i} className="w-4 h-4 fill-current text-[#D4A017]" strokeWidth={0} />
           ))}
         </span>
         <span className="text-[9px] font-medium text-gray-500 mt-0.5 whitespace-nowrap">
@@ -54,11 +50,7 @@ export default function HealthStarRating({
     >
       <span className="inline-flex items-center gap-px">
         {Array.from({ length: stars }, (_, i) => (
-          <Star
-            key={i}
-            className="w-2.5 h-2.5 fill-[#F5B800] text-[#F5B800] drop-shadow-sm"
-            strokeWidth={0}
-          />
+          <Star key={i} className="w-2.5 h-2.5 fill-current text-[#D4A017]" strokeWidth={0} />
         ))}
       </span>
       <span className="text-[7px] font-semibold text-gray-600 mt-0.5 whitespace-nowrap tracking-tight">

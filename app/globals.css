@@ -107,27 +107,9 @@ body {
   }
 }
 
-/* Golden Health Star Rating — soft flash + shine, same pattern as BESTSELLER. */
-@keyframes health-star-flash {
-  0%, 100% {
-    filter: brightness(1);
-  }
-  50% {
-    filter: brightness(1.2);
-  }
-}
-
-.health-star-rating {
-  position: relative;
-  animation: health-star-flash 1.4s ease-in-out infinite;
-}
-
+/* Health Star Rating — solid high-density gold, no animation. */
 .health-star-rating svg {
-  filter: drop-shadow(0 0 2px rgba(245, 184, 0, 0.55));
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .health-star-rating {
-    animation: none;
-  }
+  color: #D4A017;
+  fill: #D4A017;
+  filter: drop-shadow(0 0.5px 0.5px rgba(120, 80, 0, 0.35));
 }
