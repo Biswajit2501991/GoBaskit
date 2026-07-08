@@ -17,6 +17,7 @@ import { getListPrice } from '@/utils/pricing';
 import { sizedImageUrl } from '@/utils/image';
 import { preloadImages } from '@/utils/imagePreload';
 import DiscountBadge from '@/components/Product/DiscountBadge';
+import BestsellerBadge from '@/components/Product/BestsellerBadge';
 import ZoomImage from '@/components/Product/ZoomImage';
 import ProductDetailsAccordion from '@/components/Product/ProductDetailsAccordion';
 import { addOptionToCart } from '@/components/Product/VariantSelector';
@@ -157,9 +158,7 @@ export default function ProductPage() {
               )}
             </div>
             {product.isFeatured && (
-              <span className="absolute top-3 right-3 bg-blinkit-yellow text-gray-900 text-[10px] font-bold px-2 py-1 rounded-md">
-                BESTSELLER
-              </span>
+              <BestsellerBadge className="absolute top-3 left-3 z-10 text-[10px] px-2 py-1" />
             )}
           </div>
 

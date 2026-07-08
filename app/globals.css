@@ -64,3 +64,45 @@ body {
     display: none;
   }
 }
+
+/* Eye-catching BESTSELLER badge: a gentle "flash" glow plus a sweeping shine,
+   used everywhere the bestseller tag appears (cards + product page). */
+@keyframes bestseller-flash {
+  0%, 100% {
+    filter: brightness(1);
+    box-shadow: 0 0 0 0 rgba(234, 179, 8, 0);
+  }
+  50% {
+    filter: brightness(1.12);
+    box-shadow: 0 0 9px 1px rgba(234, 179, 8, 0.75);
+  }
+}
+
+.bestseller-badge {
+  /* No position here: callers place it with the `absolute` utility, which also
+     establishes the containing block for the ::after shine. Forcing
+     position:relative would override that utility and break placement. */
+  overflow: hidden;
+  animation: bestseller-flash 1.3s ease-in-out infinite;
+}
+
+.bestseller-badge::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 45%;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  animation: ribbon-shine 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bestseller-badge {
+    animation: none;
+  }
+  .bestseller-badge::after {
+    display: none;
+  }
+}
