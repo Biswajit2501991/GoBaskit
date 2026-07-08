@@ -81,9 +81,6 @@ export default function ProductCard({ product }: ProductCardProps) {
             fallback={<span>{CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒'}</span>}
           />
           <DiscountRibbon percent={discountPercent} />
-          {product.isFeatured && (
-            <BestsellerBadge className="absolute top-2 left-2 z-10 text-[8px] px-1.5 py-0.5" />
-          )}
           {!showOptions && !inStock && (
             <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
               <span className="bg-gray-800 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase">Out of stock</span>
@@ -93,6 +90,11 @@ export default function ProductCard({ product }: ProductCardProps) {
       </Link>
 
       <div className="px-2 pb-2 flex flex-col flex-1">
+        {product.isFeatured ? (
+          <BestsellerBadge className="relative self-start text-[8px] px-1.5 py-0.5 mb-1" />
+        ) : (
+          <span className="h-4 mb-1" />
+        )}
         <Link href={`/product/${product.id}`}>
           <h3 className="font-medium text-gray-800 text-[11px] leading-tight line-clamp-2 min-h-[1.75rem] hover:text-blinkit-green">
             {product.name}
