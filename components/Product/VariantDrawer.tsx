@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import VariantCard from './VariantCard';
 import type { ProductOption } from '@/types';
@@ -24,8 +25,13 @@ export default function VariantDrawer({
 }: VariantDrawerProps) {
   const [mounted, setMounted] = useState(open);
   const [entered, setEntered] = useState(false);
+  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
   const touchStartY = useRef<number | null>(null);
   const [dragY, setDragY] = useState(0);
+
+  useEffect(() => {
+    setPortalRoot(document.body);
+  }, []);
 
   useEffect(() => {
     let exitTimer: ReturnType<typeof setTimeout> | undefined;
@@ -58,7 +64,7 @@ export default function VariantDrawer({
     };
   }, [open, onClose]);
 
-  if (!mounted) return null;
+  if (!mounted || !portalRoot) return null;
 
   function handleTouchStart(e: React.TouchEvent) {
     touchStartY.current = e.touches[0].clientY;
@@ -74,8 +80,10 @@ export default function VariantDrawer({
     touchStartY.current = null;
   }
 
-  return (
-    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4">
+  const sheetTransform = dragY > 0 ? `translateY(${dragY}px)` : entered ? 'translateY(0)' : 'translateY(100%)';
+
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center sm:p-4">
       <div
         onClick={onClose}
         className={`absolute inset-0 bg-black/50 transition-opacity duration-200 ${
@@ -87,14 +95,14 @@ export default function VariantDrawer({
         role="dialog"
         aria-modal="true"
         aria-label="Choose option"
-        style={dragY ? { transform: `translateY(${dragY}px)` } : undefined}
-        className={`relative w-full sm:max-w-md bg-white shadow-2xl flex flex-col
-          rounded-t-2xl sm:rounded-2xl max-h-[85vh] sm:max-h-[min(80vh,640px)]
-          transition-all duration-200 ease-out
-          ${entered ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 sm:translate-y-4 sm:scale-95'}`}
+        style={{ transform: sheetTransform }}
+        className={`relative w-full sm:max-w-md bg-white shadow-2xl rounded-t-2xl sm:rounded-2xl
+          max-h-[min(88dvh,100%)] sm:max-h-[min(80vh,640px)]
+          transition-[transform,opacity] duration-200 ease-out
+          ${entered ? 'opacity-100' : 'opacity-0'}`}
       >
         <div
-          className="pt-2 pb-1 sm:hidden cursor-grab active:cursor-grabbing shrink-0"
+          className="pt-2 pb-1 sm:hidden cursor-grab active:cursor-grabbing"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -102,7 +110,7 @@ export default function VariantDrawer({
           <div className="mx-auto h-1.5 w-10 rounded-full bg-gray-300" />
         </div>
 
-        <div className="flex items-start justify-between px-4 pt-3 pb-3 border-b border-gray-100 shrink-0">
+        <div className="flex items-start justify-between px-4 pt-2 pb-3 sm:pt-4 border-b border-gray-100">
           <div className="min-w-0 pr-3">
             <h2 className="text-base font-bold text-gray-900 leading-snug">{productName}</h2>
             <p className="text-xs text-gray-500 mt-0.5">Select your preferred brand and size</p>
@@ -111,13 +119,17 @@ export default function VariantDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center -mt-0.5"
+            className="shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-2">
+        <div
+          className="overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-2
+            pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-4
+            max-h-[calc(min(88dvh,100%)-5.5rem)] sm:max-h-[calc(min(80vh,640px)-5.5rem)]"
+        >
           {options.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-10">No options available right now.</p>
           ) : (
@@ -132,6 +144,7 @@ export default function VariantDrawer({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    portalRoot,
   );
 }
