@@ -68,6 +68,23 @@ export const staffLoginSchema = z.object({
   rememberMe: z.boolean().optional(),
 });
 
+export const customerLoginSchema = z.object({
+  mobile: z.string().min(8, 'Enter a valid mobile number').max(20),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+});
+
+export const customerPasswordSchema = z
+  .object({
+    mobile: z.string().min(8, 'Enter a valid mobile number').max(20),
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+    confirmPassword: z.string().min(6, 'Password must be at least 6 characters'),
+    verificationId: z.string().min(1, 'Verification required'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
 export const staffCreateSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters'),
   mobile: z.string().min(10, 'Enter a valid mobile number').max(15),

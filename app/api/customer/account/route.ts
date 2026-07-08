@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { normalizeMobile, isValidIndianMobile } from '@/utils/mobile';
+import {
+  CUSTOMER_MOBILE_COOKIE,
+  customerSessionClearOptions,
+  getCustomerMobileFromRequest,
+} from '@/lib/customer-session';
 
-const COOKIE_NAME = 'gobaskit_customer_mobile';
 const SETTING_PREFIX = 'customer_mobile_';
 
 export async function GET(req: NextRequest) {
-  const raw = req.cookies.get(COOKIE_NAME)?.value || '';
-  const mobile = normalizeMobile(raw);
-  if (!isValidIndianMobile(mobile)) {
-    return NextResponse.json({ mobile: null });
-  }
-  return NextResponse.json({ mobile });
+  const mobile = getCustomerMobileFromRequest(req);
+  return NextResponse.json({ mobile: mobile ?? null });
 }
 
+/**
+ * Records a "last seen" marker for a number. This deliberately does NOT create a
+ * login session — a session cookie is only issued after proven ownership via
+ * POST /api/customer/session. Setting a session from a bare number here was the
+ * security gap that let anyone log in as any number.
+ */
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const mobile = normalizeMobile(String(body?.mobile ?? ''));
@@ -27,26 +33,11 @@ export async function POST(req: NextRequest) {
     create: { key: `${SETTING_PREFIX}${mobile}`, value: new Date().toISOString() },
   });
 
-  const res = NextResponse.json({ ok: true, mobile });
-  res.cookies.set(COOKIE_NAME, mobile, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 30 * 24 * 60 * 60,
-    path: '/',
-  });
-  return res;
+  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE() {
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(COOKIE_NAME, '', {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 0,
-    path: '/',
-  });
+  res.cookies.set(CUSTOMER_MOBILE_COOKIE, '', customerSessionClearOptions());
   return res;
 }
-

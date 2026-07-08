@@ -9,10 +9,13 @@ import { NotificationService } from '@/services/NotificationService';
 import { CustomerProfileService } from '@/services/CustomerProfileService';
 import { InventoryService } from '@/services/InventoryService';
 import { profileFromCheckout } from '@/utils/customerProfile';
-import { normalizeMobile } from '@/utils/mobile';
 import { toE164 } from '@/utils/phone';
 import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationService';
-import { CUSTOMER_MOBILE_COOKIE } from '@/lib/customer-session';
+import {
+  CUSTOMER_MOBILE_COOKIE,
+  createCustomerSessionToken,
+  customerSessionCookieOptions,
+} from '@/lib/customer-session';
 
 export async function POST(req: NextRequest) {
   try {
@@ -161,13 +164,16 @@ export async function POST(req: NextRequest) {
     }
 
     const res = NextResponse.json({ order, orderNumber });
-    res.cookies.set(CUSTOMER_MOBILE_COOKIE, normalizeMobile(parsed.data.mobile), {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 30 * 24 * 60 * 60,
-      path: '/',
-    });
+    // Only log the customer in if the number is actually WhatsApp-verified.
+    // Returning customers who bypassed verification aren't auto-logged-in, so
+    // knowing someone's number and placing an order can't unlock their history.
+    if (isWhatsappVerified) {
+      res.cookies.set(
+        CUSTOMER_MOBILE_COOKIE,
+        createCustomerSessionToken(parsed.data.mobile),
+        customerSessionCookieOptions(),
+      );
+    }
     return res;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to place order';

@@ -171,6 +171,9 @@ model CustomerMobile {
   verifiedAt         DateTime? @map("verified_at")
   verifiedById       String?  @map("verified_by")
   verifiedBy         StaffAccount? @relation("CustomerMobileVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  passwordHash       String?  @map("password_hash")
+  failedLoginAttempts Int     @default(0) @map("failed_login_attempts")
+  lockedAt           DateTime? @map("locked_at")
   verifications      WhatsAppVerification[]
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")

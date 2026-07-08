@@ -104,17 +104,24 @@ export class WhatsAppVerificationService {
     mobileE164: string;
     customerName?: string;
     forceNew?: boolean;
+    /**
+     * Login/session verification. When true, a fresh ownership proof is always
+     * required — the permanent "already verified" flag can NOT short-circuit it.
+     * This is what prevents someone from logging in on a new device just because
+     * the number was verified once in the past.
+     */
+    requireFresh?: boolean;
     ip?: string;
     userAgent?: string;
   }) {
-    const { mobileE164, customerName, forceNew, ip, userAgent } = params;
+    const { mobileE164, customerName, forceNew, requireFresh, ip, userAgent } = params;
     if (!isValidE164(mobileE164)) {
       throw new Error('Enter a valid mobile number with country code');
     }
 
     await this.expireStalePending();
 
-    if (await this.isMobileVerified(mobileE164)) {
+    if (!requireFresh && (await this.isMobileVerified(mobileE164))) {
       return {
         verified: true,
         mobile: mobileE164,
@@ -227,6 +234,32 @@ export class WhatsAppVerificationService {
       canCheckout: verified || !needsVerification,
       verification: pending ? this.serializeVerification(pending) : null,
     };
+  }
+
+  /**
+   * Validates a verification for issuing a login session. The caller must hold
+   * the verificationId returned when the code was generated (only the browser
+   * that started the flow knows it), and it must have been freshly approved by
+   * an admin for the same number. This binds the session to a genuine, recent
+   * ownership proof rather than the permanent "verified once" flag.
+   */
+  static async getSessionVerification(
+    verificationId: string,
+    mobileE164: string,
+    maxAgeMs = 60 * 60 * 1000,
+  ): Promise<{ found: boolean; verified: boolean; status?: WhatsAppVerificationStatus }> {
+    const v = await prisma.whatsAppVerification.findUnique({
+      where: { id: verificationId },
+      select: { mobile: true, status: true, verifiedAt: true },
+    });
+    if (!v || v.mobile !== mobileE164) return { found: false, verified: false };
+
+    const fresh =
+      v.status === 'VERIFIED' &&
+      !!v.verifiedAt &&
+      Date.now() - v.verifiedAt.getTime() <= maxAgeMs;
+
+    return { found: true, verified: fresh, status: v.status };
   }
 
   static async logWhatsAppOpened(params: {
