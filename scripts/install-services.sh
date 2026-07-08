@@ -119,6 +119,8 @@ cat > "$AGENTS_DIR/com.gobaskit.healthcheck.plist" <<PLIST
     <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     <key>HOME</key>
     <string>$HOME</string>
+    <key>GOBASKIT_ROOT</key>
+    <string>$ROOT</string>
   </dict>
 </dict>
 </plist>
@@ -145,6 +147,20 @@ EOF
     brew services start sleepwatcher 2>/dev/null || nohup sleepwatcher -V -w "$HOME/.wakeup" >/dev/null 2>&1 &
   fi
   echo "    ~/.wakeup configured"
+else
+  echo "==> sleepwatcher not installed — installing for mac sleep/wake auto-recovery..."
+  if command -v brew >/dev/null 2>&1; then
+    brew install sleepwatcher 2>/dev/null || true
+    cat > "$HOME/.wakeup" <<EOF
+#!/bin/bash
+$BIN_DIR/on-wake.sh
+EOF
+    chmod +x "$HOME/.wakeup"
+    brew services start sleepwatcher 2>/dev/null || nohup sleepwatcher -V -w "$HOME/.wakeup" >/dev/null 2>&1 &
+    echo "    sleepwatcher installed + ~/.wakeup configured"
+  else
+    echo "    WARNING: brew missing — wake recovery may need Manual: brew install sleepwatcher"
+  fi
 fi
 
 if [[ -f /Library/LaunchDaemons/com.cloudflare.cloudflared.plist ]]; then
