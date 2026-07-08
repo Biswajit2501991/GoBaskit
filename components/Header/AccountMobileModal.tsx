@@ -44,18 +44,18 @@ export default function AccountMobileModal() {
 
       if (data.isStaff) {
         setStaffEligible(normalized, data.staffName);
-        closeAccountModal();
       } else {
         clearStaffEligible();
-        // For normal customers, automatically continue with this number.
         setCustomerMobile(normalized);
-        await fetch('/api/customer/account', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mobile: normalized }),
-        }).catch(() => null);
-        closeAccountModal();
       }
+      // Register a customer session for everyone (staff included) so an admin
+      // can shop, order, and use My Account with their own number.
+      await fetch('/api/customer/account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile: normalized }),
+      }).catch(() => null);
+      closeAccountModal();
       setMobile('');
       // Reflect the new session cookie in any server-rendered UI (e.g. account).
       router.refresh();

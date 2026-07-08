@@ -27,11 +27,14 @@ export const useStaffPortalStore = create<StaffPortalState>((set) => ({
   staffName: '',
   showAccountModal: false,
   showAdminLoginModal: false,
+  // A staff member is ALSO a customer: they keep a customer identity (so they
+  // can browse, order, and view My Account with their own number) while
+  // staffEligible unlocks the "Login as Admin" entry for admin work.
   setStaffEligible: (mobile, name) =>
     set({
       staffEligible: true,
       checkedMobile: mobile,
-      customerMobile: '',
+      customerMobile: mobile,
       staffName: name?.trim() || '',
       showAccountModal: false,
     }),
@@ -39,8 +42,6 @@ export const useStaffPortalStore = create<StaffPortalState>((set) => ({
     set({
       customerMobile: mobile,
       checkedMobile: mobile,
-      staffEligible: false,
-      staffName: '',
       showAccountModal: false,
     }),
   clearAccount: () =>

@@ -133,6 +133,9 @@ export default function Header({ showSearch = true }: HeaderProps) {
               {accountMenuOpen && hasAccountIdentity && (
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl border border-gray-200 shadow-lg p-2 z-20">
                   <p className="px-2 py-1 text-[11px] text-gray-500 truncate">{accountLabel}</p>
+                  {staffEligible && (
+                    <p className="px-2 pb-1 text-[10px] text-gray-400">You&apos;re shopping as a customer</p>
+                  )}
                   {customerMobile && (
                     <Link
                       href="/account"
@@ -141,6 +144,19 @@ export default function Header({ showSearch = true }: HeaderProps) {
                     >
                       My Account
                     </Link>
+                  )}
+                  {staffEligible && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        openAdminLoginModal();
+                      }}
+                      className="w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-gray-900 flex items-center gap-1.5"
+                    >
+                      <Shield className="w-3.5 h-3.5" />
+                      Login as Admin
+                    </button>
                   )}
                   <button
                     type="button"
@@ -158,7 +174,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
                       onClick={handleCustomerLogout}
                       className="w-full text-left px-2 py-2 text-sm rounded-lg text-red-600 hover:bg-red-50"
                     >
-                      Logout from My Account
+                      Logout
                     </button>
                   )}
                 </div>
