@@ -37,3 +37,30 @@ body {
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
+
+@keyframes ribbon-shine {
+  0% { transform: translateX(-150%) skewX(-20deg); }
+  55%, 100% { transform: translateX(260%) skewX(-20deg); }
+}
+
+.discount-ribbon {
+  position: relative;
+  overflow: hidden;
+}
+
+.discount-ribbon::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 45%;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: ribbon-shine 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .discount-ribbon::after {
+    display: none;
+  }
+}

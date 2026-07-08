@@ -141,10 +141,13 @@ export default function ProductPage() {
             ) : null}
             <p className="text-sm text-gray-400">{unitLabel}</p>
 
-            <div className="flex items-end gap-2 flex-wrap">
-              <ProductPriceDisplay price={sellingPrice} actualPrice={displayMrp} size="md" />
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <ProductPriceDisplay price={sellingPrice} actualPrice={displayMrp} size="md" />
+                <DiscountBadge mrp={displayMrp} price={sellingPrice} size="sm" />
+              </div>
               {listPrice ? (
-                <span className="text-sm font-bold text-blinkit-green mb-0.5">Save {formatCurrency(savings)}</span>
+                <span className="block text-sm font-bold text-blinkit-green">Save {formatCurrency(savings)}</span>
               ) : null}
             </div>
 

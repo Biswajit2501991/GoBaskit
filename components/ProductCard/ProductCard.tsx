@@ -8,11 +8,12 @@ import { useProductVariants } from '@/hooks/useProductVariants';
 import { CATEGORY_ICONS } from '@/constants';
 import { resolvePublicImageUrl } from '@/utils/image';
 import { formatCurrency } from '@/utils/formatter';
+import { calculateDiscountPercentage } from '@/utils/pricing';
 import type { ProductWithCategory } from '@/types';
 import { Button } from '@/components/ui/button';
 import ProductPriceDisplay from '@/components/ProductCard/ProductPriceDisplay';
 import ProductImageCarousel from '@/components/ProductCard/ProductImageCarousel';
-import DiscountBadge from '@/components/Product/DiscountBadge';
+import DiscountRibbon from '@/components/Product/DiscountRibbon';
 import VariantSelector from '@/components/Product/VariantSelector';
 
 interface ProductCardProps {
@@ -43,6 +44,18 @@ export default function ProductCard({ product }: ProductCardProps) {
     return imageUrl ? [imageUrl] : [];
   }, [showOptions, options, imageUrl]);
 
+  // Best discount shown on the corner ribbon: for multi-option products this is
+  // the maximum discount across every option so the customer sees the best deal.
+  const discountPercent = useMemo(() => {
+    if (showOptions) {
+      return options.reduce(
+        (max, o) => Math.max(max, calculateDiscountPercentage(o.mrp, o.price)),
+        0,
+      );
+    }
+    return calculateDiscountPercentage(product.actualPrice, product.price);
+  }, [showOptions, options, product.actualPrice, product.price]);
+
   function handleAdd() {
     addItem({
       productId: product.id,
@@ -64,13 +77,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             alt={product.name}
             fallback={<span>{CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒'}</span>}
           />
-          {!showOptions && (
-            <DiscountBadge
-              mrp={product.actualPrice}
-              price={product.price}
-              className="absolute top-1.5 left-1.5"
-            />
-          )}
+          <DiscountRibbon percent={discountPercent} />
           {!showOptions && !inStock && (
             <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
               <span className="bg-gray-800 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase">Out of stock</span>
