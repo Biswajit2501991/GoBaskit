@@ -107,9 +107,9 @@ body {
   }
 }
 
-/* Health Star Rating — solid high-density gold, no animation. */
+/* Health Star Rating — solid high-density yellow, no animation. */
 .health-star-rating svg {
-  color: #D4A017;
-  fill: #D4A017;
-  filter: drop-shadow(0 0.5px 0.5px rgba(120, 80, 0, 0.35));
+  color: #FFD600;
+  fill: #FFD600;
+  filter: drop-shadow(0 0.5px 0.5px rgba(180, 140, 0, 0.4));
 }
