@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { ShoppingCart, Clock, User, Shield, MessageCircle } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
@@ -19,7 +18,6 @@ interface HeaderProps {
 }
 
 export default function Header({ showSearch = true }: HeaderProps) {
-  const pathname = usePathname();
   const hydrated = useCartHydrated();
   const itemCount = useCartStore((s) => s.getItemCount());
   const staffEligible = useStaffPortalStore((s) => s.staffEligible);
@@ -63,11 +61,9 @@ export default function Header({ showSearch = true }: HeaderProps) {
     clearCheckoutProfileLocal();
     clearAccount();
     setAccountMenuOpen(false);
-    if (pathname?.startsWith('/account')) {
-      window.location.replace('/account');
-    } else {
-      window.location.reload();
-    }
+    // Always land on the GoBaskit home page after logging out, with a full
+    // reload so all session state (cart badge, account, caches) resets cleanly.
+    window.location.replace('/');
   }
 
   return (

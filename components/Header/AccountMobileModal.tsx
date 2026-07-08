@@ -1,13 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
+import { clearCheckoutProfileLocal, loadCheckoutProfileLocal } from '@/utils/customerProfile';
+import { normalizeMobile } from '@/utils/mobile';
 
 export default function AccountMobileModal() {
+  const router = useRouter();
   const { showAccountModal, closeAccountModal, setStaffEligible, setCustomerMobile, clearStaffEligible } =
     useStaffPortalStore();
   const [mobile, setMobile] = useState('');
@@ -29,13 +33,21 @@ export default function AccountMobileModal() {
         setError(data.error || 'Something went wrong');
         return;
       }
+      const normalized = normalizeMobile(mobile);
+      // Switching to a different number must not carry over the previous
+      // person's cached checkout details (name/address/mobile) — otherwise the
+      // new number inherits the old identity and can skip WhatsApp verification.
+      const prevProfile = loadCheckoutProfileLocal();
+      if (prevProfile && normalizeMobile(prevProfile.mobile) !== normalized) {
+        clearCheckoutProfileLocal();
+      }
+
       if (data.isStaff) {
-        setStaffEligible(mobile.replace(/\D/g, '').slice(-10), data.staffName);
+        setStaffEligible(normalized, data.staffName);
         closeAccountModal();
       } else {
         clearStaffEligible();
         // For normal customers, automatically continue with this number.
-        const normalized = mobile.replace(/\D/g, '').slice(-10);
         setCustomerMobile(normalized);
         await fetch('/api/customer/account', {
           method: 'POST',
@@ -44,6 +56,9 @@ export default function AccountMobileModal() {
         }).catch(() => null);
         closeAccountModal();
       }
+      setMobile('');
+      // Reflect the new session cookie in any server-rendered UI (e.g. account).
+      router.refresh();
     } catch {
       setError('Network error. Please try again.');
     } finally {
