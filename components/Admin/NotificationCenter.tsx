@@ -55,6 +55,15 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
     load();
   }, [load]);
 
+  // Safety net: if SSE drops an event, badge still catches up within ~12s while admin is open.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      void load();
+    }, 12_000);
+    return () => clearInterval(timer);
+  }, [load]);
+
   function playNotificationSound() {
     if (!soundEnabled) return;
     const now = Date.now();

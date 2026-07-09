@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { checkoutSchema } from '@/lib/validations';
 import { deliveryChargeFrom } from '@/constants';
@@ -232,38 +232,50 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Everything else happens after the response is sent.
-    void Promise.allSettled([
-      InventoryService.afterOrderReserved(inventoryUpdates!.updated, inventoryUpdates!.previousStock),
-      OrderService.onOrderCreated({
-        id: order.id,
-        orderNumber: order.orderNumber,
-        grandTotal: order.grandTotal,
-        status: order.status,
-        customer: order.customer,
-      }),
-      NotificationService.notifyNewOrder({
-        id: order.id,
-        orderNumber: order.orderNumber,
-        grandTotal: order.grandTotal,
-        paymentMethod: order.paymentMethod,
-        orderSource: source,
-        customer: {
-          firstName: order.customer.firstName,
-          lastName: order.customer.lastName,
-          mobile: order.customer.mobile,
-          city: order.customer.city,
-          houseNumber: order.customer.houseNumber,
-          street: order.customer.street,
-          area: order.customer.area,
-          pincode: order.customer.pincode,
-        },
-        customerLat: order.customerLat,
-        customerLng: order.customerLng,
-      }),
-      CustomerProfileService.save(parsed.data.mobile, profileFromCheckout(parsed.data)),
-    ]).catch((err) => {
-      console.error('Checkout post-order side effects failed:', err);
+    // Use Next.js `after()` so side effects survive the response (fire-and-forget
+    // `void` promises were being cancelled — which broke live order notifications).
+    const inventorySnapshot = inventoryUpdates!;
+    const orderSnapshot = order;
+    const profileMobile = parsed.data.mobile;
+    const profileData = profileFromCheckout(parsed.data);
+    after(async () => {
+      try {
+        await Promise.allSettled([
+          InventoryService.afterOrderReserved(
+            inventorySnapshot.updated,
+            inventorySnapshot.previousStock,
+          ),
+          OrderService.onOrderCreated({
+            id: orderSnapshot.id,
+            orderNumber: orderSnapshot.orderNumber,
+            grandTotal: orderSnapshot.grandTotal,
+            status: orderSnapshot.status,
+            customer: orderSnapshot.customer,
+          }),
+          NotificationService.notifyNewOrder({
+            id: orderSnapshot.id,
+            orderNumber: orderSnapshot.orderNumber,
+            grandTotal: orderSnapshot.grandTotal,
+            paymentMethod: orderSnapshot.paymentMethod,
+            orderSource: source,
+            customer: {
+              firstName: orderSnapshot.customer.firstName,
+              lastName: orderSnapshot.customer.lastName,
+              mobile: orderSnapshot.customer.mobile,
+              city: orderSnapshot.customer.city,
+              houseNumber: orderSnapshot.customer.houseNumber,
+              street: orderSnapshot.customer.street,
+              area: orderSnapshot.customer.area,
+              pincode: orderSnapshot.customer.pincode,
+            },
+            customerLat: orderSnapshot.customerLat,
+            customerLng: orderSnapshot.customerLng,
+          }),
+          CustomerProfileService.save(profileMobile, profileData),
+        ]);
+      } catch (err) {
+        console.error('Checkout post-order side effects failed:', err);
+      }
     });
 
     return res;
