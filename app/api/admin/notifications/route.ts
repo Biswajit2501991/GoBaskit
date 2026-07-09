@@ -33,5 +33,17 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  if (body.clearAll) {
+    await NotificationService.deleteAll(auth.staff!.id);
+    return NextResponse.json({ ok: true });
+  }
+
   return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+}
+
+export async function DELETE() {
+  const auth = await requireStaffSession();
+  if (auth.error) return auth.error;
+  await NotificationService.deleteAll(auth.staff!.id);
+  return NextResponse.json({ ok: true });
 }

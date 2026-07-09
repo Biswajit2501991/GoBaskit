@@ -278,4 +278,10 @@ export class NotificationService {
       data: { readAt: new Date() },
     });
   }
+
+  static async deleteAll(staffId: string) {
+    await prisma.adminNotification.deleteMany({
+      where: { OR: [{ staffId: null }, { staffId }] },
+    });
+  }
 }

@@ -26,6 +26,10 @@ import { formatCurrency } from '@/utils/formatter';
 import { WHATSAPP_NUMBER, STORE_NAME } from '@/constants';
 import { normalizeMobile } from '@/utils/mobile';
 import { e164ToCheckoutMobile, toE164 } from '@/utils/phone';
+import {
+  isMobileVerifiedInSession,
+  setSessionVerifiedMobile,
+} from '@/utils/whatsappVerificationSession';
 import WhatsAppVerificationModal from '@/components/Checkout/WhatsAppVerificationModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -87,6 +91,18 @@ export default function CheckoutPage() {
   });
 
   const [profileLoaded, setProfileLoaded] = useState(false);
+  const [whatsappVerified, setWhatsappVerified] = useState(false);
+  // Optimistic: don't assume verification is required until we know (avoids Place Order flash).
+  const [needsWhatsappVerification, setNeedsWhatsappVerification] = useState(false);
+  const [verificationResolved, setVerificationResolved] = useState(false);
+  const [verifiedMobileE164, setVerifiedMobileE164] = useState<string | null>(null);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [pendingSubmitSource, setPendingSubmitSource] = useState<'website' | 'whatsapp' | null>(null);
+  const [highlightSection, setHighlightSection] = useState<'customer' | 'address' | 'summary' | null>(null);
+  const [orderError, setOrderError] = useState('');
+  const customerSectionRef = useRef<HTMLDivElement | null>(null);
+  const addressSectionRef = useRef<HTMLDivElement | null>(null);
+  const summarySectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (profileLoaded) return;
@@ -97,6 +113,29 @@ export default function CheckoutPage() {
       const sessionMobile = accountData.mobile ? normalizeMobile(accountData.mobile) : '';
       const mobile = sessionMobile || customerMobile || checkedMobile;
       let profile = sessionMobile ? loadCheckoutProfileLocal() : null;
+
+      // Apply logged-in verification once — drives Place Order UI without a second status flash.
+      if (sessionMobile) {
+        const e164 = toE164('91', sessionMobile);
+        if (accountData.isWhatsappVerified || accountData.canCheckout) {
+          setWhatsappVerified(accountData.isWhatsappVerified === true);
+          setNeedsWhatsappVerification(false);
+          setVerificationResolved(true);
+          if (e164 && accountData.isWhatsappVerified) {
+            setVerifiedMobileE164(e164);
+            setSessionVerifiedMobile(e164);
+          }
+        } else if (e164 && isMobileVerifiedInSession(e164)) {
+          setWhatsappVerified(true);
+          setNeedsWhatsappVerification(false);
+          setVerifiedMobileE164(e164);
+          setVerificationResolved(true);
+        } else if (typeof accountData.needsVerification === 'boolean') {
+          setNeedsWhatsappVerification(accountData.needsVerification);
+          setWhatsappVerified(false);
+          setVerificationResolved(true);
+        }
+      }
 
       if (sessionMobile && mobile) {
         try {
@@ -126,12 +165,14 @@ export default function CheckoutPage() {
           paymentMethod: 'COD',
           deliveryNotes: profile.deliveryNotes || '',
         });
+      } else if (mobile) {
+        setValue('mobile', mobile, { shouldValidate: true });
       }
       setProfileLoaded(true);
     }
 
     loadProfile();
-  }, [profileLoaded, customerMobile, checkedMobile, reset]);
+  }, [profileLoaded, customerMobile, checkedMobile, reset, setValue]);
 
   useEffect(() => {
     if (locationPin && !getValues('pincode')) {
@@ -160,16 +201,6 @@ export default function CheckoutPage() {
   const enteredMobile = (formValues.mobile ?? '').trim();
   const isWhatsAppPatternValid = /^\d{10}$/.test(enteredMobile);
   const mobileE164 = isWhatsAppPatternValid ? (toE164('91', enteredMobile) ?? '') : '';
-  const [whatsappVerified, setWhatsappVerified] = useState(false);
-  const [needsWhatsappVerification, setNeedsWhatsappVerification] = useState(true);
-  const [verifiedMobileE164, setVerifiedMobileE164] = useState<string | null>(null);
-  const [showVerificationModal, setShowVerificationModal] = useState(false);
-  const [pendingSubmitSource, setPendingSubmitSource] = useState<'website' | 'whatsapp' | null>(null);
-  const [highlightSection, setHighlightSection] = useState<'customer' | 'address' | 'summary' | null>(null);
-  const [orderError, setOrderError] = useState('');
-  const customerSectionRef = useRef<HTMLDivElement | null>(null);
-  const addressSectionRef = useRef<HTMLDivElement | null>(null);
-  const summarySectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (checkedMobile && !getValues('mobile')) {
@@ -186,15 +217,33 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!isWhatsAppPatternValid || !mobileE164) {
       setWhatsappVerified(false);
-      setNeedsWhatsappVerification(true);
+      setNeedsWhatsappVerification(false);
       setVerifiedMobileE164(null);
+      setVerificationResolved(false);
       return;
     }
 
-    if (verifiedMobileE164 && verifiedMobileE164 !== mobileE164) {
+    // Already verified for this mobile in this tab session — no status fetch, no UI flash.
+    if (isMobileVerifiedInSession(mobileE164) || verifiedMobileE164 === mobileE164) {
+      if (!whatsappVerified || needsWhatsappVerification || !verificationResolved) {
+        setWhatsappVerified(true);
+        setNeedsWhatsappVerification(false);
+        setVerifiedMobileE164(mobileE164);
+        setVerificationResolved(true);
+      }
+      return;
+    }
+
+    // Number changed — drop prior resolution and re-check once for the new number.
+    const mobileChanged = Boolean(verifiedMobileE164 && verifiedMobileE164 !== mobileE164);
+    if (mobileChanged) {
       setWhatsappVerified(false);
-      setNeedsWhatsappVerification(true);
+      setNeedsWhatsappVerification(false);
       setVerifiedMobileE164(null);
+      setVerificationResolved(false);
+    } else if (verificationResolved && profileLoaded) {
+      // Account/session already answered for this visit — do not re-verify on Place Order.
+      return;
     }
 
     let alive = true;
@@ -202,18 +251,26 @@ export default function CheckoutPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!alive || !data) return;
-        setWhatsappVerified(data.verified === true);
-        setNeedsWhatsappVerification(data.needsVerification !== false);
-        if (data.verified) {
+        const verified = data.verified === true;
+        const needs = data.needsVerification === true;
+        setWhatsappVerified(verified);
+        setNeedsWhatsappVerification(needs);
+        setVerificationResolved(true);
+        if (verified) {
           setVerifiedMobileE164(mobileE164);
+          setSessionVerifiedMobile(mobileE164);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (alive) setVerificationResolved(true);
+      });
 
     return () => {
       alive = false;
     };
-  }, [mobileE164, isWhatsAppPatternValid, verifiedMobileE164]);
+    // Intentionally omit whatsappVerified / needsWhatsappVerification to avoid re-fetch loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mobileE164, isWhatsAppPatternValid, verifiedMobileE164, verificationResolved, profileLoaded]);
 
   function focusSection(section: 'customer' | 'address' | 'summary') {
     setHighlightSection(section);
@@ -269,15 +326,20 @@ export default function CheckoutPage() {
   }
 
   async function ensureWhatsAppVerified(data: CheckoutSchema): Promise<boolean> {
-    // Already confirmed this session — don't add another round-trip before place order.
-    if (whatsappVerified || (verifiedMobileE164 && !needsWhatsappVerification)) {
-      return true;
-    }
-
     const e164 = toE164('91', data.mobile);
     if (!e164) {
       focusSection('customer');
       return false;
+    }
+
+    // Session / in-memory already confirmed — never re-check on Place Order.
+    if (
+      whatsappVerified ||
+      !needsWhatsappVerification ||
+      isMobileVerifiedInSession(e164) ||
+      (verifiedMobileE164 && verifiedMobileE164 === e164)
+    ) {
+      return true;
     }
 
     try {
@@ -287,10 +349,13 @@ export default function CheckoutPage() {
         setWhatsappVerified(true);
         setNeedsWhatsappVerification(false);
         setVerifiedMobileE164(e164);
+        setSessionVerifiedMobile(e164);
+        setVerificationResolved(true);
         return true;
       }
       if (status?.canCheckout) {
         setNeedsWhatsappVerification(false);
+        setVerificationResolved(true);
         return true;
       }
     } catch {
@@ -422,6 +487,8 @@ export default function CheckoutPage() {
     setWhatsappVerified(true);
     setNeedsWhatsappVerification(false);
     setVerifiedMobileE164(mobile);
+    setSessionVerifiedMobile(mobile);
+    setVerificationResolved(true);
     setShowVerificationModal(false);
     const checkoutMobile = e164ToCheckoutMobile(mobile);
     if (checkoutMobile && checkoutMobile !== getValues('mobile')) {
@@ -669,7 +736,7 @@ export default function CheckoutPage() {
                     ? 'Delivery unavailable at this address'
                     : !isWhatsAppPatternValid
                       ? 'Enter valid mobile number'
-                      : needsWhatsappVerification && !whatsappVerified
+                      : verificationResolved && needsWhatsappVerification && !whatsappVerified
                       ? 'Verify WhatsApp to place order'
                       : 'Place Order'}
               </Button>

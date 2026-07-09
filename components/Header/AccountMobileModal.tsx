@@ -11,6 +11,7 @@ import { clearCheckoutProfileLocal, loadCheckoutProfileLocal } from '@/utils/cus
 import { normalizeMobile } from '@/utils/mobile';
 import { toE164, formatE164Display } from '@/utils/phone';
 import { openWhatsAppUrl } from '@/utils/whatsapp';
+import { setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
 
 const LOGIN_POLL_INTERVAL_MS = 4000;
 
@@ -60,6 +61,8 @@ export default function AccountMobileModal() {
   }
 
   function finishLogin(normalized: string) {
+    const e164 = toE164('91', normalized);
+    if (e164) setSessionVerifiedMobile(e164);
     if (staffNameRef.current) {
       setStaffEligible(normalized, staffNameRef.current);
     } else {
@@ -83,6 +86,7 @@ export default function AccountMobileModal() {
         if (!res.ok || !active) return;
         const data = await res.json();
         if (data.verified) {
+          setSessionVerifiedMobile(mobileE164);
           setPhase('create-password');
           setError('');
         }

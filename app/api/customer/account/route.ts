@@ -1,17 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { normalizeMobile, isValidIndianMobile } from '@/utils/mobile';
+import { toE164 } from '@/utils/phone';
 import {
   CUSTOMER_MOBILE_COOKIE,
   customerSessionClearOptions,
   getCustomerMobileFromRequest,
 } from '@/lib/customer-session';
+import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationService';
 
 const SETTING_PREFIX = 'customer_mobile_';
 
 export async function GET(req: NextRequest) {
   const mobile = getCustomerMobileFromRequest(req);
-  return NextResponse.json({ mobile: mobile ?? null });
+  if (!mobile) {
+    return NextResponse.json({
+      mobile: null,
+      isWhatsappVerified: false,
+      needsVerification: true,
+      canCheckout: false,
+    });
+  }
+
+  const e164 = toE164('91', mobile);
+  if (!e164) {
+    return NextResponse.json({
+      mobile,
+      isWhatsappVerified: false,
+      needsVerification: true,
+      canCheckout: false,
+    });
+  }
+
+  const status = await WhatsAppVerificationService.getStatus(e164);
+  return NextResponse.json({
+    mobile,
+    isWhatsappVerified: status.verified === true,
+    needsVerification: status.needsVerification === true,
+    canCheckout: status.canCheckout === true,
+  });
 }
 
 /**

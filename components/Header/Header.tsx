@@ -11,6 +11,8 @@ import GlobalSearch from '@/components/Header/GlobalSearch';
 import AccountMobileModal from '@/components/Header/AccountMobileModal';
 import StaffAdminLoginModal from '@/components/Header/StaffAdminLoginModal';
 import { clearCheckoutProfileLocal } from '@/utils/customerProfile';
+import { clearSessionVerifiedMobile, setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
+import { toE164 } from '@/utils/phone';
 
 interface HeaderProps {
   /** Set false to hide the global product search (e.g. focused flows like checkout). */
@@ -40,9 +42,13 @@ export default function Header({ showSearch = true }: HeaderProps) {
     if (hasAccountIdentity) return;
     fetch('/api/customer/account')
       .then((res) => res.json())
-      .then((data: { mobile?: string | null }) => {
+      .then((data: { mobile?: string | null; isWhatsappVerified?: boolean }) => {
         if (data.mobile) {
           setCustomerMobile(data.mobile);
+          if (data.isWhatsappVerified) {
+            const e164 = toE164('91', data.mobile);
+            if (e164) setSessionVerifiedMobile(e164);
+          }
         }
       })
       .catch(() => null);
@@ -59,6 +65,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
   async function handleCustomerLogout() {
     await fetch('/api/customer/account', { method: 'DELETE' }).catch(() => null);
     clearCheckoutProfileLocal();
+    clearSessionVerifiedMobile();
     clearAccount();
     setAccountMenuOpen(false);
     // Always land on the GoBaskit home page after logging out, with a full

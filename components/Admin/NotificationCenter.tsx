@@ -285,6 +285,21 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
     setUnreadCount(0);
   }
 
+  async function clearAllNotifications() {
+    if (items.length === 0 && unreadCount === 0) return;
+    const ok = window.confirm('Clear all notifications? This cannot be undone.');
+    if (!ok) return;
+    const res = await fetch('/api/admin/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clearAll: true }),
+    });
+    if (res.ok) {
+      setItems([]);
+      setUnreadCount(0);
+    }
+  }
+
   async function markTypeRead() {
     if (!typeFilter) return;
     await fetch('/api/admin/notifications', {
@@ -385,17 +400,28 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
                   <option value="system">System</option>
                 </select>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2 flex-wrap">
                 {unreadCount > 0 ? (
                   <button type="button" onClick={markAllRead} className="text-xs text-blinkit-green hover:underline">
                     Mark all read
                   </button>
                 ) : <span />}
-                {typeFilter && (
-                  <button type="button" onClick={markTypeRead} className="text-xs text-blinkit-green hover:underline">
-                    Mark {typeFilter} read
-                  </button>
-                )}
+                <div className="flex gap-3 ml-auto">
+                  {typeFilter && (
+                    <button type="button" onClick={markTypeRead} className="text-xs text-blinkit-green hover:underline">
+                      Mark {typeFilter} read
+                    </button>
+                  )}
+                  {items.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => void clearAllNotifications()}
+                      className="text-xs text-red-600 hover:underline"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
             <div className="max-h-72 overflow-y-auto">
