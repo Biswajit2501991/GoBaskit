@@ -8,6 +8,7 @@ import { OrderService } from '@/services/OrderService';
 import { NotificationService } from '@/services/NotificationService';
 import { CustomerProfileService } from '@/services/CustomerProfileService';
 import { InventoryService } from '@/services/InventoryService';
+import { DiscountEngine } from '@/services/DiscountEngine';
 import { profileFromCheckout } from '@/utils/customerProfile';
 import { toE164 } from '@/utils/phone';
 import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationService';
@@ -20,7 +21,7 @@ import {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { customer, items, paymentMethod, orderSource, customerLat, customerLng } = body;
+    const { customer, items, paymentMethod, orderSource, customerLat, customerLng, discount } = body;
 
     const parsed = checkoutSchema.safeParse({ ...customer, paymentMethod });
     if (!parsed.success) {
@@ -61,7 +62,26 @@ export async function POST(req: NextRequest) {
     }
 
     const deliveryCharge = deliveryChargeFrom(config.deliverySlabs, subtotal);
-    const grandTotal = subtotal + deliveryCharge;
+
+    const discountRequest = discount && typeof discount === 'object' ? discount : null;
+    const discountTypeRaw =
+      discountRequest?.type === 'COUPON' || discountRequest?.type === 'MEMBERSHIP'
+        ? discountRequest.type
+        : 'NONE';
+    const resolvedDiscount = await DiscountEngine.resolveForCheckout({
+      type: discountTypeRaw,
+      couponCode: typeof discountRequest?.couponCode === 'string' ? discountRequest.couponCode : null,
+      mobile: parsed.data.mobile,
+      subtotal,
+      clientDiscountAmount:
+        typeof discountRequest?.discountAmount === 'number' ? discountRequest.discountAmount : null,
+    });
+    if (!resolvedDiscount.ok) {
+      return NextResponse.json({ error: resolvedDiscount.error }, { status: 400 });
+    }
+
+    const discountAmount = resolvedDiscount.discountAmount;
+    const grandTotal = Math.max(0, subtotal - discountAmount + deliveryCharge);
     const orderNumber = `GB${Date.now().toString().slice(-8)}`;
     const source = orderSource === 'whatsapp' ? 'whatsapp' : 'website';
 
@@ -113,6 +133,10 @@ export async function POST(req: NextRequest) {
           customerId: dbCustomer.id,
           subtotal,
           deliveryCharge,
+          discountAmount,
+          discountType: resolvedDiscount.discountType,
+          couponCode: resolvedDiscount.couponCode,
+          membershipMemberId: resolvedDiscount.memberId,
           grandTotal,
           paymentMethod: parsed.data.paymentMethod,
           deliveryNotes: parsed.data.deliveryNotes || null,
@@ -135,6 +159,18 @@ export async function POST(req: NextRequest) {
         },
         include: { items: true, customer: true },
       });
+
+      if (resolvedDiscount.discountType !== 'NONE' && discountAmount > 0) {
+        await DiscountEngine.recordCheckoutDiscount(tx, {
+          orderId: created.id,
+          mobile: parsed.data.mobile,
+          discountType: resolvedDiscount.discountType,
+          discountAmount,
+          couponId: resolvedDiscount.couponId,
+          couponCode: resolvedDiscount.couponCode,
+          memberId: resolvedDiscount.memberId,
+        });
+      }
 
       inventoryUpdates = await InventoryService.reserveForOrder(tx, created.id, stockItems);
       return created;

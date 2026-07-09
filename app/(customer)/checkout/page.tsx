@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Header from '@/components/Header/Header';
 import { useCartStore } from '@/store/cartStore';
 import { useConfigStore } from '@/store/configStore';
+import { useDiscountStore } from '@/store/discountStore';
 import { useLocationStore } from '@/store/locationStore';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
 import { deliveryChargeFrom } from '@/constants';
@@ -44,6 +45,8 @@ export default function CheckoutPage() {
     checkoutMode,
     refreshConfig,
   } = useConfigStore();
+  const appliedDiscount = useDiscountStore((s) => s.applied);
+  const clearDiscount = useDiscountStore((s) => s.clear);
 
   useEffect(() => {
     refreshConfig();
@@ -51,7 +54,11 @@ export default function CheckoutPage() {
 
   const subtotal = getSubtotal();
   const deliveryCharge = deliveryChargeFrom(deliverySlabs, subtotal);
-  const grandTotal = subtotal + deliveryCharge;
+  const discountAmount =
+    appliedDiscount && Math.abs(appliedDiscount.quotedSubtotal - subtotal) <= 0.05
+      ? appliedDiscount.discountAmount
+      : 0;
+  const grandTotal = Math.max(0, subtotal - discountAmount + deliveryCharge);
   const belowMinimum = minOrderValue > 0 && subtotal < minOrderValue;
 
   const locationPin = useLocationStore((s) => s.pin);
@@ -230,10 +237,17 @@ export default function CheckoutPage() {
       customer: formValues,
       subtotal,
       deliveryCharge,
+      discountAmount,
+      discountLabel:
+        appliedDiscount?.type === 'COUPON' && appliedDiscount.couponCode
+          ? `Coupon (${appliedDiscount.couponCode})`
+          : appliedDiscount?.type === 'MEMBERSHIP'
+            ? 'Membership'
+            : undefined,
       grandTotal,
       storeName: STORE_NAME,
     });
-  }, [items, formValues, subtotal, deliveryCharge, grandTotal]);
+  }, [items, formValues, subtotal, deliveryCharge, discountAmount, appliedDiscount, grandTotal]);
 
   function validateBeforeSubmit(data: CheckoutSchema): boolean {
     setOrderError('');
@@ -316,6 +330,15 @@ export default function CheckoutPage() {
       })),
       paymentMethod: data.paymentMethod,
       orderSource: source,
+      ...(discountAmount > 0 && appliedDiscount
+        ? {
+            discount: {
+              type: appliedDiscount.type,
+              couponCode: appliedDiscount.couponCode,
+              discountAmount: appliedDiscount.discountAmount,
+            },
+          }
+        : {}),
     };
 
     if (source === 'whatsapp') {
@@ -324,6 +347,13 @@ export default function CheckoutPage() {
         customer: data,
         subtotal,
         deliveryCharge,
+        discountAmount,
+        discountLabel:
+          appliedDiscount?.type === 'COUPON' && appliedDiscount.couponCode
+            ? `Coupon (${appliedDiscount.couponCode})`
+            : appliedDiscount?.type === 'MEMBERSHIP'
+              ? 'Membership'
+              : undefined,
         grandTotal,
         storeName: STORE_NAME,
       });
@@ -369,6 +399,7 @@ export default function CheckoutPage() {
       }
     }
     clearCart();
+    clearDiscount();
     try {
       sessionStorage.setItem('gobaskit_last_order_source', source);
     } catch {
@@ -595,6 +626,19 @@ export default function CheckoutPage() {
             }`}
           >
             <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-blinkit-green">
+                <span>
+                  Discount
+                  {appliedDiscount?.type === 'COUPON' && appliedDiscount.couponCode
+                    ? ` (${appliedDiscount.couponCode})`
+                    : appliedDiscount?.type === 'MEMBERSHIP'
+                      ? ' (Membership)'
+                      : ''}
+                </span>
+                <span>−{formatCurrency(discountAmount)}</span>
+              </div>
+            )}
             <div className="flex justify-between"><span>Delivery</span><span>{formatCurrency(deliveryCharge)}</span></div>
             <div className="flex justify-between font-bold text-base border-t border-dashed pt-2">
               <span>Total</span><span className="text-blinkit-green">{formatCurrency(grandTotal)}</span>

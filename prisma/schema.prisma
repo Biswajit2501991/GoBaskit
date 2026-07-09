@@ -34,6 +34,22 @@ enum PaymentMethod {
   QR_ON_DELIVERY
 }
 
+enum CouponDiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum CouponStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum OrderDiscountType {
+  NONE
+  COUPON
+  MEMBERSHIP
+}
+
 enum StaffRole {
   SUPER_ADMIN
   MANAGER
@@ -230,6 +246,10 @@ model Order {
   status          OrderStatus   @default(PENDING)
   subtotal        Float
   deliveryCharge  Float         @default(0) @map("delivery_charge")
+  discountAmount  Float         @default(0) @map("discount_amount")
+  discountType    OrderDiscountType @default(NONE) @map("discount_type")
+  couponCode      String?       @map("coupon_code")
+  membershipMemberId String?    @map("membership_member_id")
   grandTotal      Float         @map("grand_total")
   paymentMethod   PaymentMethod @map("payment_method")
   deliveryNotes   String?       @map("delivery_notes")
@@ -413,4 +433,72 @@ model AuditLog {
   @@index([entity, entityId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+model Coupon {
+  id                  String             @id @default(cuid())
+  couponCode          String             @unique @map("coupon_code")
+  discountType        CouponDiscountType @map("discount_type")
+  discountValue       Float              @map("discount_value")
+  maxDiscount         Float?             @map("max_discount")
+  minimumOrder        Float              @default(0) @map("minimum_order")
+  startDate           DateTime?          @map("start_date")
+  expiryDate          DateTime?          @map("expiry_date")
+  status              CouponStatus       @default(ACTIVE)
+  usageLimitPerMobile Int                @default(3) @map("usage_limit_per_mobile")
+  totalUsageLimit     Int?               @map("total_usage_limit")
+  description         String             @default("")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  usages              CouponUsage[]
+
+  @@index([status, expiryDate])
+  @@map("coupons")
+}
+
+model CouponUsage {
+  id             String   @id @default(cuid())
+  couponId       String   @map("coupon_id")
+  coupon         Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  mobile         String
+  orderId        String   @map("order_id")
+  discountAmount Float    @map("discount_amount")
+  usedAt         DateTime @default(now()) @map("used_at")
+
+  @@index([couponId, mobile])
+  @@index([orderId])
+  @@index([mobile, usedAt])
+  @@map("coupon_usage")
+}
+
+model MembershipDiscountUsage {
+  id             String   @id @default(cuid())
+  mobile         String
+  memberId       String?  @map("member_id")
+  orderId        String   @map("order_id")
+  discountAmount Float    @map("discount_amount")
+  usedAt         DateTime @default(now()) @map("used_at")
+
+  @@index([mobile, usedAt])
+  @@index([orderId])
+  @@map("membership_discount_usage")
+}
+
+model DiscountLog {
+  id             String            @id @default(cuid())
+  orderId        String?           @map("order_id")
+  mobile         String?
+  couponCode     String?           @map("coupon_code")
+  membership     Boolean           @default(false)
+  discountAmount Float             @default(0) @map("discount_amount")
+  discountType   OrderDiscountType @default(NONE) @map("discount_type")
+  status         String
+  appliedBy      String            @default("system") @map("applied_by")
+  meta           Json?
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  @@index([orderId])
+  @@index([mobile, createdAt])
+  @@index([createdAt])
+  @@map("discount_logs")
 }

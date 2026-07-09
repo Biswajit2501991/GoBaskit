@@ -9,6 +9,8 @@ interface WhatsAppOrderParams {
   subtotal: number;
   deliveryCharge: number;
   grandTotal: number;
+  discountAmount?: number;
+  discountLabel?: string;
   storeName?: string;
 }
 
@@ -18,6 +20,8 @@ export function buildWhatsAppMessage({
   subtotal,
   deliveryCharge,
   grandTotal,
+  discountAmount = 0,
+  discountLabel,
   storeName = 'GoBaskit',
 }: WhatsAppOrderParams): string {
   const lines: string[] = [
@@ -62,6 +66,14 @@ export function buildWhatsAppMessage({
     '-----------------------',
     '',
     `Subtotal: ${formatCurrency(subtotal)}`,
+  );
+
+  if (discountAmount > 0) {
+    const label = discountLabel ? `Discount (${discountLabel})` : 'Discount';
+    lines.push(`${label}: −${formatCurrency(discountAmount)}`);
+  }
+
+  lines.push(
     `Delivery: ${formatCurrency(deliveryCharge)}`,
     `Grand Total: ${formatCurrency(grandTotal)}`,
     '',

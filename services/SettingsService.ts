@@ -8,6 +8,19 @@ import {
   type DeliverySlab,
 } from '@/constants';
 
+export interface DiscountConfig {
+  couponsEnabled: boolean;
+  membershipEnabled: boolean;
+  membership: {
+    enabled: boolean;
+    discountPercent: number;
+    maxDiscount: number | null;
+    usageLimitPerMember: number;
+    minimumOrder: number;
+    message: string;
+  };
+}
+
 export interface StoreConfig {
   serviceablePins: string[];
   serviceableCities: string[];
@@ -42,11 +55,15 @@ export interface StoreConfig {
       enabled: boolean;
     }>;
   };
+  discountConfig: DiscountConfig;
 }
 
-type StoreConfigUpdate = Partial<Omit<StoreConfig, 'homepageConfig'>> & {
+type StoreConfigUpdate = Partial<Omit<StoreConfig, 'homepageConfig' | 'discountConfig'>> & {
   homepageConfig?: Partial<Omit<StoreConfig['homepageConfig'], 'promoSections'>> & {
     promoSections?: Array<Partial<StoreConfig['homepageConfig']['promoSections'][number]>>;
+  };
+  discountConfig?: Partial<Omit<DiscountConfig, 'membership'>> & {
+    membership?: Partial<DiscountConfig['membership']>;
   };
 };
 
@@ -64,6 +81,20 @@ const KEY_WHATSAPP_NUMBER = 'whatsapp_number';
 const KEY_CHECKOUT_MODE = 'checkout_mode';
 const KEY_NOTIFICATION_SOUND = 'notification_sound_enabled';
 const KEY_HOMEPAGE_CONFIG = 'homepage_config';
+const KEY_DISCOUNT_CONFIG = 'discount_config';
+
+const DEFAULT_DISCOUNT_CONFIG: DiscountConfig = {
+  couponsEnabled: false,
+  membershipEnabled: false,
+  membership: {
+    enabled: true,
+    discountPercent: 10,
+    maxDiscount: null,
+    usageLimitPerMember: 10,
+    minimumOrder: 0,
+    message: 'Action Plus Membership Discount Applied',
+  },
+};
 
 const DEFAULTS: StoreConfig = {
   serviceablePins: SERVICEABLE_PINS,
@@ -126,6 +157,7 @@ const DEFAULTS: StoreConfig = {
       },
     ],
   },
+  discountConfig: DEFAULT_DISCOUNT_CONFIG,
 };
 
 // In-memory cache. The app runs as a single long-lived Node server, so this
@@ -288,6 +320,39 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     }
   }
 
+  let discountConfig = DEFAULT_DISCOUNT_CONFIG;
+  const rawDiscountConfig = map.get(KEY_DISCOUNT_CONFIG);
+  if (rawDiscountConfig) {
+    try {
+      const parsed = JSON.parse(rawDiscountConfig) as Record<string, unknown>;
+      const mem = (parsed.membership ?? {}) as Record<string, unknown>;
+      discountConfig = {
+        couponsEnabled: parsed.couponsEnabled === true,
+        membershipEnabled: parsed.membershipEnabled === true,
+        membership: {
+          enabled: mem.enabled !== false,
+          discountPercent: Math.min(
+            100,
+            Math.max(0, Number(mem.discountPercent ?? DEFAULT_DISCOUNT_CONFIG.membership.discountPercent) || 0),
+          ),
+          maxDiscount:
+            mem.maxDiscount == null || mem.maxDiscount === ''
+              ? null
+              : Math.max(0, Number(mem.maxDiscount) || 0),
+          usageLimitPerMember: Math.max(
+            1,
+            Math.trunc(Number(mem.usageLimitPerMember ?? DEFAULT_DISCOUNT_CONFIG.membership.usageLimitPerMember) || 10),
+          ),
+          minimumOrder: Math.max(0, Number(mem.minimumOrder ?? 0) || 0),
+          message:
+            String(mem.message ?? '').trim() || DEFAULT_DISCOUNT_CONFIG.membership.message,
+        },
+      };
+    } catch {
+      discountConfig = DEFAULT_DISCOUNT_CONFIG;
+    }
+  }
+
   return {
     serviceablePins: pins,
     serviceableCities: cities,
@@ -303,6 +368,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     checkoutMode,
     notificationSoundEnabled,
     homepageConfig,
+    discountConfig,
   };
 }
 
@@ -329,6 +395,7 @@ export const SettingsService = {
               KEY_CHECKOUT_MODE,
               KEY_NOTIFICATION_SOUND,
               KEY_HOMEPAGE_CONFIG,
+              KEY_DISCOUNT_CONFIG,
             ],
           },
         },
@@ -444,6 +511,58 @@ export const SettingsService = {
           : DEFAULTS.homepageConfig.promoSections,
       };
       writes.push(upsert(KEY_HOMEPAGE_CONFIG, JSON.stringify(safe)));
+    }
+    if (partial.discountConfig) {
+      const current = await this.getStoreConfig();
+      const merged: DiscountConfig = {
+        couponsEnabled:
+          partial.discountConfig.couponsEnabled ?? current.discountConfig.couponsEnabled,
+        membershipEnabled:
+          partial.discountConfig.membershipEnabled ?? current.discountConfig.membershipEnabled,
+        membership: {
+          ...current.discountConfig.membership,
+          ...(partial.discountConfig.membership ?? {}),
+          discountPercent: Math.min(
+            100,
+            Math.max(
+              0,
+              Number(
+                partial.discountConfig.membership?.discountPercent ??
+                  current.discountConfig.membership.discountPercent,
+              ) || 0,
+            ),
+          ),
+          maxDiscount:
+            partial.discountConfig.membership && 'maxDiscount' in partial.discountConfig.membership
+              ? partial.discountConfig.membership.maxDiscount == null
+                ? null
+                : Math.max(0, Number(partial.discountConfig.membership.maxDiscount) || 0)
+              : current.discountConfig.membership.maxDiscount,
+          usageLimitPerMember: Math.max(
+            1,
+            Math.trunc(
+              Number(
+                partial.discountConfig.membership?.usageLimitPerMember ??
+                  current.discountConfig.membership.usageLimitPerMember,
+              ) || 10,
+            ),
+          ),
+          minimumOrder: Math.max(
+            0,
+            Number(
+              partial.discountConfig.membership?.minimumOrder ??
+                current.discountConfig.membership.minimumOrder,
+            ) || 0,
+          ),
+          message:
+            String(
+              partial.discountConfig.membership?.message ??
+                current.discountConfig.membership.message,
+            ).trim() || DEFAULT_DISCOUNT_CONFIG.membership.message,
+          enabled: partial.discountConfig.membership?.enabled ?? current.discountConfig.membership.enabled,
+        },
+      };
+      writes.push(upsert(KEY_DISCOUNT_CONFIG, JSON.stringify(merged)));
     }
 
     await Promise.all(writes);

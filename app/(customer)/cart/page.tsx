@@ -4,8 +4,10 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
+import CouponSection from '@/components/Cart/CouponSection';
 import { useCartStore, itemLineKey } from '@/store/cartStore';
 import { useConfigStore } from '@/store/configStore';
+import { useDiscountStore } from '@/store/discountStore';
 import { deliveryChargeFrom } from '@/constants';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { formatCurrency } from '@/utils/formatter';
@@ -17,6 +19,8 @@ export default function CartPage() {
   const hydrated = useCartHydrated();
   const { items, updateQuantity, removeItem, clearCart, getSubtotal } = useCartStore();
   const { deliverySlabs, minOrderValue, fetchConfig } = useConfigStore();
+  const appliedDiscount = useDiscountStore((s) => s.applied);
+  const clearDiscount = useDiscountStore((s) => s.clear);
 
   useEffect(() => {
     fetchConfig();
@@ -24,8 +28,17 @@ export default function CartPage() {
 
   const subtotal = getSubtotal();
   const deliveryCharge = deliveryChargeFrom(deliverySlabs, subtotal);
-  const grandTotal = subtotal + deliveryCharge;
+  const discountAmount =
+    appliedDiscount && Math.abs(appliedDiscount.quotedSubtotal - subtotal) <= 0.05
+      ? appliedDiscount.discountAmount
+      : 0;
+  const grandTotal = Math.max(0, subtotal - discountAmount + deliveryCharge);
   const belowMinimum = minOrderValue > 0 && subtotal < minOrderValue;
+
+  function handleClearCart() {
+    clearCart();
+    clearDiscount();
+  }
 
   const imageFetchAttempted = useRef(new Set<string>());
 
@@ -96,7 +109,7 @@ export default function CartPage() {
       <main className="flex-1 max-w-lg mx-auto w-full px-4 py-4 pb-28 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">My Cart ({items.length})</h2>
-          <button onClick={clearCart} className="text-red-500 text-sm font-medium hover:text-red-600">Clear Cart</button>
+          <button onClick={handleClearCart} className="text-red-500 text-sm font-medium hover:text-red-600">Clear Cart</button>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 divide-y">
@@ -143,8 +156,23 @@ export default function CartPage() {
           ))}
         </div>
 
+        <CouponSection subtotal={subtotal} />
+
         <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-2 text-sm">
           <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
+          {discountAmount > 0 && (
+            <div className="flex justify-between text-blinkit-green">
+              <span>
+                Discount
+                {appliedDiscount?.type === 'COUPON' && appliedDiscount.couponCode
+                  ? ` (${appliedDiscount.couponCode})`
+                  : appliedDiscount?.type === 'MEMBERSHIP'
+                    ? ' (Membership)'
+                    : ''}
+              </span>
+              <span className="font-medium">−{formatCurrency(discountAmount)}</span>
+            </div>
+          )}
           <div className="flex justify-between"><span className="text-gray-500">Delivery</span><span className="font-medium">{formatCurrency(deliveryCharge)}</span></div>
           <div className="flex justify-between border-t border-dashed pt-2 font-bold text-base">
             <span>Grand Total</span><span className="text-blinkit-green">{formatCurrency(grandTotal)}</span>

@@ -18,6 +18,9 @@ export interface CustomerOrderSummary {
 export interface CustomerOrderDetail extends CustomerOrderSummary {
   subtotal: number;
   deliveryCharge: number;
+  discountAmount: number;
+  discountType: 'NONE' | 'COUPON' | 'MEMBERSHIP';
+  couponCode: string | null;
   paymentMethod: string;
   cancelNotice?: string | null;
   customerVisibleUntil?: string | null;
@@ -137,6 +140,9 @@ export class CustomerOrderService {
       grandTotal: order.grandTotal,
       subtotal: order.subtotal,
       deliveryCharge: order.deliveryCharge,
+      discountAmount: order.discountAmount,
+      discountType: order.discountType,
+      couponCode: order.couponCode,
       paymentMethod: order.paymentMethod,
       cancelNotice: order.cancelNotice,
       customerVisibleUntil: order.customerVisibleUntil?.toISOString() ?? null,

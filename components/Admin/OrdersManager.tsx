@@ -46,6 +46,9 @@ interface OrderRow {
   orderNumber: string;
   status: string;
   grandTotal: number;
+  discountAmount?: number;
+  discountType?: string;
+  couponCode?: string | null;
   priority: string;
   paymentMethod: string;
   deliveryNotes?: string | null;
@@ -243,6 +246,16 @@ function OrderCard({
               <p className="font-bold text-sm text-blinkit-green">{formatCurrency(order.grandTotal)}</p>
             </div>
           </div>
+          {(order.discountAmount ?? 0) > 0 && (
+            <p className="text-[10px] text-blinkit-green font-medium">
+              Discount −{formatCurrency(order.discountAmount!)}
+              {order.discountType === 'COUPON' && order.couponCode
+                ? ` (${order.couponCode})`
+                : order.discountType === 'MEMBERSHIP'
+                  ? ' (Membership)'
+                  : ''}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-1">
             {order.priority !== 'NORMAL' && (
               <span className="text-[10px] font-semibold bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded">

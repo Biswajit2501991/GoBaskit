@@ -17,6 +17,11 @@ interface OrderDetail {
   orderNumber: string;
   status: OrderStatus;
   grandTotal: number;
+  subtotal?: number;
+  deliveryCharge?: number;
+  discountAmount?: number;
+  discountType?: 'NONE' | 'COUPON' | 'MEMBERSHIP';
+  couponCode?: string | null;
   createdAt: string;
   cancelNotice?: string | null;
   customerVisibleUntil?: string | null;
@@ -117,6 +122,39 @@ export default function OrderTrackDetailClient({ orderId }: { orderId: string })
                   </li>
                 ))}
               </ul>
+              {(order.subtotal != null || order.deliveryCharge != null) && (
+                <div className="mt-4 pt-3 border-t border-dashed space-y-1.5 text-sm">
+                  {order.subtotal != null && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>Subtotal</span>
+                      <span>{formatCurrency(order.subtotal)}</span>
+                    </div>
+                  )}
+                  {(order.discountAmount ?? 0) > 0 && (
+                    <div className="flex justify-between text-blinkit-green">
+                      <span>
+                        Discount
+                        {order.discountType === 'COUPON' && order.couponCode
+                          ? ` (${order.couponCode})`
+                          : order.discountType === 'MEMBERSHIP'
+                            ? ' (Membership)'
+                            : ''}
+                      </span>
+                      <span>−{formatCurrency(order.discountAmount!)}</span>
+                    </div>
+                  )}
+                  {order.deliveryCharge != null && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>Delivery</span>
+                      <span>{formatCurrency(order.deliveryCharge)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-base pt-1">
+                    <span>Grand Total</span>
+                    <span className="text-blinkit-green">{formatCurrency(order.grandTotal)}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (

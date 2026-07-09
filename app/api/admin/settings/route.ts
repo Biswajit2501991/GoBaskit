@@ -52,6 +52,22 @@ const settingsSchema = z.object({
         .optional(),
     })
     .optional(),
+  discountConfig: z
+    .object({
+      couponsEnabled: z.boolean().optional(),
+      membershipEnabled: z.boolean().optional(),
+      membership: z
+        .object({
+          enabled: z.boolean().optional(),
+          discountPercent: z.number().min(0).max(100).optional(),
+          maxDiscount: z.number().min(0).nullable().optional(),
+          usageLimitPerMember: z.number().int().min(1).max(1000).optional(),
+          minimumOrder: z.number().min(0).optional(),
+          message: z.string().max(200).optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export async function GET() {

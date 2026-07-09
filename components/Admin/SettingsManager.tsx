@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2 } from 'lucide-react';
 import type { DeliverySlab } from '@/constants';
+import type { DiscountConfig } from '@/services/SettingsService';
+import DiscountManager from '@/components/Admin/DiscountManager';
 
 interface StoreConfig {
   serviceablePins: string[];
@@ -41,6 +43,7 @@ interface StoreConfig {
       enabled: boolean;
     }>;
   };
+  discountConfig: DiscountConfig;
 }
 
 const PAYMENT_OPTIONS = ['COD', 'QR_ON_DELIVERY', 'UPI', 'CARD'];
@@ -690,6 +693,26 @@ export default function SettingsManager({
         ) : (
           <span className="text-sm text-gray-500">Read-only access</span>
         )}
+      </div>
+
+      <div className="border-t border-gray-200 pt-6">
+        <DiscountManager
+          initialConfig={
+            initialConfig.discountConfig ?? {
+              couponsEnabled: false,
+              membershipEnabled: false,
+              membership: {
+                enabled: true,
+                discountPercent: 10,
+                maxDiscount: null,
+                usageLimitPerMember: 10,
+                minimumOrder: 0,
+                message: 'Action Plus Membership Discount Applied',
+              },
+            }
+          }
+          canEdit={canEdit}
+        />
       </div>
     </div>
   );
