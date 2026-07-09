@@ -32,7 +32,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 });
     }
 
-    const config = await SettingsService.getStoreConfig();
+    const subtotal = items.reduce(
+      (sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity,
+      0,
+    );
+
+    const stockItems = items.map(
+      (item: { productId: string; variantId?: string | null; quantity: number }) => ({
+        productId: item.productId,
+        variantId: item.variantId ?? null,
+        quantity: item.quantity,
+      }),
+    );
+
+    const mobileE164 = toE164('91', parsed.data.mobile) ?? `+91${parsed.data.mobile}`;
+    const discountRequest = discount && typeof discount === 'object' ? discount : null;
+    const discountTypeRaw =
+      discountRequest?.type === 'COUPON' || discountRequest?.type === 'MEMBERSHIP'
+        ? discountRequest.type
+        : 'NONE';
+
+    // Run independent pre-checks in parallel (biggest checkout latency win).
+    const [config, resolvedDiscount, , verification] = await Promise.all([
+      SettingsService.getStoreConfig(),
+      DiscountEngine.resolveForCheckout({
+        type: discountTypeRaw,
+        couponCode: typeof discountRequest?.couponCode === 'string' ? discountRequest.couponCode : null,
+        mobile: parsed.data.mobile,
+        subtotal,
+        clientDiscountAmount:
+          typeof discountRequest?.discountAmount === 'number' ? discountRequest.discountAmount : null,
+      }),
+      InventoryService.validateCheckoutItems(stockItems),
+      WhatsAppVerificationService.getCheckoutVerificationState(mobileE164),
+    ]);
+
+    if (!resolvedDiscount.ok) {
+      return NextResponse.json({ error: resolvedDiscount.error }, { status: 400 });
+    }
 
     const serviceable = deliveryIsServiceable({
       serviceablePins: config.serviceablePins,
@@ -49,11 +86,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const subtotal = items.reduce(
-      (sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity,
-      0,
-    );
-
     if (config.minOrderValue > 0 && subtotal < config.minOrderValue) {
       return NextResponse.json(
         { error: `Minimum order value is ₹${config.minOrderValue}.` },
@@ -61,53 +93,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const deliveryCharge = deliveryChargeFrom(config.deliverySlabs, subtotal);
-
-    const discountRequest = discount && typeof discount === 'object' ? discount : null;
-    const discountTypeRaw =
-      discountRequest?.type === 'COUPON' || discountRequest?.type === 'MEMBERSHIP'
-        ? discountRequest.type
-        : 'NONE';
-    const resolvedDiscount = await DiscountEngine.resolveForCheckout({
-      type: discountTypeRaw,
-      couponCode: typeof discountRequest?.couponCode === 'string' ? discountRequest.couponCode : null,
-      mobile: parsed.data.mobile,
-      subtotal,
-      clientDiscountAmount:
-        typeof discountRequest?.discountAmount === 'number' ? discountRequest.discountAmount : null,
-    });
-    if (!resolvedDiscount.ok) {
-      return NextResponse.json({ error: resolvedDiscount.error }, { status: 400 });
+    if (verification.needsVerification && !verification.isVerified) {
+      return NextResponse.json(
+        { error: 'WhatsApp verification required before placing your first order.', code: 'VERIFICATION_REQUIRED' },
+        { status: 403 },
+      );
     }
 
+    const isWhatsappVerified = verification.isVerified;
+    const deliveryCharge = deliveryChargeFrom(config.deliverySlabs, subtotal);
     const discountAmount = resolvedDiscount.discountAmount;
     const grandTotal = Math.max(0, subtotal - discountAmount + deliveryCharge);
     const orderNumber = `GB${Date.now().toString().slice(-8)}`;
     const source = orderSource === 'whatsapp' ? 'whatsapp' : 'website';
 
-    const stockItems = items.map(
-      (item: { productId: string; variantId?: string | null; quantity: number }) => ({
-        productId: item.productId,
-        variantId: item.variantId ?? null,
-        quantity: item.quantity,
-      }),
-    );
-    await InventoryService.validateCheckoutItems(stockItems);
-
-    const mobileE164 = toE164('91', parsed.data.mobile) ?? `+91${parsed.data.mobile}`;
-    const needsVerification = await WhatsAppVerificationService.needsVerification(mobileE164);
-    if (needsVerification) {
-      const verified = await WhatsAppVerificationService.isMobileVerified(mobileE164);
-      if (!verified) {
-        return NextResponse.json(
-          { error: 'WhatsApp verification required before placing your first order.', code: 'VERIFICATION_REQUIRED' },
-          { status: 403 },
-        );
-      }
-    }
-    const isWhatsappVerified = await WhatsAppVerificationService.isMobileVerified(mobileE164);
-
-    let inventoryUpdates: { updated: Awaited<ReturnType<typeof InventoryService.reserveForOrder>>['updated']; previousStock: Map<string, number> };
+    let inventoryUpdates: {
+      updated: Awaited<ReturnType<typeof InventoryService.reserveForOrder>>['updated'];
+      previousStock: Map<string, number>;
+    };
 
     const order = await prisma.$transaction(async (tx) => {
       const dbCustomer = await tx.customer.create({
@@ -145,7 +148,14 @@ export async function POST(req: NextRequest) {
           customerLng: typeof customerLng === 'number' ? customerLng : null,
           items: {
             create: items.map(
-              (item: { productId: string; variantId?: string | null; name: string; quantity: number; price: number; unit: string }) => ({
+              (item: {
+                productId: string;
+                variantId?: string | null;
+                name: string;
+                quantity: number;
+                price: number;
+                unit: string;
+              }) => ({
                 productId: item.productId,
                 variantId: item.variantId ?? null,
                 productName: item.name,
@@ -176,33 +186,8 @@ export async function POST(req: NextRequest) {
       return created;
     });
 
-    await InventoryService.afterOrderReserved(inventoryUpdates!.updated, inventoryUpdates!.previousStock);
-
-    await OrderService.onOrderCreated(order);
-    await NotificationService.notifyNewOrder({
-      id: order.id,
-      orderNumber: order.orderNumber,
-      grandTotal: order.grandTotal,
-      paymentMethod: order.paymentMethod,
-      orderSource: source,
-      customer: order.customer,
-      customerLat: order.customerLat,
-      customerLng: order.customerLng,
-    });
-
-    try {
-      await CustomerProfileService.save(
-        parsed.data.mobile,
-        profileFromCheckout(parsed.data),
-      );
-    } catch {
-      /* profile save is best-effort */
-    }
-
+    // Respond immediately; run non-critical side effects after the response is queued.
     const res = NextResponse.json({ order, orderNumber });
-    // Only log the customer in if the number is actually WhatsApp-verified.
-    // Returning customers who bypassed verification aren't auto-logged-in, so
-    // knowing someone's number and placing an order can't unlock their history.
     if (isWhatsappVerified) {
       res.cookies.set(
         CUSTOMER_MOBILE_COOKIE,
@@ -210,6 +195,25 @@ export async function POST(req: NextRequest) {
         customerSessionCookieOptions(),
       );
     }
+
+    void Promise.allSettled([
+      InventoryService.afterOrderReserved(inventoryUpdates!.updated, inventoryUpdates!.previousStock),
+      OrderService.onOrderCreated(order),
+      NotificationService.notifyNewOrder({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        grandTotal: order.grandTotal,
+        paymentMethod: order.paymentMethod,
+        orderSource: source,
+        customer: order.customer,
+        customerLat: order.customerLat,
+        customerLng: order.customerLng,
+      }),
+      CustomerProfileService.save(parsed.data.mobile, profileFromCheckout(parsed.data)),
+    ]).catch((err) => {
+      console.error('Checkout post-order side effects failed:', err);
+    });
+
     return res;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to place order';

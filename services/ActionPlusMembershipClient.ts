@@ -47,7 +47,10 @@ export class ActionPlusMembershipClient {
     cache.delete(normalizeMobile(mobile));
   }
 
-  static async getMemberStatus(mobileInput: string): Promise<MemberStatusResult> {
+  static async getMemberStatus(
+    mobileInput: string,
+    options?: { timeoutMs?: number },
+  ): Promise<MemberStatusResult> {
     const mobile = normalizeMobile(mobileInput);
     if (!isValidIndianMobile(mobile)) {
       return {
@@ -95,11 +98,13 @@ export class ActionPlusMembershipClient {
       return result;
     };
 
+    const timeoutMs = Math.max(1000, Math.min(options?.timeoutMs ?? 8000, 8000));
+
     try {
       const res = await fetch(url.toString(), {
         method: 'GET',
         headers,
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(timeoutMs),
         cache: 'no-store',
       });
       if (!res.ok) {

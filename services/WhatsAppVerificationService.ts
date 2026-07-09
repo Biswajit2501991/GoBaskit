@@ -83,12 +83,24 @@ export class WhatsAppVerificationService {
   }
 
   static async needsVerification(mobileE164: string): Promise<boolean> {
-    if (!isValidE164(mobileE164)) return true;
-    if (await this.isMobileVerified(mobileE164)) return false;
+    const state = await this.getCheckoutVerificationState(mobileE164);
+    return state.needsVerification;
+  }
+
+  /** Single-pass verification state for checkout (avoids duplicate DB reads). */
+  static async getCheckoutVerificationState(mobileE164: string): Promise<{
+    needsVerification: boolean;
+    isVerified: boolean;
+  }> {
+    if (!isValidE164(mobileE164)) {
+      return { needsVerification: true, isVerified: false };
+    }
+    const isVerified = await this.isMobileVerified(mobileE164);
+    if (isVerified) return { needsVerification: false, isVerified: true };
 
     const checkoutMobile = e164ToCheckoutMobile(mobileE164);
     const orderCount = await CustomerOrderService.completedOrderCountForMobile(checkoutMobile);
-    return orderCount === 0;
+    return { needsVerification: orderCount === 0, isVerified: false };
   }
 
   static async countAttemptsToday(mobileE164: string): Promise<number> {

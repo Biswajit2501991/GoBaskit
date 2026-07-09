@@ -150,6 +150,8 @@ export class DiscountEngine {
   static async checkMembership(params: {
     mobile: string;
     subtotal: number;
+    /** Shorter timeout for checkout re-validation (cart Verify already confirmed). */
+    timeoutMs?: number;
   }): Promise<DiscountResult> {
     const config = await SettingsService.getStoreConfig();
     const mem = config.discountConfig.membership;
@@ -174,7 +176,9 @@ export class DiscountEngine {
       };
     }
 
-    const status = await ActionPlusMembershipClient.getMemberStatus(mobile);
+    const status = await ActionPlusMembershipClient.getMemberStatus(mobile, {
+      timeoutMs: params.timeoutMs,
+    });
     if (!status.isActive) {
       if (status.error === 'Membership service not configured') {
         return { ok: false, code: 'NOT_CONFIGURED', error: 'Membership service unavailable' };
@@ -269,6 +273,8 @@ export class DiscountEngine {
       const result = await this.checkMembership({
         mobile: params.mobile,
         subtotal: params.subtotal,
+        // Cart Verify already hit Action Plus; checkout uses cache or a short re-check.
+        timeoutMs: 3000,
       });
       if (!result.ok) return { ok: false, error: result.error };
       if (

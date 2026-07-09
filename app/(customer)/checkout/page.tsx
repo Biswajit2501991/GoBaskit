@@ -376,27 +376,23 @@ export default function CheckoutPage() {
           setShowVerificationModal(true);
         }
         return;
-      } else {
-        orderPlaced = true;
       }
+      orderPlaced = true;
     } catch {
       setOrderError('Network error. Please try again.');
       return;
     }
 
-    await persistProfile(data);
+    // Navigate immediately — profile/account are best-effort and must not block success.
     if (orderPlaced) {
       const normalized = normalizeMobile(data.mobile);
       setCustomerMobile(normalized);
-      try {
-        await fetch('/api/customer/account', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mobile: normalized }),
-        });
-      } catch {
-        /* best-effort */
-      }
+      void persistProfile(data);
+      void fetch('/api/customer/account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile: normalized }),
+      }).catch(() => {});
     }
     clearCart();
     clearDiscount();
