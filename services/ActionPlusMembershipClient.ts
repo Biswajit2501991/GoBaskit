@@ -14,7 +14,10 @@ interface CacheEntry {
   expiresAt: number;
 }
 
-const CACHE_TTL_MS = 12 * 60 * 1000;
+/** Positive (active) lookups can be cached longer; inactive/errors must be short
+ *  so a newly activated member is not blocked for the full TTL. */
+const CACHE_TTL_ACTIVE_MS = 12 * 60 * 1000;
+const CACHE_TTL_INACTIVE_MS = 30 * 1000;
 const cache = new Map<string, CacheEntry>();
 
 function getBaseUrl(): string {
@@ -86,6 +89,12 @@ export class ActionPlusMembershipClient {
       url.searchParams.set('apiKey', apiKey);
     }
 
+    const remember = (result: MemberStatusResult) => {
+      const ttl = result.isActive ? CACHE_TTL_ACTIVE_MS : CACHE_TTL_INACTIVE_MS;
+      cache.set(mobile, { result, expiresAt: Date.now() + ttl });
+      return result;
+    };
+
     try {
       const res = await fetch(url.toString(), {
         method: 'GET',
@@ -94,6 +103,7 @@ export class ActionPlusMembershipClient {
         cache: 'no-store',
       });
       if (!res.ok) {
+        // Do not cache auth/config failures — they should recover immediately after fix.
         return {
           isActive: false,
           mobile,
@@ -121,15 +131,13 @@ export class ActionPlusMembershipClient {
 
       const members = Array.isArray(data.members) ? data.members : [];
       const active = members.find((m) => m.isActive) ?? members[0];
-      const result: MemberStatusResult = {
+      return remember({
         isActive: data.isActive === true || members.some((m) => m.isActive),
         mobile,
         memberId: active?.memberId != null ? String(active.memberId) : null,
         memberCode: active?.memberCode ?? null,
         fullName: active?.fullName ?? null,
-      };
-      cache.set(mobile, { result, expiresAt: Date.now() + CACHE_TTL_MS });
-      return result;
+      });
     } catch {
       return {
         isActive: false,
