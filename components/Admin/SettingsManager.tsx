@@ -14,28 +14,38 @@ import DiscountManager from '@/components/Admin/DiscountManager';
 import ProductImageUpload from '@/components/Admin/ProductImageUpload';
 
 const SETTINGS_SECTIONS = [
-  { id: 'min-order', label: 'Min Order' },
-  { id: 'pins', label: 'PIN Codes' },
-  { id: 'cities', label: 'Cities' },
-  { id: 'whatsapp', label: 'WhatsApp' },
-  { id: 'checkout', label: 'Checkout' },
-  { id: 'notifications', label: 'Notifications' },
-  { id: 'delivery-slabs', label: 'Delivery Fees' },
-  { id: 'store-status', label: 'Store Status' },
-  { id: 'payments', label: 'Payments' },
-  { id: 'wa-templates', label: 'WA Templates' },
-  { id: 'featured', label: 'Featured' },
-  { id: 'health-star', label: 'Health Star' },
-  { id: 'promo', label: 'Promo Cards' },
-  { id: 'homepage', label: 'Homepage' },
-  { id: 'discounts', label: 'Discounts' },
+  { id: 'min-order', label: 'Min Order', group: 'Delivery' },
+  { id: 'pins', label: 'PIN Codes', group: 'Delivery' },
+  { id: 'cities', label: 'Cities', group: 'Delivery' },
+  { id: 'delivery-slabs', label: 'Delivery Fees', group: 'Delivery' },
+  { id: 'whatsapp', label: 'WhatsApp Number', group: 'Orders' },
+  { id: 'checkout', label: 'Checkout Mode', group: 'Orders' },
+  { id: 'notifications', label: 'Notifications', group: 'Orders' },
+  { id: 'store-status', label: 'Store Status', group: 'Orders' },
+  { id: 'payments', label: 'Payments', group: 'Orders' },
+  { id: 'wa-templates', label: 'WA Templates', group: 'Orders' },
+  { id: 'featured', label: 'Featured', group: 'Homepage' },
+  { id: 'health-star', label: 'Health Star', group: 'Homepage' },
+  { id: 'promo', label: 'Promo Cards', group: 'Homepage' },
+  { id: 'homepage', label: 'Homepage Layout', group: 'Homepage' },
+  { id: 'discounts', label: 'Discounts & Coupons', group: 'Offers' },
 ] as const;
 
-function jumpToSection(id: string, smooth = true) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
-  window.history.replaceState(null, '', `#${id}`);
+type SettingsSectionId = (typeof SETTINGS_SECTIONS)[number]['id'];
+
+const SETTINGS_SECTION_IDS = new Set<string>(SETTINGS_SECTIONS.map((s) => s.id));
+
+const SETTINGS_GROUPS = SETTINGS_SECTIONS.reduce<
+  Array<{ name: string; items: Array<(typeof SETTINGS_SECTIONS)[number]> }>
+>((acc, section) => {
+  const existing = acc.find((g) => g.name === section.group);
+  if (existing) existing.items.push(section);
+  else acc.push({ name: section.group, items: [section] });
+  return acc;
+}, []);
+
+function isSettingsSectionId(value: string): value is SettingsSectionId {
+  return SETTINGS_SECTION_IDS.has(value);
 }
 
 interface StoreConfig {
@@ -149,24 +159,23 @@ export default function SettingsManager({
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [newBadgeLabel, setNewBadgeLabel] = useState('');
   const [newBadgeUrl, setNewBadgeUrl] = useState('');
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>('min-order');
 
   useEffect(() => {
     const hash = window.location.hash.replace(/^#/, '');
-    if (!hash) return;
-    // Double rAF so layout (sticky bars) is ready before scrolling.
-    let cancelled = false;
-    const outer = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (!cancelled) jumpToSection(hash, false);
-      });
-    });
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(outer);
-    };
+    if (hash && isSettingsSectionId(hash)) {
+      setActiveSection(hash);
+    }
   }, []);
 
+  function openSection(id: SettingsSectionId) {
+    setActiveSection(id);
+    window.history.replaceState(null, '', `#${id}`);
+  }
+
   const healthStarDisplay = homepageConfig.healthStarDisplay ?? DEFAULT_HEALTH_STAR_DISPLAY;
+  const activeMeta = SETTINGS_SECTIONS.find((s) => s.id === activeSection) ?? SETTINGS_SECTIONS[0];
+  const showMainSave = activeSection !== 'discounts';
 
   function updateHealthStarDisplay(patch: Partial<HealthStarDisplay>) {
     setHomepageConfig((prev) => ({
@@ -357,46 +366,104 @@ export default function SettingsManager({
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
       <div>
         <h1 className="text-xl font-bold">Store Settings</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Delivery area, delivery charges, and minimum order. Changes apply to new orders immediately.
+          Open one section at a time. Save still applies to the whole store config — nothing else changes.
         </p>
       </div>
 
-      <nav
-        aria-label="Settings sections"
-        className="sticky top-14 z-20 -mx-2 px-2 py-2 bg-gray-50/95 backdrop-blur border-b border-gray-200"
-      >
-        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-          {SETTINGS_SECTIONS.map((section) => (
-            <button
-              key={section.id}
-              type="button"
-              onClick={() => jumpToSection(section.id)}
-              className="shrink-0 rounded-full border border-gray-200 bg-white px-3 py-1 text-[11px] font-semibold text-gray-700 hover:border-blinkit-green hover:text-blinkit-green"
+      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="space-y-3">
+          <label className="block lg:hidden">
+            <span className="sr-only">Jump to settings section</span>
+            <select
+              value={activeSection}
+              onChange={(e) => {
+                const next = e.target.value;
+                if (isSettingsSectionId(next)) openSection(next);
+              }}
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-800"
             >
-              {section.label}
-            </button>
-          ))}
-        </div>
-      </nav>
+              {SETTINGS_GROUPS.map((group) => (
+                <optgroup key={group.name} label={group.name}>
+                  {group.items.map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
 
-      {message && (
-        <div
-          className={`rounded-lg p-3 text-sm ${
-            message.type === 'ok'
-              ? 'bg-green-50 text-green-700 border border-green-200'
-              : 'bg-red-50 text-red-700 border border-red-200'
-          }`}
-        >
-          {message.text}
+          <nav
+            aria-label="Settings sections"
+            className="hidden lg:block lg:sticky lg:top-16 self-start rounded-xl border border-gray-200 bg-white p-3 space-y-4"
+          >
+            {SETTINGS_GROUPS.map((group) => (
+              <div key={group.name}>
+                <p className="px-2 mb-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                  {group.name}
+                </p>
+                <div className="space-y-1">
+                  {group.items.map((section) => {
+                    const isActive = activeSection === section.id;
+                    return (
+                      <button
+                        key={section.id}
+                        type="button"
+                        onClick={() => openSection(section.id)}
+                        className={`w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-blinkit-green-light text-blinkit-green'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                        aria-current={isActive ? 'page' : undefined}
+                      >
+                        {section.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </nav>
         </div>
-      )}
 
-      {/* Minimum order value */}
-      <section id="min-order" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <div className="space-y-4 min-w-0">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                {activeMeta.group}
+              </p>
+              <h2 className="text-lg font-bold text-gray-900">{activeMeta.label}</h2>
+            </div>
+            {showMainSave &&
+              (canEdit ? (
+                <Button onClick={save} disabled={saving}>
+                  {saving ? 'Saving...' : 'Save Settings'}
+                </Button>
+              ) : (
+                <span className="text-sm text-gray-500">Read-only</span>
+              ))}
+          </div>
+
+          {message && (
+            <div
+              className={`rounded-lg p-3 text-sm ${
+                message.type === 'ok'
+                  ? 'bg-green-50 text-green-700 border border-green-200'
+                  : 'bg-red-50 text-red-700 border border-red-200'
+              }`}
+            >
+              {message.text}
+            </div>
+          )}
+
+          {activeSection === 'min-order' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Minimum Order Value</h2>
         <div className="flex items-center gap-2 max-w-xs">
           <span className="text-gray-500">₹</span>
@@ -410,9 +477,10 @@ export default function SettingsManager({
         </div>
         <p className="text-xs text-gray-400">Orders below this subtotal are blocked. Set 0 to disable.</p>
       </section>
+          )}
 
-      {/* Serviceable PINs */}
-      <section id="pins" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+          {activeSection === 'pins' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Serviceable PIN Codes</h2>
         <p className="text-xs text-gray-400">Orders can only be placed for these delivery PIN codes.</p>
         <div className="flex flex-wrap gap-2">
@@ -449,8 +517,10 @@ export default function SettingsManager({
           </Button>
         </div>
       </section>
+          )}
 
-      <section id="cities" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+          {activeSection === 'cities' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Serviceable Cities</h2>
         <p className="text-xs text-gray-400">Delivery is available when city OR pincode matches (either one is enough).</p>
         <div className="flex flex-wrap gap-2">
@@ -485,8 +555,10 @@ export default function SettingsManager({
           </Button>
         </div>
       </section>
+          )}
 
-      <section id="whatsapp" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+          {activeSection === 'whatsapp' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Business WhatsApp Number</h2>
         <p className="text-xs text-gray-400">
           Used for customer verification messages and order WhatsApp links. Include country code without + (e.g. 919046370119 or 61412345678).
@@ -499,8 +571,10 @@ export default function SettingsManager({
           className="max-w-sm"
         />
       </section>
+          )}
 
-      <section id="checkout" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+          {activeSection === 'checkout' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Checkout Mode</h2>
         <p className="text-xs text-gray-400">Control which order placement buttons customers see. Changes apply immediately.</p>
         <select
@@ -514,8 +588,10 @@ export default function SettingsManager({
           <option value="whatsapp">WhatsApp Orders Only</option>
         </select>
       </section>
+          )}
 
-      <section id="notifications" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+          {activeSection === 'notifications' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Notification Sound</h2>
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -528,9 +604,10 @@ export default function SettingsManager({
           Play sound when a new order arrives
         </label>
       </section>
+          )}
 
-      {/* Delivery slabs */}
-      <section id="delivery-slabs" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+          {activeSection === 'delivery-slabs' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Delivery Charge Slabs</h2>
         <p className="text-xs text-gray-400">Delivery fee by order subtotal range (₹). The highest slab applies above its range.</p>
         <div className="space-y-2">
@@ -555,8 +632,10 @@ export default function SettingsManager({
           <Plus size={16} /> Add slab
         </Button>
       </section>
+          )}
 
-      <section id="store-status" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+          {activeSection === 'store-status' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Store Status & Timing</h2>
         <div className="grid md:grid-cols-3 gap-3">
           <div>
@@ -582,8 +661,10 @@ export default function SettingsManager({
           </label>
         </div>
       </section>
+          )}
 
-      <section id="payments" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+          {activeSection === 'payments' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Payment Methods</h2>
         <div className="flex flex-wrap gap-3">
           {PAYMENT_OPTIONS.map((method) => (
@@ -603,8 +684,10 @@ export default function SettingsManager({
           ))}
         </div>
       </section>
+          )}
 
-      <section id="wa-templates" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+          {activeSection === 'wa-templates' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">WhatsApp Templates</h2>
         <p className="text-xs text-gray-400">Used for quick send actions in order management.</p>
         <div className="grid md:grid-cols-2 gap-3">
@@ -621,8 +704,10 @@ export default function SettingsManager({
           ))}
         </div>
       </section>
+          )}
 
-      <section id="featured" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+          {activeSection === 'featured' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Featured Section</h2>
         <p className="text-xs text-gray-400">
           Controls the customer homepage Best Sellers (featured products) section visibility.
@@ -640,8 +725,10 @@ export default function SettingsManager({
           Show Featured Products (Best Sellers)
         </label>
       </section>
+          )}
 
-      <section id="health-star" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+          {activeSection === 'health-star' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
         <div>
           <h2 className="font-bold text-sm">Health Star Rating</h2>
           <p className="text-xs text-gray-400 mt-1">
@@ -811,8 +898,10 @@ export default function SettingsManager({
           </div>
         )}
       </section>
+          )}
 
-      <section id="promo" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+          {activeSection === 'promo' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-bold text-sm">Homepage Promo Sections</h2>
@@ -907,8 +996,10 @@ export default function SettingsManager({
           ))}
         </div>
       </section>
+          )}
 
-      <section id="homepage" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+          {activeSection === 'homepage' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Homepage Configuration</h2>
         <div className="grid md:grid-cols-2 gap-3 text-sm">
           <label className="flex items-center gap-2">
@@ -972,7 +1063,9 @@ export default function SettingsManager({
           </div>
         </div>
       </section>
+          )}
 
+          {showMainSave && (
       <div className="flex justify-end">
         {canEdit ? (
           <Button onClick={save} disabled={saving} size="lg">
@@ -982,8 +1075,10 @@ export default function SettingsManager({
           <span className="text-sm text-gray-500">Read-only access</span>
         )}
       </div>
+          )}
 
-      <div id="discounts" className="scroll-mt-36 border-t border-gray-200 pt-6">
+          {activeSection === 'discounts' && (
+      <div className="border-t border-gray-200 pt-2">
         <DiscountManager
           initialConfig={
             initialConfig.discountConfig ?? {
@@ -1001,6 +1096,9 @@ export default function SettingsManager({
           }
           canEdit={canEdit}
         />
+      </div>
+          )}
+        </div>
       </div>
     </div>
   );
