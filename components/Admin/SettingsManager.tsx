@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2 } from 'lucide-react';
 import type { DeliverySlab } from '@/constants';
-import type { DiscountConfig, HealthStarDisplay } from '@/services/SettingsService';
-import { DEFAULT_HEALTH_STAR_DISPLAY } from '@/services/SettingsService';
+import type { DiscountConfig } from '@/services/SettingsService';
+import type { HealthStarDisplay } from '@/constants/healthStarDisplay';
+import { DEFAULT_HEALTH_STAR_DISPLAY } from '@/constants/healthStarDisplay';
 import DiscountManager from '@/components/Admin/DiscountManager';
 import ProductImageUpload from '@/components/Admin/ProductImageUpload';
 
@@ -152,8 +153,17 @@ export default function SettingsManager({
   useEffect(() => {
     const hash = window.location.hash.replace(/^#/, '');
     if (!hash) return;
-    // Defer until sections are painted.
-    requestAnimationFrame(() => jumpToSection(hash, false));
+    // Double rAF so layout (sticky bars) is ready before scrolling.
+    let cancelled = false;
+    const outer = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!cancelled) jumpToSection(hash, false);
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(outer);
+    };
   }, []);
 
   const healthStarDisplay = homepageConfig.healthStarDisplay ?? DEFAULT_HEALTH_STAR_DISPLAY;
@@ -357,7 +367,7 @@ export default function SettingsManager({
 
       <nav
         aria-label="Settings sections"
-        className="sticky top-0 z-20 -mx-2 px-2 py-2 bg-gray-50/95 backdrop-blur border-b border-gray-200"
+        className="sticky top-14 z-20 -mx-2 px-2 py-2 bg-gray-50/95 backdrop-blur border-b border-gray-200"
       >
         <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
           {SETTINGS_SECTIONS.map((section) => (
@@ -386,7 +396,7 @@ export default function SettingsManager({
       )}
 
       {/* Minimum order value */}
-      <section id="min-order" className="scroll-mt-24 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+      <section id="min-order" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Minimum Order Value</h2>
         <div className="flex items-center gap-2 max-w-xs">
           <span className="text-gray-500">₹</span>
@@ -402,7 +412,7 @@ export default function SettingsManager({
       </section>
 
       {/* Serviceable PINs */}
-      <section id="pins" className="scroll-mt-24 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+      <section id="pins" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Serviceable PIN Codes</h2>
         <p className="text-xs text-gray-400">Orders can only be placed for these delivery PIN codes.</p>
         <div className="flex flex-wrap gap-2">
@@ -440,7 +450,7 @@ export default function SettingsManager({
         </div>
       </section>
 
-      <section id="cities" className="scroll-mt-24 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+      <section id="cities" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Serviceable Cities</h2>
         <p className="text-xs text-gray-400">Delivery is available when city OR pincode matches (either one is enough).</p>
         <div className="flex flex-wrap gap-2">
@@ -476,7 +486,7 @@ export default function SettingsManager({
         </div>
       </section>
 
-      <section id="whatsapp" className="scroll-mt-24 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+      <section id="whatsapp" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Business WhatsApp Number</h2>
         <p className="text-xs text-gray-400">
           Used for customer verification messages and order WhatsApp links. Include country code without + (e.g. 919046370119 or 61412345678).
@@ -490,7 +500,7 @@ export default function SettingsManager({
         />
       </section>
 
-      <section id="checkout" className="scroll-mt-24 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+      <section id="checkout" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Checkout Mode</h2>
         <p className="text-xs text-gray-400">Control which order placement buttons customers see. Changes apply immediately.</p>
         <select
@@ -505,7 +515,7 @@ export default function SettingsManager({
         </select>
       </section>
 
-      <section id="notifications" className="scroll-mt-24 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+      <section id="notifications" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Notification Sound</h2>
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -520,7 +530,7 @@ export default function SettingsManager({
       </section>
 
       {/* Delivery slabs */}
-      <section id="delivery-slabs" className="scroll-mt-24 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+      <section id="delivery-slabs" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Delivery Charge Slabs</h2>
         <p className="text-xs text-gray-400">Delivery fee by order subtotal range (₹). The highest slab applies above its range.</p>
         <div className="space-y-2">
@@ -546,7 +556,7 @@ export default function SettingsManager({
         </Button>
       </section>
 
-      <section id="store-status" className="scroll-mt-24 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+      <section id="store-status" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Store Status & Timing</h2>
         <div className="grid md:grid-cols-3 gap-3">
           <div>
@@ -573,7 +583,7 @@ export default function SettingsManager({
         </div>
       </section>
 
-      <section id="payments" className="scroll-mt-24 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+      <section id="payments" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Payment Methods</h2>
         <div className="flex flex-wrap gap-3">
           {PAYMENT_OPTIONS.map((method) => (
@@ -594,7 +604,7 @@ export default function SettingsManager({
         </div>
       </section>
 
-      <section id="wa-templates" className="scroll-mt-24 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+      <section id="wa-templates" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">WhatsApp Templates</h2>
         <p className="text-xs text-gray-400">Used for quick send actions in order management.</p>
         <div className="grid md:grid-cols-2 gap-3">
@@ -612,7 +622,7 @@ export default function SettingsManager({
         </div>
       </section>
 
-      <section id="featured" className="scroll-mt-24 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+      <section id="featured" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Featured Section</h2>
         <p className="text-xs text-gray-400">
           Controls the customer homepage Best Sellers (featured products) section visibility.
@@ -631,7 +641,7 @@ export default function SettingsManager({
         </label>
       </section>
 
-      <section id="health-star" className="scroll-mt-24 bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+      <section id="health-star" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-4">
         <div>
           <h2 className="font-bold text-sm">Health Star Rating</h2>
           <p className="text-xs text-gray-400 mt-1">
@@ -802,7 +812,7 @@ export default function SettingsManager({
         )}
       </section>
 
-      <section id="promo" className="scroll-mt-24 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+      <section id="promo" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-bold text-sm">Homepage Promo Sections</h2>
@@ -898,7 +908,7 @@ export default function SettingsManager({
         </div>
       </section>
 
-      <section id="homepage" className="scroll-mt-24 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+      <section id="homepage" className="scroll-mt-36 bg-white rounded-xl border border-gray-100 p-5 space-y-3">
         <h2 className="font-bold text-sm">Homepage Configuration</h2>
         <div className="grid md:grid-cols-2 gap-3 text-sm">
           <label className="flex items-center gap-2">
@@ -973,7 +983,7 @@ export default function SettingsManager({
         )}
       </div>
 
-      <div id="discounts" className="scroll-mt-24 border-t border-gray-200 pt-6">
+      <div id="discounts" className="scroll-mt-36 border-t border-gray-200 pt-6">
         <DiscountManager
           initialConfig={
             initialConfig.discountConfig ?? {

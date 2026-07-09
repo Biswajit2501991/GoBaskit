@@ -19,7 +19,7 @@ import BestsellerBadge from '@/components/Product/BestsellerBadge';
 import HealthStarRating from '@/components/Product/HealthStarRating';
 import HealthStarBadge from '@/components/Product/HealthStarBadge';
 import VariantSelector from '@/components/Product/VariantSelector';
-import { DEFAULT_HEALTH_STAR_DISPLAY } from '@/services/SettingsService';
+import { DEFAULT_HEALTH_STAR_DISPLAY } from '@/constants/healthStarDisplay';
 
 interface ProductCardProps {
   product: ProductWithCategory;

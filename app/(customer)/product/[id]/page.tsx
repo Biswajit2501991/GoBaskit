@@ -26,7 +26,7 @@ import { addOptionToCart } from '@/components/Product/VariantSelector';
 import { CATEGORY_ICONS } from '@/constants';
 import { Button } from '@/components/ui/button';
 import { useConfigStore } from '@/store/configStore';
-import { DEFAULT_HEALTH_STAR_DISPLAY } from '@/services/SettingsService';
+import { DEFAULT_HEALTH_STAR_DISPLAY } from '@/constants/healthStarDisplay';
 import type { ProductWithCategory } from '@/types';
 
 export default function ProductPage() {

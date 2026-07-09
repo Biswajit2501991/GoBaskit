@@ -1,7 +1,7 @@
 'use client';
 
 import { sizedImageUrl } from '@/utils/image';
-import type { HealthStarBadgePosition } from '@/services/SettingsService';
+import type { HealthStarBadgePosition } from '@/constants/healthStarDisplay';
 
 const POSITION_CLASS: Record<HealthStarBadgePosition, string> = {
   'top-left': 'top-1.5 left-1.5',

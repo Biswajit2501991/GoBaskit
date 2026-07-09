@@ -10,7 +10,7 @@ import {
 import {
   DEFAULT_HEALTH_STAR_DISPLAY,
   type HealthStarDisplay,
-} from '@/services/SettingsService';
+} from '@/constants/healthStarDisplay';
 
 interface ConfigState {
   serviceablePins: string[];

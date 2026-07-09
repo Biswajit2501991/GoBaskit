@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { PanelLeftClose, PanelLeftOpen, LogOut } from 'lucide-react';
 import { LogoutButton } from '@/components/Admin/LogoutButton';
 import { NotificationCenter } from '@/components/Admin/NotificationCenter';
@@ -21,6 +22,8 @@ async function logoutNow() {
 }
 
 export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
+  const pathname = usePathname();
+  const mainRef = useRef<HTMLElement>(null);
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;
     return window.localStorage.getItem(SIDEBAR_PREF_KEY) === '1';
@@ -30,6 +33,11 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
   useEffect(() => {
     window.localStorage.setItem(SIDEBAR_PREF_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
+
+  // Nested scroll container — Next.js window scroll restore does not apply here.
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, left: 0 });
+  }, [pathname]);
 
   useEffect(() => {
     const hasVerificationNav = visibleNav.some((item) => item.href === '/admin/whatsapp-verification');
@@ -138,7 +146,7 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 h-screen overflow-y-auto flex flex-col">
+      <main ref={mainRef} className="flex-1 min-w-0 h-screen overflow-y-auto flex flex-col">
         <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-end gap-3 sticky top-0 z-10">
           <div className="text-right">
             <p className="text-xs font-semibold text-gray-700">{staff.name}</p>
