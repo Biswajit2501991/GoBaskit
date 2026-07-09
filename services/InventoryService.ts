@@ -159,41 +159,58 @@ export class InventoryService {
     const updated: ProductRow[] = [];
     const previousStock = new Map<string, number>();
 
-    for (const [productId, qty] of byProduct) {
-      const product = await tx.product.findUnique({ where: { id: productId } });
-      if (!product || product.stock < qty) {
-        throw new Error(`Insufficient stock for ${product?.name ?? 'product'}`);
-      }
-
-      previousStock.set(productId, product.stock);
-      const newStock = product.stock - qty;
-      const status = this.resolveStatus(newStock, product.status);
-
-      const row = await tx.product.update({
-        where: { id: productId },
-        data: { stock: newStock, status },
-        select: {
-          id: true,
-          name: true,
-          stock: true,
-          stockBaseline: true,
-          status: true,
-          lowStockNotifiedAt: true,
-        },
-      });
-      updated.push(row);
-    }
-
-    for (const [variantId, qty] of byVariant) {
-      const variant = await tx.productVariant.findUnique({ where: { id: variantId } });
-      if (!variant || variant.stock < qty) {
-        throw new Error(`Insufficient stock for ${variant?.brand ?? 'selected option'}`);
-      }
-      await tx.productVariant.update({
-        where: { id: variantId },
-        data: { stock: variant.stock - qty },
-      });
-    }
+    // Atomic decrements — one round-trip per line, no separate find+update.
+    await Promise.all([
+      ...[...byProduct.entries()].map(async ([productId, qty]) => {
+        const result = await tx.product.updateMany({
+          where: { id: productId, stock: { gte: qty } },
+          data: { stock: { decrement: qty } },
+        });
+        if (result.count !== 1) {
+          throw new Error('Insufficient stock for a product in your cart');
+        }
+        const row = await tx.product.findUnique({
+          where: { id: productId },
+          select: {
+            id: true,
+            name: true,
+            stock: true,
+            stockBaseline: true,
+            status: true,
+            lowStockNotifiedAt: true,
+          },
+        });
+        if (!row) throw new Error('A product in your cart is no longer available.');
+        previousStock.set(productId, row.stock + qty);
+        const status = this.resolveStatus(row.stock, row.status);
+        if (status !== row.status) {
+          const patched = await tx.product.update({
+            where: { id: productId },
+            data: { status },
+            select: {
+              id: true,
+              name: true,
+              stock: true,
+              stockBaseline: true,
+              status: true,
+              lowStockNotifiedAt: true,
+            },
+          });
+          updated.push(patched);
+        } else {
+          updated.push(row);
+        }
+      }),
+      ...[...byVariant.entries()].map(async ([variantId, qty]) => {
+        const result = await tx.productVariant.updateMany({
+          where: { id: variantId, stock: { gte: qty } },
+          data: { stock: { decrement: qty } },
+        });
+        if (result.count !== 1) {
+          throw new Error('Insufficient stock for a selected option');
+        }
+      }),
+    ]);
 
     await tx.order.update({
       where: { id: orderId },

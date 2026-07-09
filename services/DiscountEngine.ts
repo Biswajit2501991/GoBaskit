@@ -114,19 +114,20 @@ export class DiscountEngine {
       };
     }
 
-    if (coupon.totalUsageLimit != null) {
-      const totalUsed = await prisma.couponUsage.count({ where: { couponId: coupon.id } });
-      if (totalUsed >= coupon.totalUsageLimit) {
+    const mobile = params.mobile ? normalizeMobile(params.mobile) : '';
+    if (coupon.totalUsageLimit != null || (mobile && isValidIndianMobile(mobile))) {
+      const [totalUsed, usedByMobile] = await Promise.all([
+        coupon.totalUsageLimit != null
+          ? prisma.couponUsage.count({ where: { couponId: coupon.id } })
+          : Promise.resolve(0),
+        mobile && isValidIndianMobile(mobile)
+          ? prisma.couponUsage.count({ where: { couponId: coupon.id, mobile } })
+          : Promise.resolve(0),
+      ]);
+      if (coupon.totalUsageLimit != null && totalUsed >= coupon.totalUsageLimit) {
         return { ok: false, code: 'TOTAL_LIMIT', error: 'Coupon Usage Limit Reached' };
       }
-    }
-
-    const mobile = params.mobile ? normalizeMobile(params.mobile) : '';
-    if (mobile && isValidIndianMobile(mobile)) {
-      const usedByMobile = await prisma.couponUsage.count({
-        where: { couponId: coupon.id, mobile },
-      });
-      if (usedByMobile >= coupon.usageLimitPerMobile) {
+      if (mobile && isValidIndianMobile(mobile) && usedByMobile >= coupon.usageLimitPerMobile) {
         return { ok: false, code: 'MOBILE_LIMIT', error: 'Coupon Usage Limit Reached' };
       }
     }
@@ -152,6 +153,12 @@ export class DiscountEngine {
     subtotal: number;
     /** Shorter timeout for checkout re-validation (cart Verify already confirmed). */
     timeoutMs?: number;
+    /**
+     * Checkout-only: never wait on Action Plus. Use in-memory cache if present;
+     * otherwise trust cart Verify + settings math (usage still enforced in DB).
+     */
+    checkoutFastPath?: boolean;
+    clientMemberId?: string | null;
   }): Promise<DiscountResult> {
     const config = await SettingsService.getStoreConfig();
     const mem = config.discountConfig.membership;
@@ -176,26 +183,46 @@ export class DiscountEngine {
       };
     }
 
-    const status = await ActionPlusMembershipClient.getMemberStatus(mobile, {
-      timeoutMs: params.timeoutMs,
-    });
-    if (!status.isActive) {
-      if (status.error === 'Membership service not configured') {
-        return { ok: false, code: 'NOT_CONFIGURED', error: 'Membership service unavailable' };
+    let memberId: string | null = params.clientMemberId ?? null;
+    let isActive = false;
+
+    if (params.checkoutFastPath) {
+      const cached = ActionPlusMembershipClient.getCached(mobile);
+      if (cached?.isActive) {
+        isActive = true;
+        memberId = cached.memberId ?? memberId;
+      } else {
+        // Cart already verified; do not block checkout on a second Action Plus round-trip.
+        isActive = true;
       }
-      if (
-        status.error === 'Membership service unauthorized' ||
-        status.error === 'Membership service endpoint missing' ||
-        status.error === 'Membership service unavailable' ||
-        status.error === 'Membership lookup failed'
-      ) {
-        return { ok: false, code: 'SERVICE_ERROR', error: 'Membership service unavailable' };
+    } else {
+      const status = await ActionPlusMembershipClient.getMemberStatus(mobile, {
+        timeoutMs: params.timeoutMs,
+      });
+      if (!status.isActive) {
+        if (status.error === 'Membership service not configured') {
+          return { ok: false, code: 'NOT_CONFIGURED', error: 'Membership service unavailable' };
+        }
+        if (
+          status.error === 'Membership service unauthorized' ||
+          status.error === 'Membership service endpoint missing' ||
+          status.error === 'Membership service unavailable' ||
+          status.error === 'Membership lookup failed'
+        ) {
+          return { ok: false, code: 'SERVICE_ERROR', error: 'Membership service unavailable' };
+        }
+        return {
+          ok: false,
+          code: 'INACTIVE_MEMBER',
+          error: 'No Active Membership Found',
+        };
       }
-      return {
-        ok: false,
-        code: 'INACTIVE_MEMBER',
-        error: 'No Active Membership Found',
-      };
+      isActive = true;
+      memberId = status.memberId;
+    }
+
+    if (!isActive) {
+      return { ok: false, code: 'INACTIVE_MEMBER', error: 'No Active Membership Found' };
     }
 
     const used = await prisma.membershipDiscountUsage.count({ where: { mobile } });
@@ -216,7 +243,7 @@ export class DiscountEngine {
       ok: true,
       type: 'MEMBERSHIP',
       discountAmount,
-      memberId: status.memberId,
+      memberId,
       message: mem.message || 'Action Plus Membership Discount Applied',
       youSavedLabel: `You saved ₹${discountAmount}`,
     };
@@ -231,6 +258,7 @@ export class DiscountEngine {
     mobile: string;
     subtotal: number;
     clientDiscountAmount?: number | null;
+    clientMemberId?: string | null;
   }): Promise<
     | { ok: true; discountType: OrderDiscountType; discountAmount: number; couponCode: string | null; couponId: string | null; memberId: string | null }
     | { ok: false; error: string }
@@ -273,8 +301,8 @@ export class DiscountEngine {
       const result = await this.checkMembership({
         mobile: params.mobile,
         subtotal: params.subtotal,
-        // Cart Verify already hit Action Plus; checkout uses cache or a short re-check.
-        timeoutMs: 3000,
+        checkoutFastPath: true,
+        clientMemberId: params.clientMemberId,
       });
       if (!result.ok) return { ok: false, error: result.error };
       if (

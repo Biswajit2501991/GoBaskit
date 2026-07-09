@@ -19,6 +19,7 @@ import {
 } from '@/lib/customer-session';
 
 export async function POST(req: NextRequest) {
+  const started = Date.now();
   try {
     const body = await req.json();
     const { customer, items, paymentMethod, orderSource, customerLat, customerLng, discount } = body;
@@ -52,8 +53,9 @@ export async function POST(req: NextRequest) {
         ? discountRequest.type
         : 'NONE';
 
-    // Run independent pre-checks in parallel (biggest checkout latency win).
-    const [config, resolvedDiscount, , verification] = await Promise.all([
+    // Minimal parallel pre-work. Stock is enforced atomically inside the transaction
+    // (no separate validateCheckoutItems round-trip). Membership skips Action Plus.
+    const [config, resolvedDiscount, verification] = await Promise.all([
       SettingsService.getStoreConfig(),
       DiscountEngine.resolveForCheckout({
         type: discountTypeRaw,
@@ -62,8 +64,9 @@ export async function POST(req: NextRequest) {
         subtotal,
         clientDiscountAmount:
           typeof discountRequest?.discountAmount === 'number' ? discountRequest.discountAmount : null,
+        clientMemberId:
+          typeof discountRequest?.memberId === 'string' ? discountRequest.memberId : null,
       }),
-      InventoryService.validateCheckoutItems(stockItems),
       WhatsAppVerificationService.getCheckoutVerificationState(mobileE164),
     ]);
 
@@ -95,7 +98,10 @@ export async function POST(req: NextRequest) {
 
     if (verification.needsVerification && !verification.isVerified) {
       return NextResponse.json(
-        { error: 'WhatsApp verification required before placing your first order.', code: 'VERIFICATION_REQUIRED' },
+        {
+          error: 'WhatsApp verification required before placing your first order.',
+          code: 'VERIFICATION_REQUIRED',
+        },
         { status: 403 },
       );
     }
@@ -112,82 +118,112 @@ export async function POST(req: NextRequest) {
       previousStock: Map<string, number>;
     };
 
-    const order = await prisma.$transaction(async (tx) => {
-      const dbCustomer = await tx.customer.create({
-        data: {
-          firstName: parsed.data.firstName,
-          lastName: parsed.data.lastName,
-          mobile: parsed.data.mobile,
-          alternateMobile: parsed.data.alternateMobile || null,
-          houseNumber: parsed.data.houseNumber,
-          street: parsed.data.street,
-          area: parsed.data.area,
-          landmark: parsed.data.landmark || null,
-          city: parsed.data.city,
-          state: parsed.data.state,
-          pincode: parsed.data.pincode || '',
-          isWhatsappVerified,
-        },
-      });
-
-      const created = await tx.order.create({
-        data: {
-          orderNumber,
-          customerId: dbCustomer.id,
-          subtotal,
-          deliveryCharge,
-          discountAmount,
-          discountType: resolvedDiscount.discountType,
-          couponCode: resolvedDiscount.couponCode,
-          membershipMemberId: resolvedDiscount.memberId,
-          grandTotal,
-          paymentMethod: parsed.data.paymentMethod,
-          deliveryNotes: parsed.data.deliveryNotes || null,
-          orderSource: source,
-          customerLat: typeof customerLat === 'number' ? customerLat : null,
-          customerLng: typeof customerLng === 'number' ? customerLng : null,
-          items: {
-            create: items.map(
-              (item: {
-                productId: string;
-                variantId?: string | null;
-                name: string;
-                quantity: number;
-                price: number;
-                unit: string;
-              }) => ({
-                productId: item.productId,
-                variantId: item.variantId ?? null,
-                productName: item.name,
-                quantity: item.quantity,
-                unitPrice: item.price,
-                unit: item.unit,
-                totalPrice: item.price * item.quantity,
-              }),
-            ),
+    // Keep the transaction lean: create + reserve only. No include of items/customer
+    // in the hot path (those are re-fetched only for background side effects).
+    const order = await prisma.$transaction(
+      async (tx) => {
+        const dbCustomer = await tx.customer.create({
+          data: {
+            firstName: parsed.data.firstName,
+            lastName: parsed.data.lastName,
+            mobile: parsed.data.mobile,
+            alternateMobile: parsed.data.alternateMobile || null,
+            houseNumber: parsed.data.houseNumber,
+            street: parsed.data.street,
+            area: parsed.data.area,
+            landmark: parsed.data.landmark || null,
+            city: parsed.data.city,
+            state: parsed.data.state,
+            pincode: parsed.data.pincode || '',
+            isWhatsappVerified,
           },
-        },
-        include: { items: true, customer: true },
-      });
-
-      if (resolvedDiscount.discountType !== 'NONE' && discountAmount > 0) {
-        await DiscountEngine.recordCheckoutDiscount(tx, {
-          orderId: created.id,
-          mobile: parsed.data.mobile,
-          discountType: resolvedDiscount.discountType,
-          discountAmount,
-          couponId: resolvedDiscount.couponId,
-          couponCode: resolvedDiscount.couponCode,
-          memberId: resolvedDiscount.memberId,
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            mobile: true,
+            city: true,
+            houseNumber: true,
+            street: true,
+            area: true,
+            pincode: true,
+          },
         });
-      }
 
-      inventoryUpdates = await InventoryService.reserveForOrder(tx, created.id, stockItems);
-      return created;
+        const created = await tx.order.create({
+          data: {
+            orderNumber,
+            customerId: dbCustomer.id,
+            subtotal,
+            deliveryCharge,
+            discountAmount,
+            discountType: resolvedDiscount.discountType,
+            couponCode: resolvedDiscount.couponCode,
+            membershipMemberId: resolvedDiscount.memberId,
+            grandTotal,
+            paymentMethod: parsed.data.paymentMethod,
+            deliveryNotes: parsed.data.deliveryNotes || null,
+            orderSource: source,
+            customerLat: typeof customerLat === 'number' ? customerLat : null,
+            customerLng: typeof customerLng === 'number' ? customerLng : null,
+            items: {
+              create: items.map(
+                (item: {
+                  productId: string;
+                  variantId?: string | null;
+                  name: string;
+                  quantity: number;
+                  price: number;
+                  unit: string;
+                }) => ({
+                  productId: item.productId,
+                  variantId: item.variantId ?? null,
+                  productName: item.name,
+                  quantity: item.quantity,
+                  unitPrice: item.price,
+                  unit: item.unit,
+                  totalPrice: item.price * item.quantity,
+                }),
+              ),
+            },
+          },
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            grandTotal: true,
+            paymentMethod: true,
+            customerLat: true,
+            customerLng: true,
+          },
+        });
+
+        if (resolvedDiscount.discountType !== 'NONE' && discountAmount > 0) {
+          await DiscountEngine.recordCheckoutDiscount(tx, {
+            orderId: created.id,
+            mobile: parsed.data.mobile,
+            discountType: resolvedDiscount.discountType,
+            discountAmount,
+            couponId: resolvedDiscount.couponId,
+            couponCode: resolvedDiscount.couponCode,
+            memberId: resolvedDiscount.memberId,
+          });
+        }
+
+        inventoryUpdates = await InventoryService.reserveForOrder(tx, created.id, stockItems);
+        return { ...created, customer: dbCustomer };
+      },
+      { maxWait: 5000, timeout: 12000 },
+    );
+
+    // Slim response — client only needs orderNumber to proceed to success.
+    const res = NextResponse.json({
+      ok: true,
+      orderNumber: order.orderNumber,
+      orderId: order.id,
+      grandTotal: order.grandTotal,
+      ms: Date.now() - started,
     });
-
-    // Respond immediately; run non-critical side effects after the response is queued.
-    const res = NextResponse.json({ order, orderNumber });
     if (isWhatsappVerified) {
       res.cookies.set(
         CUSTOMER_MOBILE_COOKIE,
@@ -196,16 +232,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Everything else happens after the response is sent.
     void Promise.allSettled([
       InventoryService.afterOrderReserved(inventoryUpdates!.updated, inventoryUpdates!.previousStock),
-      OrderService.onOrderCreated(order),
+      OrderService.onOrderCreated({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        grandTotal: order.grandTotal,
+        status: order.status,
+        customer: order.customer,
+      }),
       NotificationService.notifyNewOrder({
         id: order.id,
         orderNumber: order.orderNumber,
         grandTotal: order.grandTotal,
         paymentMethod: order.paymentMethod,
         orderSource: source,
-        customer: order.customer,
+        customer: {
+          firstName: order.customer.firstName,
+          lastName: order.customer.lastName,
+          mobile: order.customer.mobile,
+          city: order.customer.city,
+          houseNumber: order.customer.houseNumber,
+          street: order.customer.street,
+          area: order.customer.area,
+          pincode: order.customer.pincode,
+        },
         customerLat: order.customerLat,
         customerLng: order.customerLng,
       }),

@@ -269,6 +269,11 @@ export default function CheckoutPage() {
   }
 
   async function ensureWhatsAppVerified(data: CheckoutSchema): Promise<boolean> {
+    // Already confirmed this session — don't add another round-trip before place order.
+    if (whatsappVerified || (verifiedMobileE164 && !needsWhatsappVerification)) {
+      return true;
+    }
+
     const e164 = toE164('91', data.mobile);
     if (!e164) {
       focusSection('customer');
@@ -336,6 +341,7 @@ export default function CheckoutPage() {
               type: appliedDiscount.type,
               couponCode: appliedDiscount.couponCode,
               discountAmount: appliedDiscount.discountAmount,
+              memberId: appliedDiscount.memberId ?? null,
             },
           }
         : {}),

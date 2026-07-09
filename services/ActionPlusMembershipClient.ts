@@ -47,6 +47,13 @@ export class ActionPlusMembershipClient {
     cache.delete(normalizeMobile(mobile));
   }
 
+  static getCached(mobileInput: string): MemberStatusResult | null {
+    const mobile = normalizeMobile(mobileInput);
+    const cached = cache.get(mobile);
+    if (cached && cached.expiresAt > Date.now()) return cached.result;
+    return null;
+  }
+
   static async getMemberStatus(
     mobileInput: string,
     options?: { timeoutMs?: number },
