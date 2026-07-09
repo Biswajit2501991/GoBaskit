@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Bell, X } from 'lucide-react';
+import { Bell, Volume2, X } from 'lucide-react';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 
 interface NotificationItem {
@@ -16,6 +16,8 @@ interface NotificationItem {
   createdAt: string;
 }
 
+const SOUND_UNLOCK_KEY = 'gobaskit_admin_sound_unlocked';
+
 export function NotificationCenter({ staffId }: { staffId: string }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -24,7 +26,9 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
   const [readState, setReadState] = useState<'all' | 'read' | 'unread'>('all');
   const [typeFilter, setTypeFilter] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [soundUnlocked, setSoundUnlocked] = useState(false);
+  const [showSoundHint, setShowSoundHint] = useState(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const lastSoundAtRef = useRef(0);
 
   useEffect(() => {
@@ -38,6 +42,16 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
       .catch(() => {
         /* keep default */
       });
+
+    try {
+      if (sessionStorage.getItem(SOUND_UNLOCK_KEY) === '1') {
+        setSoundUnlocked(true);
+      } else {
+        setShowSoundHint(true);
+      }
+    } catch {
+      setShowSoundHint(true);
+    }
   }, []);
 
   const load = useCallback(async () => {
@@ -55,7 +69,6 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
     load();
   }, [load]);
 
-  // Safety net: if SSE drops an event, badge still catches up within ~12s while admin is open.
   useEffect(() => {
     const timer = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
@@ -64,15 +77,87 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
     return () => clearInterval(timer);
   }, [load]);
 
-  function playNotificationSound() {
+  const getAudioContext = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    const Ctx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return null;
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new Ctx();
+    }
+    return audioCtxRef.current;
+  }, []);
+
+  const playBeep = useCallback(async () => {
+    const ctx = getAudioContext();
+    if (!ctx) return false;
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+      } catch {
+        return false;
+      }
+    }
+    if (ctx.state !== 'running') return false;
+
+    const now = ctx.currentTime;
+    // Two short tones — clear on phone speakers
+    const tones = [
+      { freq: 880, start: 0, dur: 0.12 },
+      { freq: 1175, start: 0.14, dur: 0.16 },
+    ];
+    for (const tone of tones) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = tone.freq;
+      gain.gain.setValueAtTime(0.0001, now + tone.start);
+      gain.gain.exponentialRampToValueAtTime(0.35, now + tone.start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + tone.start + tone.dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + tone.start);
+      osc.stop(now + tone.start + tone.dur + 0.02);
+    }
+    return true;
+  }, [getAudioContext]);
+
+  const unlockSound = useCallback(async () => {
+    const ok = await playBeep();
+    if (ok) {
+      setSoundUnlocked(true);
+      setShowSoundHint(false);
+      try {
+        sessionStorage.setItem(SOUND_UNLOCK_KEY, '1');
+      } catch {
+        /* private mode */
+      }
+    }
+    return ok;
+  }, [playBeep]);
+
+  const playNotificationSound = useCallback(async () => {
     if (!soundEnabled) return;
     const now = Date.now();
     if (now - lastSoundAtRef.current < 400) return;
     lastSoundAtRef.current = now;
-    audioRef.current?.play().catch(() => {
-      // browsers can block autoplay until user interaction
-    });
-  }
+
+    const played = await playBeep();
+    if (!played) {
+      setShowSoundHint(true);
+      setSoundUnlocked(false);
+    }
+
+    // Haptic feedback on phones (works even when audio is blocked)
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate([120, 60, 120]);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [soundEnabled, playBeep]);
 
   useEffect(() => {
     const unsubscribe = subscribeToAdminEvents((data) => {
@@ -96,14 +181,14 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
       setToast(n);
       setTimeout(() => setToast(null), 5000);
 
-      playNotificationSound();
+      void playNotificationSound();
 
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(n.title, { body: n.message });
       }
     });
     return unsubscribe;
-  }, [staffId, soundEnabled]);
+  }, [staffId, playNotificationSound]);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -139,15 +224,20 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
     await load();
   }
 
+  async function onBellClick() {
+    // First tap unlocks mobile audio (required by iOS/Android browsers).
+    if (soundEnabled && !soundUnlocked) {
+      await unlockSound();
+    }
+    setOpen((v) => !v);
+  }
+
   return (
     <>
-      <audio ref={audioRef} preload="auto">
-        <source src="data:audio/wav;base64,UklGRjQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YRAAAAAA////AAAA////AAAA////AAAA" type="audio/wav" />
-      </audio>
       <div className="relative">
         <button
           type="button"
-          onClick={() => setOpen(!open)}
+          onClick={() => void onBellClick()}
           className="relative p-2 rounded-lg hover:bg-gray-100"
           aria-label="Notifications"
         >
@@ -167,6 +257,23 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
                 Refresh
               </button>
             </div>
+            {soundEnabled && (
+              <div className="px-3 py-2 border-b bg-amber-50 flex items-center justify-between gap-2">
+                <p className="text-[11px] text-amber-900 leading-snug">
+                  {soundUnlocked
+                    ? 'Notification sound is on for this session.'
+                    : 'Tap Enable Sound once so your phone can play alerts.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void unlockSound()}
+                  className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-blinkit-green px-2.5 py-1.5 rounded-lg"
+                >
+                  <Volume2 className="w-3.5 h-3.5" />
+                  {soundUnlocked ? 'Test' : 'Enable Sound'}
+                </button>
+              </div>
+            )}
             <div className="p-2 border-b bg-gray-50 space-y-2">
               <div className="flex gap-2">
                 <select
@@ -233,6 +340,28 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
           </div>
         )}
       </div>
+
+      {showSoundHint && soundEnabled && !soundUnlocked && (
+        <div className="fixed bottom-20 left-4 right-4 z-[60] sm:left-auto sm:right-4 sm:max-w-sm bg-white border shadow-lg rounded-xl p-3 flex gap-3 items-center">
+          <Volume2 className="w-5 h-5 text-blinkit-green shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm">Enable order sound</p>
+            <p className="text-xs text-gray-600 mt-0.5">
+              Phones block sound until you tap once. Tap Enable, then keep this admin tab open.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void unlockSound()}
+            className="shrink-0 text-xs font-semibold text-white bg-blinkit-green px-3 py-2 rounded-lg"
+          >
+            Enable
+          </button>
+          <button type="button" onClick={() => setShowSoundHint(false)} aria-label="Dismiss">
+            <X className="w-4 h-4 text-gray-400" />
+          </button>
+        </div>
+      )}
 
       {toast && (
         <div className="fixed bottom-4 right-4 z-[60] bg-white border shadow-lg rounded-xl p-4 max-w-sm flex gap-3">
