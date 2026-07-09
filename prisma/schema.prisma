@@ -117,6 +117,7 @@ model Product {
 
   @@index([categoryId])
   @@index([isFeatured, isVisible])
+  @@index([stock])
   @@map("products")
 }
 

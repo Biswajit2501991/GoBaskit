@@ -3,7 +3,7 @@ import { requireStaffPermission } from '@/lib/staff-auth';
 import { StaffBulkImportService } from '@/services/bulk-staff-import/StaffBulkImportService';
 
 export async function POST(req: NextRequest) {
-  const auth = await requireStaffPermission('staff:bulk_import');
+  const auth = await requireStaffPermission('staff:bulk_import', { live: true });
   if (auth.error) return auth.error;
 
   const formData = await req.formData();

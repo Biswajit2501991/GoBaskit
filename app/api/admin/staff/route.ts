@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireStaffPermission('staff:manage');
+  const auth = await requireStaffPermission('staff:manage', { live: true });
   if (auth.error) return auth.error;
 
   const body = await req.json();

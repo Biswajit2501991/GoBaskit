@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { formatCustomerName } from '@/utils/customer';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,7 @@ export default function ArchiveManager() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const initialLoadDone = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,13 +54,18 @@ export default function ArchiveManager() {
       }
     } finally {
       setLoading(false);
+      initialLoadDone.current = true;
     }
   }, [page, search]);
 
   useEffect(() => {
+    if (!initialLoadDone.current || !search) {
+      void load();
+      return;
+    }
     const t = setTimeout(() => load(), 300);
     return () => clearTimeout(t);
-  }, [load]);
+  }, [load, search]);
 
   return (
     <div className="p-6 w-full">

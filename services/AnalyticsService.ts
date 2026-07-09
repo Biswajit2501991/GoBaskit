@@ -25,8 +25,18 @@ export interface AnalyticsOverview {
   updatedAt: string;
 }
 
-const TTL_MS = 60 * 1000;
+const TTL_MS = 2 * 60 * 1000;
 let cache: { value: AnalyticsOverview; expires: number } | null = null;
+
+type DayAggRow = { day: Date; orders: bigint | number; revenue: number | null };
+type ProductAggRow = { name: string; quantity: bigint | number; revenue: number | null };
+type DeliveryAggRow = { avg_minutes: number | null };
+type StaffDurationRow = {
+  staff_id: string;
+  assigned: bigint | number;
+  delivered: bigint | number;
+  avg_minutes: number | null;
+};
 
 export class AnalyticsService {
   static invalidateCache() {
@@ -41,6 +51,7 @@ export class AnalyticsService {
     const now = new Date();
     const thirtyDaysAgo = new Date(now);
     thirtyDaysAgo.setDate(now.getDate() - 30);
+    const stalePendingBefore = new Date(Date.now() - 45 * 60 * 1000);
 
     const [
       orderAgg,
@@ -49,14 +60,13 @@ export class AnalyticsService {
       stalePendingCount,
       topProductsRaw,
       lowProductsRaw,
-      recentOrders,
+      salesTrendRaw,
+      deliveryAvgRaw,
       staffRows,
-      assignedTotalsRaw,
-      deliveredTotalsRaw,
-      assignedOrdersForDuration,
+      staffDurationRaw,
     ] = await Promise.all([
       prisma.order.aggregate({
-        where: { createdAt: { gte: thirtyDaysAgo } },
+        where: { createdAt: { gte: thirtyDaysAgo }, archivedAt: null },
         _sum: { grandTotal: true },
         _count: { _all: true },
         _avg: { grandTotal: true },
@@ -64,79 +74,81 @@ export class AnalyticsService {
       prisma.customer.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
       prisma.order.groupBy({
         by: ['status'],
+        where: { createdAt: { gte: thirtyDaysAgo }, archivedAt: null },
         _count: { _all: true },
       }),
       prisma.order.count({
         where: {
           status: 'PENDING',
-          createdAt: { lt: new Date(Date.now() - 45 * 60 * 1000) },
+          archivedAt: null,
+          createdAt: { lt: stalePendingBefore },
         },
       }),
-      prisma.orderItem.groupBy({
-        by: ['productName'],
-        _sum: { quantity: true, totalPrice: true },
-        orderBy: { _sum: { totalPrice: 'desc' } },
-        take: 10,
-      }),
-      prisma.orderItem.groupBy({
-        by: ['productName'],
-        _sum: { quantity: true, totalPrice: true },
-        orderBy: { _sum: { totalPrice: 'asc' } },
-        take: 10,
-      }),
-      prisma.order.findMany({
-        where: { createdAt: { gte: thirtyDaysAgo } },
-        select: { createdAt: true, updatedAt: true, grandTotal: true },
-      }),
+      prisma.$queryRaw<ProductAggRow[]>`
+        SELECT oi.product_name AS name,
+               COALESCE(SUM(oi.quantity), 0)::bigint AS quantity,
+               COALESCE(SUM(oi.total_price), 0)::float AS revenue
+        FROM order_items oi
+        INNER JOIN orders o ON o.id = oi.order_id
+        WHERE o.created_at >= ${thirtyDaysAgo}
+          AND o.archived_at IS NULL
+        GROUP BY oi.product_name
+        ORDER BY revenue DESC
+        LIMIT 10
+      `,
+      prisma.$queryRaw<ProductAggRow[]>`
+        SELECT oi.product_name AS name,
+               COALESCE(SUM(oi.quantity), 0)::bigint AS quantity,
+               COALESCE(SUM(oi.total_price), 0)::float AS revenue
+        FROM order_items oi
+        INNER JOIN orders o ON o.id = oi.order_id
+        WHERE o.created_at >= ${thirtyDaysAgo}
+          AND o.archived_at IS NULL
+        GROUP BY oi.product_name
+        ORDER BY revenue ASC
+        LIMIT 10
+      `,
+      prisma.$queryRaw<DayAggRow[]>`
+        SELECT date_trunc('day', created_at) AS day,
+               COUNT(*)::bigint AS orders,
+               COALESCE(SUM(grand_total), 0)::float AS revenue
+        FROM orders
+        WHERE created_at >= ${thirtyDaysAgo}
+          AND archived_at IS NULL
+        GROUP BY 1
+        ORDER BY 1
+      `,
+      prisma.$queryRaw<DeliveryAggRow[]>`
+        SELECT AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 60.0)::float AS avg_minutes
+        FROM orders
+        WHERE created_at >= ${thirtyDaysAgo}
+          AND archived_at IS NULL
+          AND status = 'DELIVERED'
+      `,
       prisma.staffAccount.findMany({
         where: { active: true, deletedAt: null },
         select: { id: true, name: true },
       }),
-      prisma.order.groupBy({
-        by: ['assignedStaffId'],
-        where: {
-          createdAt: { gte: thirtyDaysAgo },
-          assignedStaffId: { not: null },
-        },
-        _count: { _all: true },
-      }),
-      prisma.order.groupBy({
-        by: ['assignedStaffId'],
-        where: {
-          createdAt: { gte: thirtyDaysAgo },
-          assignedStaffId: { not: null },
-          status: 'DELIVERED',
-        },
-        _count: { _all: true },
-      }),
-      prisma.order.findMany({
-        where: {
-          createdAt: { gte: thirtyDaysAgo },
-          assignedStaffId: { not: null },
-        },
-        select: {
-          assignedStaffId: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      }),
+      prisma.$queryRaw<StaffDurationRow[]>`
+        SELECT assigned_staff_id AS staff_id,
+               COUNT(*)::bigint AS assigned,
+               COUNT(*) FILTER (WHERE status = 'DELIVERED')::bigint AS delivered,
+               AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 60.0)::float AS avg_minutes
+        FROM orders
+        WHERE created_at >= ${thirtyDaysAgo}
+          AND archived_at IS NULL
+          AND assigned_staff_id IS NOT NULL
+        GROUP BY assigned_staff_id
+      `,
     ]);
 
-    let deliveryMinutesTotal = 0;
-    let deliveryCount = 0;
     const trendMap = new Map<string, { revenue: number; orders: number }>();
-    for (const order of recentOrders) {
-      const day = order.createdAt.toISOString().slice(0, 10);
-      const curr = trendMap.get(day) ?? { revenue: 0, orders: 0 };
-      curr.revenue += order.grandTotal;
-      curr.orders += 1;
-      trendMap.set(day, curr);
-
-      deliveryMinutesTotal += Math.max(
-        0,
-        Math.round((order.updatedAt.getTime() - order.createdAt.getTime()) / 60000),
-      );
-      deliveryCount += 1;
+    for (const row of salesTrendRaw) {
+      const day = new Date(row.day).toISOString().slice(0, 10);
+      trendMap.set(day, {
+        revenue: Number(row.revenue ?? 0),
+        orders: Number(row.orders),
+      });
     }
 
     const salesTrend = Array.from({ length: 30 }, (_, i) => {
@@ -156,65 +168,44 @@ export class AnalyticsService {
       checkoutAttemptsProxy > 0 ? Math.round((stalePendingCount / checkoutAttemptsProxy) * 10000) / 100 : 0;
 
     const staffNameMap = new Map(staffRows.map((s) => [s.id, s.name]));
-    const assignedMap = new Map(
-      assignedTotalsRaw
-        .filter((r) => !!r.assignedStaffId)
-        .map((r) => [r.assignedStaffId as string, r._count._all]),
-    );
-    const deliveredMap = new Map(
-      deliveredTotalsRaw
-        .filter((r) => !!r.assignedStaffId)
-        .map((r) => [r.assignedStaffId as string, r._count._all]),
-    );
-    const durationMap = new Map<string, { total: number; count: number }>();
-    for (const row of assignedOrdersForDuration) {
-      if (!row.assignedStaffId) continue;
-      const mins = Math.max(0, Math.round((row.updatedAt.getTime() - row.createdAt.getTime()) / 60000));
-      const curr = durationMap.get(row.assignedStaffId) ?? { total: 0, count: 0 };
-      curr.total += mins;
-      curr.count += 1;
-      durationMap.set(row.assignedStaffId, curr);
-    }
-    const staffPerformance = staffRows
-      .map((s) => {
-        const assignedOrders = assignedMap.get(s.id) ?? 0;
-        const deliveredOrders = deliveredMap.get(s.id) ?? 0;
-        const dur = durationMap.get(s.id);
+    const staffPerformance = staffDurationRaw
+      .map((row) => {
+        const assignedOrders = Number(row.assigned);
+        const deliveredOrders = Number(row.delivered);
         return {
-          staffId: s.id,
-          staffName: s.name,
+          staffId: row.staff_id,
+          staffName: staffNameMap.get(row.staff_id) ?? 'Staff',
           assignedOrders,
           deliveredOrders,
           completionRate:
             assignedOrders > 0 ? Math.round((deliveredOrders / assignedOrders) * 10000) / 100 : 0,
-          averageHandleMinutes: dur && dur.count > 0 ? Math.round(dur.total / dur.count) : 0,
+          averageHandleMinutes: row.avg_minutes != null ? Math.round(row.avg_minutes) : 0,
         };
       })
       .filter((s) => s.assignedOrders > 0 || s.deliveredOrders > 0)
       .sort((a, b) => b.deliveredOrders - a.deliveredOrders)
       .slice(0, 10);
 
+    const mapProducts = (rows: ProductAggRow[]) =>
+      rows.map((p) => ({
+        name: p.name,
+        quantity: Number(p.quantity),
+        revenue: Number(p.revenue ?? 0),
+      }));
+
     const value: AnalyticsOverview = {
       salesLast30Days: orderAgg._sum.grandTotal ?? 0,
       ordersLast30Days: orderAgg._count._all,
       averageBasketValue: orderAgg._avg.grandTotal ?? 0,
       customersLast30Days: customerCount,
-      averageDeliveryMinutes: deliveryCount ? Math.round(deliveryMinutesTotal / deliveryCount) : 0,
+      averageDeliveryMinutes: Math.round(Number(deliveryAvgRaw[0]?.avg_minutes ?? 0)),
       statusBreakdown: statusBreakdownRaw.map((s) => ({ status: s.status, count: s._count._all })),
       conversionRate,
       abandonmentRate,
       abandonedOrdersProxy: stalePendingCount,
       checkoutAttemptsProxy,
-      topProducts: topProductsRaw.map((p) => ({
-        name: p.productName,
-        quantity: p._sum.quantity ?? 0,
-        revenue: p._sum.totalPrice ?? 0,
-      })),
-      lowProducts: lowProductsRaw.map((p) => ({
-        name: p.productName,
-        quantity: p._sum.quantity ?? 0,
-        revenue: p._sum.totalPrice ?? 0,
-      })),
+      topProducts: mapProducts(topProductsRaw),
+      lowProducts: mapProducts(lowProductsRaw),
       staffPerformance,
       salesTrend,
       updatedAt: new Date().toISOString(),

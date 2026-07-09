@@ -44,7 +44,16 @@ function buildVerificationMessage(code: string, mobile: string): string {
 }
 
 export class WhatsAppVerificationService {
-  static async expireStalePending() {
+  private static lastExpireAt = 0;
+  private static readonly EXPIRE_THROTTLE_MS = 5 * 60 * 1000;
+
+  static async expireStalePending(force = false) {
+    const nowMs = Date.now();
+    if (!force && nowMs - this.lastExpireAt < this.EXPIRE_THROTTLE_MS) {
+      return;
+    }
+    this.lastExpireAt = nowMs;
+
     const now = new Date();
     const expired = await prisma.whatsAppVerification.findMany({
       where: { status: 'PENDING', expiresAt: { lt: now } },
@@ -58,14 +67,17 @@ export class WhatsAppVerificationService {
       data: { status: 'EXPIRED' },
     });
 
-    for (const row of expired) {
-      await VerificationAuditService.log({
-        action: VERIFICATION_AUDIT_ACTIONS.EXPIRED,
-        mobile: row.mobile,
-        verificationId: row.id,
-        actorType: 'system',
-      });
-    }
+    // Batch audit writes instead of sequential awaits
+    await Promise.all(
+      expired.map((row) =>
+        VerificationAuditService.log({
+          action: VERIFICATION_AUDIT_ACTIONS.EXPIRED,
+          mobile: row.mobile,
+          verificationId: row.id,
+          actorType: 'system',
+        }),
+      ),
+    );
   }
 
   static async getBusinessWhatsAppNumber(): Promise<string> {
@@ -473,7 +485,8 @@ export class WhatsAppVerificationService {
   }
 
   static async getPendingCount(): Promise<number> {
-    await this.expireStalePending();
+    // Throttled expiry — count itself stays a cheap query.
+    void this.expireStalePending();
     return prisma.whatsAppVerification.count({
       where: { status: 'PENDING', expiresAt: { gt: new Date() } },
     });

@@ -78,7 +78,7 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const auth = await requireStaffPermission('settings:edit');
+  const auth = await requireStaffPermission('settings:edit', { live: true });
   if (auth.error) return auth.error;
   const originError = requireSameOrigin(req);
   if (originError) return NextResponse.json({ error: originError }, { status: 403 });

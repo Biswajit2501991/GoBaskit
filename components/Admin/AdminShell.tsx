@@ -5,6 +5,7 @@ import { PanelLeftClose, PanelLeftOpen, LogOut } from 'lucide-react';
 import { LogoutButton } from '@/components/Admin/LogoutButton';
 import { NotificationCenter } from '@/components/Admin/NotificationCenter';
 import { AdminNavLink } from '@/components/Admin/AdminNavLink';
+import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 
 type AdminShellProps = {
   staff: { id: string; name: string; role: string };
@@ -34,18 +35,50 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
     const hasVerificationNav = visibleNav.some((item) => item.href === '/admin/whatsapp-verification');
     if (!hasVerificationNav) return;
 
+    let cancelled = false;
+    let idleId: number | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    let unsubscribe: (() => void) | null = null;
+
     const load = () => {
       fetch('/api/admin/whatsapp-verifications/pending-count')
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
-          if (typeof data?.pendingCount === 'number') setPendingVerifications(data.pendingCount);
+          if (!cancelled && typeof data?.pendingCount === 'number') {
+            setPendingVerifications(data.pendingCount);
+          }
         })
         .catch(() => {});
     };
 
-    load();
-    const timer = setInterval(load, 30_000);
-    return () => clearInterval(timer);
+    const start = () => {
+      if (cancelled) return;
+      load();
+      // Slower poll; SSE also bumps the badge when verification events arrive.
+      intervalId = setInterval(load, 60_000);
+      unsubscribe = subscribeToAdminEvents((event) => {
+        if (event.type === 'whatsapp_verification_updated') {
+          load();
+        }
+      });
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(start, { timeout: 4000 });
+    } else {
+      timeoutId = setTimeout(start, 1500);
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleId != null && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId) clearTimeout(timeoutId);
+      if (intervalId) clearInterval(intervalId);
+      unsubscribe?.();
+    };
   }, [visibleNav]);
 
   return (
@@ -118,4 +151,3 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
     </div>
   );
 }
-

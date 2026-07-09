@@ -102,7 +102,7 @@ export class OrderService {
     const [items, total] = await Promise.all([
       prisma.order.findMany({
         where,
-        include: orderListInclude(params.includeHistory !== false),
+        include: orderListInclude(params.includeHistory === true),
         orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -111,6 +111,15 @@ export class OrderService {
     ]);
 
     return { items, total, page, pageSize };
+  }
+
+  static async getStatusHistory(orderId: string) {
+    return prisma.orderStatusHistory.findMany({
+      where: { orderId },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      include: { staff: { select: staffTimelineSelect } },
+    });
   }
 
   static async recordStatusChange(orderId: string, status: OrderStatus, staffId?: string, note?: string) {

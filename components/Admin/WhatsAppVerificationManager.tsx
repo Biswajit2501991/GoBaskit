@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatDateTime } from '@/utils/formatter';
 import { formatE164Display } from '@/utils/phone';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,7 @@ export default function WhatsAppVerificationManager({ canManage }: { canManage: 
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
+  const initialLoadDone = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,29 +49,28 @@ export default function WhatsAppVerificationManager({ canManage }: { canManage: 
     if (statusFilter) params.set('status', statusFilter);
 
     try {
-      const [listRes, countRes] = await Promise.all([
-        fetch(`/api/admin/whatsapp-verifications?${params}`),
-        fetch('/api/admin/whatsapp-verifications/pending-count'),
-      ]);
+      // List already returns pendingCount — skip duplicate pending-count fetch.
+      const listRes = await fetch(`/api/admin/whatsapp-verifications?${params}`);
       if (listRes.ok) {
         const data = await listRes.json();
         setItems(Array.isArray(data.items) ? data.items : []);
         setTotal(typeof data.total === 'number' ? data.total : 0);
         if (typeof data.pendingCount === 'number') setPendingCount(data.pendingCount);
       }
-      if (countRes.ok) {
-        const data = await countRes.json();
-        if (typeof data.pendingCount === 'number') setPendingCount(data.pendingCount);
-      }
     } finally {
       setLoading(false);
+      initialLoadDone.current = true;
     }
   }, [page, search, statusFilter]);
 
   useEffect(() => {
+    if (!initialLoadDone.current || !search) {
+      void load();
+      return;
+    }
     const t = setTimeout(() => load(), 300);
     return () => clearTimeout(t);
-  }, [load]);
+  }, [load, search]);
 
   useEffect(() => {
     const unsubscribe = subscribeToAdminEvents((event) => {

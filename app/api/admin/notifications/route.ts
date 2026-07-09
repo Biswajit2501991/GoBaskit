@@ -1,12 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireStaffSession } from '@/lib/staff-auth';
 import { NotificationService } from '@/services/NotificationService';
+import { SettingsService } from '@/services/SettingsService';
 
 export async function GET(req: NextRequest) {
   const auth = await requireStaffSession();
   if (auth.error) return auth.error;
 
   const { searchParams } = new URL(req.url);
+
+  // Lightweight badge + sound flag — used on admin shell mount without loading the full list.
+  if (searchParams.get('summary') === '1') {
+    const [unreadCount, config] = await Promise.all([
+      NotificationService.getUnreadCount(auth.staff!.id),
+      SettingsService.getStoreConfig(),
+    ]);
+    return NextResponse.json({
+      unreadCount,
+      notificationSoundEnabled: config.notificationSoundEnabled !== false,
+    });
+  }
+
   const data = await NotificationService.list(auth.staff!.id, {
     page: Number(searchParams.get('page') || 1),
     pageSize: Number(searchParams.get('pageSize') || 20),

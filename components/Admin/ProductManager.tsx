@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -59,14 +59,14 @@ const emptyProduct: ProductFormData = {
 };
 
 export default function ProductManager({
-  categories,
+  categories: initialCategories,
   canEdit,
   canDelete,
   sort = 'name',
   title = 'Products',
   subtitle = 'assign each to a category',
 }: {
-  categories: AdminCategory[];
+  categories?: AdminCategory[];
   canEdit: boolean;
   canDelete: boolean;
   sort?: 'name' | 'stock';
@@ -74,6 +74,7 @@ export default function ProductManager({
   subtitle?: string;
 }) {
   const router = useRouter();
+  const [categories, setCategories] = useState<AdminCategory[]>(initialCategories ?? []);
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -84,6 +85,12 @@ export default function ProductManager({
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const initialLoadDone = useRef(false);
+
+  useEffect(() => {
+    if (initialCategories?.length) return;
+    // Categories come with the first products response when includeCategories=1.
+  }, [initialCategories]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -94,6 +101,10 @@ export default function ProductManager({
     });
     if (search.trim()) params.set('search', search.trim());
     if (categoryFilter) params.set('categoryId', categoryFilter);
+    // Fetch categories in parallel with products on first loads (no separate SSR wait).
+    if (!initialCategories?.length && categories.length === 0) {
+      params.set('includeCategories', '1');
+    }
 
     try {
       const res = await fetch(`/api/admin/products?${params}`);
@@ -101,19 +112,27 @@ export default function ProductManager({
         const data = await res.json();
         setProducts(Array.isArray(data.items) ? data.items : []);
         setTotal(typeof data.total === 'number' ? data.total : 0);
+        if (Array.isArray(data.categories) && data.categories.length) {
+          setCategories(data.categories);
+        }
       }
     } catch {
       setProducts([]);
       setTotal(0);
     } finally {
       setLoading(false);
+      initialLoadDone.current = true;
     }
-  }, [page, search, categoryFilter, sort]);
+  }, [page, search, categoryFilter, sort, categories.length, initialCategories]);
 
   useEffect(() => {
+    if (!initialLoadDone.current || !search) {
+      void load();
+      return;
+    }
     const t = setTimeout(() => load(), 300);
     return () => clearTimeout(t);
-  }, [load]);
+  }, [load, search]);
 
   const {
     register,

@@ -169,6 +169,31 @@ function OrderCard({
   onRelease: (id: string) => void;
   onWhatsApp: (order: OrderRow) => void;
 }) {
+  const [history, setHistory] = useState<StatusHistoryEntry[] | null>(order.statusHistory ?? null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  useEffect(() => {
+    if (!expanded) return;
+    if (history !== null) return;
+    let alive = true;
+    setHistoryLoading(true);
+    fetch(`/api/admin/orders/${order.id}/history`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!alive) return;
+        setHistory(Array.isArray(data?.items) ? data.items : []);
+      })
+      .catch(() => {
+        if (alive) setHistory([]);
+      })
+      .finally(() => {
+        if (alive) setHistoryLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [expanded, order.id, history]);
+
   const isLocked = Boolean(order.lockedAt && order.assignedStaffId);
   const isMine = order.assignedStaffId === currentStaffId;
   const lockedByOther = isLocked && !isMine && !canOverrideLock;
@@ -390,29 +415,33 @@ function OrderCard({
             />
           </div>
 
-          {order.statusHistory && order.statusHistory.length > 0 && (
+          {(historyLoading || (history && history.length > 0)) && (
             <div className="pt-2 border-t border-gray-50">
               <p className="text-xs font-semibold text-gray-500 mb-2">Status timeline</p>
-              <div className="space-y-2">
-                {order.statusHistory.map((h) => (
-                  <div key={h.id} className="text-xs bg-gray-50 rounded-lg px-3 py-2">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <span className="font-semibold text-gray-800">{h.status.replace(/_/g, ' ')}</span>
-                      <span className="text-gray-400">·</span>
-                      <span className="text-gray-500">{formatDateTime(h.createdAt)}</span>
+              {historyLoading ? (
+                <p className="text-xs text-gray-400">Loading timeline…</p>
+              ) : (
+                <div className="space-y-2">
+                  {(history ?? []).map((h) => (
+                    <div key={h.id} className="text-xs bg-gray-50 rounded-lg px-3 py-2">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span className="font-semibold text-gray-800">{h.status.replace(/_/g, ' ')}</span>
+                        <span className="text-gray-400">·</span>
+                        <span className="text-gray-500">{formatDateTime(h.createdAt)}</span>
+                      </div>
+                      {h.staff ? (
+                        <p className="text-gray-600 mt-0.5">
+                          Staff: <span className="font-medium">{h.staff.name}</span>
+                          {' · '}+91 {h.staff.mobile}
+                        </p>
+                      ) : (
+                        <p className="text-gray-400 mt-0.5">System</p>
+                      )}
+                      {h.note && <p className="text-gray-500 mt-0.5">{h.note}</p>}
                     </div>
-                    {h.staff ? (
-                      <p className="text-gray-600 mt-0.5">
-                        Staff: <span className="font-medium">{h.staff.name}</span>
-                        {' · '}+91 {h.staff.mobile}
-                      </p>
-                    ) : (
-                      <p className="text-gray-400 mt-0.5">System</p>
-                    )}
-                    {h.note && <p className="text-gray-500 mt-0.5">{h.note}</p>}
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -466,7 +495,6 @@ export default function OrdersManager({
     const params = new URLSearchParams({
       page: String(page),
       pageSize: String(BOARD_PAGE_SIZE),
-      includeHistory: '1',
     });
     if (search) params.set('search', search);
     if (forceAssignedToMe) params.set('assignedStaffId', currentStaffId);
@@ -491,14 +519,27 @@ export default function OrdersManager({
   loadRef.current = load;
 
   useEffect(() => {
+    // Debounce only search typing; first load / page change is immediate.
+    if (!initialLoadDone.current || !search) {
+      void load();
+      return;
+    }
     const t = setTimeout(() => load(), 300);
     return () => clearTimeout(t);
-  }, [load]);
+  }, [load, search]);
 
   useEffect(() => {
+    let cancelled = false;
     fetch('/api/admin/staff?pageSize=100')
       .then((r) => r.json())
-      .then((d) => setStaffList(d.items?.filter((s: StaffOption & { active: boolean }) => s.active) ?? []));
+      .then((d) => {
+        if (cancelled) return;
+        setStaffList(d.items?.filter((s: StaffOption & { active: boolean }) => s.active) ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

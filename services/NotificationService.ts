@@ -1,7 +1,6 @@
 import type { PaymentMethod } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { adminEventBus } from '@/lib/realtime/eventBus';
-import { DashboardService } from '@/services/DashboardService';
 import { SettingsService } from '@/services/SettingsService';
 import { StaffAssignmentService } from '@/services/StaffAssignmentService';
 import { formatCustomerName } from '@/utils/customer';
@@ -106,8 +105,6 @@ export class NotificationService {
       ),
     );
 
-    DashboardService.invalidateCache();
-
     for (const notification of notifications) {
       await emitNotification(notification);
     }
@@ -188,13 +185,17 @@ export class NotificationService {
       ),
     );
 
-    DashboardService.invalidateCache();
-
     for (const notification of notifications) {
       await emitNotification(notification);
     }
 
     return notifications;
+  }
+
+  static async getUnreadCount(staffId: string) {
+    return prisma.adminNotification.count({
+      where: { OR: [{ staffId: null }, { staffId }], readAt: null },
+    });
   }
 
   static async list(

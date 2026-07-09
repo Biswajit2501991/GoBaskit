@@ -44,17 +44,6 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
   const lastSoundAtRef = useRef(0);
 
   useEffect(() => {
-    fetch('/api/config')
-      .then((r) => r.json())
-      .then((c) => {
-        if (typeof c.notificationSoundEnabled === 'boolean') {
-          setSoundEnabled(c.notificationSoundEnabled);
-        }
-      })
-      .catch(() => {
-        /* keep default */
-      });
-
     try {
       if (sessionStorage.getItem(SOUND_UNLOCK_KEY) === '1') {
         setSoundUnlocked(true);
@@ -70,7 +59,6 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
     setIsAppleMobile(apple);
     setIsStandalone(standalone);
 
-    // Register SW early when supported; subscription still needs an explicit Enable tap.
     if (canUseWebPush()) {
       void registerAdminServiceWorker();
       if (Notification.permission === 'granted') {
@@ -81,6 +69,35 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
     } else {
       setPushStatus('unsupported');
     }
+
+    // Defer badge + sound config off the critical path.
+    const loadSummary = () => {
+      fetch('/api/admin/notifications?summary=1')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (!data) return;
+          if (typeof data.unreadCount === 'number') setUnreadCount(data.unreadCount);
+          if (typeof data.notificationSoundEnabled === 'boolean') {
+            setSoundEnabled(data.notificationSoundEnabled);
+          }
+        })
+        .catch(() => {});
+    };
+
+    let idleId: number | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(loadSummary, { timeout: 2500 });
+    } else {
+      timeoutId = setTimeout(loadSummary, 800);
+    }
+
+    return () => {
+      if (idleId != null && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
   const load = useCallback(async () => {
@@ -94,17 +111,21 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
     }
   }, [readState, typeFilter]);
 
+  // Full list only when the panel is open (or filters change while open).
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!open) return;
+    void load();
+  }, [open, load]);
 
+  // Light poll only while the panel is open.
   useEffect(() => {
+    if (!open) return;
     const timer = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       void load();
     }, 12_000);
     return () => clearInterval(timer);
-  }, [load]);
+  }, [open, load]);
 
   const getAudioContext = useCallback(() => {
     if (typeof window === 'undefined') return null;
@@ -225,48 +246,70 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
   }, [soundEnabled, playBeep]);
 
   useEffect(() => {
-    const unsubscribe = subscribeToAdminEvents((data) => {
-      if (data.type !== 'notification_created') return;
-      const payload = data.payload as Record<string, unknown>;
-      const targetStaffId = payload.staffId ? String(payload.staffId) : null;
-      if (targetStaffId && targetStaffId !== staffId) return;
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
+    let idleId: number | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-      const n: NotificationItem = {
-        id: String(payload.id ?? ''),
-        type: String(payload.type ?? ''),
-        title: String(payload.title ?? ''),
-        message: String(payload.message ?? ''),
-        entityType: payload.entityType ? String(payload.entityType) : null,
-        entityId: payload.entityId ? String(payload.entityId) : null,
-        readAt: null,
-        createdAt: String(payload.createdAt ?? new Date().toISOString()),
-      };
-      setUnreadCount((c) => c + 1);
-      setItems((prev) => [{ ...n, readAt: null }, ...prev].slice(0, 10));
-      setToast(n);
-      setTimeout(() => setToast(null), 5000);
+    const start = () => {
+      if (cancelled) return;
+      unsubscribe = subscribeToAdminEvents((data) => {
+        if (data.type !== 'notification_created') return;
+        const payload = data.payload as Record<string, unknown>;
+        const targetStaffId = payload.staffId ? String(payload.staffId) : null;
+        if (targetStaffId && targetStaffId !== staffId) return;
 
-      void playNotificationSound();
+        const n: NotificationItem = {
+          id: String(payload.id ?? ''),
+          type: String(payload.type ?? ''),
+          title: String(payload.title ?? ''),
+          message: String(payload.message ?? ''),
+          entityType: payload.entityType ? String(payload.entityType) : null,
+          entityId: payload.entityId ? String(payload.entityId) : null,
+          readAt: null,
+          createdAt: String(payload.createdAt ?? new Date().toISOString()),
+        };
+        setUnreadCount((c) => c + 1);
+        setItems((prev) => [{ ...n, readAt: null }, ...prev].slice(0, 10));
+        setToast(n);
+        setTimeout(() => setToast(null), 5000);
 
-      // System notification when tab is in background / minimized (if permission granted).
-      if (
-        typeof document !== 'undefined' &&
-        document.visibilityState !== 'visible' &&
-        'Notification' in window &&
-        Notification.permission === 'granted'
-      ) {
-        try {
-          new Notification(n.title, {
-            body: n.message,
-            tag: `order-${n.entityId || n.id}`,
-            requireInteraction: true,
-          });
-        } catch {
-          /* ignore */
+        void playNotificationSound();
+
+        if (
+          typeof document !== 'undefined' &&
+          document.visibilityState !== 'visible' &&
+          'Notification' in window &&
+          Notification.permission === 'granted'
+        ) {
+          try {
+            new Notification(n.title, {
+              body: n.message,
+              tag: `order-${n.entityId || n.id}`,
+              requireInteraction: true,
+            });
+          } catch {
+            /* ignore */
+          }
         }
+      });
+    };
+
+    // Defer SSE until the browser is idle so section navigation isn't competing with it.
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(start, { timeout: 4000 });
+    } else {
+      timeoutId = setTimeout(start, 1500);
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleId != null && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
       }
-    });
-    return unsubscribe;
+      if (timeoutId) clearTimeout(timeoutId);
+      unsubscribe?.();
+    };
   }, [staffId, playNotificationSound]);
 
   async function markRead(id: string) {

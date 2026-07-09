@@ -10,7 +10,7 @@ import { AuditService } from '@/services/AuditService';
 type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const auth = await requireStaffPermission('staff:manage');
+  const auth = await requireStaffPermission('staff:manage', { live: true });
   if (auth.error) return auth.error;
 
   const { id } = await params;
@@ -111,7 +111,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  const auth = await requireStaffPermission('staff:manage');
+  const auth = await requireStaffPermission('staff:manage', { live: true });
   if (auth.error) return auth.error;
 
   const { id } = await params;

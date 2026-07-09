@@ -8,7 +8,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireStaffPermission('verification:manage');
+  const auth = await requireStaffPermission('verification:manage', { live: true });
   if (auth.error) return auth.error;
   const originError = requireSameOrigin(req);
   if (originError) return NextResponse.json({ error: originError }, { status: 403 });

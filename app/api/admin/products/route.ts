@@ -6,7 +6,7 @@ import { requireStaffPermission } from '@/lib/staff-auth';
 import { requireSameOrigin } from '@/lib/security';
 import { AuditService } from '@/services/AuditService';
 import { InventoryService } from '@/services/InventoryService';
-import { ProductService } from '@/services/ProductService';
+import { ProductService, CategoryService } from '@/services/ProductService';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants';
 
 export async function GET(req: NextRequest) {
@@ -15,15 +15,19 @@ export async function GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const data = await ProductService.listAdmin({
-      search: searchParams.get('search') || undefined,
-      categoryId: searchParams.get('categoryId') || undefined,
-      page: Number(searchParams.get('page') || 1),
-      pageSize: Number(searchParams.get('pageSize') || ADMIN_LIST_PAGE_SIZE),
-      sort: searchParams.get('sort') === 'stock' ? 'stock' : 'name',
-    });
+    const includeCategories = searchParams.get('includeCategories') === '1';
+    const [data, categories] = await Promise.all([
+      ProductService.listAdmin({
+        search: searchParams.get('search') || undefined,
+        categoryId: searchParams.get('categoryId') || undefined,
+        page: Number(searchParams.get('page') || 1),
+        pageSize: Number(searchParams.get('pageSize') || ADMIN_LIST_PAGE_SIZE),
+        sort: searchParams.get('sort') === 'stock' ? 'stock' : 'name',
+      }),
+      includeCategories ? CategoryService.getAll(false) : Promise.resolve(null),
+    ]);
 
-    return NextResponse.json(data);
+    return NextResponse.json(categories ? { ...data, categories } : data);
   } catch (err) {
     console.error('[admin/products GET]', err);
     return NextResponse.json({ error: 'Failed to load products' }, { status: 500 });

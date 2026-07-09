@@ -1,9 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@prisma/client';
-import { InventoryService } from '@/services/InventoryService';
-import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationService';
+import { LOW_STOCK_RATIO } from '@/utils/inventory';
 
-const CACHE_TTL_MS = 60 * 1000;
+const CACHE_TTL_MS = 3 * 60 * 1000;
 let cache: { data: DashboardStats; expires: number } | null = null;
 
 export interface DashboardStats {
@@ -43,6 +42,9 @@ function startOfToday(): Date {
   return d;
 }
 
+type DayAggRow = { day: Date; orders: bigint | number; revenue: number | null };
+type TopProductRow = { name: string; quantity: bigint | number; revenue: number | null };
+
 export class DashboardService {
   static invalidateCache() {
     cache = null;
@@ -54,12 +56,13 @@ export class DashboardService {
     }
 
     const todayStart = startOfToday();
-
     const monthStart = new Date(todayStart);
     monthStart.setDate(1);
     const onlineThreshold = new Date(Date.now() - 15 * 60 * 1000);
     const trendStart = new Date(todayStart);
     trendStart.setDate(trendStart.getDate() - 6);
+    const topProductsSince = new Date(todayStart);
+    topProductsSince.setDate(topProductsSince.getDate() - 30);
 
     const [
       todayAgg,
@@ -69,67 +72,94 @@ export class DashboardService {
       customerCount,
       productCount,
       categoryCount,
-      lowStockProducts,
+      lowStockCount,
       staffOnline,
       unreadNotifications,
       recentOrders,
       topProductsRaw,
-      trendOrdersRaw,
+      trendRows,
       pendingWhatsappVerifications,
     ] = await Promise.all([
       prisma.order.aggregate({
-        where: { createdAt: { gte: todayStart } },
+        where: { createdAt: { gte: todayStart }, archivedAt: null },
         _count: { id: true },
         _sum: { grandTotal: true },
       }),
       prisma.order.aggregate({
-        where: { createdAt: { gte: monthStart } },
+        where: { createdAt: { gte: monthStart }, archivedAt: null },
         _sum: { grandTotal: true },
       }),
       prisma.order.groupBy({
         by: ['status'],
+        where: { archivedAt: null },
         _count: { _all: true },
       }),
-      prisma.order.aggregate({ _count: { id: true }, _sum: { grandTotal: true } }),
+      prisma.order.aggregate({
+        where: { archivedAt: null },
+        _count: { id: true },
+        _sum: { grandTotal: true },
+      }),
       prisma.customer.count(),
       prisma.product.count(),
       prisma.category.count(),
-      prisma.product.findMany({
-        where: { status: { not: 'INACTIVE' } },
-        select: { stock: true, stockBaseline: true },
-      }),
+      // COUNT in SQL instead of loading every product into Node
+      prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(*)::bigint AS count
+        FROM products
+        WHERE status <> 'INACTIVE'
+          AND (
+            stock <= 0
+            OR (
+              stock_baseline > 0
+              AND stock <= GREATEST(1, CEIL(stock_baseline * ${LOW_STOCK_RATIO}))
+            )
+          )
+      `.then((rows) => Number(rows[0]?.count ?? 0)),
       prisma.staffAccount.count({
         where: { active: true, deletedAt: null, lastLogin: { gte: onlineThreshold } },
       }),
       prisma.adminNotification.count({ where: { readAt: null } }),
       prisma.order.findMany({
+        where: { archivedAt: null },
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: { customer: { select: { firstName: true, lastName: true } } },
       }),
-      prisma.orderItem.groupBy({
-        by: ['productName'],
-        _sum: { quantity: true, totalPrice: true },
-        orderBy: { _sum: { totalPrice: 'desc' } },
-        take: 5,
+      prisma.$queryRaw<TopProductRow[]>`
+        SELECT oi.product_name AS name,
+               COALESCE(SUM(oi.quantity), 0)::bigint AS quantity,
+               COALESCE(SUM(oi.total_price), 0)::float AS revenue
+        FROM order_items oi
+        INNER JOIN orders o ON o.id = oi.order_id
+        WHERE o.created_at >= ${topProductsSince}
+          AND o.archived_at IS NULL
+        GROUP BY oi.product_name
+        ORDER BY revenue DESC
+        LIMIT 5
+      `,
+      prisma.$queryRaw<DayAggRow[]>`
+        SELECT date_trunc('day', created_at) AS day,
+               COUNT(*)::bigint AS orders,
+               COALESCE(SUM(grand_total), 0)::float AS revenue
+        FROM orders
+        WHERE created_at >= ${trendStart}
+          AND archived_at IS NULL
+        GROUP BY 1
+        ORDER BY 1
+      `,
+      // Cheap count — expiry is throttled separately
+      prisma.whatsAppVerification.count({
+        where: { status: 'PENDING', expiresAt: { gt: new Date() } },
       }),
-      prisma.order.groupBy({
-        by: ['createdAt'],
-        where: { createdAt: { gte: trendStart } },
-        _count: { _all: true },
-        _sum: { grandTotal: true },
-      }),
-      WhatsAppVerificationService.getPendingCount(),
     ]);
 
     const statusMap = new Map(statusCounts.map((s) => [s.status, s._count._all]));
     const trendMap = new Map<string, { orders: number; revenue: number }>();
-    for (const row of trendOrdersRaw) {
-      const day = row.createdAt.toISOString().slice(0, 10);
-      const current = trendMap.get(day) ?? { orders: 0, revenue: 0 };
+    for (const row of trendRows) {
+      const day = new Date(row.day).toISOString().slice(0, 10);
       trendMap.set(day, {
-        orders: current.orders + row._count._all,
-        revenue: current.revenue + (row._sum.grandTotal ?? 0),
+        orders: Number(row.orders),
+        revenue: Number(row.revenue ?? 0),
       });
     }
     const dailyTrend = Array.from({ length: 7 }, (_, i) => {
@@ -139,10 +169,6 @@ export class DashboardService {
       const row = trendMap.get(day) ?? { orders: 0, revenue: 0 };
       return { day, ...row };
     });
-
-    const lowStockCount = lowStockProducts.filter(
-      (p) => p.stock <= 0 || InventoryService.isLowStock(p.stock, p.stockBaseline),
-    ).length;
 
     const data: DashboardStats = {
       todayOrders: todayAgg._count.id,
@@ -163,9 +189,9 @@ export class DashboardService {
       unreadNotifications,
       pendingWhatsappVerifications,
       topProducts: topProductsRaw.map((p) => ({
-        name: p.productName,
-        quantity: p._sum.quantity ?? 0,
-        revenue: p._sum.totalPrice ?? 0,
+        name: p.name,
+        quantity: Number(p.quantity),
+        revenue: Number(p.revenue ?? 0),
       })),
       dailyTrend,
       recentOrders: recentOrders.map((o) => ({

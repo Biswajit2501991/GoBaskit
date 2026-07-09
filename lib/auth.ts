@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -92,19 +93,20 @@ export async function revokeStaffRefreshTokens(staffId: string) {
   await prisma.staffRefreshToken.deleteMany({ where: { staffId } });
 }
 
-export async function getSession(): Promise<SessionPayload | null> {
+export const getSession = cache(async (): Promise<SessionPayload | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
   return verifyToken(token);
-}
+});
 
 /** @deprecated use getSession */
 export async function getAdminSession() {
   return getSession();
 }
 
-export async function getStaffFromSession() {
+/** Deduped per RSC/request — layout + page share one staff DB lookup. */
+export const getStaffFromSession = cache(async () => {
   const session = await getSession();
   if (!session) return null;
 
@@ -137,7 +139,7 @@ export async function getStaffFromSession() {
     createdAt: admin.createdAt,
     updatedAt: admin.updatedAt,
   };
-}
+});
 
 export function sessionHasPermission(
   session: SessionPayload | null,

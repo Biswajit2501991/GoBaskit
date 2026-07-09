@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -47,6 +47,7 @@ export default function CategoryManager({
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const initialLoadDone = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,13 +69,18 @@ export default function CategoryManager({
       setTotal(0);
     } finally {
       setLoading(false);
+      initialLoadDone.current = true;
     }
   }, [page, search]);
 
   useEffect(() => {
+    if (!initialLoadDone.current || !search) {
+      void load();
+      return;
+    }
     const t = setTimeout(() => load(), 300);
     return () => clearTimeout(t);
-  }, [load]);
+  }, [load, search]);
 
   const {
     register,
