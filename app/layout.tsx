@@ -17,6 +17,14 @@ export const metadata: Metadata = {
     canonical: '/',
   },
   manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'GoBaskit',
+    statusBarStyle: 'default',
+  },
+  icons: {
+    apple: '/icon-192.png',
+  },
   openGraph: {
     type: 'website',
     url: '/',

@@ -11,6 +11,25 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return output;
 }
 
+/** iPhone/iPad Safari only supports Web Push after Add to Home Screen (standalone). */
+export function isAppleMobileBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const iOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  return iOS;
+}
+
+export function isStandaloneDisplay(): boolean {
+  if (typeof window === 'undefined') return false;
+  const nav = window.navigator as Navigator & { standalone?: boolean };
+  return Boolean(nav.standalone) || window.matchMedia('(display-mode: standalone)').matches;
+}
+
+export function canUseWebPush(): boolean {
+  if (typeof window === 'undefined') return false;
+  return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+}
+
 export async function registerAdminServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
   try {
@@ -23,7 +42,14 @@ export async function registerAdminServiceWorker(): Promise<ServiceWorkerRegistr
 
 export async function enableAdminPushAlerts(): Promise<{ ok: boolean; error?: string }> {
   if (typeof window === 'undefined') return { ok: false, error: 'Not in browser' };
-  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+  if (!canUseWebPush()) {
+    if (isAppleMobileBrowser() && !isStandaloneDisplay()) {
+      return {
+        ok: false,
+        error:
+          'iPhone Safari needs Add to Home Screen for background popups. Share → Add to Home Screen, open from the home icon, then try again.',
+      };
+    }
     return { ok: false, error: 'This browser does not support push notifications' };
   }
 

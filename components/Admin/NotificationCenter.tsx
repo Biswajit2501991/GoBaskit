@@ -4,7 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Bell, Volume2, X } from 'lucide-react';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
-import { enableAdminPushAlerts, registerAdminServiceWorker } from '@/lib/admin-push-client';
+import {
+  canUseWebPush,
+  enableAdminPushAlerts,
+  isAppleMobileBrowser,
+  isStandaloneDisplay,
+  registerAdminServiceWorker,
+} from '@/lib/admin-push-client';
 
 interface NotificationItem {
   id: string;
@@ -30,8 +36,10 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
   const [soundUnlocked, setSoundUnlocked] = useState(false);
   const [showSoundHint, setShowSoundHint] = useState(false);
   const [pushStatus, setPushStatus] = useState<'unknown' | 'off' | 'on' | 'unsupported'>('unknown');
+  const [isAppleMobile, setIsAppleMobile] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
-  const [pushMessage, setPushMessage] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
   const audioCtxRef = useRef<AudioContext | null>(null);
   const lastSoundAtRef = useRef(0);
 
@@ -57,16 +65,21 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
       setShowSoundHint(true);
     }
 
-    // Register SW early; subscription still requires an explicit Enable tap.
-    void registerAdminServiceWorker();
-    if (typeof window !== 'undefined') {
-      if (!('Notification' in window) || !('PushManager' in window)) {
-        setPushStatus('unsupported');
-      } else if (Notification.permission === 'granted') {
+    const apple = isAppleMobileBrowser();
+    const standalone = isStandaloneDisplay();
+    setIsAppleMobile(apple);
+    setIsStandalone(standalone);
+
+    // Register SW early when supported; subscription still needs an explicit Enable tap.
+    if (canUseWebPush()) {
+      void registerAdminServiceWorker();
+      if (Notification.permission === 'granted') {
         setPushStatus('on');
       } else {
         setPushStatus('off');
       }
+    } else {
+      setPushStatus('unsupported');
     }
   }, []);
 
@@ -149,28 +162,45 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
       } catch {
         /* private mode */
       }
+      setStatusMessage('Sound enabled. Keep this admin tab open to hear new orders.');
+    } else {
+      setStatusMessage('Could not unlock sound. Tap again, and check the phone is not on silent.');
     }
     return ok;
   }, [playBeep]);
 
   const enableBackgroundAlerts = useCallback(async () => {
     setPushBusy(true);
-    setPushMessage('');
+    setStatusMessage('');
     try {
+      // Always unlock in-tab sound first (works on iPhone Safari even without push).
       await unlockSound();
+
+      if (!canUseWebPush()) {
+        if (isAppleMobile && !isStandalone) {
+          setStatusMessage(
+            'Sound is on for this tab. For popup alerts when Safari is minimized: Share → Add to Home Screen, open GoBaskit from the home icon, then tap Enable Alerts again.',
+          );
+        } else {
+          setStatusMessage('Sound is on. Keep the admin tab open — this browser cannot show background popups.');
+        }
+        setShowSoundHint(false);
+        return;
+      }
+
       const result = await enableAdminPushAlerts();
       if (result.ok) {
         setPushStatus('on');
-        setPushMessage('Background alerts enabled. You can minimize the browser and still get new-order popups.');
+        setStatusMessage('Background alerts enabled. You can minimize and still get new-order popups with sound.');
         setShowSoundHint(false);
       } else {
         setPushStatus('off');
-        setPushMessage(result.error || 'Could not enable alerts');
+        setStatusMessage(result.error || 'Could not enable background alerts. Sound may still work with the tab open.');
       }
     } finally {
       setPushBusy(false);
     }
-  }, [unlockSound]);
+  }, [unlockSound, isAppleMobile, isStandalone]);
 
   const playNotificationSound = useCallback(async () => {
     if (!soundEnabled) return;
@@ -304,23 +334,32 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
                   <p className="text-[11px] text-amber-900 leading-snug">
                     {pushStatus === 'on'
                       ? 'Background alerts are on — new orders can popup with sound even if the browser is minimized.'
-                      : pushStatus === 'unsupported'
-                        ? 'This browser cannot show background push alerts. Keep the admin tab open for sound.'
-                        : 'Enable once to get popup + sound for new orders when the browser is minimized.'}
+                      : pushStatus === 'unsupported' && isAppleMobile && !isStandalone
+                        ? 'On iPhone Safari, tap Enable Sound for this tab. For popups when minimized: Share → Add to Home Screen, then open from the home icon.'
+                        : pushStatus === 'unsupported'
+                          ? 'Tap Enable Sound for this tab. Keep the admin page open to hear new orders.'
+                          : 'Enable once for popup + sound when the browser is minimized. Sound also works with this tab open.'}
                   </p>
-                  {pushStatus !== 'unsupported' && (
-                    <button
-                      type="button"
-                      disabled={pushBusy}
-                      onClick={() => void enableBackgroundAlerts()}
-                      className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-blinkit-green px-2.5 py-1.5 rounded-lg disabled:opacity-60"
-                    >
-                      <Volume2 className="w-3.5 h-3.5" />
-                      {pushBusy ? 'Enabling…' : pushStatus === 'on' ? 'Re-enable' : 'Enable Alerts'}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    disabled={pushBusy}
+                    onClick={() => void enableBackgroundAlerts()}
+                    className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-blinkit-green px-2.5 py-1.5 rounded-lg disabled:opacity-60"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                    {pushBusy
+                      ? 'Enabling…'
+                      : pushStatus === 'on'
+                        ? 'Re-enable'
+                        : pushStatus === 'unsupported'
+                          ? 'Enable Sound'
+                          : 'Enable Alerts'}
+                  </button>
                 </div>
-                {pushMessage && <p className="text-[11px] text-amber-800">{pushMessage}</p>}
+                {statusMessage && <p className="text-[11px] text-amber-800">{statusMessage}</p>}
+                {soundUnlocked && pushStatus !== 'on' && (
+                  <p className="text-[11px] text-green-800">Sound unlocked for this session.</p>
+                )}
               </div>
             )}
             <div className="p-2 border-b bg-gray-50 space-y-2">
@@ -390,13 +429,15 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
         )}
       </div>
 
-      {showSoundHint && soundEnabled && pushStatus !== 'on' && (
+      {showSoundHint && soundEnabled && !soundUnlocked && (
         <div className="fixed bottom-20 left-4 right-4 z-[60] sm:left-auto sm:right-4 sm:max-w-sm bg-white border shadow-lg rounded-xl p-3 flex gap-3 items-center">
           <Volume2 className="w-5 h-5 text-blinkit-green shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm">Enable order alerts</p>
+            <p className="font-semibold text-sm">Enable order sound</p>
             <p className="text-xs text-gray-600 mt-0.5">
-              Tap Enable so new orders can popup with sound even when the browser is minimized.
+              {isAppleMobile && !isStandalone
+                ? 'Tap Enable to hear new orders in this tab. For popups when Safari is minimized, add GoBaskit to your Home Screen.'
+                : 'Tap Enable so new orders play a sound (and popup when supported).'}
             </p>
           </div>
           <button
