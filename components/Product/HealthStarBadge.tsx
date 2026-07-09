@@ -22,18 +22,18 @@ interface HealthStarBadgeProps {
 export default function HealthStarBadge({
   url,
   position = 'top-right',
-  size = 56,
+  size = 36,
   className = '',
 }: HealthStarBadgeProps) {
   if (!url) return null;
-  const src = sizedImageUrl(url, size) || url;
+  const src = sizedImageUrl(url, size * 2) || url;
   return (
     <img
       src={src}
       alt="Health Star Rating"
       width={size}
       height={size}
-      className={`absolute z-[11] w-11 h-11 sm:w-12 sm:h-12 object-contain drop-shadow-sm pointer-events-none ${POSITION_CLASS[position]} ${className}`}
+      className={`absolute z-[11] w-7 h-7 sm:w-8 sm:h-8 object-contain drop-shadow-md pointer-events-none ${POSITION_CLASS[position]} ${className}`}
     />
   );
 }

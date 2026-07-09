@@ -187,8 +187,8 @@ export default function ProductPage() {
               <HealthStarBadge
                 url={healthStarDisplay.badgeUrl}
                 position={healthStarDisplay.badgePosition}
-                size={72}
-                className="!w-14 !h-14 sm:!w-16 sm:!h-16"
+                size={44}
+                className="!w-9 !h-9 sm:!w-10 sm:!h-10"
               />
             )}
           </div>
