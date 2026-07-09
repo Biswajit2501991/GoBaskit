@@ -19,12 +19,14 @@ import { preloadImages } from '@/utils/imagePreload';
 import DiscountBadge from '@/components/Product/DiscountBadge';
 import BestsellerBadge from '@/components/Product/BestsellerBadge';
 import HealthStarRating from '@/components/Product/HealthStarRating';
+import HealthStarBadge from '@/components/Product/HealthStarBadge';
 import ZoomImage from '@/components/Product/ZoomImage';
 import ProductDetailsAccordion from '@/components/Product/ProductDetailsAccordion';
 import { addOptionToCart } from '@/components/Product/VariantSelector';
 import { CATEGORY_ICONS } from '@/constants';
 import { Button } from '@/components/ui/button';
 import { useConfigStore } from '@/store/configStore';
+import { DEFAULT_HEALTH_STAR_DISPLAY } from '@/services/SettingsService';
 import type { ProductWithCategory } from '@/types';
 
 export default function ProductPage() {
@@ -34,6 +36,9 @@ export default function ProductPage() {
   const hydrated = useCartHydrated();
   const { items, addItem, updateQuantity } = useCartStore();
   const showHealthStarRating = useConfigStore((s) => s.homepageConfig.showHealthStarRating !== false);
+  const healthStarDisplay = useConfigStore(
+    (s) => s.homepageConfig.healthStarDisplay ?? DEFAULT_HEALTH_STAR_DISPLAY,
+  );
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
 
   const catalogProducts = useCatalogStore((s) => s.products);
@@ -118,6 +123,19 @@ export default function ProductPage() {
   const categoryIcon = CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒';
   const imageUrl = sizedImageUrl(active ? active.imageUrl : product.imageUrl, 900);
   const unitLabel = active ? active.sizeLabel || product.unit : product.unit;
+  const detailHealthRating = (() => {
+    if (!showHealthStarRating) return null;
+    const r = active?.healthStarRating ?? product.healthStarRating;
+    return typeof r === 'number' && r >= 1 && r <= 5 ? r : null;
+  })();
+  const showDetailBadge =
+    detailHealthRating != null &&
+    detailHealthRating >= (healthStarDisplay.badgeMinRating ?? 5) &&
+    (healthStarDisplay.mode === 'badge' || healthStarDisplay.mode === 'both') &&
+    Boolean(healthStarDisplay.badgeUrl);
+  const showDetailStars =
+    detailHealthRating != null &&
+    (healthStarDisplay.mode === 'stars' || healthStarDisplay.mode === 'both');
 
   function addSelected() {
     if (active) {
@@ -165,6 +183,14 @@ export default function ProductPage() {
             {product.isFeatured && (
               <BestsellerBadge className="absolute top-3 left-3 z-10 text-[10px] px-2 py-1" />
             )}
+            {showDetailBadge && (
+              <HealthStarBadge
+                url={healthStarDisplay.badgeUrl}
+                position={healthStarDisplay.badgePosition}
+                size={72}
+                className="!w-14 !h-14 sm:!w-16 sm:!h-16"
+              />
+            )}
           </div>
 
           <div className="p-5 space-y-3 md:w-1/2">
@@ -175,9 +201,9 @@ export default function ProductPage() {
             )}
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <h1 className="text-2xl font-bold text-gray-900">{product.name}</h1>
-              {showHealthStarRating && (
+              {showDetailStars && (
                 <HealthStarRating
-                  rating={active?.healthStarRating ?? product.healthStarRating}
+                  rating={detailHealthRating}
                   variant="inline"
                   className="shrink-0 mt-1"
                 />

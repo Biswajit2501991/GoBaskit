@@ -7,7 +7,7 @@ import sharp from 'sharp';
 // fly. It lives under /img/ so it is NOT shadowed by Next's static serving of
 // public/ (which would otherwise ignore the ?w= query and return the full file).
 const UPLOADS_ROOT = path.join(process.cwd(), 'public', 'uploads');
-const ALLOWED_FOLDERS = new Set(['products', 'categories']);
+const ALLOWED_FOLDERS = new Set(['products', 'categories', 'badges']);
 const ALLOWED_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 
 const MIME: Record<string, string> = {

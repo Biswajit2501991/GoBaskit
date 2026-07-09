@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2 } from 'lucide-react';
 import type { DeliverySlab } from '@/constants';
-import type { DiscountConfig } from '@/services/SettingsService';
+import type { DiscountConfig, HealthStarDisplay } from '@/services/SettingsService';
+import { DEFAULT_HEALTH_STAR_DISPLAY } from '@/services/SettingsService';
 import DiscountManager from '@/components/Admin/DiscountManager';
+import ProductImageUpload from '@/components/Admin/ProductImageUpload';
 
 interface StoreConfig {
   serviceablePins: string[];
@@ -30,6 +32,7 @@ interface StoreConfig {
     showBestSellers: boolean;
     showOffers: boolean;
     showHealthStarRating: boolean;
+    healthStarDisplay: HealthStarDisplay;
     announcementBarText: string;
     deliveryTimeText: string;
     themeColor: string;
@@ -90,13 +93,65 @@ export default function SettingsManager({
     initialConfig.whatsappTemplates,
   );
   const [whatsappNumber, setWhatsappNumber] = useState(initialConfig.whatsappNumber ?? '');
-  const [homepageConfig, setHomepageConfig] = useState(initialConfig.homepageConfig);
+  const [homepageConfig, setHomepageConfig] = useState(() => ({
+    ...initialConfig.homepageConfig,
+    healthStarDisplay: {
+      ...DEFAULT_HEALTH_STAR_DISPLAY,
+      ...(initialConfig.homepageConfig.healthStarDisplay ?? {}),
+      badges:
+        initialConfig.homepageConfig.healthStarDisplay?.badges?.length
+          ? initialConfig.homepageConfig.healthStarDisplay.badges
+          : DEFAULT_HEALTH_STAR_DISPLAY.badges,
+    },
+  }));
   const [checkoutMode, setCheckoutMode] = useState<StoreConfig['checkoutMode']>(initialConfig.checkoutMode ?? 'both');
   const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(
     initialConfig.notificationSoundEnabled ?? true,
   );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [newBadgeLabel, setNewBadgeLabel] = useState('');
+  const [newBadgeUrl, setNewBadgeUrl] = useState('');
+
+  const healthStarDisplay = homepageConfig.healthStarDisplay ?? DEFAULT_HEALTH_STAR_DISPLAY;
+
+  function updateHealthStarDisplay(patch: Partial<HealthStarDisplay>) {
+    setHomepageConfig((prev) => ({
+      ...prev,
+      healthStarDisplay: {
+        ...DEFAULT_HEALTH_STAR_DISPLAY,
+        ...(prev.healthStarDisplay ?? {}),
+        ...patch,
+      },
+    }));
+  }
+
+  function addHealthStarBadge() {
+    const url = newBadgeUrl.trim();
+    if (!url) {
+      setMessage({ type: 'err', text: 'Upload a health star badge image first.' });
+      return;
+    }
+    const id = `badge-${Date.now()}`;
+    const label = newBadgeLabel.trim() || `Badge ${healthStarDisplay.badges.length + 1}`;
+    const badges = [...(healthStarDisplay.badges ?? []), { id, label, url }];
+    updateHealthStarDisplay({
+      badges,
+      badgeUrl: healthStarDisplay.badgeUrl || url,
+    });
+    setNewBadgeLabel('');
+    setNewBadgeUrl('');
+    setMessage(null);
+  }
+
+  function removeHealthStarBadge(id: string) {
+    const badges = (healthStarDisplay.badges ?? []).filter((b) => b.id !== id);
+    const badgeUrl =
+      healthStarDisplay.badgeUrl && badges.some((b) => b.url === healthStarDisplay.badgeUrl)
+        ? healthStarDisplay.badgeUrl
+        : badges[0]?.url || DEFAULT_HEALTH_STAR_DISPLAY.badgeUrl;
+    updateHealthStarDisplay({ badges, badgeUrl });
+  }
 
   function addPin() {
     const p = newPin.trim();
@@ -228,7 +283,17 @@ export default function SettingsManager({
       setWhatsappNumber(updated.whatsappNumber ?? '');
       setCheckoutMode(updated.checkoutMode ?? 'both');
       setNotificationSoundEnabled(updated.notificationSoundEnabled ?? true);
-      setHomepageConfig(updated.homepageConfig);
+      setHomepageConfig({
+        ...updated.homepageConfig,
+        healthStarDisplay: {
+          ...DEFAULT_HEALTH_STAR_DISPLAY,
+          ...(updated.homepageConfig.healthStarDisplay ?? {}),
+          badges:
+            updated.homepageConfig.healthStarDisplay?.badges?.length
+              ? updated.homepageConfig.healthStarDisplay.badges
+              : DEFAULT_HEALTH_STAR_DISPLAY.badges,
+        },
+      });
       setMessage({ type: 'ok', text: 'Settings saved.' });
       router.refresh();
     } catch (e) {
@@ -505,11 +570,13 @@ export default function SettingsManager({
         </label>
       </section>
 
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-        <h2 className="font-bold text-sm">Health Star Rating</h2>
-        <p className="text-xs text-gray-400">
-          When off, Health Star Ratings are hidden everywhere — even if products have a rating set.
-        </p>
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+        <div>
+          <h2 className="font-bold text-sm">Health Star Rating</h2>
+          <p className="text-xs text-gray-400 mt-1">
+            Control how 5★ (or other rated) products show the Health Star logo and yellow stars on the storefront.
+          </p>
+        </div>
         <label className="flex items-center gap-2 text-sm font-medium">
           <input
             type="checkbox"
@@ -522,6 +589,156 @@ export default function SettingsManager({
           />
           Show Health Star Rating on storefront
         </label>
+
+        {homepageConfig.showHealthStarRating !== false && (
+          <div className="space-y-4 border-t border-gray-50 pt-3">
+            <div>
+              <Label className="text-xs text-gray-500">Display style</Label>
+              <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                {(
+                  [
+                    { value: 'stars', label: 'Stars only', hint: 'Yellow stars under the name' },
+                    { value: 'badge', label: 'Logo on image', hint: 'Badge on product photo' },
+                    { value: 'both', label: 'Logo + stars', hint: 'Badge and yellow stars' },
+                  ] as const
+                ).map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`rounded-lg border p-3 cursor-pointer text-sm ${
+                      healthStarDisplay.mode === opt.value
+                        ? 'border-blinkit-green bg-green-50'
+                        : 'border-gray-200'
+                    } ${!canEdit ? 'opacity-60 pointer-events-none' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="hsr-mode"
+                      className="sr-only"
+                      checked={healthStarDisplay.mode === opt.value}
+                      disabled={!canEdit}
+                      onChange={() => updateHealthStarDisplay({ mode: opt.value })}
+                    />
+                    <span className="font-semibold block">{opt.label}</span>
+                    <span className="text-[11px] text-gray-500">{opt.hint}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {(healthStarDisplay.mode === 'badge' || healthStarDisplay.mode === 'both') && (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label className="text-xs text-gray-500">Logo position on product image</Label>
+                    <select
+                      className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                      value={healthStarDisplay.badgePosition}
+                      disabled={!canEdit}
+                      onChange={(e) =>
+                        updateHealthStarDisplay({
+                          badgePosition: e.target.value as HealthStarDisplay['badgePosition'],
+                        })
+                      }
+                    >
+                      <option value="top-left">Top left</option>
+                      <option value="top-right">Top right</option>
+                      <option value="bottom-left">Bottom left</option>
+                      <option value="bottom-right">Bottom right</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Show logo when rating is at least</Label>
+                    <select
+                      className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                      value={healthStarDisplay.badgeMinRating}
+                      disabled={!canEdit}
+                      onChange={(e) =>
+                        updateHealthStarDisplay({ badgeMinRating: Number(e.target.value) })
+                      }
+                    >
+                      {[5, 4, 3, 2, 1].map((n) => (
+                        <option key={n} value={n}>
+                          {n} star{n === 1 ? '' : 's'}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      Default 5 — only 5★ products get the logo overlay.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs text-gray-500">Active logo</Label>
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {(healthStarDisplay.badges ?? []).map((badge) => (
+                      <button
+                        key={badge.id}
+                        type="button"
+                        disabled={!canEdit}
+                        onClick={() => updateHealthStarDisplay({ badgeUrl: badge.url })}
+                        className={`relative rounded-xl border p-2 w-28 text-left ${
+                          healthStarDisplay.badgeUrl === badge.url
+                            ? 'border-blinkit-green ring-2 ring-blinkit-green/30'
+                            : 'border-gray-200'
+                        }`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={badge.url} alt={badge.label} className="w-16 h-16 object-contain mx-auto" />
+                        <p className="text-[10px] font-medium text-center mt-1 truncate">{badge.label}</p>
+                        {canEdit && badge.id !== 'default-5' && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeHealthStarBadge(badge.id);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.stopPropagation();
+                                removeHealthStarBadge(badge.id);
+                              }
+                            }}
+                            className="absolute -top-1.5 -right-1.5 bg-white border rounded-full p-0.5 text-red-500"
+                            aria-label="Remove badge"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {canEdit && (
+                  <div className="rounded-lg border border-dashed border-gray-200 p-3 space-y-3 bg-gray-50/50">
+                    <p className="text-xs font-semibold text-gray-700">Upload another health star logo</p>
+                    <div>
+                      <Label className="text-xs text-gray-500">Label</Label>
+                      <Input
+                        value={newBadgeLabel}
+                        onChange={(e) => setNewBadgeLabel(e.target.value)}
+                        placeholder="e.g. Green 5★"
+                        className="mt-1"
+                      />
+                    </div>
+                    <ProductImageUpload
+                      value={newBadgeUrl}
+                      onChange={setNewBadgeUrl}
+                      label="Badge image"
+                      uploadType="badge"
+                      showWebSuggestions={false}
+                    />
+                    <Button type="button" variant="outline" size="sm" onClick={addHealthStarBadge} disabled={!newBadgeUrl}>
+                      <Plus size={14} /> Add to library
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">

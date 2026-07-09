@@ -13,7 +13,7 @@ interface ProductImageUploadProps {
   disabled?: boolean;
   searchName?: string;
   searchCategory?: string;
-  uploadType?: 'product' | 'category';
+  uploadType?: 'product' | 'category' | 'badge';
   showWebSuggestions?: boolean;
 }
 

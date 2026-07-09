@@ -21,6 +21,37 @@ export interface DiscountConfig {
   };
 }
 
+/** How Health Star Rating appears on storefront product cards / detail. */
+export type HealthStarDisplayMode = 'stars' | 'badge' | 'both';
+export type HealthStarBadgePosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+export interface HealthStarDisplay {
+  /** stars = yellow stars only; badge = logo on image; both = logo + stars */
+  mode: HealthStarDisplayMode;
+  /** Where the uploaded logo sits on the product image */
+  badgePosition: HealthStarBadgePosition;
+  /** Only show the logo overlay when rating >= this (default 5) */
+  badgeMinRating: number;
+  /** Active badge image URL shown on product images */
+  badgeUrl: string;
+  /** Uploaded badge library — admin picks which one is active */
+  badges: Array<{ id: string; label: string; url: string }>;
+}
+
+export const DEFAULT_HEALTH_STAR_DISPLAY: HealthStarDisplay = {
+  mode: 'both',
+  badgePosition: 'top-right',
+  badgeMinRating: 5,
+  badgeUrl: '/health-star/health-star-5.png',
+  badges: [
+    {
+      id: 'default-5',
+      label: 'Health Star 5',
+      url: '/health-star/health-star-5.png',
+    },
+  ],
+};
+
 export interface StoreConfig {
   serviceablePins: string[];
   serviceableCities: string[];
@@ -42,6 +73,7 @@ export interface StoreConfig {
     showOffers: boolean;
     /** Global Health Star Rating display for products/options with a rating. */
     showHealthStarRating: boolean;
+    healthStarDisplay: HealthStarDisplay;
     announcementBarText: string;
     deliveryTimeText: string;
     themeColor: string;
@@ -59,13 +91,56 @@ export interface StoreConfig {
 }
 
 type StoreConfigUpdate = Partial<Omit<StoreConfig, 'homepageConfig' | 'discountConfig'>> & {
-  homepageConfig?: Partial<Omit<StoreConfig['homepageConfig'], 'promoSections'>> & {
+  homepageConfig?: Partial<Omit<StoreConfig['homepageConfig'], 'promoSections' | 'healthStarDisplay'>> & {
     promoSections?: Array<Partial<StoreConfig['homepageConfig']['promoSections'][number]>>;
+    healthStarDisplay?: Partial<HealthStarDisplay> & {
+      badges?: Array<Partial<HealthStarDisplay['badges'][number]>>;
+    };
   };
   discountConfig?: Partial<Omit<DiscountConfig, 'membership'>> & {
     membership?: Partial<DiscountConfig['membership']>;
   };
 };
+
+function parseHealthStarDisplay(raw: unknown): HealthStarDisplay {
+  const src = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const modeRaw = String(src.mode ?? DEFAULT_HEALTH_STAR_DISPLAY.mode);
+  const mode: HealthStarDisplayMode =
+    modeRaw === 'stars' || modeRaw === 'badge' || modeRaw === 'both'
+      ? modeRaw
+      : DEFAULT_HEALTH_STAR_DISPLAY.mode;
+  const posRaw = String(src.badgePosition ?? DEFAULT_HEALTH_STAR_DISPLAY.badgePosition);
+  const badgePosition: HealthStarBadgePosition =
+    posRaw === 'top-left' ||
+    posRaw === 'top-right' ||
+    posRaw === 'bottom-left' ||
+    posRaw === 'bottom-right'
+      ? posRaw
+      : DEFAULT_HEALTH_STAR_DISPLAY.badgePosition;
+  const minRating = Number(src.badgeMinRating);
+  const badgeMinRating =
+    Number.isFinite(minRating) && minRating >= 1 && minRating <= 5
+      ? Math.round(minRating)
+      : DEFAULT_HEALTH_STAR_DISPLAY.badgeMinRating;
+  const badges = Array.isArray(src.badges)
+    ? src.badges
+        .map((b, i) => {
+          const row = (b && typeof b === 'object' ? b : {}) as Record<string, unknown>;
+          const url = String(row.url ?? '').trim();
+          if (!url) return null;
+          return {
+            id: String(row.id ?? `badge-${i + 1}`).slice(0, 60),
+            label: String(row.label ?? `Badge ${i + 1}`).trim().slice(0, 80) || `Badge ${i + 1}`,
+            url,
+          };
+        })
+        .filter((b): b is { id: string; label: string; url: string } => Boolean(b))
+    : DEFAULT_HEALTH_STAR_DISPLAY.badges;
+  let badgeUrl = String(src.badgeUrl ?? '').trim();
+  if (!badgeUrl && badges.length) badgeUrl = badges[0].url;
+  if (!badgeUrl) badgeUrl = DEFAULT_HEALTH_STAR_DISPLAY.badgeUrl;
+  return { mode, badgePosition, badgeMinRating, badgeUrl, badges };
+}
 
 const KEY_PINS = 'serviceable_pins';
 const KEY_CITIES = 'serviceable_cities';
@@ -124,6 +199,7 @@ const DEFAULTS: StoreConfig = {
     showBestSellers: true,
     showOffers: true,
     showHealthStarRating: true,
+    healthStarDisplay: DEFAULT_HEALTH_STAR_DISPLAY,
     announcementBarText: '',
     deliveryTimeText: 'Delivery in 10 minutes',
     themeColor: '#facc15',
@@ -294,6 +370,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
         showBestSellers: parsed.showBestSellers !== false,
         showOffers: parsed.showOffers !== false,
         showHealthStarRating: parsed.showHealthStarRating !== false,
+        healthStarDisplay: parseHealthStarDisplay(parsed.healthStarDisplay),
         announcementBarText: String(parsed.announcementBarText ?? ''),
         deliveryTimeText: String(parsed.deliveryTimeText ?? DEFAULTS.homepageConfig.deliveryTimeText),
         themeColor: String(parsed.themeColor ?? DEFAULTS.homepageConfig.themeColor),
@@ -483,12 +560,20 @@ export const SettingsService = {
       }
     }
     if (partial.homepageConfig) {
+      const current = await this.getStoreConfig();
+      const incomingDisplay = partial.homepageConfig.healthStarDisplay;
+      const healthStarDisplay = parseHealthStarDisplay({
+        ...current.homepageConfig.healthStarDisplay,
+        ...(incomingDisplay ?? {}),
+        badges: incomingDisplay?.badges ?? current.homepageConfig.healthStarDisplay.badges,
+      });
       const safe = {
         showHeroBanner: partial.homepageConfig.showHeroBanner !== false,
         showCategories: partial.homepageConfig.showCategories !== false,
         showBestSellers: partial.homepageConfig.showBestSellers !== false,
         showOffers: partial.homepageConfig.showOffers !== false,
         showHealthStarRating: partial.homepageConfig.showHealthStarRating !== false,
+        healthStarDisplay,
         announcementBarText: String(partial.homepageConfig.announcementBarText ?? '').trim(),
         deliveryTimeText:
           String(partial.homepageConfig.deliveryTimeText ?? '').trim() || DEFAULTS.homepageConfig.deliveryTimeText,

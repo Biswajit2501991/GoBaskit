@@ -7,6 +7,10 @@ import {
   MIN_ORDER_VALUE,
   type DeliverySlab,
 } from '@/constants';
+import {
+  DEFAULT_HEALTH_STAR_DISPLAY,
+  type HealthStarDisplay,
+} from '@/services/SettingsService';
 
 interface ConfigState {
   serviceablePins: string[];
@@ -22,6 +26,7 @@ interface ConfigState {
     showBestSellers: boolean;
     showOffers: boolean;
     showHealthStarRating: boolean;
+    healthStarDisplay: HealthStarDisplay;
     announcementBarText: string;
     deliveryTimeText: string;
     themeColor: string;
@@ -58,6 +63,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     showBestSellers: true,
     showOffers: true,
     showHealthStarRating: true,
+    healthStarDisplay: DEFAULT_HEALTH_STAR_DISPLAY,
     announcementBarText: '',
     deliveryTimeText: 'Delivery in 10 minutes',
     themeColor: '#facc15',
@@ -107,6 +113,15 @@ async function loadConfig(
             ? {
                 ...get().homepageConfig,
                 ...c.homepageConfig,
+                healthStarDisplay: {
+                  ...DEFAULT_HEALTH_STAR_DISPLAY,
+                  ...(c.homepageConfig.healthStarDisplay ?? {}),
+                  badges:
+                    Array.isArray(c.homepageConfig.healthStarDisplay?.badges) &&
+                    c.homepageConfig.healthStarDisplay.badges.length
+                      ? c.homepageConfig.healthStarDisplay.badges
+                      : DEFAULT_HEALTH_STAR_DISPLAY.badges,
+                },
               }
             : get().homepageConfig,
         loaded: true,

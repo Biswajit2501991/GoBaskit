@@ -3,7 +3,7 @@ import path from 'path';
 import { readFile, stat } from 'fs/promises';
 
 const UPLOADS_ROOT = path.join(process.cwd(), 'public', 'uploads');
-const ALLOWED_FOLDERS = new Set(['products', 'categories']);
+const ALLOWED_FOLDERS = new Set(['products', 'categories', 'badges']);
 const ALLOWED_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 
 const MIME: Record<string, string> = {

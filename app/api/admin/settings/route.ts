@@ -33,6 +33,23 @@ const settingsSchema = z.object({
       showBestSellers: z.boolean().optional(),
       showOffers: z.boolean().optional(),
       showHealthStarRating: z.boolean().optional(),
+      healthStarDisplay: z
+        .object({
+          mode: z.enum(['stars', 'badge', 'both']).optional(),
+          badgePosition: z.enum(['top-left', 'top-right', 'bottom-left', 'bottom-right']).optional(),
+          badgeMinRating: z.number().int().min(1).max(5).optional(),
+          badgeUrl: z.string().max(500).optional(),
+          badges: z
+            .array(
+              z.object({
+                id: z.string().max(60),
+                label: z.string().max(80),
+                url: z.string().max(500),
+              }),
+            )
+            .optional(),
+        })
+        .optional(),
       announcementBarText: z.string().max(200).optional(),
       deliveryTimeText: z.string().max(120).optional(),
       themeColor: z.string().max(20).optional(),

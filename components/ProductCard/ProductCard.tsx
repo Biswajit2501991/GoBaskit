@@ -17,7 +17,9 @@ import ProductImageCarousel from '@/components/ProductCard/ProductImageCarousel'
 import DiscountRibbon from '@/components/Product/DiscountRibbon';
 import BestsellerBadge from '@/components/Product/BestsellerBadge';
 import HealthStarRating from '@/components/Product/HealthStarRating';
+import HealthStarBadge from '@/components/Product/HealthStarBadge';
 import VariantSelector from '@/components/Product/VariantSelector';
+import { DEFAULT_HEALTH_STAR_DISPLAY } from '@/services/SettingsService';
 
 interface ProductCardProps {
   product: ProductWithCategory;
@@ -28,6 +30,9 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { items, addItem, updateQuantity } = useCartStore();
   const { showOptions, options, optionCount, optionsLabel, fromPrice } = useProductVariants(product);
   const showHealthStarRating = useConfigStore((s) => s.homepageConfig.showHealthStarRating !== false);
+  const healthStarDisplay = useConfigStore(
+    (s) => s.homepageConfig.healthStarDisplay ?? DEFAULT_HEALTH_STAR_DISPLAY,
+  );
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
 
   useEffect(() => {
@@ -48,6 +53,16 @@ export default function ProductCard({ product }: ProductCardProps) {
     if (!ratings.length) return null;
     return Math.max(...ratings);
   }, [showHealthStarRating, product.healthStarRating, options]);
+
+  const showBadge =
+    healthRating != null &&
+    healthRating >= (healthStarDisplay.badgeMinRating ?? 5) &&
+    (healthStarDisplay.mode === 'badge' || healthStarDisplay.mode === 'both') &&
+    Boolean(healthStarDisplay.badgeUrl);
+
+  const showStars =
+    healthRating != null &&
+    (healthStarDisplay.mode === 'stars' || healthStarDisplay.mode === 'both');
 
   // Show a single, stable image so the card never visually fluctuates. For
   // multi-option products we pick the first available option image (base image
@@ -99,6 +114,12 @@ export default function ProductCard({ product }: ProductCardProps) {
             fallback={<span>{CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒'}</span>}
           />
           <DiscountRibbon percent={discountPercent} />
+          {showBadge && (
+            <HealthStarBadge
+              url={healthStarDisplay.badgeUrl}
+              position={healthStarDisplay.badgePosition}
+            />
+          )}
           {!showOptions && !inStock && (
             <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
               <span className="bg-gray-800 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase">Out of stock</span>
@@ -114,7 +135,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           ) : (
             <span className="h-4" />
           )}
-          {healthRating != null && (
+          {showStars && healthRating != null && (
             <HealthStarRating rating={healthRating} variant="card" className="shrink-0" />
           )}
         </div>

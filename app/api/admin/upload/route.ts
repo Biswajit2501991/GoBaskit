@@ -29,7 +29,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Image must be smaller than 5MB' }, { status: 400 });
     }
 
-    const folder = type === 'category' ? 'categories' : 'products';
+    const folder =
+      type === 'category' ? 'categories' : type === 'badge' ? 'badges' : 'products';
     const uploadDir = path.join(process.cwd(), 'public', 'uploads', folder);
     const baseFilename = `${Date.now()}-${randomBytes(6).toString('hex')}`;
 
