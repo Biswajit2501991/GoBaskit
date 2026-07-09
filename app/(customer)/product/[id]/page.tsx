@@ -172,25 +172,25 @@ export default function ProductPage() {
         </nav>
 
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden md:flex">
-          <div className="relative md:w-1/2 aspect-square p-4 md:p-8">
-            <div className="w-full h-full rounded-2xl overflow-hidden bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100 flex items-center justify-center">
+          <div className="md:w-1/2 aspect-square p-4 md:p-8">
+            <div className="relative w-full h-full rounded-2xl overflow-hidden bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100 flex items-center justify-center">
               {imageUrl ? (
                 <ZoomImage src={imageUrl} alt={product.name} className="w-full h-full" />
               ) : (
                 <span className="text-7xl">{categoryIcon}</span>
               )}
+              {product.isFeatured && (
+                <BestsellerBadge className="absolute top-2 left-2 z-10 text-[10px] px-2 py-1" />
+              )}
+              {showDetailBadge && (
+                <HealthStarBadge
+                  url={healthStarDisplay.badgeUrl}
+                  position={healthStarDisplay.badgePosition}
+                  size={44}
+                  className="!w-9 !h-9 sm:!w-10 sm:!h-10"
+                />
+              )}
             </div>
-            {product.isFeatured && (
-              <BestsellerBadge className="absolute top-3 left-3 z-10 text-[10px] px-2 py-1" />
-            )}
-            {showDetailBadge && (
-              <HealthStarBadge
-                url={healthStarDisplay.badgeUrl}
-                position={healthStarDisplay.badgePosition}
-                size={44}
-                className="!w-9 !h-9 sm:!w-10 sm:!h-10"
-              />
-            )}
           </div>
 
           <div className="p-5 space-y-3 md:w-1/2">
