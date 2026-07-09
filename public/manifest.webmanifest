@@ -1,0 +1,18 @@
+{
+  "name": "GoBaskit Admin",
+  "short_name": "GoBaskit",
+  "description": "GoBaskit staff portal — new order alerts",
+  "start_url": "/admin/orders",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0A7A3E",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

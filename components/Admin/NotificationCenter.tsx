@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Bell, Volume2, X } from 'lucide-react';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
+import { enableAdminPushAlerts, registerAdminServiceWorker } from '@/lib/admin-push-client';
 
 interface NotificationItem {
   id: string;
@@ -28,6 +29,9 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [soundUnlocked, setSoundUnlocked] = useState(false);
   const [showSoundHint, setShowSoundHint] = useState(false);
+  const [pushStatus, setPushStatus] = useState<'unknown' | 'off' | 'on' | 'unsupported'>('unknown');
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMessage, setPushMessage] = useState('');
   const audioCtxRef = useRef<AudioContext | null>(null);
   const lastSoundAtRef = useRef(0);
 
@@ -51,6 +55,18 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
       }
     } catch {
       setShowSoundHint(true);
+    }
+
+    // Register SW early; subscription still requires an explicit Enable tap.
+    void registerAdminServiceWorker();
+    if (typeof window !== 'undefined') {
+      if (!('Notification' in window) || !('PushManager' in window)) {
+        setPushStatus('unsupported');
+      } else if (Notification.permission === 'granted') {
+        setPushStatus('on');
+      } else {
+        setPushStatus('off');
+      }
     }
   }, []);
 
@@ -137,6 +153,25 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
     return ok;
   }, [playBeep]);
 
+  const enableBackgroundAlerts = useCallback(async () => {
+    setPushBusy(true);
+    setPushMessage('');
+    try {
+      await unlockSound();
+      const result = await enableAdminPushAlerts();
+      if (result.ok) {
+        setPushStatus('on');
+        setPushMessage('Background alerts enabled. You can minimize the browser and still get new-order popups.');
+        setShowSoundHint(false);
+      } else {
+        setPushStatus('off');
+        setPushMessage(result.error || 'Could not enable alerts');
+      }
+    } finally {
+      setPushBusy(false);
+    }
+  }, [unlockSound]);
+
   const playNotificationSound = useCallback(async () => {
     if (!soundEnabled) return;
     const now = Date.now();
@@ -183,20 +218,26 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
 
       void playNotificationSound();
 
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(n.title, { body: n.message });
+      // System notification when tab is in background / minimized (if permission granted).
+      if (
+        typeof document !== 'undefined' &&
+        document.visibilityState !== 'visible' &&
+        'Notification' in window &&
+        Notification.permission === 'granted'
+      ) {
+        try {
+          new Notification(n.title, {
+            body: n.message,
+            tag: `order-${n.entityId || n.id}`,
+            requireInteraction: true,
+          });
+        } catch {
+          /* ignore */
+        }
       }
     });
     return unsubscribe;
   }, [staffId, playNotificationSound]);
-
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {
-        // noop
-      });
-    }
-  }, []);
 
   async function markRead(id: string) {
     await fetch(`/api/admin/notifications/${id}/read`, { method: 'POST' });
@@ -258,20 +299,28 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
               </button>
             </div>
             {soundEnabled && (
-              <div className="px-3 py-2 border-b bg-amber-50 flex items-center justify-between gap-2">
-                <p className="text-[11px] text-amber-900 leading-snug">
-                  {soundUnlocked
-                    ? 'Notification sound is on for this session.'
-                    : 'Tap Enable Sound once so your phone can play alerts.'}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void unlockSound()}
-                  className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-blinkit-green px-2.5 py-1.5 rounded-lg"
-                >
-                  <Volume2 className="w-3.5 h-3.5" />
-                  {soundUnlocked ? 'Test' : 'Enable Sound'}
-                </button>
+              <div className="px-3 py-2 border-b bg-amber-50 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[11px] text-amber-900 leading-snug">
+                    {pushStatus === 'on'
+                      ? 'Background alerts are on — new orders can popup with sound even if the browser is minimized.'
+                      : pushStatus === 'unsupported'
+                        ? 'This browser cannot show background push alerts. Keep the admin tab open for sound.'
+                        : 'Enable once to get popup + sound for new orders when the browser is minimized.'}
+                  </p>
+                  {pushStatus !== 'unsupported' && (
+                    <button
+                      type="button"
+                      disabled={pushBusy}
+                      onClick={() => void enableBackgroundAlerts()}
+                      className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-blinkit-green px-2.5 py-1.5 rounded-lg disabled:opacity-60"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                      {pushBusy ? 'Enabling…' : pushStatus === 'on' ? 'Re-enable' : 'Enable Alerts'}
+                    </button>
+                  )}
+                </div>
+                {pushMessage && <p className="text-[11px] text-amber-800">{pushMessage}</p>}
               </div>
             )}
             <div className="p-2 border-b bg-gray-50 space-y-2">
@@ -341,19 +390,20 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
         )}
       </div>
 
-      {showSoundHint && soundEnabled && !soundUnlocked && (
+      {showSoundHint && soundEnabled && pushStatus !== 'on' && (
         <div className="fixed bottom-20 left-4 right-4 z-[60] sm:left-auto sm:right-4 sm:max-w-sm bg-white border shadow-lg rounded-xl p-3 flex gap-3 items-center">
           <Volume2 className="w-5 h-5 text-blinkit-green shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm">Enable order sound</p>
+            <p className="font-semibold text-sm">Enable order alerts</p>
             <p className="text-xs text-gray-600 mt-0.5">
-              Phones block sound until you tap once. Tap Enable, then keep this admin tab open.
+              Tap Enable so new orders can popup with sound even when the browser is minimized.
             </p>
           </div>
           <button
             type="button"
-            onClick={() => void unlockSound()}
-            className="shrink-0 text-xs font-semibold text-white bg-blinkit-green px-3 py-2 rounded-lg"
+            disabled={pushBusy}
+            onClick={() => void enableBackgroundAlerts()}
+            className="shrink-0 text-xs font-semibold text-white bg-blinkit-green px-3 py-2 rounded-lg disabled:opacity-60"
           >
             Enable
           </button>

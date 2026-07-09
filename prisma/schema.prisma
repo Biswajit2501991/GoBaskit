@@ -383,6 +383,7 @@ model StaffAccount {
   assignedOrders    Order[]                 @relation("AssignedOrders")
   orderStatusChanges OrderStatusHistory[]   @relation("OrderStatusChanges")
   notifications     AdminNotification[]
+  pushSubscriptions StaffPushSubscription[]
   verifiedCustomers Customer[]              @relation("CustomerVerifiedBy")
   verifiedCustomerMobiles CustomerMobile[]  @relation("CustomerMobileVerifiedBy")
   whatsappVerificationsApproved WhatsAppVerification[] @relation("WhatsAppVerificationApprovedBy")
@@ -391,6 +392,21 @@ model StaffAccount {
   @@index([role, active])
   @@index([deletedAt])
   @@map("staff_accounts")
+}
+
+model StaffPushSubscription {
+  id        String       @id @default(cuid())
+  staffId   String       @map("staff_id")
+  staff     StaffAccount @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  endpoint  String       @unique
+  p256dh    String
+  auth      String
+  userAgent String?      @map("user_agent")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  @@index([staffId])
+  @@map("staff_push_subscriptions")
 }
 
 model StaffRefreshToken {

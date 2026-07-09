@@ -9,6 +9,7 @@ import { PAYMENT_METHODS } from '@/constants';
 import { parsePermissions, staffHasPermission } from '@/types/staff';
 import type { StaffRole } from '@prisma/client';
 import { InventoryService } from '@/services/InventoryService';
+import { AdminPushService } from '@/services/AdminPushService';
 
 export interface NewOrderNotificationInput {
   id: string;
@@ -110,6 +111,15 @@ export class NotificationService {
     for (const notification of notifications) {
       await emitNotification(notification);
     }
+
+    // System popup + sound even when admin browser is minimized (Web Push).
+    const name = formatCustomerName(order.customer.firstName, order.customer.lastName);
+    void AdminPushService.notifyStaffIds(recipientIds, {
+      title: `New Order · ${order.orderNumber}`,
+      body: `${name} · ₹${order.grandTotal} · ${order.customer.city}`,
+      url: '/admin/orders',
+      tag: `order-${order.id}`,
+    });
 
     return notifications;
   }
