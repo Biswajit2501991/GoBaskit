@@ -100,7 +100,12 @@ export class ActionPlusMembershipClient {
           memberId: null,
           memberCode: null,
           fullName: null,
-          error: 'Membership lookup failed',
+          error:
+            res.status === 401 || res.status === 403
+              ? 'Membership service unauthorized'
+              : res.status === 404
+                ? 'Membership service endpoint missing'
+                : 'Membership lookup failed',
         };
       }
       const data = (await res.json()) as {

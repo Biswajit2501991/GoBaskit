@@ -176,12 +176,21 @@ export class DiscountEngine {
 
     const status = await ActionPlusMembershipClient.getMemberStatus(mobile);
     if (!status.isActive) {
+      if (status.error === 'Membership service not configured') {
+        return { ok: false, code: 'NOT_CONFIGURED', error: 'Membership service unavailable' };
+      }
+      if (
+        status.error === 'Membership service unauthorized' ||
+        status.error === 'Membership service endpoint missing' ||
+        status.error === 'Membership service unavailable' ||
+        status.error === 'Membership lookup failed'
+      ) {
+        return { ok: false, code: 'SERVICE_ERROR', error: 'Membership service unavailable' };
+      }
       return {
         ok: false,
         code: 'INACTIVE_MEMBER',
-        error: status.error === 'Membership service not configured'
-          ? 'Membership service unavailable'
-          : 'No Active Membership Found',
+        error: 'No Active Membership Found',
       };
     }
 

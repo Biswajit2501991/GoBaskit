@@ -258,22 +258,30 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
       {config.membershipEnabled && (
         <div className="rounded-xl border border-gray-100 bg-white p-3.5 space-y-2">
           <p className="font-bold text-sm text-gray-900">Action Plus Membership</p>
-          <p className="text-xs text-gray-500">
-            {config.membershipMessage ||
-              `${config.membershipDiscountPercent}% off for active members`}
-          </p>
           {applied?.type === 'MEMBERSHIP' ? (
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-blinkit-green">{applied.youSavedLabel}</p>
-              <button
-                type="button"
-                onClick={removeDiscount}
-                className="text-xs font-medium text-red-500 hover:text-red-600"
-              >
-                Remove
-              </button>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-blinkit-green">
+                {applied.message || config.membershipMessage || 'Action Plus Membership Discount Applied'}
+              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-blinkit-green">{applied.youSavedLabel}</p>
+                <button
+                  type="button"
+                  onClick={removeDiscount}
+                  className="text-xs font-medium text-red-500 hover:text-red-600"
+                >
+                  Remove
+                </button>
+              </div>
             </div>
-          ) : sessionMobile ? (
+          ) : (
+            <>
+          <p className="text-xs text-gray-500">
+            {config.membershipDiscountPercent > 0
+              ? `${config.membershipDiscountPercent}% off for active Action Plus members`
+              : 'Check if your mobile has an active Action Plus membership'}
+          </p>
+          {sessionMobile ? (
             <Button
               type="button"
               variant="secondary"
@@ -303,6 +311,8 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
                 Check
               </Button>
             </div>
+          )}
+            </>
           )}
         </div>
       )}
