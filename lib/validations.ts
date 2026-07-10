@@ -208,3 +208,10 @@ export const categorySchema = z.object({
 });
 
 export type CategoryFormData = z.input<typeof categorySchema>;
+
+export const learningNoteSchema = z.object({
+  title: z.string().trim().min(2, 'Title must be at least 2 characters').max(160),
+  body: z.string().trim().min(1, 'Note content is required').max(20000),
+});
+
+export type LearningNoteFormData = z.input<typeof learningNoteSchema>;

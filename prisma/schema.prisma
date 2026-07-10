@@ -388,6 +388,8 @@ model StaffAccount {
   verifiedCustomers Customer[]              @relation("CustomerVerifiedBy")
   verifiedCustomerMobiles CustomerMobile[]  @relation("CustomerMobileVerifiedBy")
   whatsappVerificationsApproved WhatsAppVerification[] @relation("WhatsAppVerificationApprovedBy")
+  learningNotesCreated LearningNote[] @relation("LearningNoteAuthor")
+  learningNotesUpdated LearningNote[] @relation("LearningNoteUpdater")
 
   @@index([mobile])
   @@index([role, active])
@@ -518,4 +520,20 @@ model DiscountLog {
   @@index([mobile, createdAt])
   @@index([createdAt])
   @@map("discount_logs")
+}
+
+/** Shared how-to notes for the admin team (Learning menu). */
+model LearningNote {
+  id          String       @id @default(cuid())
+  title       String
+  body        String       @db.Text
+  authorId    String?      @map("author_id")
+  author      StaffAccount? @relation("LearningNoteAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  updatedById String?      @map("updated_by_id")
+  updatedBy   StaffAccount? @relation("LearningNoteUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@index([updatedAt])
+  @@map("learning_notes")
 }
