@@ -15,7 +15,7 @@ export default function FloatingCartBar() {
   if (!hydrated || itemCount === 0 || isCartOpen) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 p-3 z-40">
+    <div className="fixed bottom-0 left-0 right-0 z-40 px-3 pt-3 pb-mobile-chrome">
       <button
         type="button"
         onClick={openCart}

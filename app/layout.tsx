@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { DM_Sans } from 'next/font/google';
 import './globals.css';
 import { STORE_NAME, SITE_URL } from '@/constants';
@@ -7,6 +7,12 @@ const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans' });
 
 const title = `${STORE_NAME} — Groceries delivered in minutes`;
 const description = 'Order groceries and essentials online. Fast delivery, cash on delivery, order via WhatsApp.';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

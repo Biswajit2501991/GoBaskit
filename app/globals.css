@@ -27,6 +27,18 @@ body {
   display: none;
 }
 
+/* Keep sticky bottom CTAs above iOS Safari / Chrome URL bars.
+   safe-area alone only covers the home indicator — browser chrome needs extra room. */
+.pb-mobile-chrome {
+  padding-bottom: max(1rem, calc(env(safe-area-inset-bottom, 0px) + 3.75rem));
+}
+
+@supports (padding-bottom: max(1rem, env(safe-area-inset-bottom))) {
+  .pb-mobile-chrome {
+    padding-bottom: max(1rem, calc(env(safe-area-inset-bottom, 0px) + 3.75rem));
+  }
+}
+
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }

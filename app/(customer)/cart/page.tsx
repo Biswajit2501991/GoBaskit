@@ -47,7 +47,7 @@ export default function CartPage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#f4f6fb]">
       <Header />
-      <main className="flex-1 max-w-lg mx-auto w-full flex flex-col min-h-0 h-[calc(100dvh-4.5rem)]">
+      <main className="flex-1 max-w-lg mx-auto w-full flex flex-col min-h-0 h-[calc(100svh-4.5rem)] max-h-[calc(100svh-4.5rem)]">
         <div className="px-4 pt-4 pb-2 flex items-center justify-between shrink-0">
           <h2 className="text-lg font-bold">My Cart</h2>
         </div>

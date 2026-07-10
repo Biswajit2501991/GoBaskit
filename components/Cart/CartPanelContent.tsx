@@ -226,12 +226,12 @@ export default function CartPanelContent({
 
         <CancellationPolicyCard text={homepageConfig.cancellationPolicy} />
 
-        {/* Spacer so last card isn't hidden behind sticky footer */}
-        {showFooterActions ? <div className="h-2" /> : null}
+        {/* Spacer so last card isn't hidden behind sticky footer + mobile browser chrome */}
+        {showFooterActions ? <div className="h-6" aria-hidden /> : null}
       </div>
 
       {showFooterActions && (
-        <div className="shrink-0 border-t border-gray-200 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2 shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
+        <div className="shrink-0 border-t border-gray-200 bg-white p-3 pb-mobile-chrome space-y-2 shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
           {belowMinimum && (
             <p className="text-amber-600 text-[11px] font-semibold text-center">
               Add {formatCurrency(minOrderValue - subtotal)} more to checkout

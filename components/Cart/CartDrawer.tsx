@@ -84,7 +84,7 @@ export default function CartDrawer() {
         role="dialog"
         aria-modal="true"
         aria-label="My Cart"
-        className={`relative h-full w-full max-w-md bg-[#f4f6fb] shadow-2xl flex flex-col
+        className={`relative h-svh max-h-svh w-full max-w-md bg-[#f4f6fb] shadow-2xl flex flex-col
           transition-transform duration-300 ease-out
           ${entered ? 'translate-x-0' : 'translate-x-full'}`}
       >
