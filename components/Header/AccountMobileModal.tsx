@@ -492,21 +492,26 @@ export default function AccountMobileModal() {
             </p>
             <div className="space-y-3 text-left">
               <div>
-                <Label className="text-center block w-full mb-1.5">Mobile Number</Label>
-                <div className="flex gap-2">
-                  <span className="inline-flex items-center px-3 rounded-xl border border-gray-200 bg-gray-50 text-sm font-medium text-gray-600">
+                <Label className="text-center block w-full mb-2 text-sm font-medium text-gray-700">
+                  Mobile Number
+                </Label>
+                <label className="flex items-center w-full h-12 rounded-2xl border border-gray-200 bg-white px-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] focus-within:border-blinkit-green/50 focus-within:ring-2 focus-within:ring-blinkit-green/15 transition-shadow">
+                  <span className="text-[15px] font-semibold text-gray-900 tabular-nums select-none">
                     +91
                   </span>
-                  <Input
+                  <span className="mx-3 h-5 w-px bg-gray-200 shrink-0" aria-hidden />
+                  <input
                     value={mobile}
                     onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(-10))}
-                    placeholder="10-digit number"
+                    placeholder="Enter mobile number"
                     inputMode="numeric"
                     maxLength={10}
-                    className="flex-1 h-11 rounded-xl text-center text-base tracking-wide"
+                    autoComplete="tel-national"
+                    className="flex-1 min-w-0 bg-transparent border-0 outline-none text-[15px] text-gray-900 placeholder:text-gray-400 tracking-wide"
                     onKeyDown={(e) => e.key === 'Enter' && handleContinue()}
+                    aria-label="Mobile number"
                   />
-                </div>
+                </label>
               </div>
               {error && <p className="text-red-500 text-xs text-center">{error}</p>}
               <Button
