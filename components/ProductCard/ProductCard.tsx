@@ -131,7 +131,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div className="px-2 pb-2 flex flex-col flex-1">
         <div className="flex items-center justify-between gap-0.5 mb-1 min-h-[14px] flex-nowrap">
           {product.isFeatured ? (
-            <BestsellerBadge className="relative self-center text-[6.5px] leading-none px-1 py-px tracking-tight" />
+            <BestsellerBadge className="relative self-center text-[8px] leading-none px-1.5 py-0.5 tracking-tight" />
           ) : (
             <span className="h-3.5" />
           )}
