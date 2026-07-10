@@ -48,42 +48,65 @@ export async function POST(req: NextRequest) {
   }
 
   const existing = await prisma.staffAccount.findFirst({
-    where: { OR: [{ mobile }, ...(parsed.data.email ? [{ email: parsed.data.email }] : [])], deletedAt: null },
+    where: {
+      OR: [{ mobile }, ...(parsed.data.email ? [{ email: parsed.data.email }] : [])],
+    },
   });
   if (existing) {
+    if (existing.deletedAt) {
+      return NextResponse.json(
+        {
+          error:
+            'This mobile belongs to a deactivated staff account. Reactivate that staff member instead of creating a new one.',
+        },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ error: 'Mobile or email already exists' }, { status: 409 });
   }
 
   const password = parsed.data.password || 'changeme123';
-  const staff = await prisma.staffAccount.create({
-    data: {
-      name: parsed.data.name,
-      mobile,
-      email: parsed.data.email || null,
-      role: parsed.data.role,
-      passwordHash: await hashPassword(password),
-      permissions: parsed.data.permissions ?? [],
-      active: parsed.data.active ?? true,
-      assignedCity: parsed.data.assignedCity || null,
-      assignedAreas: parsed.data.assignedAreas ?? [],
-      latitude: parsed.data.latitude ?? null,
-      longitude: parsed.data.longitude ?? null,
-      deliveryRadius: parsed.data.deliveryRadius ?? null,
-    },
-    select: {
-      id: true, name: true, mobile: true, email: true, role: true, permissions: true, active: true,
-      assignedCity: true, assignedAreas: true, latitude: true, longitude: true, deliveryRadius: true,
-      createdAt: true,
-    },
-  });
+  try {
+    const staff = await prisma.staffAccount.create({
+      data: {
+        name: parsed.data.name,
+        mobile,
+        email: parsed.data.email || null,
+        role: parsed.data.role,
+        passwordHash: await hashPassword(password),
+        permissions: parsed.data.permissions ?? [],
+        active: parsed.data.active ?? true,
+        assignedCity: parsed.data.assignedCity || null,
+        assignedAreas: parsed.data.assignedAreas ?? [],
+        latitude: parsed.data.latitude ?? null,
+        longitude: parsed.data.longitude ?? null,
+        deliveryRadius: parsed.data.deliveryRadius ?? null,
+      },
+      select: {
+        id: true, name: true, mobile: true, email: true, role: true, permissions: true, active: true,
+        assignedCity: true, assignedAreas: true, latitude: true, longitude: true, deliveryRadius: true,
+        createdAt: true,
+      },
+    });
 
-  StaffService.invalidateMobileCache(mobile);
-  await AuditService.log({
-    staffId: auth.staff!.id,
-    action: 'staff_created',
-    entity: 'staff_accounts',
-    entityId: staff.id,
-  });
+    StaffService.invalidateMobileCache(mobile);
+    await AuditService.log({
+      staffId: auth.staff!.id,
+      action: 'staff_created',
+      entity: 'staff_accounts',
+      entityId: staff.id,
+    });
 
-  return NextResponse.json(staff, { status: 201 });
+    return NextResponse.json(staff, { status: 201 });
+  } catch (err) {
+    const code = err && typeof err === 'object' && 'code' in err ? String((err as { code: string }).code) : '';
+    if (code === 'P2002') {
+      return NextResponse.json(
+        { error: 'Mobile or email already exists' },
+        { status: 409 },
+      );
+    }
+    console.error('[admin/staff POST]', err);
+    return NextResponse.json({ error: 'Failed to create staff' }, { status: 500 });
+  }
 }

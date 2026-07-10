@@ -8,9 +8,15 @@ import {
   setAuthCookies,
   clearAuthCookies,
   REFRESH_COOKIE_NAME,
+  COOKIE_NAME,
   rotateStaffRefreshToken,
   revokeStaffRefreshTokens,
+  verifyToken,
 } from '@/lib/auth';
+import {
+  CUSTOMER_MOBILE_COOKIE,
+  customerSessionClearOptions,
+} from '@/lib/customer-session';
 import { StaffService } from '@/services/StaffService';
 import { AuditService } from '@/services/AuditService';
 
@@ -70,9 +76,25 @@ export async function POST(req: NextRequest) {
   return response;
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
+  // Revoke every refresh token for this staff so other browsers/devices
+  // cannot stay signed in after logout.
+  const accessRaw = req.cookies.get(COOKIE_NAME)?.value;
+  const session = accessRaw ? verifyToken(accessRaw) : null;
+  if (session && 'type' in session && session.type === 'staff') {
+    await revokeStaffRefreshTokens(session.sub).catch(() => null);
+    await AuditService.log({
+      staffId: session.sub,
+      action: 'logout',
+      ip: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || undefined,
+    }).catch(() => null);
+  }
+
   const response = NextResponse.json({ success: true });
   clearAuthCookies(response);
+  // Staff login also issues a customer session — clear that too so logout
+  // returns a clean storefront Home experience.
+  response.cookies.set(CUSTOMER_MOBILE_COOKIE, '', customerSessionClearOptions());
   return response;
 }
 

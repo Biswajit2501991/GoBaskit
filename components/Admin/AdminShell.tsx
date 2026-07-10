@@ -7,6 +7,7 @@ import { LogoutButton } from '@/components/Admin/LogoutButton';
 import { NotificationCenter } from '@/components/Admin/NotificationCenter';
 import { AdminNavLink } from '@/components/Admin/AdminNavLink';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
+import { logoutEverywhere } from '@/utils/logoutEverywhere';
 
 type AdminShellProps = {
   staff: { id: string; name: string; role: string };
@@ -15,11 +16,6 @@ type AdminShellProps = {
 };
 
 const SIDEBAR_PREF_KEY = 'gobaskit_admin_sidebar_collapsed';
-
-async function logoutNow() {
-  await fetch('/api/auth/staff-login', { method: 'DELETE' }).catch(() => null);
-  window.location.href = '/';
-}
 
 export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
   const pathname = usePathname();
@@ -168,7 +164,9 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
           {collapsed ? (
             <button
               type="button"
-              onClick={logoutNow}
+              onClick={() => {
+                void logoutEverywhere('/');
+              }}
               className="w-full inline-flex items-center justify-center text-red-500 hover:text-red-600 rounded-lg p-2 hover:bg-red-50"
               aria-label="Logout"
               title="Logout"

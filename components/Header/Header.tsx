@@ -20,6 +20,7 @@ import { clearCheckoutProfileLocal } from '@/utils/customerProfile';
 import { clearSessionVerifiedMobile, setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
 import { toE164 } from '@/utils/phone';
 import { prefetchCheckoutProfile } from '@/utils/prefetchCheckoutProfile';
+import { logoutEverywhere } from '@/utils/logoutEverywhere';
 
 interface HeaderProps {
   /** Set false to hide the global product search (e.g. focused flows like checkout). */
@@ -98,15 +99,12 @@ export default function Header({ showSearch = true }: HeaderProps) {
   }
 
   async function handleCustomerLogout() {
-    await fetch('/api/customer/account', { method: 'DELETE' }).catch(() => null);
     clearCheckoutProfileLocal();
     clearSessionVerifiedMobile();
     clearWishlist();
     clearAccount();
     setAccountMenuOpen(false);
-    // Always land on the GoBaskit home page after logging out, with a full
-    // reload so all session state (cart badge, account, caches) resets cleanly.
-    window.location.replace('/');
+    await logoutEverywhere('/');
   }
 
   return (

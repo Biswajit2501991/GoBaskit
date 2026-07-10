@@ -7,6 +7,13 @@ import {
   customerSessionClearOptions,
   getCustomerMobileFromRequest,
 } from '@/lib/customer-session';
+import {
+  COOKIE_NAME,
+  REFRESH_COOKIE_NAME,
+  clearAuthCookies,
+  revokeStaffRefreshTokens,
+  verifyToken,
+} from '@/lib/auth';
 import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationService';
 
 const SETTING_PREFIX = 'customer_mobile_';
@@ -63,8 +70,19 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
+  // If this browser also has a staff session (admin shopping as customer),
+  // revoke all staff refresh tokens and clear admin cookies too.
+  const accessRaw = req.cookies.get(COOKIE_NAME)?.value;
+  const session = accessRaw ? verifyToken(accessRaw) : null;
+  if (session && 'type' in session && session.type === 'staff') {
+    await revokeStaffRefreshTokens(session.sub).catch(() => null);
+  }
+
   const res = NextResponse.json({ ok: true });
   res.cookies.set(CUSTOMER_MOBILE_COOKIE, '', customerSessionClearOptions());
+  clearAuthCookies(res);
+  // clearAuthCookies uses delete; also expire refresh explicitly for older clients
+  res.cookies.delete(REFRESH_COOKIE_NAME);
   return res;
 }
