@@ -129,14 +129,14 @@ export default function ProductCard({ product }: ProductCardProps) {
       </Link>
 
       <div className="px-2 pb-2 flex flex-col flex-1">
-        <div className="flex flex-wrap items-start justify-between gap-x-1 gap-y-0.5 mb-1 min-h-4">
+        <div className="flex items-center justify-between gap-0.5 mb-1 min-h-[14px] flex-nowrap">
           {product.isFeatured ? (
-            <BestsellerBadge className="relative self-start text-[8px] px-1.5 py-0.5 tracking-wide" />
+            <BestsellerBadge className="relative self-center text-[6.5px] leading-none px-1 py-px tracking-tight" />
           ) : (
-            <span className="h-4" />
+            <span className="h-3.5" />
           )}
           {showStars && healthRating != null && (
-            <HealthStarRating rating={healthRating} variant="card" className="shrink-0 ml-auto" />
+            <HealthStarRating rating={healthRating} variant="card" className="shrink-0" />
           )}
         </div>
         <Link href={`/product/${product.id}`}>

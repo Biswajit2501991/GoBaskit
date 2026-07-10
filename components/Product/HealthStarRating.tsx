@@ -50,11 +50,11 @@ export default function HealthStarRating({
     >
       <span className="inline-flex items-center gap-px">
         {Array.from({ length: stars }, (_, i) => (
-          <Star key={i} className="w-2.5 h-2.5 fill-current text-[#FFD600]" strokeWidth={0} />
+          <Star key={i} className="w-2 h-2 fill-current text-[#FFD600]" strokeWidth={0} />
         ))}
       </span>
-      <span className="text-[7px] font-semibold text-gray-600 mt-0.5 whitespace-nowrap tracking-tight">
-        Health Star Rating
+      <span className="text-[5.5px] font-semibold text-gray-600 mt-px whitespace-nowrap tracking-tight">
+        Health Star
       </span>
     </div>
   );
