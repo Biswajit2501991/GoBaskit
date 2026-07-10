@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Header from '@/components/Header/Header';
 import CancellationPolicyCard from '@/components/Cart/CancellationPolicyCard';
+import { markOrderCelebration } from '@/components/Cart/OrderCelebration';
 import { useCartStore } from '@/store/cartStore';
 import { useConfigStore } from '@/store/configStore';
 import { useDiscountStore } from '@/store/discountStore';
@@ -105,6 +106,8 @@ export default function CheckoutPage() {
   const customerSectionRef = useRef<HTMLDivElement | null>(null);
   const addressSectionRef = useRef<HTMLDivElement | null>(null);
   const summarySectionRef = useRef<HTMLDivElement | null>(null);
+  /** Prevents empty-cart guard from sending users to /cart after a successful order. */
+  const orderCompletedRef = useRef(false);
 
   useEffect(() => {
     if (profileLoaded) return;
@@ -286,6 +289,7 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (!hydrated) return;
+    if (orderCompletedRef.current) return;
     if (items.length === 0) router.replace('/cart');
   }, [items, router, hydrated]);
 
@@ -435,6 +439,7 @@ export default function CheckoutPage() {
     }
 
     let orderPlaced = false;
+    let placedOrderNumber: string | undefined;
     try {
       const res = await fetch('/api/checkout', {
         method: 'POST',
@@ -451,13 +456,15 @@ export default function CheckoutPage() {
         return;
       }
       orderPlaced = true;
+      if (typeof result.orderNumber === 'string') placedOrderNumber = result.orderNumber;
     } catch {
       setOrderError('Network error. Please try again.');
       return;
     }
 
-    // Navigate immediately — profile/account are best-effort and must not block success.
+    // Soft-navigate home with celebration — never hard-refresh, never land on empty /cart.
     if (orderPlaced) {
+      orderCompletedRef.current = true;
       const normalized = normalizeMobile(data.mobile);
       setCustomerMobile(normalized);
       void persistProfile(data);
@@ -466,15 +473,20 @@ export default function CheckoutPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobile: normalized }),
       }).catch(() => {});
+
+      try {
+        sessionStorage.setItem('gobaskit_last_order_source', source);
+      } catch {
+        /* ignore */
+      }
+      markOrderCelebration(placedOrderNumber);
+      router.replace('/');
+      // Clear cart after navigation starts so the empty-cart guard cannot win the race.
+      queueMicrotask(() => {
+        clearCart();
+        clearDiscount();
+      });
     }
-    clearCart();
-    clearDiscount();
-    try {
-      sessionStorage.setItem('gobaskit_last_order_source', source);
-    } catch {
-      /* ignore */
-    }
-    router.push('/success');
   }
 
   async function onSubmitWebsite(data: CheckoutSchema) {

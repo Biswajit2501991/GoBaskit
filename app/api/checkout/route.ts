@@ -114,8 +114,8 @@ export async function POST(req: NextRequest) {
     const source = orderSource === 'whatsapp' ? 'whatsapp' : 'website';
 
     let inventoryUpdates: {
-      updated: Awaited<ReturnType<typeof InventoryService.reserveForOrder>>['updated'];
-      previousStock: Map<string, number>;
+      productIds: string[];
+      qtyByProduct: Map<string, number>;
     };
 
     // Keep the transaction lean: create + reserve only. No include of items/customer
@@ -213,7 +213,7 @@ export async function POST(req: NextRequest) {
         inventoryUpdates = await InventoryService.reserveForOrder(tx, created.id, stockItems);
         return { ...created, customer: dbCustomer };
       },
-      { maxWait: 5000, timeout: 12000 },
+      { maxWait: 3000, timeout: 8000 },
     );
 
     // Slim response — client only needs orderNumber to proceed to success.
@@ -242,8 +242,8 @@ export async function POST(req: NextRequest) {
       try {
         await Promise.allSettled([
           InventoryService.afterOrderReserved(
-            inventorySnapshot.updated,
-            inventorySnapshot.previousStock,
+            inventorySnapshot.productIds,
+            inventorySnapshot.qtyByProduct,
           ),
           OrderService.onOrderCreated({
             id: orderSnapshot.id,

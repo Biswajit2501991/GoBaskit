@@ -116,3 +116,60 @@ body {
   fill: #FFD600;
   filter: drop-shadow(0 0.5px 0.5px rgba(180, 140, 0, 0.4));
 }
+
+/* Post-order celebration crackers */
+@keyframes celebration-pop {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes celebration-fall {
+  0% {
+    transform: translate3d(0, -12vh, 0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--drift, 20px), 110vh, 0) rotate(720deg);
+    opacity: 0.85;
+  }
+}
+
+.celebration-piece {
+  position: absolute;
+  top: -8%;
+  left: var(--x, 50%);
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+  background: hsl(var(--hue, 40) 90% 55%);
+  animation: celebration-fall 2.4s ease-in forwards;
+  animation-delay: var(--delay, 0s);
+  --drift: calc((var(--i, 0) - 24) * 3px);
+  transform: rotate(var(--rot, 0deg));
+}
+
+.celebration-piece:nth-child(3n) {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+.celebration-piece:nth-child(4n) {
+  width: 10px;
+  height: 4px;
+}
+.celebration-piece:nth-child(5n) {
+  background: #0c831f;
+}
+.celebration-piece:nth-child(7n) {
+  background: #f7c948;
+}
+.celebration-piece:nth-child(11n) {
+  background: #ef4444;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .celebration-piece {
+    animation: none;
+    opacity: 0;
+  }
+}

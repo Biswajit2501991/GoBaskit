@@ -12,6 +12,7 @@ import GlobalSearch from '@/components/Header/GlobalSearch';
 import AccountMobileModal from '@/components/Header/AccountMobileModal';
 import StaffAdminLoginModal from '@/components/Header/StaffAdminLoginModal';
 import CartDrawer from '@/components/Cart/CartDrawer';
+import OrderCelebration from '@/components/Cart/OrderCelebration';
 import { clearCheckoutProfileLocal } from '@/utils/customerProfile';
 import { clearSessionVerifiedMobile, setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
 import { toE164 } from '@/utils/phone';
@@ -81,6 +82,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
       <AccountMobileModal />
       <StaffAdminLoginModal />
       <CartDrawer />
+      <OrderCelebration />
       <div className="bg-blinkit-yellow">
         <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">

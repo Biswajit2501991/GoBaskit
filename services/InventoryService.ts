@@ -145,7 +145,7 @@ export class InventoryService {
     tx: Prisma.TransactionClient,
     orderId: string,
     items: OrderStockItem[],
-  ): Promise<{ updated: ProductRow[]; previousStock: Map<string, number> }> {
+  ): Promise<{ productIds: string[]; qtyByProduct: Map<string, number> }> {
     const byProduct = new Map<string, number>();
     const byVariant = new Map<string, number>();
     for (const item of items) {
@@ -156,10 +156,8 @@ export class InventoryService {
       }
     }
 
-    const updated: ProductRow[] = [];
-    const previousStock = new Map<string, number>();
-
-    // Atomic decrements — one round-trip per line, no separate find+update.
+    // Critical path: atomic stock decrements only (one updateMany per line).
+    // Status sync + alert rows are loaded after the response in afterOrderReserved.
     await Promise.all([
       ...[...byProduct.entries()].map(async ([productId, qty]) => {
         const result = await tx.product.updateMany({
@@ -168,37 +166,6 @@ export class InventoryService {
         });
         if (result.count !== 1) {
           throw new Error('Insufficient stock for a product in your cart');
-        }
-        const row = await tx.product.findUnique({
-          where: { id: productId },
-          select: {
-            id: true,
-            name: true,
-            stock: true,
-            stockBaseline: true,
-            status: true,
-            lowStockNotifiedAt: true,
-          },
-        });
-        if (!row) throw new Error('A product in your cart is no longer available.');
-        previousStock.set(productId, row.stock + qty);
-        const status = this.resolveStatus(row.stock, row.status);
-        if (status !== row.status) {
-          const patched = await tx.product.update({
-            where: { id: productId },
-            data: { status },
-            select: {
-              id: true,
-              name: true,
-              stock: true,
-              stockBaseline: true,
-              status: true,
-              lowStockNotifiedAt: true,
-            },
-          });
-          updated.push(patched);
-        } else {
-          updated.push(row);
         }
       }),
       ...[...byVariant.entries()].map(async ([variantId, qty]) => {
@@ -210,14 +177,60 @@ export class InventoryService {
           throw new Error('Insufficient stock for a selected option');
         }
       }),
+      tx.order.update({
+        where: { id: orderId },
+        data: { stockReserved: true },
+      }),
     ]);
 
-    await tx.order.update({
-      where: { id: orderId },
-      data: { stockReserved: true },
+    return { productIds: [...byProduct.keys()], qtyByProduct: byProduct };
+  }
+
+  static async afterOrderReserved(
+    productIds: string[],
+    qtyByProduct: Map<string, number>,
+  ): Promise<void> {
+    if (!productIds.length) {
+      DashboardService.invalidateCache();
+      return;
+    }
+
+    const rows = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: {
+        id: true,
+        name: true,
+        stock: true,
+        stockBaseline: true,
+        status: true,
+        lowStockNotifiedAt: true,
+      },
     });
 
-    return { updated, previousStock };
+    await Promise.all(
+      rows.map(async (row) => {
+        const status = this.resolveStatus(row.stock, row.status);
+        const product =
+          status !== row.status
+            ? await prisma.product.update({
+                where: { id: row.id },
+                data: { status },
+                select: {
+                  id: true,
+                  name: true,
+                  stock: true,
+                  stockBaseline: true,
+                  status: true,
+                  lowStockNotifiedAt: true,
+                },
+              })
+            : row;
+        const reservedQty = qtyByProduct.get(row.id) ?? 0;
+        await this.evaluateAlerts(product, product.stock + reservedQty);
+      }),
+    );
+
+    DashboardService.invalidateCache();
   }
 
   static async restoreForOrder(orderId: string): Promise<void> {
@@ -275,16 +288,6 @@ export class InventoryService {
 
     for (const product of updated) {
       await this.evaluateAlerts(product);
-    }
-    DashboardService.invalidateCache();
-  }
-
-  static async afterOrderReserved(
-    products: ProductRow[],
-    previousStock: Map<string, number>,
-  ): Promise<void> {
-    for (const product of products) {
-      await this.evaluateAlerts(product, previousStock.get(product.id));
     }
     DashboardService.invalidateCache();
   }
