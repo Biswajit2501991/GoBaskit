@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,16 +13,9 @@ import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import ProductImageUpload from './ProductImageUpload';
 import ListPagination from './ListPagination';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
+import { useAdminProductsStore, type AdminCategory } from '@/store/adminProductsStore';
 
-export interface AdminCategory {
-  id: string;
-  name: string;
-  slug: string;
-  imageUrl: string | null;
-  sortOrder: number;
-  isActive: boolean;
-  _count: { products: number };
-}
+export type { AdminCategory };
 
 const emptyCategory: CategoryFormData = {
   name: '',
@@ -32,57 +25,35 @@ const emptyCategory: CategoryFormData = {
   isActive: true,
 };
 
-/** Categories are a small list — load once and filter locally for instant search. */
-const FETCH_PAGE_SIZE = 100;
-
 export default function CategoryManager({
   canEdit,
 }: {
   canEdit: boolean;
 }) {
   const router = useRouter();
-  const [allCategories, setAllCategories] = useState<AdminCategory[]>([]);
+  const allCategories = useAdminProductsStore((s) => s.categories);
+  const categoriesFetchedAt = useAdminProductsStore((s) => s.categoriesFetchedAt);
+  const fetchCategories = useAdminProductsStore((s) => s.fetchCategories);
+  const invalidateCategories = useAdminProductsStore((s) => s.invalidateCategories);
+  const invalidateProducts = useAdminProductsStore((s) => s.invalidateProducts);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const collected: AdminCategory[] = [];
-      let pageNum = 1;
-      let total = 0;
-
-      do {
-        const params = new URLSearchParams({
-          page: String(pageNum),
-          pageSize: String(FETCH_PAGE_SIZE),
-        });
-        const res = await fetch(`/api/admin/categories?${params}`);
-        if (!res.ok) break;
-        const data = await res.json();
-        const items: AdminCategory[] = Array.isArray(data.items) ? data.items : [];
-        total = typeof data.total === 'number' ? data.total : items.length;
-        collected.push(...items);
-        if (items.length < FETCH_PAGE_SIZE || collected.length >= total) break;
-        pageNum += 1;
-      } while (pageNum <= 20);
-
-      setAllCategories(collected);
-    } catch {
-      setAllCategories([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loading = allCategories.length === 0 && categoriesFetchedAt === 0;
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void fetchCategories();
+  }, [fetchCategories]);
+
+  async function reloadAfterMutation() {
+    invalidateCategories();
+    invalidateProducts();
+    await fetchCategories();
+    router.refresh();
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -172,8 +143,7 @@ export default function CategoryManager({
       }
 
       closeForm();
-      await load();
-      router.refresh();
+      await reloadAfterMutation();
     } catch {
       setError('Network error. Please try again.');
     }
@@ -190,8 +160,7 @@ export default function CategoryManager({
       alert(typeof err.error === 'string' ? err.error : 'Failed to delete');
       return;
     }
-    await load();
-    router.refresh();
+    await reloadAfterMutation();
   }
 
   return (

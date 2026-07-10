@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,35 +11,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Pencil, Plus, Trash2, X } from 'lucide-react';
-import type { AdminCategory } from './CategoryManager';
 import ProductImageUpload from './ProductImageUpload';
 import ProductPriceDisplay from '@/components/ProductCard/ProductPriceDisplay';
 import VariantAdminTable from './VariantAdminTable';
 import ListPagination from './ListPagination';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
 import { isLowStock } from '@/utils/inventory';
+import {
+  useAdminProductsStore,
+  adminProductListKey,
+  type AdminProduct,
+  type AdminCategory,
+} from '@/store/adminProductsStore';
 
-export interface AdminProduct {
-  id: string;
-  name: string;
-  description: string;
-  details?: string;
-  price: number;
-  actualPrice: number | null;
-  unit: string;
-  stock: number;
-  stockBaseline: number;
-  status: string;
-  imageUrl: string | null;
-  discount: number;
-  isFeatured: boolean;
-  isVisible: boolean;
-  hasVariants: boolean;
-  healthStarRating?: number | null;
-  categoryId: string;
-  category: { id: string; name: string; slug: string };
-  _count?: { variants: number };
-}
+export type { AdminProduct, AdminCategory };
 
 const emptyProduct: ProductFormData = {
   name: '',
@@ -74,65 +59,68 @@ export default function ProductManager({
   subtitle?: string;
 }) {
   const router = useRouter();
-  const [categories, setCategories] = useState<AdminCategory[]>(initialCategories ?? []);
-  const [products, setProducts] = useState<AdminProduct[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const initialLoadDone = useRef(false);
+  const searchDebounced = useRef(search);
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+
+  const listParams = {
+    page,
+    pageSize: ADMIN_LIST_PAGE_SIZE,
+    search: debouncedSearch,
+    categoryId: categoryFilter || undefined,
+    sort,
+  };
+  const cacheKey = adminProductListKey(listParams);
+  const cached = useAdminProductsStore((s) => s.lists[cacheKey]);
+  const categories = useAdminProductsStore((s) =>
+    s.categories.length ? s.categories : initialCategories ?? [],
+  );
+  const fetchProducts = useAdminProductsStore((s) => s.fetchProducts);
+  const refreshProducts = useAdminProductsStore((s) => s.refreshProducts);
+  const setStoreCategories = useAdminProductsStore((s) => s.setCategories);
+  const invalidateCategories = useAdminProductsStore((s) => s.invalidateCategories);
+
+  const products = cached?.items ?? [];
+  const total = cached?.total ?? 0;
+  // Only blank the table when we have nothing cached for this filter.
+  const loading = !cached;
 
   useEffect(() => {
-    if (initialCategories?.length) return;
-    // Categories come with the first products response when includeCategories=1.
-  }, [initialCategories]);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({
-      page: String(page),
-      pageSize: String(ADMIN_LIST_PAGE_SIZE),
-      sort,
-    });
-    if (search.trim()) params.set('search', search.trim());
-    if (categoryFilter) params.set('categoryId', categoryFilter);
-    // Fetch categories in parallel with products on first loads (no separate SSR wait).
-    if (!initialCategories?.length && categories.length === 0) {
-      params.set('includeCategories', '1');
+    if (initialCategories?.length) {
+      setStoreCategories(initialCategories);
     }
+  }, [initialCategories, setStoreCategories]);
 
-    try {
-      const res = await fetch(`/api/admin/products?${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setProducts(Array.isArray(data.items) ? data.items : []);
-        setTotal(typeof data.total === 'number' ? data.total : 0);
-        if (Array.isArray(data.categories) && data.categories.length) {
-          setCategories(data.categories);
-        }
-      }
-    } catch {
-      setProducts([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-      initialLoadDone.current = true;
-    }
-  }, [page, search, categoryFilter, sort, categories.length, initialCategories]);
-
+  // Debounce search so typing doesn't hammer the API / clear cache keys.
   useEffect(() => {
-    if (!initialLoadDone.current || !search) {
-      void load();
+    searchDebounced.current = search;
+    if (!search) {
+      setDebouncedSearch('');
       return;
     }
-    const t = setTimeout(() => load(), 300);
+    const t = setTimeout(() => {
+      if (searchDebounced.current === search) setDebouncedSearch(search);
+    }, 300);
     return () => clearTimeout(t);
-  }, [load, search]);
+  }, [search]);
+
+  useEffect(() => {
+    void fetchProducts(listParams);
+    // listParams fields are primitives — expand for stable deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch, categoryFilter, sort, fetchProducts]);
+
+  async function reloadAfterMutation() {
+    invalidateCategories();
+    await refreshProducts(listParams);
+    router.refresh();
+  }
 
   const {
     register,
@@ -242,8 +230,7 @@ export default function ProductManager({
     }
 
     const saved = await res.json().catch(() => null);
-    await load();
-    router.refresh();
+    await reloadAfterMutation();
 
     // When creating a product that has options, keep the form open and switch
     // into edit mode so the option manager (which needs the new product id)
@@ -266,8 +253,7 @@ export default function ProductManager({
       alert('Failed to delete product');
       return;
     }
-    await load();
-    router.refresh();
+    await reloadAfterMutation();
   }
 
   const selectClass =

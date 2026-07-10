@@ -30,6 +30,41 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
   });
   const [pendingVerifications, setPendingVerifications] = useState(0);
 
+  // Warm Products/Categories cache while browsing other admin pages so the
+  // Products menu feels instant when staff navigate back.
+  useEffect(() => {
+    const hasProducts = visibleNav.some(
+      (item) => item.href === '/admin/products' || item.href === '/admin/inventory',
+    );
+    if (!hasProducts) return;
+
+    let cancelled = false;
+    const warm = () => {
+      if (cancelled) return;
+      void import('@/store/adminProductsStore').then(({ useAdminProductsStore }) => {
+        const store = useAdminProductsStore.getState();
+        void store.fetchCategories();
+        void store.fetchProducts({ page: 1, sort: 'name' });
+      });
+    };
+
+    let idleId: number | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(warm, { timeout: 3000 });
+    } else {
+      timeoutId = setTimeout(warm, 800);
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleId != null && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [visibleNav]);
+
   useEffect(() => {
     window.localStorage.setItem(SIDEBAR_PREF_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
