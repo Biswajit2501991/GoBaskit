@@ -123,9 +123,12 @@ export default function AllCategoriesModal({
                       }`}
                     >
                       {cat.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={resolvePublicImageUrl(cat.imageUrl)}
                           alt={cat.name}
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-cover"
                         />
                       ) : (

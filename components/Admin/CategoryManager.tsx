@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -32,14 +32,16 @@ const emptyCategory: CategoryFormData = {
   isActive: true,
 };
 
+/** Categories are a small list — load once and filter locally for instant search. */
+const FETCH_PAGE_SIZE = 100;
+
 export default function CategoryManager({
   canEdit,
 }: {
   canEdit: boolean;
 }) {
   const router = useRouter();
-  const [categories, setCategories] = useState<AdminCategory[]>([]);
-  const [total, setTotal] = useState(0);
+  const [allCategories, setAllCategories] = useState<AdminCategory[]>([]);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -47,40 +49,56 @@ export default function CategoryManager({
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const initialLoadDone = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams({
-      page: String(page),
-      pageSize: String(ADMIN_LIST_PAGE_SIZE),
-    });
-    if (search.trim()) params.set('search', search.trim());
-
     try {
-      const res = await fetch(`/api/admin/categories?${params}`);
-      if (res.ok) {
+      const collected: AdminCategory[] = [];
+      let pageNum = 1;
+      let total = 0;
+
+      do {
+        const params = new URLSearchParams({
+          page: String(pageNum),
+          pageSize: String(FETCH_PAGE_SIZE),
+        });
+        const res = await fetch(`/api/admin/categories?${params}`);
+        if (!res.ok) break;
         const data = await res.json();
-        setCategories(Array.isArray(data.items) ? data.items : []);
-        setTotal(typeof data.total === 'number' ? data.total : 0);
-      }
+        const items: AdminCategory[] = Array.isArray(data.items) ? data.items : [];
+        total = typeof data.total === 'number' ? data.total : items.length;
+        collected.push(...items);
+        if (items.length < FETCH_PAGE_SIZE || collected.length >= total) break;
+        pageNum += 1;
+      } while (pageNum <= 20);
+
+      setAllCategories(collected);
     } catch {
-      setCategories([]);
-      setTotal(0);
+      setAllCategories([]);
     } finally {
       setLoading(false);
-      initialLoadDone.current = true;
     }
-  }, [page, search]);
+  }, []);
 
   useEffect(() => {
-    if (!initialLoadDone.current || !search) {
-      void load();
-      return;
-    }
-    const t = setTimeout(() => load(), 300);
-    return () => clearTimeout(t);
-  }, [load, search]);
+    void load();
+  }, [load]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return allCategories;
+    return allCategories.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q),
+    );
+  }, [allCategories, search]);
+
+  const total = filtered.length;
+  const pageCount = Math.max(1, Math.ceil(total / ADMIN_LIST_PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const categories = useMemo(() => {
+    const start = (safePage - 1) * ADMIN_LIST_PAGE_SIZE;
+    return filtered.slice(start, start + ADMIN_LIST_PAGE_SIZE);
+  }, [filtered, safePage]);
 
   const {
     register,
@@ -100,8 +118,8 @@ export default function CategoryManager({
   function openCreate() {
     setEditingId(null);
     reset(emptyCategory);
-    setShowForm(true);
     setError('');
+    setShowForm(true);
   }
 
   function openEdit(cat: AdminCategory) {
@@ -113,8 +131,8 @@ export default function CategoryManager({
       sortOrder: cat.sortOrder,
       isActive: cat.isActive,
     });
-    setShowForm(true);
     setError('');
+    setShowForm(true);
   }
 
   function closeForm() {
@@ -168,8 +186,8 @@ export default function CategoryManager({
     const res = await fetch(`/api/admin/categories/${id}`, { method: 'DELETE' });
     setDeletingId(null);
     if (!res.ok) {
-      const err = await res.json();
-      alert(err.error || 'Failed to delete');
+      const err = await res.json().catch(() => ({}));
+      alert(typeof err.error === 'string' ? err.error : 'Failed to delete');
       return;
     }
     await load();
@@ -181,7 +199,9 @@ export default function CategoryManager({
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Categories</h1>
-          <p className="text-sm text-gray-500 mt-1">{total} categories · map products via category dropdown</p>
+          <p className="text-sm text-gray-500 mt-1">
+            {allCategories.length} categories · map products via category dropdown
+          </p>
         </div>
         <Button onClick={openCreate} className="gap-2" disabled={!canEdit}>
           <Plus className="w-4 h-4" /> Add Category
@@ -191,7 +211,10 @@ export default function CategoryManager({
       <Input
         placeholder="Search by name or slug..."
         value={search}
-        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setPage(1);
+        }}
         className="max-w-md"
       />
 
@@ -260,50 +283,53 @@ export default function CategoryManager({
           {search ? 'No categories match your search.' : 'No categories yet. Click Add Category to create one.'}
         </p>
       ) : (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {categories.map((cat) => (
-          <div key={cat.id} className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col">
-            {cat.imageUrl ? (
-              <div className="w-full h-28 rounded-lg overflow-hidden bg-gray-50 mb-3 border border-gray-100">
-                <img
-                  src={resolvePublicImageUrl(cat.imageUrl)}
-                  alt={cat.name}
-                  className="w-full h-full object-cover"
-                />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {categories.map((cat) => (
+            <div key={cat.id} className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col">
+              {cat.imageUrl ? (
+                <div className="w-full h-28 rounded-lg overflow-hidden bg-gray-50 mb-3 border border-gray-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={resolvePublicImageUrl(cat.imageUrl)}
+                    alt={cat.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-full h-28 rounded-lg bg-gradient-to-br from-yellow-50 to-green-50 mb-3 border border-gray-100 flex items-center justify-center text-3xl">
+                  🏪
+                </div>
+              )}
+              <div className="flex-1">
+                <h3 className="font-bold text-gray-900">{cat.name}</h3>
+                <p className="text-sm text-gray-500 mt-1">{cat._count?.products ?? 0} products</p>
+                <p className="text-xs text-gray-400 mt-0.5">/{cat.slug}</p>
+                <span className={`text-xs font-semibold mt-2 inline-block px-2 py-0.5 rounded ${cat.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                  {cat.isActive ? 'Active' : 'Disabled'}
+                </span>
               </div>
-            ) : (
-              <div className="w-full h-28 rounded-lg bg-gradient-to-br from-yellow-50 to-green-50 mb-3 border border-gray-100 flex items-center justify-center text-3xl">
-                🏪
+              <div className="flex gap-2 mt-4 pt-3 border-t border-gray-50">
+                <Button variant="secondary" size="sm" onClick={() => openEdit(cat)} className="flex-1 gap-1" disabled={!canEdit}>
+                  <Pencil className="w-3.5 h-3.5" /> Edit
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => handleDelete(cat.id)}
+                  disabled={deletingId === cat.id || (cat._count?.products ?? 0) > 0 || !canEdit}
+                  title={(cat._count?.products ?? 0) > 0 ? 'Move products before deleting' : 'Delete'}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
               </div>
-            )}
-            <div className="flex-1">
-              <h3 className="font-bold text-gray-900">{cat.name}</h3>
-              <p className="text-sm text-gray-500 mt-1">{cat._count?.products ?? 0} products</p>
-              <p className="text-xs text-gray-400 mt-0.5">/{cat.slug}</p>
-              <span className={`text-xs font-semibold mt-2 inline-block px-2 py-0.5 rounded ${cat.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                {cat.isActive ? 'Active' : 'Disabled'}
-              </span>
             </div>
-            <div className="flex gap-2 mt-4 pt-3 border-t border-gray-50">
-              <Button variant="secondary" size="sm" onClick={() => openEdit(cat)} className="flex-1 gap-1" disabled={!canEdit}>
-                <Pencil className="w-3.5 h-3.5" /> Edit
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => handleDelete(cat.id)}
-                disabled={deletingId === cat.id || (cat._count?.products ?? 0) > 0 || !canEdit}
-                title={(cat._count?.products ?? 0) > 0 ? 'Move products before deleting' : 'Delete'}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
       )}
 
-      <ListPagination page={page} total={total} onPageChange={setPage} />
+      <ListPagination page={safePage} total={total} onPageChange={setPage} />
     </div>
   );
 }
