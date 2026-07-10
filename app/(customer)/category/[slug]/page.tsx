@@ -9,6 +9,7 @@ import ProductCard from '@/components/ProductCard/ProductCard';
 import CategoryScroller from '@/components/CategoryCard/CategoryScroller';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { CATEGORY_ICONS } from '@/constants';
+import { resolvePublicImageUrl } from '@/utils/image';
 import { useCatalogStore } from '@/store/catalogStore';
 
 const PRODUCT_GRID = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2';
@@ -35,6 +36,8 @@ export default function CategoryPage() {
     [categories, slug],
   );
   const showSkeleton = loading && !loaded;
+  const categoryImage = category?.imageUrl ? resolvePublicImageUrl(category.imageUrl) : null;
+  const categoryIcon = CATEGORY_ICONS[slug] || '🛒';
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -47,8 +50,17 @@ export default function CategoryPage() {
         </nav>
 
         <div className="mb-5 rounded-2xl bg-gradient-to-r from-green-50 to-yellow-50 border border-gray-100 p-5 flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center text-4xl">
-            {CATEGORY_ICONS[slug] || '🛒'}
+          <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center text-4xl overflow-hidden shrink-0">
+            {categoryImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={categoryImage}
+                alt={category?.name || slug}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span>{categoryIcon}</span>
+            )}
           </div>
           <div>
             <h1 className="text-xl font-extrabold text-gray-900">{category?.name || slug}</h1>

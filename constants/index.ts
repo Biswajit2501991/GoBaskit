@@ -72,6 +72,10 @@ export const CATEGORY_ICONS: Record<string, string> = {
   bakery: '🥐',
   household: '🧹',
   'personal-care': '🧴',
+  'dry-fruits': '🥜',
+  'paan-corner': '🌿',
+  pharmacy: '💊',
+  'pet-care': '🐾',
 };
 
 export const ORDER_STATUSES = [
