@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ShoppingCart, Clock, User, Shield, MessageCircle } from 'lucide-react';
+import { ShoppingCart, User, Shield, MessageCircle } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { useCartUiStore } from '@/store/cartUiStore';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
 import LocationBar from '@/components/Header/LocationBar';
+import DeliveryEtaButton from '@/components/Header/DeliveryEtaButton';
 import GlobalSearch from '@/components/Header/GlobalSearch';
 import AccountMobileModal from '@/components/Header/AccountMobileModal';
 import StaffAdminLoginModal from '@/components/Header/StaffAdminLoginModal';
@@ -193,10 +194,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
                 </div>
               )}
             </div>
-            <div className="hidden sm:flex items-center gap-1.5 bg-white/80 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-800">
-              <Clock className="w-3.5 h-3.5 text-blinkit-green" />
-              Delivery in 15 mins
-            </div>
+            <DeliveryEtaButton className="hidden sm:inline-flex" />
             <button
               type="button"
               onClick={openCart}

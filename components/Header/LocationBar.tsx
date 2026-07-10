@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { MapPin, ChevronDown, Clock } from 'lucide-react';
+import { MapPin, ChevronDown } from 'lucide-react';
 import { useLocationStore } from '@/store/locationStore';
 import { useConfigStore } from '@/store/configStore';
 import { pinIsServiceable } from '@/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import DeliveryEtaButton from '@/components/Header/DeliveryEtaButton';
 
 export default function LocationBar() {
   const { pin, city, setPin, setCity } = useLocationStore();
@@ -67,11 +68,8 @@ export default function LocationBar() {
   return (
     <div className="relative" ref={ref}>
       <div className="max-w-7xl mx-auto px-4 py-2 flex items-center gap-2 border-b border-gray-100">
-        <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold text-gray-800 pr-2 mr-1 border-r border-gray-200">
-          <Clock className="w-3.5 h-3.5 text-blinkit-green" />
-          <span>
-            Delivery in <span className="text-blinkit-green">15 mins</span>
-          </span>
+        <div className="pr-2 mr-1 border-r border-gray-200 shrink-0">
+          <DeliveryEtaButton variant="inline" className="text-[11px] font-bold text-gray-800 max-w-[9.5rem] sm:max-w-none" />
         </div>
         <button
           type="button"

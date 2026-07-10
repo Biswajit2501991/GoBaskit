@@ -72,6 +72,7 @@ interface StoreConfig {
     healthStarDisplay: HealthStarDisplay;
     announcementBarText: string;
     deliveryTimeText: string;
+    deliveryDisclaimer: string;
     themeColor: string;
     cancellationPolicy: string;
     promoSections: Array<{
@@ -141,6 +142,7 @@ export default function SettingsManager({
       showHealthStarRating: hc.showHealthStarRating !== false,
       announcementBarText: hc.announcementBarText ?? '',
       deliveryTimeText: hc.deliveryTimeText ?? '',
+      deliveryDisclaimer: hc.deliveryDisclaimer ?? '',
       themeColor: hc.themeColor ?? '#0B7A3E',
       cancellationPolicy: hc.cancellationPolicy ?? '',
       promoSections: hc.promoSections ?? [],
@@ -1053,6 +1055,22 @@ export default function SettingsManager({
               }
               disabled={!canEdit}
             />
+          </div>
+          <div className="md:col-span-2">
+            <Label>Delivery disclaimer (shown when customer taps delivery time)</Label>
+            <textarea
+              value={homepageConfig.deliveryDisclaimer}
+              onChange={(e) =>
+                setHomepageConfig((prev) => ({ ...prev, deliveryDisclaimer: e.target.value }))
+              }
+              disabled={!canEdit}
+              rows={4}
+              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              placeholder="Delivery times are estimates…"
+            />
+            <p className="text-[11px] text-gray-400 mt-1">
+              Clarifies that the ETA is not a guaranteed delivery commitment.
+            </p>
           </div>
           <div>
             <Label>Theme Color</Label>

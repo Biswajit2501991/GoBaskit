@@ -58,6 +58,8 @@ export interface StoreConfig {
     healthStarDisplay: HealthStarDisplay;
     announcementBarText: string;
     deliveryTimeText: string;
+    /** Shown when customer taps the delivery ETA chip. */
+    deliveryDisclaimer: string;
     themeColor: string;
     /** Shown on cart drawer + checkout. Editable in Admin → Settings. */
     cancellationPolicy: string;
@@ -186,6 +188,8 @@ const DEFAULTS: StoreConfig = {
     healthStarDisplay: DEFAULT_HEALTH_STAR_DISPLAY,
     announcementBarText: '',
     deliveryTimeText: 'Delivery in 10 minutes',
+    deliveryDisclaimer:
+      'Delivery times shown (for example “Delivery in 10 minutes”) are estimates for typical orders in our service area. Most of the time we aim to meet this timeline, but due to unusual circumstances — traffic, weather, high order volume, stock checks, or delivery distance — delivery may take longer. This estimate is not a guaranteed delivery commitment.',
     themeColor: '#facc15',
     cancellationPolicy:
       'Orders cannot be cancelled once packed for delivery. In case of unexpected delays, a refund will be provided, if applicable. Fresh items are quality-checked before dispatch — message us on WhatsApp if anything is missing or damaged.',
@@ -359,6 +363,9 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
         healthStarDisplay: parseHealthStarDisplay(parsed.healthStarDisplay),
         announcementBarText: String(parsed.announcementBarText ?? ''),
         deliveryTimeText: String(parsed.deliveryTimeText ?? DEFAULTS.homepageConfig.deliveryTimeText),
+        deliveryDisclaimer:
+          String(parsed.deliveryDisclaimer ?? '').trim() ||
+          DEFAULTS.homepageConfig.deliveryDisclaimer,
         themeColor: String(parsed.themeColor ?? DEFAULTS.homepageConfig.themeColor),
         cancellationPolicy:
           String(parsed.cancellationPolicy ?? '').trim() ||
@@ -566,6 +573,12 @@ export const SettingsService = {
         announcementBarText: String(partial.homepageConfig.announcementBarText ?? '').trim(),
         deliveryTimeText:
           String(partial.homepageConfig.deliveryTimeText ?? '').trim() || DEFAULTS.homepageConfig.deliveryTimeText,
+        deliveryDisclaimer:
+          String(
+            partial.homepageConfig.deliveryDisclaimer ??
+              current.homepageConfig.deliveryDisclaimer ??
+              '',
+          ).trim() || DEFAULTS.homepageConfig.deliveryDisclaimer,
         themeColor:
           String(partial.homepageConfig.themeColor ?? '').trim() || DEFAULTS.homepageConfig.themeColor,
         cancellationPolicy:

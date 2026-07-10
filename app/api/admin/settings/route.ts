@@ -52,6 +52,7 @@ const settingsSchema = z.object({
         .optional(),
       announcementBarText: z.string().max(200).optional(),
       deliveryTimeText: z.string().max(120).optional(),
+      deliveryDisclaimer: z.string().max(1000).optional(),
       themeColor: z.string().max(20).optional(),
       cancellationPolicy: z.string().max(1000).optional(),
       promoSections: z

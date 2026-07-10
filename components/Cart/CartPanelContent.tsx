@@ -2,9 +2,9 @@
 
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Timer } from 'lucide-react';
 import CouponSection from '@/components/Cart/CouponSection';
 import CancellationPolicyCard from '@/components/Cart/CancellationPolicyCard';
+import DeliveryEtaButton from '@/components/Header/DeliveryEtaButton';
 import { useCartStore, itemLineKey } from '@/store/cartStore';
 import { useConfigStore } from '@/store/configStore';
 import { useDiscountStore } from '@/store/discountStore';
@@ -49,7 +49,6 @@ export default function CartPanelContent({
   const grandTotal = Math.max(0, subtotal - discountAmount + deliveryCharge);
   const belowMinimum = minOrderValue > 0 && subtotal < minOrderValue;
   const itemCount = items.reduce((n, i) => n + i.quantity, 0);
-  const deliveryText = homepageConfig.deliveryTimeText?.trim() || 'Delivery in 10 minutes';
 
   useEffect(() => {
     const missing = items.filter(
@@ -92,16 +91,11 @@ export default function CartPanelContent({
   return (
     <div className={`flex flex-col h-full min-h-0 ${className}`}>
       <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-3 bg-[#f4f6fb]">
-        <div className="bg-white rounded-xl border border-gray-100 p-3.5 flex items-start gap-3 shadow-sm">
-          <div className="rounded-lg bg-blinkit-green-light p-2 text-blinkit-green shrink-0">
-            <Timer className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="font-bold text-sm text-gray-900">{deliveryText}</p>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Shipment of {itemCount} {itemCount === 1 ? 'item' : 'items'}
-            </p>
-          </div>
+        <div className="space-y-1">
+          <DeliveryEtaButton variant="card" />
+          <p className="text-[11px] text-gray-500 px-1">
+            Shipment of {itemCount} {itemCount === 1 ? 'item' : 'items'}
+          </p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
