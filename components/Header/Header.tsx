@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ShoppingCart, User, Shield, MessageCircle } from 'lucide-react';
+import { ShoppingCart, User, Shield } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { useCartUiStore } from '@/store/cartUiStore';
@@ -36,6 +36,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
   const openAdminLoginModal = useStaffPortalStore((s) => s.openAdminLoginModal);
   const openCart = useCartUiStore((s) => s.openCart);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const actionsRef = useRef<HTMLDivElement | null>(null);
   const accountLabel = staffEligible
     ? staffName || `Staff ${checkedMobile}`
     : customerMobile
@@ -58,6 +59,21 @@ export default function Header({ showSearch = true }: HeaderProps) {
       })
       .catch(() => null);
   }, [hasAccountIdentity, setCustomerMobile]);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    function onPointerDown(e: MouseEvent | TouchEvent) {
+      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
+        setAccountMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+    };
+  }, [accountMenuOpen]);
 
   async function handleAccountClick() {
     if (hasAccountIdentity) {
@@ -104,7 +120,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div ref={actionsRef} className="relative flex items-center gap-2 shrink-0">
             {staffEligible && (
               <button
                 type="button"
@@ -115,86 +131,32 @@ export default function Header({ showSearch = true }: HeaderProps) {
                 Admin
               </button>
             )}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={handleAccountClick}
-                className="hidden sm:inline-flex items-center gap-1.5 bg-white/80 hover:bg-white rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-800 transition-colors shadow-sm"
-              >
-                {staffEligible ? (
-                  <User className="w-3.5 h-3.5" />
-                ) : customerMobile ? (
-                  <MessageCircle className="w-3.5 h-3.5 text-green-600" />
-                ) : (
-                  <User className="w-3.5 h-3.5" />
-                )}
-                {accountLabel}
-              </button>
-              <button
-                type="button"
-                onClick={handleAccountClick}
-                className="sm:hidden bg-white/80 hover:bg-white rounded-lg p-2 shadow-sm"
-                aria-label={accountLabel}
-              >
-                {staffEligible ? (
-                  <User className="w-5 h-5 text-gray-800" />
-                ) : customerMobile ? (
-                  <MessageCircle className="w-5 h-5 text-green-600" />
-                ) : (
-                  <User className="w-5 h-5 text-gray-800" />
-                )}
-              </button>
-              {accountMenuOpen && hasAccountIdentity && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl border border-gray-200 shadow-lg p-2 z-20">
-                  <p className="px-2 py-1 text-[11px] text-gray-500 truncate">{accountLabel}</p>
-                  {staffEligible && (
-                    <p className="px-2 pb-1 text-[10px] text-gray-400">You&apos;re shopping as a customer</p>
-                  )}
-                  {customerMobile && (
-                    <Link
-                      href="/account"
-                      onClick={() => setAccountMenuOpen(false)}
-                      className="block w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-blinkit-green"
-                    >
-                      My Account
-                    </Link>
-                  )}
-                  {staffEligible && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAccountMenuOpen(false);
-                        openAdminLoginModal();
-                      }}
-                      className="w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-gray-900 flex items-center gap-1.5"
-                    >
-                      <Shield className="w-3.5 h-3.5" />
-                      Login as Admin
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAccountMenuOpen(false);
-                      openAccountModal();
-                    }}
-                    className="w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50"
-                  >
-                    Use another number
-                  </button>
-                  {customerMobile && (
-                    <button
-                      type="button"
-                      onClick={handleCustomerLogout}
-                      className="w-full text-left px-2 py-2 text-sm rounded-lg text-red-600 hover:bg-red-50"
-                    >
-                      Logout
-                    </button>
-                  )}
-                </div>
-              )}
+
+            {/* Desktop-only ETA chip; LocationBar already shows ETA on mobile */}
+            <div className="hidden sm:block">
+              <DeliveryEtaButton />
             </div>
-            <DeliveryEtaButton className="hidden sm:inline-flex" />
+
+            {/* Account sits immediately before cart */}
+            <button
+              type="button"
+              onClick={handleAccountClick}
+              className="hidden sm:inline-flex items-center gap-1.5 bg-white/80 hover:bg-white rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-800 transition-colors shadow-sm"
+            >
+              <User className="w-3.5 h-3.5 text-gray-800" />
+              {accountLabel}
+            </button>
+            <button
+              type="button"
+              onClick={handleAccountClick}
+              className="sm:hidden bg-white/80 hover:bg-white rounded-lg p-2 shadow-sm"
+              aria-label={accountLabel}
+              aria-expanded={accountMenuOpen}
+              aria-haspopup="menu"
+            >
+              <User className="w-5 h-5 text-gray-800" />
+            </button>
+
             <button
               type="button"
               onClick={openCart}
@@ -208,6 +170,73 @@ export default function Header({ showSearch = true }: HeaderProps) {
                 </span>
               )}
             </button>
+
+            {accountMenuOpen && hasAccountIdentity && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full mt-2 w-56 max-w-[calc(100vw-2rem)] bg-white rounded-xl border border-gray-200 shadow-lg p-2 z-30"
+              >
+                <p className="px-2 py-1 text-[11px] text-gray-500 truncate">{accountLabel}</p>
+                {staffEligible && (
+                  <p className="px-2 pb-1 text-[10px] text-gray-400">You&apos;re shopping as a customer</p>
+                )}
+                {customerMobile && (
+                  <>
+                    <Link
+                      href="/account"
+                      role="menuitem"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="block w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-blinkit-green"
+                    >
+                      My Account
+                    </Link>
+                    <Link
+                      href="/account/track"
+                      role="menuitem"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="block w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-gray-900"
+                    >
+                      Track My Orders
+                    </Link>
+                  </>
+                )}
+                {staffEligible && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      openAdminLoginModal();
+                    }}
+                    className="w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-gray-900 flex items-center gap-1.5"
+                  >
+                    <Shield className="w-3.5 h-3.5" />
+                    Login as Admin
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setAccountMenuOpen(false);
+                    openAccountModal();
+                  }}
+                  className="w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50"
+                >
+                  Use another number
+                </button>
+                {customerMobile && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleCustomerLogout}
+                    className="w-full text-left px-2 py-2 text-sm rounded-lg text-red-600 hover:bg-red-50"
+                  >
+                    Logout
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -147,9 +147,12 @@ export default function AccountPageClient() {
                 Mobile: <span className="font-medium text-gray-900">+91 {mobile}</span>
               </p>
               {activeCount > 0 && (
-                <p className="text-sm text-blinkit-green font-medium mt-2">
+                <Link
+                  href="/account/track"
+                  className="inline-block text-sm text-blinkit-green font-medium mt-2 underline-offset-2 hover:underline"
+                >
                   {activeCount} active order{activeCount === 1 ? '' : 's'} in progress
-                </p>
+                </Link>
               )}
             </section>
 
