@@ -88,7 +88,7 @@ export default function LocationBar() {
       </div>
 
       {open && (
-        <div className="absolute left-4 top-full mt-1 z-50 w-[280px] bg-white rounded-xl border border-gray-200 shadow-lg p-4 space-y-3">
+        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 z-50 w-[min(20rem,calc(100vw-2rem))] bg-white rounded-xl border border-gray-200 shadow-lg p-4 space-y-3">
           <p className="text-sm font-bold text-gray-900">Set your delivery location</p>
           <p className="text-xs text-gray-500">Enter your PIN code or your city to check availability.</p>
           <div className="flex items-center gap-2">
