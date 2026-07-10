@@ -112,6 +112,7 @@ model Product {
   category    Category      @relation(fields: [categoryId], references: [id])
   orderItems  OrderItem[]
   variants    ProductVariant[]
+  wishlistItems CustomerWishlistItem[]
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
@@ -200,6 +201,40 @@ model CustomerMobile {
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   @@map("customer_mobiles")
+}
+
+model CustomerWishlistItem {
+  id              String    @id @default(cuid())
+  mobile          String
+  productId       String    @map("product_id")
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Empty string = base product option; otherwise ProductVariant.id
+  variantKey      String    @default("") @map("variant_key")
+  variantId       String?   @map("variant_id")
+  notifyOnRestock Boolean   @default(true) @map("notify_on_restock")
+  /// True while the wishlisted option is (or was) out of stock — used for restock alerts.
+  awaitingRestock Boolean   @default(false) @map("awaiting_restock")
+  lastNotifiedAt  DateTime? @map("last_notified_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@unique([mobile, productId, variantKey])
+  @@index([mobile, createdAt])
+  @@map("customer_wishlist_items")
+}
+
+model CustomerRestockNotice {
+  id         String    @id @default(cuid())
+  mobile     String
+  productId  String    @map("product_id")
+  variantId  String?   @map("variant_id")
+  title      String
+  message    String
+  readAt     DateTime? @map("read_at")
+  expiresAt  DateTime  @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([mobile, readAt, expiresAt])
+  @@map("customer_restock_notices")
 }
 
 model WhatsAppVerification {

@@ -11,6 +11,7 @@ import { loadCheckoutProfileLocal } from '@/utils/customerProfile';
 import { normalizeMobile } from '@/utils/mobile';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
 import { MapPin, Package, User } from 'lucide-react';
+import AccountWishlistSection from '@/components/Account/AccountWishlistSection';
 
 export default function AccountPageClient() {
   const router = useRouter();
@@ -155,6 +156,8 @@ export default function AccountPageClient() {
                 </Link>
               )}
             </section>
+
+            <AccountWishlistSection />
 
             {profile ? (
               <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">

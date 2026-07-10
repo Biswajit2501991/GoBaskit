@@ -83,7 +83,7 @@ export function buildProductOptions(
       details: baseDetails,
       healthStarRating: baseRating,
       stock: product.stock,
-      inStock: product.stock > 0 && product.status === 'ACTIVE',
+      inStock: product.stock > 0 && product.status !== 'INACTIVE',
     },
   ];
 

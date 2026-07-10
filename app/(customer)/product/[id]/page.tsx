@@ -24,6 +24,7 @@ import HealthStarBadge from '@/components/Product/HealthStarBadge';
 import ZoomImage from '@/components/Product/ZoomImage';
 import ProductDetailsAccordion from '@/components/Product/ProductDetailsAccordion';
 import { addOptionToCart } from '@/components/Product/VariantSelector';
+import WishlistButton from '@/components/Product/WishlistButton';
 import { CATEGORY_ICONS } from '@/constants';
 import { Button } from '@/components/ui/button';
 import { useConfigStore } from '@/store/configStore';
@@ -115,7 +116,7 @@ export default function ProductPage() {
   const listPrice = getListPrice(displayMrp, sellingPrice);
   const savings = listPrice ? Math.round((listPrice - sellingPrice) * 100) / 100 : 0;
   const effectiveStock = active ? active.stock : product.stock;
-  const inStock = active ? active.inStock : product.stock > 0 && product.status === 'ACTIVE';
+  const inStock = active ? active.inStock : product.stock > 0 && product.status !== 'INACTIVE';
 
   const selectedVariantId = active?.variantId ?? null;
   const lineKey = cartLineKey(product.id, selectedVariantId);
@@ -185,12 +186,25 @@ export default function ProductPage() {
               {product.isFeatured && (
                 <BestsellerBadge className="absolute top-2 left-2 z-10 text-[10px] px-2 py-1" />
               )}
+              <div className="absolute top-2 right-2 z-10">
+                <WishlistButton productId={product.id} variantId={selectedVariantId} size="md" />
+              </div>
               {showDetailBadge && (
                 <HealthStarBadge
                   url={healthStarDisplay.badgeUrl}
                   position={healthStarDisplay.badgePosition}
                   size={36}
                 />
+              )}
+              {!inStock && (
+                <div className="absolute inset-0 bg-white/70 flex flex-col items-center justify-center gap-1.5">
+                  <span className="bg-gray-800 text-white text-xs font-bold px-3 py-1 rounded uppercase">
+                    Out of stock
+                  </span>
+                  <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                    High demand · Coming soon
+                  </span>
+                </div>
               )}
             </div>
           </div>
@@ -272,7 +286,14 @@ export default function ProductPage() {
 
             <div className="pt-2">
               {!inStock ? (
-                <div className="text-sm font-semibold text-red-500 bg-red-50 rounded-lg px-3 py-2">Out of stock</div>
+                <div className="space-y-2">
+                  <div className="text-sm font-semibold text-red-600 bg-red-50 rounded-lg px-3 py-2">
+                    Out of stock · High demand · Coming soon
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Save to wishlist and we&apos;ll notify you when it&apos;s back after you log in.
+                  </p>
+                </div>
               ) : cartQty > 0 ? (
                 <div className="flex items-center gap-4">
                   <div className="flex items-center bg-blinkit-green rounded-lg">

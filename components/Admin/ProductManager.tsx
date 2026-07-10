@@ -181,6 +181,9 @@ export default function ProductManager({
 
   function openEdit(product: AdminProduct) {
     setEditingId(product.id);
+    // If options already exist in DB, always show Variant Management even when
+    // the checkbox was previously unchecked (storefront still lists those options).
+    const hasExistingOptions = (product._count?.variants ?? 0) > 0;
     reset({
       name: product.name,
       description: product.description,
@@ -194,7 +197,7 @@ export default function ProductManager({
       imageUrl: product.imageUrl || '',
       isFeatured: product.isFeatured,
       isVisible: product.isVisible,
-      hasVariants: product.hasVariants,
+      hasVariants: product.hasVariants || hasExistingOptions,
       healthStarRating: product.healthStarRating ?? null,
     });
     setShowForm(true);

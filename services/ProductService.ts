@@ -19,6 +19,18 @@ export class ProductService {
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
         { description: { contains: q, mode: 'insensitive' } },
+        // Find parent products by option brand / name (e.g. search "Ganesh" → Almond).
+        {
+          variants: {
+            some: {
+              OR: [
+                { brand: { contains: q, mode: 'insensitive' } },
+                { variantName: { contains: q, mode: 'insensitive' } },
+                { sku: { contains: q, mode: 'insensitive' } },
+              ],
+            },
+          },
+        },
       ];
     }
 
@@ -54,7 +66,12 @@ export class ProductService {
     featured?: boolean;
     sort?: 'price_asc' | 'price_desc' | 'name';
   }): Promise<ProductWithCategory[]> {
-    const where: Record<string, unknown> = { isVisible: true, status: 'ACTIVE' };
+    // Keep INACTIVE products hidden; show ACTIVE + OUT_OF_STOCK so customers
+    // still see high-demand items marked as coming soon.
+    const where: Record<string, unknown> = {
+      isVisible: true,
+      status: { in: ['ACTIVE', 'OUT_OF_STOCK'] },
+    };
 
     if (params?.search) {
       where.OR = [
@@ -78,7 +95,7 @@ export class ProductService {
         ? { price: 'desc' as const }
         : { name: 'asc' as const };
 
-    return prisma.product.findMany({
+    const products = await prisma.product.findMany({
       where,
       include: {
         category: { select: { id: true, name: true, slug: true } },
@@ -89,10 +106,17 @@ export class ProductService {
       },
       orderBy,
     });
+
+    // Keep fully out-of-stock items visible but after in-stock ones.
+    return products.sort((a, b) => {
+      const aOk = a.stock > 0 || a.variants.some((v) => v.stock > 0) ? 0 : 1;
+      const bOk = b.stock > 0 || b.variants.some((v) => v.stock > 0) ? 0 : 1;
+      return aOk - bOk;
+    });
   }
 
   static async getById(id: string) {
-    return prisma.product.findUnique({
+    const product = await prisma.product.findUnique({
       where: { id },
       include: {
         category: true,
@@ -102,6 +126,8 @@ export class ProductService {
         },
       },
     });
+    if (!product || !product.isVisible || product.status === 'INACTIVE') return null;
+    return product;
   }
 
   static async getFeatured(limit = 8) {

@@ -238,6 +238,8 @@ export class InventoryService {
               ? `${variant.product.name} (${label})`
               : variant.product.name,
           });
+          const { WishlistService } = await import('@/services/WishlistService');
+          await WishlistService.markAwaitingRestock(variant.productId, variant.id);
         }
       }
 
@@ -290,12 +292,13 @@ export class InventoryService {
     DashboardService.invalidateCache();
   }
 
-  /** Mark parent OUT_OF_STOCK when every active option is at 0; restore ACTIVE when restocked. */
+  /** Mark parent OUT_OF_STOCK only when base stock and every active option are at 0. */
   static async syncVariantProductAvailability(productId: string): Promise<void> {
     const product = await prisma.product.findUnique({
       where: { id: productId },
       select: {
         id: true,
+        stock: true,
         status: true,
         hasVariants: true,
         variants: { where: { isActive: true }, select: { stock: true } },
@@ -304,7 +307,8 @@ export class InventoryService {
     if (!product?.hasVariants) return;
     if (product.status === 'INACTIVE') return;
 
-    const anyInStock = product.variants.some((v) => v.stock > 0);
+    const anyInStock =
+      product.stock > 0 || product.variants.some((v) => v.stock > 0);
     const nextStatus = anyInStock ? 'ACTIVE' : 'OUT_OF_STOCK';
     if (nextStatus === product.status) return;
 
@@ -312,6 +316,11 @@ export class InventoryService {
       where: { id: productId },
       data: { status: nextStatus },
     });
+
+    if (nextStatus === 'OUT_OF_STOCK') {
+      const { WishlistService } = await import('@/services/WishlistService');
+      await WishlistService.markAwaitingRestock(productId);
+    }
   }
 
   static async restoreForOrder(orderId: string): Promise<void> {
@@ -388,6 +397,8 @@ export class InventoryService {
     if (product.stock <= 0) {
       if (previousStock !== undefined && previousStock <= 0) return;
       await NotificationService.notifyOutOfStock(product);
+      const { WishlistService } = await import('@/services/WishlistService');
+      await WishlistService.markAwaitingRestock(product.id);
       return;
     }
 

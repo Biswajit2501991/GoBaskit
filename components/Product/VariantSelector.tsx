@@ -100,7 +100,6 @@ export default function VariantSelector({
         variant="outline"
         size={size}
         onClick={() => setOpen(true)}
-        disabled={!anyInStock}
         className={
           className ||
           (fullWidth
@@ -108,7 +107,7 @@ export default function VariantSelector({
             : 'text-[10px] uppercase tracking-wide h-6 px-2 min-w-[2.75rem] shrink-0')
         }
       >
-        {anyInStock ? buttonLabel : 'Out of stock'}
+        {anyInStock ? buttonLabel : buttonLabel || 'VIEW'}
       </Button>
 
       <VariantDrawer

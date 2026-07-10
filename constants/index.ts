@@ -8,6 +8,9 @@ export const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '91904
 
 export const MIN_ORDER_VALUE = Number(process.env.MIN_ORDER_VALUE || 100);
 
+/** Max products a logged-in customer can keep on their wishlist. */
+export const WISHLIST_MAX_ITEMS = 10;
+
 export type DeliverySlab = { min: number; max: number; charge: number };
 
 // A large finite cap (JSON-safe; avoids Infinity which JSON.stringify turns into null).

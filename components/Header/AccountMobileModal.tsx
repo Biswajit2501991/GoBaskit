@@ -68,6 +68,10 @@ export default function AccountMobileModal() {
     } else {
       setCustomerMobile(normalized);
     }
+    // Warm wishlist + restock notices after login (Header also loads these).
+    void import('@/store/wishlistStore').then(({ useWishlistStore }) => {
+      void useWishlistStore.getState().load();
+    });
     resetState();
     closeAccountModal();
     router.refresh();

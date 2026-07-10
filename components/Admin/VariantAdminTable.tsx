@@ -116,6 +116,11 @@ export default function VariantAdminTable({
           <p className="text-[11px] text-gray-500">
             Each option has its own price and stock. Image can match the product or be unique.
           </p>
+          {productName ? (
+            <p className="text-[11px] text-blinkit-green mt-1 font-medium">
+              Storefront first option = base product “{productName}” (edit fields above). Extra brands/sizes are listed below.
+            </p>
+          ) : null}
         </div>
         <Button type="button" size="sm" onClick={openAdd} className="gap-1">
           <Plus className="w-3.5 h-3.5" /> Add Option

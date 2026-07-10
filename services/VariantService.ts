@@ -134,6 +134,8 @@ export class VariantService {
         id: productId,
         name: label ? `${existing.product.name} (${label})` : existing.product.name,
       });
+      const { WishlistService } = await import('@/services/WishlistService');
+      await WishlistService.markAwaitingRestock(productId, variantId);
     }
 
     const { InventoryService } = await import('@/services/InventoryService');
@@ -166,6 +168,8 @@ export class VariantService {
         id: productId,
         name: label ? `${existing.product.name} (${label})` : existing.product.name,
       });
+      const { WishlistService } = await import('@/services/WishlistService');
+      await WishlistService.markAwaitingRestock(productId, variantId);
     }
 
     const { InventoryService } = await import('@/services/InventoryService');

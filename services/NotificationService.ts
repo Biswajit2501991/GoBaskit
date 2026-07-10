@@ -156,7 +156,7 @@ export class NotificationService {
 
   static async notifyOutOfStock(product: { id: string; name: string }) {
     const title = `Out of Stock · ${product.name}`;
-    const message = `${product.name} is now out of stock and hidden from customers until restocked.`;
+    const message = `${product.name} is out of stock — still shown as Coming soon / High demand until restocked.`;
 
     await this.createInventoryNotifications('out_of_stock', title, message, product.id);
   }

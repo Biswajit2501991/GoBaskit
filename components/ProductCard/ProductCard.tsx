@@ -19,6 +19,7 @@ import BestsellerBadge from '@/components/Product/BestsellerBadge';
 import HealthStarRating from '@/components/Product/HealthStarRating';
 import HealthStarBadge from '@/components/Product/HealthStarBadge';
 import VariantSelector from '@/components/Product/VariantSelector';
+import WishlistButton from '@/components/Product/WishlistButton';
 import { DEFAULT_HEALTH_STAR_DISPLAY } from '@/constants/healthStarDisplay';
 
 interface ProductCardProps {
@@ -41,7 +42,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const cartItem = items.find((i) => i.productId === product.id && !i.variantId);
   const cartQty = hydrated ? (cartItem?.quantity ?? 0) : 0;
-  const inStock = product.stock > 0 && product.status === 'ACTIVE';
+  const inStock = product.stock > 0 && product.status !== 'INACTIVE';
   const anyOptionInStock = showOptions
     ? options.some((o) => o.inStock)
     : inStock;
@@ -68,11 +69,6 @@ export default function ProductCard({ product }: ProductCardProps) {
     healthRating != null &&
     (healthStarDisplay.mode === 'stars' || healthStarDisplay.mode === 'both');
 
-  // Show a single, stable image so the card never visually fluctuates. For
-  // multi-option products we pick the first available option image (base image
-  // preferred), and customers still see every option's photo in the drawer /
-  // product page. (Auto-cycling was distracting — options are framed
-  // differently, making the product appear to grow/shrink.)
   const carouselImages = useMemo(() => {
     if (showOptions) {
       const first = options
@@ -84,8 +80,6 @@ export default function ProductCard({ product }: ProductCardProps) {
     return sized ? [sized] : [];
   }, [showOptions, options, product.imageUrl]);
 
-  // Best discount shown on the corner ribbon: for multi-option products this is
-  // the maximum discount across every option so the customer sees the best deal.
   const discountPercent = useMemo(() => {
     if (showOptions) {
       return options.reduce(
@@ -125,9 +119,17 @@ export default function ProductCard({ product }: ProductCardProps) {
               position={healthStarDisplay.badgePosition}
             />
           )}
+          <div className="absolute top-1.5 right-1.5 z-10" onClick={(e) => e.preventDefault()}>
+            <WishlistButton productId={product.id} />
+          </div>
           {showOutOfStock && (
-            <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
-              <span className="bg-gray-800 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase">Out of stock</span>
+            <div className="absolute inset-0 bg-white/75 flex flex-col items-center justify-center gap-1 px-2">
+              <span className="bg-gray-800 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">
+                Out of stock
+              </span>
+              <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-center leading-tight">
+                High demand · Coming soon
+              </span>
             </div>
           )}
         </div>
@@ -167,18 +169,10 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
 
           {showOptions ? (
-            showOutOfStock ? (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled
-                className="text-[10px] uppercase tracking-wide h-6 px-2 min-w-[2.75rem] shrink-0 opacity-60"
-              >
-                Out of stock
-              </Button>
-            ) : (
-              <VariantSelector product={product} label={optionsLabel} />
-            )
+            <VariantSelector
+              product={product}
+              label={showOutOfStock ? 'VIEW' : optionsLabel}
+            />
           ) : cartQty > 0 ? (
             <div className="flex items-center bg-blinkit-green rounded-md overflow-hidden shrink-0">
               <button onClick={() => updateQuantity(product.id, cartQty - 1)} className="w-6 h-6 text-white text-sm font-bold hover:bg-blinkit-green-dark">−</button>
@@ -197,7 +191,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               disabled={!inStock}
               className="text-[10px] uppercase tracking-wide h-6 px-2 min-w-[2.75rem] shrink-0"
             >
-              ADD
+              {inStock ? 'ADD' : 'OOS'}
             </Button>
           )}
         </div>

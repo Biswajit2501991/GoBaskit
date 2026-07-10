@@ -2,16 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ShoppingCart, User, Shield } from 'lucide-react';
+import { ShoppingCart, User, Shield, Heart } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { useCartUiStore } from '@/store/cartUiStore';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
+import { useWishlistStore } from '@/store/wishlistStore';
 import LocationBar from '@/components/Header/LocationBar';
 import DeliveryEtaButton from '@/components/Header/DeliveryEtaButton';
 import GlobalSearch from '@/components/Header/GlobalSearch';
 import AccountMobileModal from '@/components/Header/AccountMobileModal';
 import StaffAdminLoginModal from '@/components/Header/StaffAdminLoginModal';
+import RestockToastHost from '@/components/Header/RestockToastHost';
 import CartDrawer from '@/components/Cart/CartDrawer';
 import OrderCelebration from '@/components/Cart/OrderCelebration';
 import { clearCheckoutProfileLocal } from '@/utils/customerProfile';
@@ -36,6 +38,9 @@ export default function Header({ showSearch = true }: HeaderProps) {
   const openAccountModal = useStaffPortalStore((s) => s.openAccountModal);
   const openAdminLoginModal = useStaffPortalStore((s) => s.openAdminLoginModal);
   const openCart = useCartUiStore((s) => s.openCart);
+  const wishlistCount = useWishlistStore((s) => s.count);
+  const loadWishlist = useWishlistStore((s) => s.load);
+  const clearWishlist = useWishlistStore((s) => s.clear);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const actionsRef = useRef<HTMLDivElement | null>(null);
   const accountLabel = staffEligible
@@ -47,8 +52,9 @@ export default function Header({ showSearch = true }: HeaderProps) {
 
   useEffect(() => {
     if (hasAccountIdentity) {
-      // Already know the customer — warm checkout profile in the background.
+      // Already know the customer — warm checkout profile + wishlist in the background.
       void prefetchCheckoutProfile();
+      void loadWishlist();
       return;
     }
     fetch('/api/customer/account')
@@ -62,10 +68,11 @@ export default function Header({ showSearch = true }: HeaderProps) {
           }
           // Prefetch profile so checkout autofills without waiting.
           void prefetchCheckoutProfile();
+          void loadWishlist();
         }
       })
       .catch(() => null);
-  }, [hasAccountIdentity, setCustomerMobile]);
+  }, [hasAccountIdentity, setCustomerMobile, loadWishlist]);
 
   useEffect(() => {
     if (!accountMenuOpen) return;
@@ -94,6 +101,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
     await fetch('/api/customer/account', { method: 'DELETE' }).catch(() => null);
     clearCheckoutProfileLocal();
     clearSessionVerifiedMobile();
+    clearWishlist();
     clearAccount();
     setAccountMenuOpen(false);
     // Always land on the GoBaskit home page after logging out, with a full
@@ -107,6 +115,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
       <StaffAdminLoginModal />
       <CartDrawer />
       <OrderCelebration />
+      <RestockToastHost enabled={Boolean(customerMobile) && !staffEligible} />
       <div className="bg-blinkit-yellow">
         <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -164,6 +173,25 @@ export default function Header({ showSearch = true }: HeaderProps) {
               <User className="w-5 h-5 text-gray-800" />
             </button>
 
+            <Link
+              href={customerMobile ? '/account#wishlist' : '#'}
+              onClick={(e) => {
+                if (!customerMobile) {
+                  e.preventDefault();
+                  openAccountModal();
+                }
+              }}
+              className="relative bg-white hover:bg-gray-50 rounded-lg p-2 transition-colors shadow-sm"
+              aria-label="Wishlist"
+            >
+              <Heart className="w-5 h-5 text-gray-800" />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1">
+                  {wishlistCount > 99 ? '99+' : wishlistCount}
+                </span>
+              )}
+            </Link>
+
             <button
               type="button"
               onClick={openCart}
@@ -196,6 +224,14 @@ export default function Header({ showSearch = true }: HeaderProps) {
                       className="block w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-blinkit-green"
                     >
                       My Account
+                    </Link>
+                    <Link
+                      href="/account#wishlist"
+                      role="menuitem"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="block w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-gray-900"
+                    >
+                      My Wishlist{wishlistCount > 0 ? ` (${wishlistCount})` : ''}
                     </Link>
                     <Link
                       href="/account/track"
