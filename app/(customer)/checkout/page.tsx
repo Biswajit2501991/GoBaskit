@@ -14,7 +14,7 @@ import { useDiscountStore } from '@/store/discountStore';
 import { useLocationStore } from '@/store/locationStore';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
 import { deliveryChargeFrom } from '@/constants';
-import { cityIsServiceable, pinIsServiceable } from '@/utils/delivery';
+import { cityForPin, cityIsServiceable, normalizeLocationToken, pinForCity, pinIsServiceable } from '@/utils/delivery';
 import { SURNAME_LABEL } from '@/utils/customer';
 import {
   loadCheckoutProfileLocal,
@@ -46,6 +46,8 @@ export default function CheckoutPage() {
     serviceablePins,
     serviceableCities,
     cityAliases,
+    pinCityMap,
+    cityDefaultPins,
     deliverySlabs,
     minOrderValue,
     checkoutMode,
@@ -206,6 +208,72 @@ export default function CheckoutPage() {
   const enteredMobile = (formValues.mobile ?? '').trim();
   const isWhatsAppPatternValid = /^\d{10}$/.test(enteredMobile);
   const mobileE164 = isWhatsAppPatternValid ? (toE164('91', enteredMobile) ?? '') : '';
+
+  // Keep PIN ↔ city in sync: valid PIN fills matching city; serviceable city fills default PIN.
+  const pinCitySyncLock = useRef<'pin' | 'city' | null>(null);
+  useEffect(() => {
+    if (pinCitySyncLock.current === 'city') {
+      pinCitySyncLock.current = null;
+      return;
+    }
+    if (!/^\d{6}$/.test(pincodeValue)) return;
+    if (!pinIsServiceable(serviceablePins, pincodeValue)) return;
+
+    const matchedCity = cityForPin({
+      pin: pincodeValue,
+      serviceablePins,
+      serviceableCities,
+      pinCityMap,
+    });
+    if (!matchedCity) return;
+    if (
+      normalizeLocationToken(getValues('city') ?? '') === normalizeLocationToken(matchedCity)
+    ) {
+      return;
+    }
+
+    pinCitySyncLock.current = 'pin';
+    setValue('city', matchedCity, { shouldValidate: true, shouldDirty: true });
+  }, [
+    pincodeValue,
+    serviceablePins,
+    serviceableCities,
+    pinCityMap,
+    getValues,
+    setValue,
+  ]);
+
+  useEffect(() => {
+    if (pinCitySyncLock.current === 'pin') {
+      pinCitySyncLock.current = null;
+      return;
+    }
+    const city = cityValue.trim();
+    if (!city || !cityIsServiceable(serviceableCities, city, cityAliases)) return;
+
+    const matchedPin = pinForCity({
+      city,
+      serviceablePins,
+      serviceableCities,
+      cityAliases,
+      pinCityMap,
+      cityDefaultPins,
+    });
+    if (!matchedPin) return;
+    if ((getValues('pincode') ?? '').trim() === matchedPin) return;
+
+    pinCitySyncLock.current = 'city';
+    setValue('pincode', matchedPin, { shouldValidate: true, shouldDirty: true });
+  }, [
+    cityValue,
+    serviceablePins,
+    serviceableCities,
+    cityAliases,
+    pinCityMap,
+    cityDefaultPins,
+    getValues,
+    setValue,
+  ]);
 
   useEffect(() => {
     if (checkedMobile && !getValues('mobile')) {

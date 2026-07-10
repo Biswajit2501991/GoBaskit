@@ -35,6 +35,83 @@ export function cityIsServiceable(
   return candidates.has(normalized);
 }
 
+/**
+ * Resolve canonical city name for a serviceable PIN.
+ * Uses pinCityMap when present; if only one serviceable city exists, maps any valid pin to it.
+ */
+export function cityForPin(params: {
+  pin: string;
+  serviceablePins: string[];
+  serviceableCities: string[];
+  pinCityMap?: Record<string, string>;
+}): string | null {
+  const pin = String(params.pin).trim();
+  if (!/^\d{6}$/.test(pin) || !pinIsServiceable(params.serviceablePins, pin)) return null;
+
+  const mapped = params.pinCityMap?.[pin]?.trim();
+  if (mapped) {
+    const canonical = params.serviceableCities.find(
+      (c) => normalizeLocationToken(c) === normalizeLocationToken(mapped),
+    );
+    return canonical ?? mapped;
+  }
+
+  if (params.serviceableCities.length === 1) {
+    return params.serviceableCities[0];
+  }
+  return null;
+}
+
+/**
+ * Resolve default PIN for a serviceable city (e.g. Adra → 723121).
+ */
+export function pinForCity(params: {
+  city: string;
+  serviceablePins: string[];
+  serviceableCities: string[];
+  cityAliases?: Record<string, string[]>;
+  pinCityMap?: Record<string, string>;
+  cityDefaultPins?: Record<string, string>;
+}): string | null {
+  const city = params.city.trim();
+  if (
+    !city ||
+    !cityIsServiceable(params.serviceableCities, city, params.cityAliases ?? {})
+  ) {
+    return null;
+  }
+
+  const cityKey = normalizeLocationToken(city);
+  const canonical =
+    params.serviceableCities.find((c) => normalizeLocationToken(c) === cityKey) ?? city;
+
+  const defaults = params.cityDefaultPins ?? {};
+  const preferred =
+    defaults[canonical]?.trim() ||
+    defaults[cityKey]?.trim() ||
+    Object.entries(defaults).find(([k]) => normalizeLocationToken(k) === cityKey)?.[1]?.trim();
+
+  if (preferred && pinIsServiceable(params.serviceablePins, preferred)) {
+    return preferred;
+  }
+
+  const fromMap = Object.entries(params.pinCityMap ?? {}).find(
+    ([, mappedCity]) => normalizeLocationToken(mappedCity) === cityKey,
+  )?.[0];
+  if (fromMap && pinIsServiceable(params.serviceablePins, fromMap)) {
+    return fromMap;
+  }
+
+  // Single-city stores: prefer a stable default among serviceable pins.
+  if (params.serviceableCities.length === 1 && params.serviceablePins.length > 0) {
+    const pins = [...params.serviceablePins].map((p) => p.trim()).filter(Boolean);
+    if (pins.includes('723121')) return '723121';
+    return pins[0] ?? null;
+  }
+
+  return null;
+}
+
 export function deliveryIsServiceable(params: {
   serviceablePins: string[];
   serviceableCities: string[];

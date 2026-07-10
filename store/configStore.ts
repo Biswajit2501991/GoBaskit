@@ -16,6 +16,8 @@ interface ConfigState {
   serviceablePins: string[];
   serviceableCities: string[];
   cityAliases: Record<string, string[]>;
+  pinCityMap: Record<string, string>;
+  cityDefaultPins: Record<string, string>;
   deliverySlabs: DeliverySlab[];
   minOrderValue: number;
   checkoutMode: 'website' | 'whatsapp' | 'both';
@@ -55,6 +57,8 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   serviceablePins: SERVICEABLE_PINS,
   serviceableCities: ['Kolkata'],
   cityAliases: {},
+  pinCityMap: {},
+  cityDefaultPins: {},
   deliverySlabs: DELIVERY_SLABS,
   minOrderValue: MIN_ORDER_VALUE,
   checkoutMode: 'both',
@@ -104,6 +108,12 @@ async function loadConfig(
         serviceableCities: Array.isArray(c.serviceableCities) ? c.serviceableCities : get().serviceableCities,
         cityAliases:
           typeof c.cityAliases === 'object' && c.cityAliases ? c.cityAliases : get().cityAliases,
+        pinCityMap:
+          typeof c.pinCityMap === 'object' && c.pinCityMap ? c.pinCityMap : get().pinCityMap,
+        cityDefaultPins:
+          typeof c.cityDefaultPins === 'object' && c.cityDefaultPins
+            ? c.cityDefaultPins
+            : get().cityDefaultPins,
         deliverySlabs: Array.isArray(c.deliverySlabs) ? c.deliverySlabs : get().deliverySlabs,
         minOrderValue: typeof c.minOrderValue === 'number' ? c.minOrderValue : get().minOrderValue,
         checkoutMode:

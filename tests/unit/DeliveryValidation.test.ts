@@ -1,7 +1,9 @@
 import {
+  cityForPin,
   cityIsServiceable,
   deliveryIsServiceable,
   normalizeLocationToken,
+  pinForCity,
   pinIsServiceable,
 } from '@/utils/delivery';
 
@@ -57,5 +59,53 @@ describe('delivery validation', () => {
 
   it('normalizes spaces in city names', () => {
     expect(normalizeLocationToken(' Craigie  Burn ')).toBe('craigieburn');
+  });
+
+  it('maps serviceable PIN to city (Adra single-city / pinCityMap)', () => {
+    const adraPins = ['723131', '723132', '723133', '723121'];
+    expect(
+      cityForPin({
+        pin: '723131',
+        serviceablePins: adraPins,
+        serviceableCities: ['Adra'],
+      }),
+    ).toBe('Adra');
+
+    expect(
+      cityForPin({
+        pin: '723131',
+        serviceablePins: adraPins,
+        serviceableCities: ['Adra', 'Kolkata'],
+        pinCityMap: { '723131': 'Adra' },
+      }),
+    ).toBe('Adra');
+
+    expect(
+      cityForPin({
+        pin: '999999',
+        serviceablePins: adraPins,
+        serviceableCities: ['Adra'],
+      }),
+    ).toBeNull();
+  });
+
+  it('maps serviceable city to default PIN (Adra → 723121)', () => {
+    const adraPins = ['723131', '723132', '723133', '723121'];
+    expect(
+      pinForCity({
+        city: 'Adra',
+        serviceablePins: adraPins,
+        serviceableCities: ['Adra'],
+      }),
+    ).toBe('723121');
+
+    expect(
+      pinForCity({
+        city: 'Adra',
+        serviceablePins: adraPins,
+        serviceableCities: ['Adra', 'Kolkata'],
+        cityDefaultPins: { Adra: '723121' },
+      }),
+    ).toBe('723121');
   });
 });

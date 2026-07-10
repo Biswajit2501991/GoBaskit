@@ -26,6 +26,8 @@ const settingsSchema = z.object({
   checkoutMode: z.enum(['website', 'whatsapp', 'both']).optional(),
   notificationSoundEnabled: z.boolean().optional(),
   cityAliases: z.record(z.string(), z.array(z.string().min(1))).optional(),
+  pinCityMap: z.record(z.string().regex(/^\d{6}$/), z.string().min(1).max(80)).optional(),
+  cityDefaultPins: z.record(z.string().min(1).max(80), z.string().regex(/^\d{6}$/)).optional(),
   homepageConfig: z
     .object({
       showHeroBanner: z.boolean().optional(),

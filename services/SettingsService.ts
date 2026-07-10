@@ -38,6 +38,10 @@ export interface StoreConfig {
   serviceablePins: string[];
   serviceableCities: string[];
   cityAliases: Record<string, string[]>;
+  /** PIN → canonical city (e.g. 723131 → Adra). */
+  pinCityMap: Record<string, string>;
+  /** City → default PIN when city is chosen (e.g. Adra → 723121). */
+  cityDefaultPins: Record<string, string>;
   deliverySlabs: DeliverySlab[];
   minOrderValue: number;
   storeTiming: string;
@@ -131,6 +135,8 @@ function parseHealthStarDisplay(raw: unknown): HealthStarDisplay {
 const KEY_PINS = 'serviceable_pins';
 const KEY_CITIES = 'serviceable_cities';
 const KEY_CITY_ALIASES = 'city_aliases';
+const KEY_PIN_CITY_MAP = 'pin_city_map';
+const KEY_CITY_DEFAULT_PINS = 'city_default_pins';
 const KEY_SLABS = 'delivery_slabs';
 const KEY_MIN = 'min_order_value';
 const KEY_TIMING = 'store_timing';
@@ -161,6 +167,8 @@ const DEFAULTS: StoreConfig = {
   serviceablePins: SERVICEABLE_PINS,
   serviceableCities: ['Kolkata'],
   cityAliases: {},
+  pinCityMap: {},
+  cityDefaultPins: {},
   deliverySlabs: DELIVERY_SLABS,
   minOrderValue: MIN_ORDER_VALUE,
   storeTiming: '08:00-22:00',
@@ -298,6 +306,49 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     }
   }
 
+  let pinCityMap = DEFAULTS.pinCityMap;
+  const rawPinCityMap = map.get(KEY_PIN_CITY_MAP);
+  if (rawPinCityMap) {
+    try {
+      const parsed = JSON.parse(rawPinCityMap) as Record<string, unknown>;
+      pinCityMap = Object.fromEntries(
+        Object.entries(parsed)
+          .map(([pin, city]) => [String(pin).trim(), String(city ?? '').trim()] as const)
+          .filter(([pin, city]) => /^\d{6}$/.test(pin) && Boolean(city)),
+      );
+    } catch {
+      pinCityMap = DEFAULTS.pinCityMap;
+    }
+  }
+
+  let cityDefaultPins = DEFAULTS.cityDefaultPins;
+  const rawCityDefaultPins = map.get(KEY_CITY_DEFAULT_PINS);
+  if (rawCityDefaultPins) {
+    try {
+      const parsed = JSON.parse(rawCityDefaultPins) as Record<string, unknown>;
+      cityDefaultPins = Object.fromEntries(
+        Object.entries(parsed)
+          .map(([city, pin]) => [String(city).trim(), String(pin ?? '').trim()] as const)
+          .filter(([city, pin]) => Boolean(city) && /^\d{6}$/.test(pin)),
+      );
+    } catch {
+      cityDefaultPins = DEFAULTS.cityDefaultPins;
+    }
+  }
+
+  // Bootstrap single-city stores so checkout can auto-fill without admin setup.
+  if (Object.keys(pinCityMap).length === 0 && cities.length === 1) {
+    const onlyCity = cities[0];
+    pinCityMap = Object.fromEntries(
+      pins.filter((p) => /^\d{6}$/.test(p)).map((p) => [p, onlyCity]),
+    );
+  }
+  if (Object.keys(cityDefaultPins).length === 0 && cities.length === 1 && pins.length > 0) {
+    const onlyCity = cities[0];
+    const preferred = pins.includes('723121') ? '723121' : pins[0];
+    cityDefaultPins = { [onlyCity]: preferred };
+  }
+
   let checkoutMode = DEFAULTS.checkoutMode;
   const rawCheckoutMode = map.get(KEY_CHECKOUT_MODE);
   if (rawCheckoutMode === 'website' || rawCheckoutMode === 'whatsapp' || rawCheckoutMode === 'both') {
@@ -430,6 +481,8 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     serviceablePins: pins,
     serviceableCities: cities,
     cityAliases,
+    pinCityMap,
+    cityDefaultPins,
     deliverySlabs: slabs,
     minOrderValue,
     storeTiming,
@@ -457,6 +510,8 @@ export const SettingsService = {
               KEY_PINS,
               KEY_CITIES,
               KEY_CITY_ALIASES,
+              KEY_PIN_CITY_MAP,
+              KEY_CITY_DEFAULT_PINS,
               KEY_SLABS,
               KEY_MIN,
               KEY_TIMING,
@@ -507,6 +562,22 @@ export const SettingsService = {
         ]),
       );
       writes.push(upsert(KEY_CITY_ALIASES, JSON.stringify(sanitized)));
+    }
+    if (partial.pinCityMap) {
+      const sanitized = Object.fromEntries(
+        Object.entries(partial.pinCityMap)
+          .map(([pin, city]) => [String(pin).trim(), String(city).trim()] as const)
+          .filter(([pin, city]) => /^\d{6}$/.test(pin) && Boolean(city)),
+      );
+      writes.push(upsert(KEY_PIN_CITY_MAP, JSON.stringify(sanitized)));
+    }
+    if (partial.cityDefaultPins) {
+      const sanitized = Object.fromEntries(
+        Object.entries(partial.cityDefaultPins)
+          .map(([city, pin]) => [String(city).trim(), String(pin).trim()] as const)
+          .filter(([city, pin]) => Boolean(city) && /^\d{6}$/.test(pin)),
+      );
+      writes.push(upsert(KEY_CITY_DEFAULT_PINS, JSON.stringify(sanitized)));
     }
     if (partial.checkoutMode) {
       writes.push(upsert(KEY_CHECKOUT_MODE, partial.checkoutMode));
