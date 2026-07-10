@@ -14,9 +14,9 @@ export default function CartPage() {
 
   if (!hydrated) {
     return (
-      <div className="min-h-screen flex flex-col bg-gray-50">
-        <Header />
-        <div className="flex-1 max-w-lg mx-auto w-full px-4 py-8 space-y-4">
+      <div className="h-dvh max-h-dvh flex flex-col overflow-hidden bg-gray-50">
+        <Header showSearch={false} />
+        <div className="flex-1 min-h-0 overflow-y-auto max-w-lg mx-auto w-full px-4 py-8 space-y-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-20 skeleton rounded-xl" />
           ))}
@@ -27,8 +27,8 @@ export default function CartPage() {
 
   if (itemCount === 0) {
     return (
-      <div className="min-h-screen flex flex-col bg-gray-50">
-        <Header />
+      <div className="min-h-dvh flex flex-col bg-gray-50 overflow-x-hidden">
+        <Header showSearch={false} />
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
           <div className="w-24 h-24 bg-blinkit-green-light rounded-full flex items-center justify-center mb-5 text-4xl">
             🛒
@@ -44,12 +44,14 @@ export default function CartPage() {
     );
   }
 
+  // Lock the page to the visible viewport so the sticky header never overlaps
+  // "My Cart" / checkout CTAs (the old 100svh-4.5rem calc was far too tall).
   return (
-    <div className="min-h-screen flex flex-col bg-[#f4f6fb]">
-      <Header />
-      <main className="flex-1 max-w-lg mx-auto w-full flex flex-col min-h-0 h-[calc(100svh-4.5rem)] max-h-[calc(100svh-4.5rem)]">
-        <div className="px-4 pt-4 pb-2 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold">My Cart</h2>
+    <div className="h-dvh max-h-dvh flex flex-col overflow-hidden bg-[#f4f6fb]">
+      <Header showSearch={false} />
+      <main className="flex-1 min-h-0 max-w-lg mx-auto w-full flex flex-col overflow-hidden">
+        <div className="px-4 pt-3 pb-2 flex items-center justify-between shrink-0">
+          <h2 className="text-lg font-bold text-gray-900">My Cart</h2>
         </div>
         <CartPanelContent className="flex-1 min-h-0" />
       </main>

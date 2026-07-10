@@ -53,29 +53,53 @@ export default function CartDrawer() {
     };
   }, [isOpen]);
 
+  // iOS Safari: overflow:hidden alone still lets the page jump and flash a white
+  // gap behind the drawer. Pin the body in place for the open duration.
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeCart();
     };
     document.addEventListener('keydown', onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+
+    const body = document.body;
+    const scrollY = window.scrollY;
+    const prev = {
+      overflow: body.style.overflow,
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+    };
+    body.style.overflow = 'hidden';
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
+      body.style.overflow = prev.overflow;
+      body.style.position = prev.position;
+      body.style.top = prev.top;
+      body.style.left = prev.left;
+      body.style.right = prev.right;
+      body.style.width = prev.width;
+      window.scrollTo(0, scrollY);
     };
   }, [isOpen, closeCart]);
 
   if (!mounted || !portalRoot) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] flex justify-end">
+    <div className="fixed inset-0 z-[80] flex justify-end overflow-hidden overscroll-none">
       <button
         type="button"
         aria-label="Close cart"
         onClick={closeCart}
-        className={`absolute inset-0 bg-black/55 transition-opacity duration-200 ${
+        className={`absolute inset-0 bg-black/55 transition-opacity duration-200 touch-none ${
           entered ? 'opacity-100' : 'opacity-0'
         }`}
       />
@@ -84,8 +108,9 @@ export default function CartDrawer() {
         role="dialog"
         aria-modal="true"
         aria-label="My Cart"
-        className={`relative h-svh max-h-svh w-full max-w-md bg-[#f4f6fb] shadow-2xl flex flex-col
-          transition-transform duration-300 ease-out
+        className={`relative h-full w-full max-w-md bg-[#f4f6fb] shadow-2xl flex flex-col overflow-hidden
+          pt-[env(safe-area-inset-top,0px)]
+          transition-transform duration-300 ease-out will-change-transform
           ${entered ? 'translate-x-0' : 'translate-x-full'}`}
       >
         <header className="shrink-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between gap-3">
@@ -118,13 +143,13 @@ export default function CartDrawer() {
         </header>
 
         {!hydrated ? (
-          <div className="flex-1 p-4 space-y-3">
+          <div className="flex-1 min-h-0 p-4 space-y-3 overflow-y-auto">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-20 skeleton rounded-xl" />
             ))}
           </div>
         ) : itemCount === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 text-center">
             <div className="w-20 h-20 bg-blinkit-green-light rounded-full flex items-center justify-center mb-4 text-3xl">
               🛒
             </div>
@@ -136,6 +161,7 @@ export default function CartDrawer() {
           </div>
         ) : (
           <CartPanelContent
+            className="flex-1 min-h-0"
             onContinueShopping={closeCart}
             onBeforeCheckout={closeCart}
           />
