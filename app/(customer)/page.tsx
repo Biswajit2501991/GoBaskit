@@ -7,7 +7,6 @@ import Link from 'next/link';
 import ProductCard from '@/components/ProductCard/ProductCard';
 import CategoryScroller from '@/components/CategoryCard/CategoryScroller';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
-import { PROMO_BANNERS } from '@/constants';
 import { useConfigStore } from '@/store/configStore';
 import { useCatalogStore } from '@/store/catalogStore';
 
@@ -15,7 +14,7 @@ const PRODUCT_GRID = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-col
 
 export default function HomePage() {
   const [activeBanner, setActiveBanner] = useState(0);
-  const { homepageConfig, fetchConfig } = useConfigStore();
+  const { homepageConfig, refreshConfig } = useConfigStore();
   const products = useCatalogStore((s) => s.products);
   const categories = useCatalogStore((s) => s.categories);
   const loaded = useCatalogStore((s) => s.loaded);
@@ -26,7 +25,9 @@ export default function HomePage() {
   const showSkeleton = loading && !loaded;
   const featured = useMemo(() => products.filter((p) => p.isFeatured).slice(0, 8), [products]);
   const showFeaturedSection = homepageConfig.showBestSellers && featured.length > 0;
-  const homepageBanners = (homepageConfig.promoSections ?? [])
+  // Only admin-enabled promo sections — never fall back to hardcoded banners
+  // when every section is toggled off.
+  const rotatingBanners = (homepageConfig.promoSections ?? [])
     .filter((section) => section.enabled)
     .map((section) => ({
       title: section.title,
@@ -42,18 +43,14 @@ export default function HomePage() {
               ? 'from-purple-500 to-purple-700'
               : 'from-green-600 to-green-800',
     }));
-  const rotatingBanners = homepageBanners.length > 0 ? homepageBanners : PROMO_BANNERS.map((banner) => ({
-    ...banner,
-    link: '',
-  }));
 
   useEffect(() => {
     fetchCatalog();
   }, [fetchCatalog]);
 
   useEffect(() => {
-    fetchConfig();
-  }, [fetchConfig]);
+    refreshConfig();
+  }, [refreshConfig]);
 
   useEffect(() => {
     if (rotatingBanners.length === 0) return;
@@ -72,11 +69,11 @@ export default function HomePage() {
           </div>
         )}
 
-        {homepageConfig.showHeroBanner && (
+        {homepageConfig.showHeroBanner && rotatingBanners.length > 0 && (
           <div className="mb-5 relative overflow-hidden rounded-2xl h-[156px]">
             {rotatingBanners.map((banner, i) => (
               <div
-                key={banner.title}
+                key={`${banner.title}-${i}`}
                 className={`absolute inset-0 bg-gradient-to-r ${banner.bg} rounded-2xl p-5 flex items-center justify-between transition-opacity duration-1200 ease-in-out ${
                   i === activeBanner ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
                 }`}

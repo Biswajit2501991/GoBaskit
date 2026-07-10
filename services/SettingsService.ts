@@ -634,32 +634,36 @@ export const SettingsService = {
         ...(incomingDisplay ?? {}),
         badges: incomingDisplay?.badges ?? current.homepageConfig.healthStarDisplay.badges,
       });
+      const hc = partial.homepageConfig;
       const safe = {
-        showHeroBanner: partial.homepageConfig.showHeroBanner !== false,
-        showCategories: partial.homepageConfig.showCategories !== false,
-        showBestSellers: partial.homepageConfig.showBestSellers !== false,
-        showOffers: partial.homepageConfig.showOffers !== false,
-        showHealthStarRating: partial.homepageConfig.showHealthStarRating !== false,
+        showHeroBanner:
+          hc.showHeroBanner !== undefined ? Boolean(hc.showHeroBanner) : current.homepageConfig.showHeroBanner,
+        showCategories:
+          hc.showCategories !== undefined ? Boolean(hc.showCategories) : current.homepageConfig.showCategories,
+        showBestSellers:
+          hc.showBestSellers !== undefined ? Boolean(hc.showBestSellers) : current.homepageConfig.showBestSellers,
+        showOffers: hc.showOffers !== undefined ? Boolean(hc.showOffers) : current.homepageConfig.showOffers,
+        showHealthStarRating:
+          hc.showHealthStarRating !== undefined
+            ? Boolean(hc.showHealthStarRating)
+            : current.homepageConfig.showHealthStarRating,
         healthStarDisplay,
-        announcementBarText: String(partial.homepageConfig.announcementBarText ?? '').trim(),
+        announcementBarText:
+          hc.announcementBarText !== undefined
+            ? String(hc.announcementBarText ?? '').trim()
+            : current.homepageConfig.announcementBarText,
         deliveryTimeText:
-          String(partial.homepageConfig.deliveryTimeText ?? '').trim() || DEFAULTS.homepageConfig.deliveryTimeText,
+          String(hc.deliveryTimeText ?? '').trim() || current.homepageConfig.deliveryTimeText,
         deliveryDisclaimer:
-          String(
-            partial.homepageConfig.deliveryDisclaimer ??
-              current.homepageConfig.deliveryDisclaimer ??
-              '',
-          ).trim() || DEFAULTS.homepageConfig.deliveryDisclaimer,
+          String(hc.deliveryDisclaimer ?? current.homepageConfig.deliveryDisclaimer ?? '').trim() ||
+          DEFAULTS.homepageConfig.deliveryDisclaimer,
         themeColor:
-          String(partial.homepageConfig.themeColor ?? '').trim() || DEFAULTS.homepageConfig.themeColor,
+          String(hc.themeColor ?? '').trim() || current.homepageConfig.themeColor,
         cancellationPolicy:
-          String(
-            partial.homepageConfig.cancellationPolicy ??
-              current.homepageConfig.cancellationPolicy ??
-              '',
-          ).trim() || DEFAULTS.homepageConfig.cancellationPolicy,
-        promoSections: Array.isArray(partial.homepageConfig.promoSections)
-          ? partial.homepageConfig.promoSections
+          String(hc.cancellationPolicy ?? current.homepageConfig.cancellationPolicy ?? '').trim() ||
+          DEFAULTS.homepageConfig.cancellationPolicy,
+        promoSections: Array.isArray(hc.promoSections)
+          ? hc.promoSections
               .map((section, index) => ({
                 id: String(section.id ?? `promo-${index + 1}`).slice(0, 60),
                 title: String(section.title ?? '').trim(),
@@ -669,10 +673,10 @@ export const SettingsService = {
                   ? String(section.theme)
                   : 'green') as 'green' | 'blue' | 'orange' | 'purple',
                 emoji: String(section.emoji ?? '✨').trim() || '✨',
-                enabled: section.enabled !== false,
+                enabled: section.enabled === true,
               }))
               .filter((section) => section.title.length > 0)
-          : DEFAULTS.homepageConfig.promoSections,
+          : current.homepageConfig.promoSections,
       };
       writes.push(upsert(KEY_HOMEPAGE_CONFIG, JSON.stringify(safe)));
     }
