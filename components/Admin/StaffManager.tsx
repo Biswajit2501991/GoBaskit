@@ -76,6 +76,7 @@ export default function StaffManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,6 +105,7 @@ export default function StaffManager() {
     setForm(emptyForm);
     setShowForm(true);
     setError('');
+    setSaving(false);
   }
 
   function openEdit(row: StaffRow) {
@@ -123,10 +125,12 @@ export default function StaffManager() {
     });
     setShowForm(true);
     setError('');
+    setSaving(false);
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (saving) return;
     setError('');
     const validationError = staffPayloadError(form, editingId);
     if (validationError) {
@@ -152,6 +156,7 @@ export default function StaffManager() {
       ...(form.password ? { password: form.password } : {}),
     };
     const url = editingId ? `/api/admin/staff/${editingId}` : '/api/admin/staff';
+    setSaving(true);
     try {
       const res = await fetch(url, {
         method: editingId ? 'PATCH' : 'POST',
@@ -168,6 +173,8 @@ export default function StaffManager() {
       router.refresh();
     } catch {
       setError('Network or server error. Please try again.');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -319,7 +326,9 @@ export default function StaffManager() {
             </div>
             <div className="p-6 pt-4 shrink-0 border-t border-gray-100 space-y-3">
               {error && <p className="text-red-500 text-xs">{error}</p>}
-              <Button type="submit" className="w-full">Save</Button>
+              <Button type="submit" className="w-full" disabled={saving}>
+                {saving ? 'Saving…' : 'Save'}
+              </Button>
             </div>
           </form>
         </div>
