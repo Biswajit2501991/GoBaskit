@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Header from '@/components/Header/Header';
+import CancellationPolicyCard from '@/components/Cart/CancellationPolicyCard';
 import { useCartStore } from '@/store/cartStore';
 import { useConfigStore } from '@/store/configStore';
 import { useDiscountStore } from '@/store/discountStore';
@@ -47,6 +48,7 @@ export default function CheckoutPage() {
     deliverySlabs,
     minOrderValue,
     checkoutMode,
+    homepageConfig,
     refreshConfig,
   } = useConfigStore();
   const appliedDiscount = useDiscountStore((s) => s.applied);
@@ -713,6 +715,8 @@ export default function CheckoutPage() {
               <span>Total</span><span className="text-blinkit-green">{formatCurrency(grandTotal)}</span>
             </div>
           </div>
+
+          <CancellationPolicyCard text={homepageConfig.cancellationPolicy} />
 
           {whatsappMessage && showWhatsApp && (
             <details className="bg-gray-50 rounded-xl border border-gray-200 p-3 text-xs">

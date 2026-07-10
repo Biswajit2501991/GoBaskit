@@ -24,6 +24,7 @@ const SETTINGS_SECTIONS = [
   { id: 'store-status', label: 'Store Status', group: 'Orders' },
   { id: 'payments', label: 'Payments', group: 'Orders' },
   { id: 'wa-templates', label: 'WA Templates', group: 'Orders' },
+  { id: 'cancellation', label: 'Cancellation Policy', group: 'Orders' },
   { id: 'featured', label: 'Featured', group: 'Homepage' },
   { id: 'health-star', label: 'Health Star', group: 'Homepage' },
   { id: 'promo', label: 'Promo Cards', group: 'Homepage' },
@@ -72,6 +73,7 @@ interface StoreConfig {
     announcementBarText: string;
     deliveryTimeText: string;
     themeColor: string;
+    cancellationPolicy: string;
     promoSections: Array<{
       id: string;
       title: string;
@@ -140,6 +142,7 @@ export default function SettingsManager({
       announcementBarText: hc.announcementBarText ?? '',
       deliveryTimeText: hc.deliveryTimeText ?? '',
       themeColor: hc.themeColor ?? '#0B7A3E',
+      cancellationPolicy: hc.cancellationPolicy ?? '',
       promoSections: hc.promoSections ?? [],
       healthStarDisplay: {
         ...DEFAULT_HEALTH_STAR_DISPLAY,
@@ -1061,6 +1064,28 @@ export default function SettingsManager({
               disabled={!canEdit}
             />
           </div>
+        </div>
+      </section>
+          )}
+
+          {activeSection === 'cancellation' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <h2 className="font-bold text-sm">Cancellation Policy</h2>
+        <p className="text-xs text-gray-400">
+          Shown on the cart side panel and checkout page (mobile + web). Leave blank to use the default policy text.
+        </p>
+        <div>
+          <Label>Policy text</Label>
+          <textarea
+            value={homepageConfig.cancellationPolicy}
+            onChange={(e) =>
+              setHomepageConfig((prev) => ({ ...prev, cancellationPolicy: e.target.value }))
+            }
+            disabled={!canEdit}
+            rows={5}
+            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            placeholder="Orders cannot be cancelled once packed for delivery..."
+          />
         </div>
       </section>
           )}

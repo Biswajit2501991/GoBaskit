@@ -30,6 +30,7 @@ interface ConfigState {
     announcementBarText: string;
     deliveryTimeText: string;
     themeColor: string;
+    cancellationPolicy: string;
     promoSections: Array<{
       id: string;
       title: string;
@@ -67,6 +68,8 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     announcementBarText: '',
     deliveryTimeText: 'Delivery in 10 minutes',
     themeColor: '#facc15',
+    cancellationPolicy:
+      'Orders cannot be cancelled once packed for delivery. In case of unexpected delays, a refund will be provided, if applicable. Fresh items are quality-checked before dispatch — message us on WhatsApp if anything is missing or damaged.',
     promoSections: [],
   },
   loaded: false,

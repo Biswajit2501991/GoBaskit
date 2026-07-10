@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { ShoppingCart, Clock, User, Shield, MessageCircle } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
+import { useCartUiStore } from '@/store/cartUiStore';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
 import LocationBar from '@/components/Header/LocationBar';
 import GlobalSearch from '@/components/Header/GlobalSearch';
 import AccountMobileModal from '@/components/Header/AccountMobileModal';
 import StaffAdminLoginModal from '@/components/Header/StaffAdminLoginModal';
+import CartDrawer from '@/components/Cart/CartDrawer';
 import { clearCheckoutProfileLocal } from '@/utils/customerProfile';
 import { clearSessionVerifiedMobile, setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
 import { toE164 } from '@/utils/phone';
@@ -30,6 +32,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
   const clearAccount = useStaffPortalStore((s) => s.clearAccount);
   const openAccountModal = useStaffPortalStore((s) => s.openAccountModal);
   const openAdminLoginModal = useStaffPortalStore((s) => s.openAdminLoginModal);
+  const openCart = useCartUiStore((s) => s.openCart);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountLabel = staffEligible
     ? staffName || `Staff ${checkedMobile}`
@@ -77,6 +80,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
     <header className="sticky top-0 z-50 bg-white shadow-sm">
       <AccountMobileModal />
       <StaffAdminLoginModal />
+      <CartDrawer />
       <div className="bg-blinkit-yellow">
         <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -191,9 +195,11 @@ export default function Header({ showSearch = true }: HeaderProps) {
               <Clock className="w-3.5 h-3.5 text-blinkit-green" />
               Delivery in 15 mins
             </div>
-            <Link
-              href="/cart"
+            <button
+              type="button"
+              onClick={openCart}
               className="relative bg-white hover:bg-gray-50 rounded-lg p-2 transition-colors shadow-sm"
+              aria-label="Open cart"
             >
               <ShoppingCart className="w-5 h-5 text-gray-800" />
               {hydrated && itemCount > 0 && (
@@ -201,7 +207,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
                   {itemCount > 99 ? '99+' : itemCount}
                 </span>
               )}
-            </Link>
+            </button>
           </div>
         </div>
       </div>

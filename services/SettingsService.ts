@@ -59,6 +59,8 @@ export interface StoreConfig {
     announcementBarText: string;
     deliveryTimeText: string;
     themeColor: string;
+    /** Shown on cart drawer + checkout. Editable in Admin → Settings. */
+    cancellationPolicy: string;
     promoSections: Array<{
       id: string;
       title: string;
@@ -185,6 +187,8 @@ const DEFAULTS: StoreConfig = {
     announcementBarText: '',
     deliveryTimeText: 'Delivery in 10 minutes',
     themeColor: '#facc15',
+    cancellationPolicy:
+      'Orders cannot be cancelled once packed for delivery. In case of unexpected delays, a refund will be provided, if applicable. Fresh items are quality-checked before dispatch — message us on WhatsApp if anything is missing or damaged.',
     promoSections: [
       {
         id: 'paan-corner',
@@ -356,6 +360,9 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
         announcementBarText: String(parsed.announcementBarText ?? ''),
         deliveryTimeText: String(parsed.deliveryTimeText ?? DEFAULTS.homepageConfig.deliveryTimeText),
         themeColor: String(parsed.themeColor ?? DEFAULTS.homepageConfig.themeColor),
+        cancellationPolicy:
+          String(parsed.cancellationPolicy ?? '').trim() ||
+          DEFAULTS.homepageConfig.cancellationPolicy,
         promoSections: Array.isArray(parsed.promoSections)
           ? parsed.promoSections
               .map((section, index) => ({
@@ -561,6 +568,12 @@ export const SettingsService = {
           String(partial.homepageConfig.deliveryTimeText ?? '').trim() || DEFAULTS.homepageConfig.deliveryTimeText,
         themeColor:
           String(partial.homepageConfig.themeColor ?? '').trim() || DEFAULTS.homepageConfig.themeColor,
+        cancellationPolicy:
+          String(
+            partial.homepageConfig.cancellationPolicy ??
+              current.homepageConfig.cancellationPolicy ??
+              '',
+          ).trim() || DEFAULTS.homepageConfig.cancellationPolicy,
         promoSections: Array.isArray(partial.homepageConfig.promoSections)
           ? partial.homepageConfig.promoSections
               .map((section, index) => ({

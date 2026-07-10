@@ -10,6 +10,7 @@ import ProductCard from '@/components/ProductCard/ProductCard';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { useCartStore, cartLineKey } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
+import { useCartUiStore } from '@/store/cartUiStore';
 import { useProductVariants } from '@/hooks/useProductVariants';
 import { useCatalogStore } from '@/store/catalogStore';
 import { formatCurrency } from '@/utils/formatter';
@@ -35,6 +36,7 @@ export default function ProductPage() {
   const [selectedKey, setSelectedKey] = useState<string>('base');
   const hydrated = useCartHydrated();
   const { items, addItem, updateQuantity } = useCartStore();
+  const openCart = useCartUiStore((s) => s.openCart);
   const showHealthStarRating = useConfigStore((s) => s.homepageConfig.showHealthStarRating !== false);
   const healthStarDisplay = useConfigStore(
     (s) => s.homepageConfig.healthStarDisplay ?? DEFAULT_HEALTH_STAR_DISPLAY,
@@ -277,7 +279,9 @@ export default function ProductPage() {
                     <span className="text-white font-bold w-8 text-center">{cartQty}</span>
                     <button onClick={() => updateQuantity(lineKey, cartQty + 1)} disabled={cartQty >= effectiveStock} className="w-10 h-10 text-white font-bold text-xl disabled:opacity-40">+</button>
                   </div>
-                  <Button asChild variant="secondary"><Link href="/cart">View Cart</Link></Button>
+                  <Button type="button" variant="secondary" onClick={openCart}>
+                    View Cart
+                  </Button>
                 </div>
               ) : (
                 <Button size="lg" className="w-full" onClick={addSelected}>
