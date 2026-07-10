@@ -315,15 +315,15 @@ export default function AccountMobileModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl relative max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
+      <div className="bg-white rounded-3xl w-full max-w-[22rem] px-6 pt-6 pb-7 shadow-2xl relative max-h-[90vh] overflow-y-auto border border-gray-100">
         <button
           type="button"
           onClick={handleClose}
-          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 z-10"
+          className="absolute right-3.5 top-3.5 text-gray-400 hover:text-gray-700 z-10 rounded-full p-1.5 hover:bg-gray-100 transition-colors"
           aria-label="Close"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
         {phase !== 'verified' && showLoginLogo && loginLogoUrl ? (
@@ -336,12 +336,12 @@ export default function AccountMobileModal() {
             <p className="font-semibold text-green-700">Signed in successfully</p>
           </div>
         ) : phase === 'create-password' ? (
-          <>
-            <h2 className="text-lg font-bold mb-1">Create your password</h2>
-            <p className="text-sm text-gray-500 mb-4">
-              WhatsApp verified! Set a password to sign in next time on any device.
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight">Create your password</h2>
+            <p className="text-sm text-gray-500 mt-1.5 mb-5 leading-relaxed">
+              WhatsApp verified. Set a password to sign in next time on any device.
             </p>
-            <div className="space-y-3">
+            <div className="space-y-3 text-left">
               <div>
                 <Label>Password</Label>
                 <div className="relative mt-1">
@@ -372,35 +372,35 @@ export default function AccountMobileModal() {
                   className="mt-1"
                 />
               </div>
-              {error && <p className="text-red-500 text-xs">{error}</p>}
+              {error && <p className="text-red-500 text-xs text-center">{error}</p>}
               <Button
-                className="w-full"
+                className="w-full h-11 rounded-xl font-semibold"
                 onClick={handleCreatePassword}
                 disabled={loading || password.length < 6}
               >
                 {loading ? 'Saving…' : 'Save & Sign In'}
               </Button>
             </div>
-          </>
+          </div>
         ) : phase === 'waiting' && verification ? (
-          <>
-            <h2 className="text-lg font-bold mb-1">Verify your WhatsApp</h2>
-            <p className="text-sm text-gray-500 mb-4">
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight">Verify your WhatsApp</h2>
+            <p className="text-sm text-gray-500 mt-1.5 mb-5 leading-relaxed">
               Send this code on WhatsApp. Once confirmed, you&apos;ll set your account password.
             </p>
-            <div className="bg-gray-50 rounded-xl p-4 text-center space-y-1 mb-4">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Verification Code</p>
-              <p className="text-2xl font-bold tracking-widest">{verification.verificationCode}</p>
+            <div className="bg-gray-50 rounded-2xl p-4 space-y-1 mb-4 border border-gray-100">
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Verification Code</p>
+              <p className="text-2xl font-bold tracking-widest text-gray-900">{verification.verificationCode}</p>
               <p className="text-sm text-gray-600">{formatE164Display(verification.mobile)}</p>
             </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center mb-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-4">
               <p className="text-sm font-medium text-amber-900">Waiting for confirmation…</p>
             </div>
             <div className="space-y-2">
               {whatsappUrl && (
                 <Button
                   type="button"
-                  className="w-full bg-[#25D366] hover:bg-[#1ebe57] text-white gap-2"
+                  className="w-full h-11 rounded-xl bg-[#25D366] hover:bg-[#1ebe57] text-white gap-2 font-semibold"
                   onClick={() => openWhatsAppUrl(whatsappUrl)}
                 >
                   <MessageCircle className="w-5 h-5" />
@@ -417,15 +417,15 @@ export default function AccountMobileModal() {
                 Generate New Code
               </Button>
             </div>
-          </>
+          </div>
         ) : phase === 'password' ? (
-          <>
-            <h2 className="text-lg font-bold mb-1">Welcome back</h2>
-            <p className="text-sm text-gray-500 mb-4">
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight">Welcome back</h2>
+            <p className="text-sm text-gray-500 mt-1.5 mb-5">
               +91 {mobile}
               <button
                 type="button"
-                className="ml-2 text-blinkit-green text-xs font-medium"
+                className="ml-2 text-blinkit-green text-xs font-semibold"
                 onClick={() => {
                   setPhase('enter');
                   setPassword('');
@@ -435,7 +435,7 @@ export default function AccountMobileModal() {
                 Change
               </button>
             </p>
-            <div className="space-y-3">
+            <div className="space-y-3 text-left">
               <div>
                 <Label>Password</Label>
                 <div className="relative mt-1">
@@ -457,14 +457,14 @@ export default function AccountMobileModal() {
                   </button>
                 </div>
                 {attemptsRemaining !== null && attemptsRemaining < 3 && attemptsRemaining > 0 && (
-                  <p className="text-amber-600 text-xs mt-1">
+                  <p className="text-amber-600 text-xs mt-1 text-center">
                     {attemptsRemaining} attempt{attemptsRemaining === 1 ? '' : 's'} remaining
                   </p>
                 )}
               </div>
-              {error && <p className="text-red-500 text-xs">{error}</p>}
+              {error && <p className="text-red-500 text-xs text-center">{error}</p>}
               <Button
-                className="w-full"
+                className="w-full h-11 rounded-xl font-semibold"
                 onClick={handlePasswordLogin}
                 disabled={loading || password.length < 6}
               >
@@ -472,7 +472,7 @@ export default function AccountMobileModal() {
               </Button>
               <button
                 type="button"
-                className="w-full text-center text-xs text-blinkit-green font-medium py-1"
+                className="w-full text-center text-xs text-blinkit-green font-semibold py-1"
                 disabled={loading}
                 onClick={() => {
                   setPassword('');
@@ -483,16 +483,18 @@ export default function AccountMobileModal() {
                 Forgot password? Verify via WhatsApp
               </button>
             </div>
-          </>
+          </div>
         ) : (
-          <>
-            <h2 className="text-lg font-bold mb-1">My Account</h2>
-            <p className="text-sm text-gray-500 mb-4">Enter your mobile number to continue</p>
-            <div className="space-y-3">
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight">My Account</h2>
+            <p className="text-sm text-gray-500 mt-1.5 mb-5 leading-relaxed">
+              Enter your mobile number to continue
+            </p>
+            <div className="space-y-3 text-left">
               <div>
-                <Label>Mobile Number</Label>
-                <div className="flex gap-2 mt-1">
-                  <span className="inline-flex items-center px-3 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-600">
+                <Label className="text-center block w-full mb-1.5">Mobile Number</Label>
+                <div className="flex gap-2">
+                  <span className="inline-flex items-center px-3 rounded-xl border border-gray-200 bg-gray-50 text-sm font-medium text-gray-600">
                     +91
                   </span>
                   <Input
@@ -501,17 +503,21 @@ export default function AccountMobileModal() {
                     placeholder="10-digit number"
                     inputMode="numeric"
                     maxLength={10}
-                    className="flex-1"
+                    className="flex-1 h-11 rounded-xl text-center text-base tracking-wide"
                     onKeyDown={(e) => e.key === 'Enter' && handleContinue()}
                   />
                 </div>
               </div>
-              {error && <p className="text-red-500 text-xs">{error}</p>}
-              <Button className="w-full" onClick={handleContinue} disabled={loading || mobile.length < 10}>
+              {error && <p className="text-red-500 text-xs text-center">{error}</p>}
+              <Button
+                className="w-full h-11 rounded-xl font-semibold text-base"
+                onClick={handleContinue}
+                disabled={loading || mobile.length < 10}
+              >
                 {loading ? 'Checking…' : 'Continue'}
               </Button>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>
