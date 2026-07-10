@@ -400,7 +400,7 @@ export default function ProductManager({
                       ? 'border-amber-500 bg-white focus:ring-amber-300 focus:border-amber-500'
                       : ''
                   }`}
-                  disabled={!canEdit || hasVariants}
+                  disabled={!canEdit}
                 />
                 {errors.stock && <p className="text-red-500 text-xs mt-1">{errors.stock.message}</p>}
                 {stockNeedsAttention ? (
@@ -408,8 +408,8 @@ export default function ProductManager({
                     Enter how many units you have in stock. Do not leave this as 0 when adding a new product.
                   </p>
                 ) : hasVariants ? (
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    Stock is managed per option below when this product has multiple options.
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    Stock for the <strong>base option</strong> (first choice on the storefront). Extra brands/sizes have their own stock in Variant Management below.
                   </p>
                 ) : (
                   <p className="text-[11px] text-gray-400 mt-1">
@@ -472,7 +472,7 @@ export default function ProductManager({
                   This product has multiple options (brands / sizes / weights)
                 </label>
                 <p className="text-[11px] text-gray-400 mt-1">
-                  When enabled, customers pick a specific option. Price, stock, and image come from the option they choose.
+                  When enabled, customers pick a specific option. The fields above (price, stock, image) are the base option; extra brands/sizes are managed below.
                 </p>
               </div>
 
