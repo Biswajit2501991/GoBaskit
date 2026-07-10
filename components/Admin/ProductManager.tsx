@@ -287,7 +287,7 @@ export default function ProductManager({
         </select>
       </div>
 
-      {categories.length === 0 && (
+      {!loading && categories.length === 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
           Create at least one category before adding products.
         </div>
