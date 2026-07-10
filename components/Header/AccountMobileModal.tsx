@@ -12,6 +12,8 @@ import { normalizeMobile } from '@/utils/mobile';
 import { toE164, formatE164Display } from '@/utils/phone';
 import { openWhatsAppUrl } from '@/utils/whatsapp';
 import { setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
+import LoginBrandSeal from '@/components/Header/LoginBrandSeal';
+import { useConfigStore } from '@/store/configStore';
 
 const LOGIN_POLL_INTERVAL_MS = 4000;
 
@@ -27,6 +29,11 @@ export default function AccountMobileModal() {
   const router = useRouter();
   const { showAccountModal, closeAccountModal, setStaffEligible, setCustomerMobile, clearStaffEligible, openAdminLoginModal } =
     useStaffPortalStore();
+  const fetchConfig = useConfigStore((s) => s.fetchConfig);
+  const showLoginLogo = useConfigStore((s) => s.homepageConfig.showLoginLogo !== false);
+  const loginLogoUrl = useConfigStore(
+    (s) => s.homepageConfig.loginLogoUrl || '/branding/gobaskit-seal.png',
+  );
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -40,6 +47,10 @@ export default function AccountMobileModal() {
   const staffNameRef = useRef<string>('');
 
   const mobileE164 = toE164('91', mobile);
+
+  useEffect(() => {
+    if (showAccountModal) void fetchConfig();
+  }, [showAccountModal, fetchConfig]);
 
   function resetState() {
     setMobile('');
@@ -309,11 +320,15 @@ export default function AccountMobileModal() {
         <button
           type="button"
           onClick={handleClose}
-          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 z-10"
           aria-label="Close"
         >
           <X className="w-5 h-5" />
         </button>
+
+        {phase !== 'verified' && showLoginLogo && loginLogoUrl ? (
+          <LoginBrandSeal logoUrl={loginLogoUrl} />
+        ) : null}
 
         {phase === 'verified' ? (
           <div className="text-center py-8 space-y-3">

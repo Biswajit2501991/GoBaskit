@@ -57,6 +57,10 @@ const settingsSchema = z.object({
       deliveryDisclaimer: z.string().max(1000).optional(),
       themeColor: z.string().max(20).optional(),
       cancellationPolicy: z.string().max(1000).optional(),
+      showPoweredByBanner: z.boolean().optional(),
+      poweredByText: z.string().max(160).optional(),
+      showLoginLogo: z.boolean().optional(),
+      loginLogoUrl: z.string().max(500).optional(),
       promoSections: z
         .array(
           z.object({

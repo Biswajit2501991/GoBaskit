@@ -14,6 +14,7 @@ import GlobalSearch from '@/components/Header/GlobalSearch';
 import AccountMobileModal from '@/components/Header/AccountMobileModal';
 import StaffAdminLoginModal from '@/components/Header/StaffAdminLoginModal';
 import RestockToastHost from '@/components/Header/RestockToastHost';
+import PoweredByBanner from '@/components/Header/PoweredByBanner';
 import CartDrawer from '@/components/Cart/CartDrawer';
 import OrderCelebration from '@/components/Cart/OrderCelebration';
 import { clearCheckoutProfileLocal } from '@/utils/customerProfile';
@@ -21,6 +22,7 @@ import { clearSessionVerifiedMobile, setSessionVerifiedMobile } from '@/utils/wh
 import { toE164 } from '@/utils/phone';
 import { prefetchCheckoutProfile } from '@/utils/prefetchCheckoutProfile';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
+import { useConfigStore } from '@/store/configStore';
 
 interface HeaderProps {
   /** Set false to hide the global product search (e.g. focused flows like checkout). */
@@ -42,6 +44,9 @@ export default function Header({ showSearch = true }: HeaderProps) {
   const wishlistCount = useWishlistStore((s) => s.count);
   const loadWishlist = useWishlistStore((s) => s.load);
   const clearWishlist = useWishlistStore((s) => s.clear);
+  const fetchConfig = useConfigStore((s) => s.fetchConfig);
+  const showPoweredByBanner = useConfigStore((s) => s.homepageConfig.showPoweredByBanner !== false);
+  const poweredByText = useConfigStore((s) => s.homepageConfig.poweredByText);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const actionsRef = useRef<HTMLDivElement | null>(null);
   const accountLabel = staffEligible
@@ -50,6 +55,10 @@ export default function Header({ showSearch = true }: HeaderProps) {
       ? `+91 ${customerMobile}`
       : 'My Account';
   const hasAccountIdentity = staffEligible || Boolean(customerMobile);
+
+  useEffect(() => {
+    void fetchConfig();
+  }, [fetchConfig]);
 
   useEffect(() => {
     if (hasAccountIdentity) {
@@ -116,7 +125,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
       <RestockToastHost enabled={Boolean(customerMobile) && !staffEligible} />
       <div className="bg-blinkit-yellow">
         <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 shrink-0">
             <Link href="/" className="bg-white rounded-lg px-2.5 py-1 shadow-sm shrink-0">
               <span className="font-extrabold text-xl text-gray-900 tracking-tight">
                 Go<span className="text-blinkit-green">Baskit</span>
@@ -133,6 +142,12 @@ export default function Header({ showSearch = true }: HeaderProps) {
               </button>
             )}
           </div>
+
+          {showPoweredByBanner && poweredByText ? (
+            <PoweredByBanner text={poweredByText} />
+          ) : (
+            <div className="flex-1 min-w-0" aria-hidden />
+          )}
 
           <div ref={actionsRef} className="relative flex items-center gap-2 shrink-0">
             {staffEligible && (

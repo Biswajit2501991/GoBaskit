@@ -67,6 +67,12 @@ export interface StoreConfig {
     themeColor: string;
     /** Shown on cart drawer + checkout. Editable in Admin → Settings. */
     cancellationPolicy: string;
+    /** Yellow header “Powered by…” animated banner. */
+    showPoweredByBanner: boolean;
+    poweredByText: string;
+    /** Customer login modal brand seal. */
+    showLoginLogo: boolean;
+    loginLogoUrl: string;
     promoSections: Array<{
       id: string;
       title: string;
@@ -201,6 +207,10 @@ const DEFAULTS: StoreConfig = {
     themeColor: '#facc15',
     cancellationPolicy:
       'Orders cannot be cancelled once packed for delivery. In case of unexpected delays, a refund will be provided, if applicable. Fresh items are quality-checked before dispatch — message us on WhatsApp if anything is missing or damaged.',
+    showPoweredByBanner: true,
+    poweredByText: 'Powered by Action Plus Gym · Healthy Life · Wealthy Life',
+    showLoginLogo: true,
+    loginLogoUrl: '/branding/gobaskit-seal.png',
     promoSections: [
       {
         id: 'paan-corner',
@@ -421,6 +431,12 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
         cancellationPolicy:
           String(parsed.cancellationPolicy ?? '').trim() ||
           DEFAULTS.homepageConfig.cancellationPolicy,
+        showPoweredByBanner: parsed.showPoweredByBanner !== false,
+        poweredByText:
+          String(parsed.poweredByText ?? '').trim() || DEFAULTS.homepageConfig.poweredByText,
+        showLoginLogo: parsed.showLoginLogo !== false,
+        loginLogoUrl:
+          String(parsed.loginLogoUrl ?? '').trim() || DEFAULTS.homepageConfig.loginLogoUrl,
         promoSections: Array.isArray(parsed.promoSections)
           ? parsed.promoSections
               .map((section, index) => ({
@@ -662,6 +678,22 @@ export const SettingsService = {
         cancellationPolicy:
           String(hc.cancellationPolicy ?? current.homepageConfig.cancellationPolicy ?? '').trim() ||
           DEFAULTS.homepageConfig.cancellationPolicy,
+        showPoweredByBanner:
+          hc.showPoweredByBanner !== undefined
+            ? Boolean(hc.showPoweredByBanner)
+            : current.homepageConfig.showPoweredByBanner,
+        poweredByText:
+          hc.poweredByText !== undefined
+            ? String(hc.poweredByText ?? '').trim() || DEFAULTS.homepageConfig.poweredByText
+            : current.homepageConfig.poweredByText,
+        showLoginLogo:
+          hc.showLoginLogo !== undefined
+            ? Boolean(hc.showLoginLogo)
+            : current.homepageConfig.showLoginLogo,
+        loginLogoUrl:
+          hc.loginLogoUrl !== undefined
+            ? String(hc.loginLogoUrl ?? '').trim() || DEFAULTS.homepageConfig.loginLogoUrl
+            : current.homepageConfig.loginLogoUrl,
         promoSections: Array.isArray(hc.promoSections)
           ? hc.promoSections
               .map((section, index) => ({

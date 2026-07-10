@@ -34,6 +34,10 @@ interface ConfigState {
     deliveryDisclaimer: string;
     themeColor: string;
     cancellationPolicy: string;
+    showPoweredByBanner: boolean;
+    poweredByText: string;
+    showLoginLogo: boolean;
+    loginLogoUrl: string;
     promoSections: Array<{
       id: string;
       title: string;
@@ -77,6 +81,10 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     themeColor: '#facc15',
     cancellationPolicy:
       'Orders cannot be cancelled once packed for delivery. In case of unexpected delays, a refund will be provided, if applicable. Fresh items are quality-checked before dispatch — message us on WhatsApp if anything is missing or damaged.',
+    showPoweredByBanner: true,
+    poweredByText: 'Powered by Action Plus Gym · Healthy Life · Wealthy Life',
+    showLoginLogo: true,
+    loginLogoUrl: '/branding/gobaskit-seal.png',
     promoSections: [],
   },
   loaded: false,

@@ -27,6 +27,7 @@ const SETTINGS_SECTIONS = [
   { id: 'cancellation', label: 'Cancellation Policy', group: 'Orders' },
   { id: 'featured', label: 'Featured', group: 'Homepage' },
   { id: 'health-star', label: 'Health Star', group: 'Homepage' },
+  { id: 'branding', label: 'Branding', group: 'Homepage' },
   { id: 'promo', label: 'Promo Cards', group: 'Homepage' },
   { id: 'homepage', label: 'Homepage Layout', group: 'Homepage' },
   { id: 'discounts', label: 'Discounts & Coupons', group: 'Offers' },
@@ -75,6 +76,10 @@ interface StoreConfig {
     deliveryDisclaimer: string;
     themeColor: string;
     cancellationPolicy: string;
+    showPoweredByBanner: boolean;
+    poweredByText: string;
+    showLoginLogo: boolean;
+    loginLogoUrl: string;
     promoSections: Array<{
       id: string;
       title: string;
@@ -145,6 +150,11 @@ export default function SettingsManager({
       deliveryDisclaimer: hc.deliveryDisclaimer ?? '',
       themeColor: hc.themeColor ?? '#0B7A3E',
       cancellationPolicy: hc.cancellationPolicy ?? '',
+      showPoweredByBanner: hc.showPoweredByBanner !== false,
+      poweredByText:
+        hc.poweredByText ?? 'Powered by Action Plus Gym · Healthy Life · Wealthy Life',
+      showLoginLogo: hc.showLoginLogo !== false,
+      loginLogoUrl: hc.loginLogoUrl || '/branding/gobaskit-seal.png',
       promoSections: hc.promoSections ?? [],
       healthStarDisplay: {
         ...DEFAULT_HEALTH_STAR_DISPLAY,
@@ -902,6 +912,95 @@ export default function SettingsManager({
             )}
           </div>
         )}
+      </section>
+          )}
+
+          {activeSection === 'branding' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-5">
+        <div>
+          <h2 className="font-bold text-sm">Branding</h2>
+          <p className="text-xs text-gray-400 mt-1">
+            Header “Powered by” banner and the customer login logo seal.
+          </p>
+        </div>
+
+        <div className="space-y-3 border-b border-gray-50 pb-4">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={homepageConfig.showPoweredByBanner !== false}
+              onChange={(e) =>
+                setHomepageConfig((prev) => ({ ...prev, showPoweredByBanner: e.target.checked }))
+              }
+              disabled={!canEdit}
+              className="accent-blinkit-green"
+            />
+            Show Powered by banner next to GoBaskit
+          </label>
+          <div>
+            <Label className="text-xs text-gray-500">Banner text</Label>
+            <Input
+              value={homepageConfig.poweredByText}
+              onChange={(e) =>
+                setHomepageConfig((prev) => ({ ...prev, poweredByText: e.target.value }))
+              }
+              placeholder="Powered by Action Plus Gym · Healthy Life · Wealthy Life"
+              className="mt-1"
+              disabled={!canEdit || homepageConfig.showPoweredByBanner === false}
+              maxLength={160}
+            />
+            <p className="text-[11px] text-gray-400 mt-1">
+              Animated shimmer text in the yellow header (looks like a live GIF ticker).
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={homepageConfig.showLoginLogo !== false}
+              onChange={(e) =>
+                setHomepageConfig((prev) => ({ ...prev, showLoginLogo: e.target.checked }))
+              }
+              disabled={!canEdit}
+              className="accent-blinkit-green"
+            />
+            Show brand seal on customer login
+          </label>
+          {homepageConfig.showLoginLogo !== false && (
+            <div className="space-y-3">
+              <ProductImageUpload
+                value={homepageConfig.loginLogoUrl}
+                onChange={(url) =>
+                  setHomepageConfig((prev) => ({
+                    ...prev,
+                    loginLogoUrl: url || '/branding/gobaskit-seal.png',
+                  }))
+                }
+                label="Login logo"
+                uploadType="badge"
+                showWebSuggestions={false}
+                disabled={!canEdit}
+              />
+              {homepageConfig.loginLogoUrl ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-20 h-20 rounded-full border border-[#f7c948]/70 overflow-hidden bg-white shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={homepageConfig.loginLogoUrl}
+                      alt="Login logo preview"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Preview of the circular seal shown on My Account login.
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
       </section>
           )}
 
