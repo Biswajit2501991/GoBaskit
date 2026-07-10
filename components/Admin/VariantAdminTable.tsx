@@ -249,7 +249,18 @@ export default function VariantAdminTable({
           onSaved={() => {
             setShowForm(false);
             setEditing(null);
-            load();
+            void load();
+            // Keep product list option counts in sync without remounting the page.
+            void import('@/store/adminProductsStore').then(({ useAdminProductsStore }) => {
+              const store = useAdminProductsStore.getState();
+              const keys = Object.keys(store.lists);
+              if (keys.length === 0) {
+                void store.fetchProducts({ page: 1, sort: 'name' });
+                return;
+              }
+              // Refresh the first cached list page (typical admin view).
+              void store.refreshProducts({ page: 1, sort: 'name' });
+            });
           }}
           onClose={() => {
             setShowForm(false);

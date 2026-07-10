@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { productSchema, type ProductFormData } from '@/lib/validations';
@@ -58,7 +57,6 @@ export default function ProductManager({
   title?: string;
   subtitle?: string;
 }) {
-  const router = useRouter();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -84,7 +82,6 @@ export default function ProductManager({
   const fetchProducts = useAdminProductsStore((s) => s.fetchProducts);
   const refreshProducts = useAdminProductsStore((s) => s.refreshProducts);
   const setStoreCategories = useAdminProductsStore((s) => s.setCategories);
-  const invalidateCategories = useAdminProductsStore((s) => s.invalidateCategories);
 
   const products = cached?.items ?? [];
   const total = cached?.total ?? 0;
@@ -117,9 +114,12 @@ export default function ProductManager({
   }, [page, debouncedSearch, categoryFilter, sort, fetchProducts]);
 
   async function reloadAfterMutation() {
-    invalidateCategories();
+    // Refresh client cache only — avoid router.refresh(), which remounts the
+    // admin RSC tree and can surface ChunkLoadError / error.tsx after deploys.
     await refreshProducts(listParams);
-    router.refresh();
+    if (useAdminProductsStore.getState().categories.length === 0) {
+      await useAdminProductsStore.getState().fetchCategories();
+    }
   }
 
   const {
@@ -562,7 +562,7 @@ export default function ProductManager({
                   </td>
                   <td className="p-3">
                     <span className="bg-blinkit-green-light text-blinkit-green text-xs font-semibold px-2 py-0.5 rounded">
-                      {p.category.name}
+                      {p.category?.name ?? '—'}
                     </span>
                   </td>
                   <td className="p-3">

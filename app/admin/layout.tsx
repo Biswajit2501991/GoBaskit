@@ -20,15 +20,18 @@ const nav: { href: string; label: string; permission: Permission }[] = [
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const staff = await getStaffFromSession();
+  let staff: Awaited<ReturnType<typeof getStaffFromSession>> = null;
+  try {
+    staff = await getStaffFromSession();
+  } catch (err) {
+    console.error('[admin/layout] session lookup failed', err);
+  }
   if (!staff) {
     return <div className="min-h-screen bg-gray-50">{children}</div>;
   }
-  const perms = staff ? parsePermissions(staff.permissions) : [];
+  const perms = parsePermissions(staff.permissions);
 
-  const visibleNav = staff
-    ? nav.filter((item) => staffHasPermission(staff.role, perms, item.permission))
-    : [];
+  const visibleNav = nav.filter((item) => staffHasPermission(staff!.role, perms, item.permission));
 
   return (
     <AdminShell

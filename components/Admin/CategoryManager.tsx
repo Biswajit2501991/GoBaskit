@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { categorySchema, type CategoryFormData, formatZodFlattenError } from '@/lib/validations';
@@ -30,7 +29,6 @@ export default function CategoryManager({
 }: {
   canEdit: boolean;
 }) {
-  const router = useRouter();
   const allCategories = useAdminProductsStore((s) => s.categories);
   const categoriesFetchedAt = useAdminProductsStore((s) => s.categoriesFetchedAt);
   const fetchCategories = useAdminProductsStore((s) => s.fetchCategories);
@@ -49,10 +47,9 @@ export default function CategoryManager({
   }, [fetchCategories]);
 
   async function reloadAfterMutation() {
-    invalidateCategories();
     invalidateProducts();
+    invalidateCategories();
     await fetchCategories();
-    router.refresh();
   }
 
   const filtered = useMemo(() => {
