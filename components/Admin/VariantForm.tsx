@@ -34,8 +34,7 @@ const emptyVariant: VariantFormData = {
   mrp: null,
   sku: '',
   barcode: '',
-  stock: 0,
-  imageUrl: '',
+  stock: '' as unknown as number,
   sortOrder: 0,
   isActive: true,
   healthStarRating: null,
@@ -58,6 +57,7 @@ export default function VariantForm({
     handleSubmit,
     watch,
     setValue,
+    setFocus,
     formState: { errors, isSubmitting },
   } = useForm<VariantFormData>({
     resolver: zodResolver(variantSchema),
@@ -87,6 +87,9 @@ export default function VariantForm({
   );
 
   const imageUrl = (watch('imageUrl') as string) || '';
+  const stockRaw = watch('stock');
+  const stockNum = stockRaw === '' || stockRaw === null || stockRaw === undefined ? null : Number(stockRaw);
+  const stockNeedsAttention = stockNum === null || Number.isNaN(stockNum) || stockNum <= 0;
   const price = Number(watch('price')) || 0;
   const mrpRaw = watch('mrp');
   const mrp = mrpRaw === null || mrpRaw === undefined || mrpRaw === '' ? null : Number(mrpRaw);
@@ -103,6 +106,12 @@ export default function VariantForm({
   }
 
   async function onSubmit(data: VariantFormData) {
+    if (!variant && Number(data.stock) <= 0) {
+      setFocus('stock');
+      alert('Please enter Stock quantity — do not leave it as 0 for a new option.');
+      return;
+    }
+
     const url = variant
       ? `/api/admin/products/${productId}/variants/${variant.id}`
       : `/api/admin/products/${productId}/variants`;
@@ -113,6 +122,7 @@ export default function VariantForm({
       body: JSON.stringify({
         ...data,
         imageUrl: useProductImage ? null : data.imageUrl || null,
+        stock: Number(data.stock),
         mrp: data.mrp == null || data.mrp === '' ? null : Number(data.mrp),
       }),
     });
@@ -180,10 +190,34 @@ export default function VariantForm({
             <Label>Barcode</Label>
             <Input {...register('barcode')} placeholder="optional" className="mt-1" />
           </div>
-          <div>
-            <Label>Stock Quantity *</Label>
-            <Input {...register('stock')} type="number" min="0" className="mt-1" />
+          <div
+            className={`rounded-xl p-3 -mx-1 transition-colors ${
+              stockNeedsAttention
+                ? 'bg-amber-50 border-2 border-amber-400 ring-2 ring-amber-200'
+                : 'border border-transparent'
+            }`}
+          >
+            <Label className={stockNeedsAttention ? 'text-amber-900 font-bold' : undefined}>
+              Stock Quantity *{stockNeedsAttention ? ' — required' : ''}
+            </Label>
+            <Input
+              {...register('stock')}
+              type="number"
+              min="0"
+              inputMode="numeric"
+              placeholder="e.g. 50"
+              className={`mt-1 ${
+                stockNeedsAttention
+                  ? 'border-amber-500 bg-white focus:ring-amber-300 focus:border-amber-500'
+                  : ''
+              }`}
+            />
             {errors.stock && <p className="text-red-500 text-xs mt-1">{errors.stock.message}</p>}
+            {stockNeedsAttention && (
+              <p className="text-[11px] text-amber-800 font-semibold mt-1">
+                Enter how many units you have. Do not leave this as 0 when adding a new option.
+              </p>
+            )}
           </div>
 
           <div className="md:col-span-2 lg:col-span-3">

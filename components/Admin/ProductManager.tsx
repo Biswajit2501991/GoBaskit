@@ -48,7 +48,7 @@ const emptyProduct: ProductFormData = {
   price: 1,
   actualPrice: null,
   unit: '1 pc',
-  stock: 0,
+  stock: '' as unknown as number,
   categoryId: '',
   status: 'ACTIVE',
   imageUrl: '',
@@ -139,6 +139,7 @@ export default function ProductManager({
     handleSubmit,
     reset,
     setValue,
+    setFocus,
     watch,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormData>({
@@ -151,6 +152,10 @@ export default function ProductManager({
 
   const imageUrl = watch('imageUrl') || '';
   const hasVariants = watch('hasVariants') ?? false;
+  const stockRaw = watch('stock');
+  const stockNum = stockRaw === '' || stockRaw === null || stockRaw === undefined ? null : Number(stockRaw);
+  const stockNeedsAttention =
+    !hasVariants && (stockNum === null || Number.isNaN(stockNum) || stockNum <= 0);
   const currentName = watch('name') || '';
   const currentCategoryId = watch('categoryId') || '';
   const currentCategoryName =
@@ -205,6 +210,14 @@ export default function ProductManager({
   async function onSubmit(data: ProductFormData) {
     if (!canEdit) return;
     setError('');
+
+    // Block accidental zero-stock creates for simple (non-option) products.
+    if (!editingId && !data.hasVariants && Number(data.stock) <= 0) {
+      setError('Please enter Stock quantity — do not leave it as 0 for a new product.');
+      setFocus('stock');
+      return;
+    }
+
     const url = editingId ? `/api/admin/products/${editingId}` : '/api/admin/products';
     const method = editingId ? 'PUT' : 'POST';
 
@@ -213,6 +226,7 @@ export default function ProductManager({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...data,
+        stock: data.hasVariants ? Number(data.stock) || 0 : Number(data.stock),
         actualPrice:
           data.actualPrice == null || data.actualPrice === '' ? null : Number(data.actualPrice),
       }),
@@ -376,13 +390,43 @@ export default function ProductManager({
                 {errors.unit && <p className="text-red-500 text-xs mt-1">{errors.unit.message}</p>}
               </div>
 
-              <div>
-                <Label>Stock *</Label>
-                <Input {...register('stock')} type="number" min="0" className="mt-1" disabled={!canEdit} />
+              <div
+                className={`rounded-xl p-3 -mx-1 transition-colors ${
+                  stockNeedsAttention
+                    ? 'bg-amber-50 border-2 border-amber-400 ring-2 ring-amber-200'
+                    : 'border border-transparent'
+                }`}
+              >
+                <Label className={stockNeedsAttention ? 'text-amber-900 font-bold' : undefined}>
+                  Stock *{stockNeedsAttention ? ' — required' : ''}
+                </Label>
+                <Input
+                  {...register('stock')}
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  placeholder="e.g. 50"
+                  className={`mt-1 ${
+                    stockNeedsAttention
+                      ? 'border-amber-500 bg-white focus:ring-amber-300 focus:border-amber-500'
+                      : ''
+                  }`}
+                  disabled={!canEdit || hasVariants}
+                />
                 {errors.stock && <p className="text-red-500 text-xs mt-1">{errors.stock.message}</p>}
-                <p className="text-[11px] text-gray-400 mt-1">
-                  Reduces automatically when orders are placed. At 0, status becomes Out of Stock. Alert at ≤25% of stocked level.
-                </p>
+                {stockNeedsAttention ? (
+                  <p className="text-[11px] text-amber-800 font-semibold mt-1">
+                    Enter how many units you have in stock. Do not leave this as 0 when adding a new product.
+                  </p>
+                ) : hasVariants ? (
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Stock is managed per option below when this product has multiple options.
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Reduces automatically when orders are placed. At 0, status becomes Out of Stock. Alert at ≤25% of stocked level.
+                  </p>
+                )}
               </div>
 
               <div>
