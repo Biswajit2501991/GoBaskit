@@ -65,6 +65,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Mobile or email already exists' }, { status: 409 });
   }
 
+  if (parsed.data.role === 'ALL_SUPER_ADMIN' && auth.staff!.role !== 'ALL_SUPER_ADMIN') {
+    return NextResponse.json(
+      { error: 'Only All Super Admin can create another All Super Admin' },
+      { status: 403 },
+    );
+  }
+
   const password = parsed.data.password || 'changeme123';
   try {
     const staff = await prisma.staffAccount.create({

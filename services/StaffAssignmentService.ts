@@ -3,7 +3,12 @@ import { prisma } from '@/lib/prisma';
 import { cityIsServiceable, distanceKm, normalizeLocationToken } from '@/utils/delivery';
 
 /** Roles that always receive every order notification (Owner / Admin). */
-export const ADMIN_NOTIFICATION_ROLES: StaffRole[] = ['SUPER_ADMIN', 'MANAGER', 'ORDER_MANAGER'];
+export const ADMIN_NOTIFICATION_ROLES: StaffRole[] = [
+  'ALL_SUPER_ADMIN',
+  'SUPER_ADMIN',
+  'MANAGER',
+  'ORDER_MANAGER',
+];
 
 export interface OrderLocationContext {
   city: string;

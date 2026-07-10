@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { StaffRole } from '@prisma/client';
 import type { Permission } from '@/types/staff';
 import { getSession, getStaffFromSession, sessionHasPermission } from '@/lib/auth';
-import { parsePermissions } from '@/types/staff';
+import { parsePermissions, staffHasPermission } from '@/types/staff';
 
 /** Minimal staff identity from JWT (no DB). Enough for permission checks + actor ids. */
 export type StaffAuthUser = {
@@ -44,7 +44,8 @@ export async function requireStaffPermission(
       return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }), staff: null };
     }
     const perms = parsePermissions(staff.permissions);
-    if (!sessionHasPermission(session, permission, perms, staff.role)) {
+    // Use DB role/permissions so role changes apply before JWT refresh.
+    if (!staffHasPermission(staff.role, perms, permission)) {
       return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }), staff: null };
     }
     return { error: null, staff: staff as StaffAuthUser };

@@ -25,9 +25,16 @@ describe('isValidIndianMobile', () => {
 });
 
 describe('staffHasPermission', () => {
-  it('grants all permissions to SUPER_ADMIN', () => {
-    expect(staffHasPermission('SUPER_ADMIN', [], 'staff:manage')).toBe(true);
+  it('grants all permissions only to ALL_SUPER_ADMIN', () => {
+    expect(staffHasPermission('ALL_SUPER_ADMIN', [], 'staff:manage')).toBe(true);
+    expect(staffHasPermission('ALL_SUPER_ADMIN', [], 'orders:delete')).toBe(true);
+  });
+
+  it('gives SUPER_ADMIN full ops but not staff:manage', () => {
     expect(staffHasPermission('SUPER_ADMIN', [], 'orders:delete')).toBe(true);
+    expect(staffHasPermission('SUPER_ADMIN', [], 'staff:view')).toBe(true);
+    expect(staffHasPermission('SUPER_ADMIN', [], 'staff:manage')).toBe(false);
+    expect(staffHasPermission('SUPER_ADMIN', [], 'staff:bulk_import')).toBe(false);
   });
 
   it('enforces role defaults for INVENTORY_MANAGER', () => {

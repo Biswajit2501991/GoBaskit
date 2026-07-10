@@ -51,6 +51,7 @@ enum OrderDiscountType {
 }
 
 enum StaffRole {
+  ALL_SUPER_ADMIN
   SUPER_ADMIN
   MANAGER
   ORDER_MANAGER

@@ -26,6 +26,27 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const existing = await prisma.staffAccount.findFirst({ where: { id, deletedAt: null } });
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+  if (existing.role === 'ALL_SUPER_ADMIN' && auth.staff!.role !== 'ALL_SUPER_ADMIN') {
+    return NextResponse.json(
+      { error: 'Only All Super Admin can edit an All Super Admin account' },
+      { status: 403 },
+    );
+  }
+
+  if (parsed.data.role === 'ALL_SUPER_ADMIN' && auth.staff!.role !== 'ALL_SUPER_ADMIN') {
+    return NextResponse.json(
+      { error: 'Only All Super Admin can assign the All Super Admin role' },
+      { status: 403 },
+    );
+  }
+
+  if (parsed.data.password && auth.staff!.role !== 'ALL_SUPER_ADMIN') {
+    return NextResponse.json(
+      { error: 'Only All Super Admin can change staff passwords' },
+      { status: 403 },
+    );
+  }
+
   const data: Record<string, unknown> = {};
   if (parsed.data.name) data.name = parsed.data.name;
   let nextEmail: string | null | undefined;
@@ -121,6 +142,13 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
 
   const existing = await prisma.staffAccount.findFirst({ where: { id, deletedAt: null } });
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  if (existing.role === 'ALL_SUPER_ADMIN') {
+    return NextResponse.json(
+      { error: 'All Super Admin accounts cannot be deactivated here' },
+      { status: 403 },
+    );
+  }
 
   await prisma.staffAccount.update({
     where: { id },

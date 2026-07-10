@@ -1,6 +1,7 @@
 import type { StaffRole } from '@prisma/client';
 
 export const STAFF_ROLES: StaffRole[] = [
+  'ALL_SUPER_ADMIN',
   'SUPER_ADMIN',
   'MANAGER',
   'ORDER_MANAGER',
@@ -12,6 +13,21 @@ export const STAFF_ROLES: StaffRole[] = [
   'READ_ONLY',
   'CUSTOM',
 ];
+
+/** Human labels for admin UI. */
+export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
+  ALL_SUPER_ADMIN: 'All Super Admin',
+  SUPER_ADMIN: 'Super Admin',
+  MANAGER: 'Manager',
+  ORDER_MANAGER: 'Order Manager',
+  INVENTORY_MANAGER: 'Inventory Manager',
+  DELIVERY_MANAGER: 'Delivery Manager',
+  CUSTOMER_SUPPORT: 'Customer Support',
+  FINANCE: 'Finance',
+  MARKETING: 'Marketing',
+  READ_ONLY: 'Read Only',
+  CUSTOM: 'Custom',
+};
 
 export type Permission =
   | 'staff:view'
@@ -40,17 +56,26 @@ export type Permission =
   | 'learning:view'
   | 'learning:edit';
 
+const FULL_OPS_PERMISSIONS: Permission[] = [
+  'staff:view',
+  'products:view', 'products:edit', 'products:delete',
+  'categories:view', 'categories:edit',
+  'orders:view', 'orders:edit', 'orders:delete', 'orders:assign', 'orders:override_lock',
+  'settings:view', 'settings:edit', 'analytics:view', 'bulk_upload:use',
+  'finance:view', 'finance:edit', 'delivery:view', 'delivery:update',
+  'verification:view', 'verification:manage',
+  'learning:view', 'learning:edit',
+];
+
 export const ROLE_PERMISSIONS: Record<StaffRole, Permission[]> = {
-  SUPER_ADMIN: [
-    'staff:view', 'staff:manage', 'staff:bulk_import',
-    'products:view', 'products:edit', 'products:delete',
-    'categories:view', 'categories:edit',
-    'orders:view', 'orders:edit', 'orders:delete', 'orders:assign', 'orders:override_lock',
-    'settings:view', 'settings:edit', 'analytics:view', 'bulk_upload:use',
-    'finance:view', 'finance:edit', 'delivery:view', 'delivery:update',
-    'verification:view', 'verification:manage',
-    'learning:view', 'learning:edit',
+  /** Only this role can add staff, change passwords, or bulk-import staff. */
+  ALL_SUPER_ADMIN: [
+    ...FULL_OPS_PERMISSIONS,
+    'staff:manage',
+    'staff:bulk_import',
   ],
+  /** Full store ops — cannot add staff or change anyone's password. */
+  SUPER_ADMIN: [...FULL_OPS_PERMISSIONS],
   MANAGER: [
     'staff:view', 'products:view', 'products:edit', 'categories:view', 'categories:edit',
     'orders:view', 'orders:edit', 'orders:assign', 'settings:view', 'analytics:view',
@@ -123,10 +148,17 @@ export function staffHasPermission(
   customPermissions: string[],
   permission: Permission,
 ): boolean {
-  if (role === 'SUPER_ADMIN') return true;
+  // Only All Super Admin is unrestricted (including staff:manage / password changes).
+  if (role === 'ALL_SUPER_ADMIN') return true;
   if (customPermissions.includes(permission)) return true;
   if (role === 'CUSTOM') return customPermissions.includes(permission);
   return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
+}
+
+/** Roles that may be assigned when creating/editing staff (excludes All Super Admin unless actor has it). */
+export function assignableStaffRoles(actorRole: StaffRole): StaffRole[] {
+  if (actorRole === 'ALL_SUPER_ADMIN') return [...STAFF_ROLES];
+  return STAFF_ROLES.filter((r) => r !== 'ALL_SUPER_ADMIN');
 }
 
 export function getRoleDefaultAdminPath(role: StaffRole): string {

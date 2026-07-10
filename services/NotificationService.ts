@@ -129,7 +129,12 @@ export class NotificationService {
 
     return staff
       .filter((member) => {
-        if (member.role === 'SUPER_ADMIN' || member.role === 'INVENTORY_MANAGER' || member.role === 'MANAGER') {
+        if (
+          member.role === 'ALL_SUPER_ADMIN' ||
+          member.role === 'SUPER_ADMIN' ||
+          member.role === 'INVENTORY_MANAGER' ||
+          member.role === 'MANAGER'
+        ) {
           return true;
         }
         const perms = parsePermissions(member.permissions);

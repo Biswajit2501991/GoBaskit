@@ -1,6 +1,5 @@
 import * as XLSX from 'xlsx';
-import { STAFF_ROLES } from '@/types/staff';
-import { STAFF_TEMPLATE_COLUMNS } from '@/types/StaffBulkImport';
+import { BULK_ASSIGNABLE_STAFF_ROLES, STAFF_TEMPLATE_COLUMNS } from '@/types/StaffBulkImport';
 
 export function buildStaffTemplateWorkbook() {
   const headers = STAFF_TEMPLATE_COLUMNS.map((c) => c.header);
@@ -21,10 +20,10 @@ export function buildStaffTemplateWorkbook() {
     ['4. Import via Admin → Staff → Bulk Import.'],
     [''],
     ['Allowed roles:'],
-    ...STAFF_ROLES.map((r) => [r]),
+    ...BULK_ASSIGNABLE_STAFF_ROLES.map((r) => [r]),
   ];
   const instructionsSheet = XLSX.utils.aoa_to_sheet(instructions);
-  const rolesSheet = XLSX.utils.aoa_to_sheet([['Role'], ...STAFF_ROLES.map((r) => [r])]);
+  const rolesSheet = XLSX.utils.aoa_to_sheet([['Role'], ...BULK_ASSIGNABLE_STAFF_ROLES.map((r) => [r])]);
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, staffSheet, 'Staff');

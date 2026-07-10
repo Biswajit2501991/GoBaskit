@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { STAFF_ROLES } from '@/types/staff';
+import { STAFF_ROLE_LABELS, assignableStaffRoles } from '@/types/staff';
 import type { StaffRole } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,7 +65,13 @@ function staffPayloadError(form: typeof emptyForm, editingId: string | null): st
   return null;
 }
 
-export default function StaffManager() {
+export default function StaffManager({
+  canManage,
+  actorRole,
+}: {
+  canManage: boolean;
+  actorRole: StaffRole;
+}) {
   const router = useRouter();
   const [items, setItems] = useState<StaffRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -77,6 +83,7 @@ export default function StaffManager() {
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const roleOptions = assignableStaffRoles(actorRole);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -101,6 +108,7 @@ export default function StaffManager() {
   }, [load]);
 
   function openCreate() {
+    if (!canManage) return;
     setEditingId(null);
     setForm(emptyForm);
     setShowForm(true);
@@ -109,6 +117,8 @@ export default function StaffManager() {
   }
 
   function openEdit(row: StaffRow) {
+    if (!canManage) return;
+    if (row.role === 'ALL_SUPER_ADMIN' && actorRole !== 'ALL_SUPER_ADMIN') return;
     setEditingId(row.id);
     setForm({
       name: row.name,
@@ -179,11 +189,15 @@ export default function StaffManager() {
   }
 
   async function handleDelete(id: string) {
+    if (!canManage) return;
     if (!confirm('Deactivate this staff member?')) return;
     const res = await fetch(`/api/admin/staff/${id}`, { method: 'DELETE' });
     if (res.ok) {
       load();
       router.refresh();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(typeof data.error === 'string' ? data.error : 'Could not deactivate staff');
     }
   }
 
@@ -192,14 +206,20 @@ export default function StaffManager() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Staff Management</h1>
-          <p className="text-sm text-gray-500">Add, edit, and manage staff access</p>
+          <p className="text-sm text-gray-500">
+            {canManage
+              ? 'Add, edit, and manage staff access'
+              : 'View staff access (only All Super Admin can add staff or change passwords)'}
+          </p>
         </div>
-        <div className="flex gap-2">
-          <StaffBulkImport onComplete={load} />
-          <Button onClick={openCreate} className="gap-1">
-            <Plus className="w-4 h-4" /> Add Staff
-          </Button>
-        </div>
+        {canManage && (
+          <div className="flex gap-2">
+            <StaffBulkImport onComplete={load} />
+            <Button onClick={openCreate} className="gap-1">
+              <Plus className="w-4 h-4" /> Add Staff
+            </Button>
+          </div>
+        )}
       </div>
 
       <Input
@@ -254,21 +274,23 @@ export default function StaffManager() {
                   onChange={(e) => setForm({ ...form, role: e.target.value as StaffRole })}
                   className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
                 >
-                  {STAFF_ROLES.map((r) => (
-                    <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>
+                  {roleOptions.map((r) => (
+                    <option key={r} value={r}>{STAFF_ROLE_LABELS[r]}</option>
                   ))}
                 </select>
               </div>
-              <div>
-                <Label>{editingId ? 'New Password (optional)' : 'Password'}</Label>
-                <Input
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  className="mt-1"
-                  required={!editingId}
-                />
-              </div>
+              {canManage && (
+                <div>
+                  <Label>{editingId ? 'New Password (optional)' : 'Password'}</Label>
+                  <Input
+                    type="password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    className="mt-1"
+                    required={!editingId}
+                  />
+                </div>
+              )}
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
                 Active
@@ -356,7 +378,7 @@ export default function StaffManager() {
                 <tr key={row.id} className="border-t">
                   <td className="p-3 font-medium">{row.name}</td>
                   <td className="p-3">{row.mobile}</td>
-                  <td className="p-3">{row.role.replace(/_/g, ' ')}</td>
+                  <td className="p-3">{STAFF_ROLE_LABELS[row.role] ?? row.role.replace(/_/g, ' ')}</td>
                   <td className="p-3 text-xs text-gray-500">
                     {row.assignedCity || '—'}
                     {row.deliveryRadius ? ` · ${row.deliveryRadius}km` : ''}
@@ -367,12 +389,18 @@ export default function StaffManager() {
                     </span>
                   </td>
                   <td className="p-3 flex gap-1">
-                    <button type="button" onClick={() => openEdit(row)} className="p-1.5 hover:bg-gray-100 rounded">
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button type="button" onClick={() => handleDelete(row.id)} className="p-1.5 hover:bg-red-50 text-red-500 rounded">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {canManage && (
+                      <>
+                        <button type="button" onClick={() => openEdit(row)} className="p-1.5 hover:bg-gray-100 rounded" aria-label="Edit">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        {row.role !== 'ALL_SUPER_ADMIN' && (
+                          <button type="button" onClick={() => handleDelete(row.id)} className="p-1.5 hover:bg-red-50 text-red-500 rounded" aria-label="Deactivate">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </>
+                    )}
                   </td>
                 </tr>
               ))
