@@ -13,6 +13,7 @@ interface VariantAdminTableProps {
   productId: string;
   productName?: string;
   categoryName?: string;
+  productImageUrl?: string | null;
   onCountChange?: (count: number) => void;
 }
 
@@ -20,6 +21,7 @@ export default function VariantAdminTable({
   productId,
   productName,
   categoryName,
+  productImageUrl,
   onCountChange,
 }: VariantAdminTableProps) {
   const [variants, setVariants] = useState<ProductVariant[]>([]);
@@ -111,7 +113,9 @@ export default function VariantAdminTable({
       <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="font-semibold text-sm">Variant Management</h3>
-          <p className="text-[11px] text-gray-500">Each option has its own price, stock, and image.</p>
+          <p className="text-[11px] text-gray-500">
+            Each option has its own price and stock. Image can match the product or be unique.
+          </p>
         </div>
         <Button type="button" size="sm" onClick={openAdd} className="gap-1">
           <Plus className="w-3.5 h-3.5" /> Add Option
@@ -162,14 +166,27 @@ export default function VariantAdminTable({
                   </td>
                   <td className="p-2">
                     <div className="flex items-center gap-2">
-                      {v.imageUrl ? (
-                        <img src={resolvePublicImageUrl(v.imageUrl)} alt="" className="w-8 h-8 rounded object-cover border border-gray-100" />
-                      ) : (
-                        <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">—</div>
-                      )}
+                      {(() => {
+                        const thumb = v.imageUrl || productImageUrl;
+                        return thumb ? (
+                          <img
+                            src={resolvePublicImageUrl(thumb)}
+                            alt=""
+                            className="w-8 h-8 rounded object-cover border border-gray-100"
+                            title={v.imageUrl ? 'Option image' : 'Same as product'}
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">
+                            —
+                          </div>
+                        );
+                      })()}
                       <div className="min-w-0">
                         <p className="font-medium truncate">{variantLabel(v)}</p>
                         {v.sku ? <p className="text-[10px] text-gray-400">SKU: {v.sku}</p> : null}
+                        {!v.imageUrl && productImageUrl ? (
+                          <p className="text-[10px] text-blinkit-green">Same photo as product</p>
+                        ) : null}
                       </div>
                     </div>
                   </td>
@@ -222,6 +239,7 @@ export default function VariantAdminTable({
           productId={productId}
           productName={productName}
           categoryName={categoryName}
+          productImageUrl={productImageUrl}
           variant={editing}
           onSaved={() => {
             setShowForm(false);

@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { X } from 'lucide-react';
 import { variantSchema, type VariantFormData } from '@/lib/validations';
 import { calculateDiscountPercent } from '@/utils/pricing';
+import { resolvePublicImageUrl } from '@/utils/image';
 import { VARIANT_UNITS } from '@/utils/variant';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +18,7 @@ interface VariantFormProps {
   productId: string;
   productName?: string;
   categoryName?: string;
+  productImageUrl?: string | null;
   variant?: ProductVariant | null;
   onSaved: () => void;
   onClose: () => void;
@@ -45,6 +48,7 @@ export default function VariantForm({
   productId,
   productName = '',
   categoryName = '',
+  productImageUrl = null,
   variant,
   onSaved,
   onClose,
@@ -77,11 +81,26 @@ export default function VariantForm({
       : emptyVariant,
   });
 
+  // New options default to product photo; existing ones with no imageUrl also use product photo.
+  const [useProductImage, setUseProductImage] = useState(
+    variant ? !variant.imageUrl : true,
+  );
+
   const imageUrl = (watch('imageUrl') as string) || '';
   const price = Number(watch('price')) || 0;
   const mrpRaw = watch('mrp');
   const mrp = mrpRaw === null || mrpRaw === undefined || mrpRaw === '' ? null : Number(mrpRaw);
   const discount = calculateDiscountPercent(mrp, price);
+
+  function selectSameAsProduct() {
+    setUseProductImage(true);
+    setValue('imageUrl', '', { shouldDirty: true });
+  }
+
+  function selectCustomImage(url: string) {
+    setUseProductImage(false);
+    setValue('imageUrl', url, { shouldDirty: true });
+  }
 
   async function onSubmit(data: VariantFormData) {
     const url = variant
@@ -93,6 +112,7 @@ export default function VariantForm({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...data,
+        imageUrl: useProductImage ? null : data.imageUrl || null,
         mrp: data.mrp == null || data.mrp === '' ? null : Number(data.mrp),
       }),
     });
@@ -177,13 +197,67 @@ export default function VariantForm({
             {errors.details && <p className="text-red-500 text-xs mt-1">{errors.details.message}</p>}
           </div>
 
-          <ProductImageUpload
-            value={imageUrl}
-            onChange={(url) => setValue('imageUrl', url, { shouldDirty: true })}
-            label="Option Image (optional)"
-            searchName={`${productName} ${watch('brand') ?? ''}`.trim()}
-            searchCategory={categoryName}
-          />
+          <div className="md:col-span-2 lg:col-span-3 space-y-3">
+            <Label>Option Image</Label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={selectSameAsProduct}
+                className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  useProductImage
+                    ? 'border-blinkit-green bg-blinkit-green-light text-blinkit-green'
+                    : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Same photo as product
+              </button>
+              <button
+                type="button"
+                onClick={() => setUseProductImage(false)}
+                className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  !useProductImage
+                    ? 'border-blinkit-green bg-blinkit-green-light text-blinkit-green'
+                    : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Upload different photo
+              </button>
+            </div>
+
+            {useProductImage ? (
+              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 flex items-center gap-4">
+                {productImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={resolvePublicImageUrl(productImageUrl)}
+                    alt="Product"
+                    className="w-20 h-20 rounded-lg object-cover border border-gray-100 bg-white"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-lg bg-white border border-gray-100 flex items-center justify-center text-xs text-gray-400 text-center px-2">
+                    No product photo yet
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900">Using product photo</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    This option will show the same image as the product on the store.
+                    {productImageUrl
+                      ? ' Upload a product image above if you want to change it for all options using this setting.'
+                      : ' Add a product image first, then this option will pick it up automatically.'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <ProductImageUpload
+                value={imageUrl}
+                onChange={selectCustomImage}
+                label="Custom option image"
+                searchName={`${productName} ${watch('brand') ?? ''}`.trim()}
+                searchCategory={categoryName}
+              />
+            )}
+          </div>
 
           <div className="flex items-center gap-4 md:col-span-2 lg:col-span-3 flex-wrap">
             <label className="flex items-center gap-2 text-sm font-medium">

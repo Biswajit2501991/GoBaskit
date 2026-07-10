@@ -462,6 +462,7 @@ export default function ProductManager({
                     productId={editingId}
                     productName={currentName}
                     categoryName={currentCategoryName}
+                    productImageUrl={imageUrl || null}
                   />
                 </div>
               ) : (
