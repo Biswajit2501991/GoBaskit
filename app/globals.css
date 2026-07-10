@@ -82,7 +82,10 @@ body {
   /* No position here: callers place it with the `absolute` utility, which also
      establishes the containing block for the ::after shine. Forcing
      position:relative would override that utility and break placement. */
+  /* Clip only the shine overlay — never shrink/crop the label text. */
   overflow: hidden;
+  max-width: none;
+  box-sizing: border-box;
   animation: bestseller-flash 1.3s ease-in-out infinite;
 }
 

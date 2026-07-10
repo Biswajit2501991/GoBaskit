@@ -11,7 +11,7 @@ interface BestsellerBadgeProps {
 export default function BestsellerBadge({ className = '' }: BestsellerBadgeProps) {
   return (
     <span
-      className={`bestseller-badge inline-flex items-center bg-blinkit-yellow text-gray-900 font-bold rounded-md shadow-sm select-none ${className}`}
+      className={`bestseller-badge inline-flex items-center shrink-0 whitespace-nowrap bg-blinkit-yellow text-gray-900 font-bold rounded-md shadow-sm select-none ${className}`}
     >
       BESTSELLER
     </span>
