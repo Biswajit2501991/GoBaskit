@@ -20,6 +20,7 @@ interface VariantSelectorProps {
 }
 
 export function addVariantToCart(add: AddItemFn, product: ProductWithCategory, variant: ProductVariant) {
+  if (variant.stock <= 0) return;
   const size = variantSizeLabel(variant);
   add({
     productId: product.id,
@@ -42,6 +43,8 @@ export function addOptionToCart(
   option: ProductOption,
   variants: ProductVariant[],
 ) {
+  if (!option.inStock || option.stock <= 0) return;
+
   if (!option.variantId) {
     add({
       productId: product.id,
@@ -71,6 +74,7 @@ export default function VariantSelector({
   const addItem = useCartStore((s) => s.addItem);
   const { variants, options, optionsLabel } = useProductVariants(product);
   const buttonLabel = label ?? optionsLabel;
+  const anyInStock = options.some((o) => o.inStock);
 
   const cartQtyByKey = useMemo(() => {
     const map: Record<string, number> = {};
@@ -85,6 +89,7 @@ export default function VariantSelector({
   }, [hydrated, items, options, product.id]);
 
   function handleAdd(option: ProductOption) {
+    if (!option.inStock) return;
     addOptionToCart(addItem, product, option, variants);
     setOpen(false);
   }
@@ -95,6 +100,7 @@ export default function VariantSelector({
         variant="outline"
         size={size}
         onClick={() => setOpen(true)}
+        disabled={!anyInStock}
         className={
           className ||
           (fullWidth
@@ -102,7 +108,7 @@ export default function VariantSelector({
             : 'text-[10px] uppercase tracking-wide h-6 px-2 min-w-[2.75rem] shrink-0')
         }
       >
-        {buttonLabel}
+        {anyInStock ? buttonLabel : 'Out of stock'}
       </Button>
 
       <VariantDrawer

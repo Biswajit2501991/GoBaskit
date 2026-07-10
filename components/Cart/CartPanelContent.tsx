@@ -12,6 +12,7 @@ import { deliveryChargeFrom } from '@/constants';
 import { formatCurrency } from '@/utils/formatter';
 import { getListPrice } from '@/utils/pricing';
 import { resolvePublicImageUrl } from '@/utils/image';
+import { refreshCartStockFromServer } from '@/utils/refreshCartStock';
 import { Button } from '@/components/ui/button';
 
 type CartPanelContentProps = {
@@ -40,6 +41,11 @@ export default function CartPanelContent({
     fetchConfig();
   }, [fetchConfig]);
 
+  useEffect(() => {
+    if (!items.length) return;
+    void refreshCartStockFromServer();
+  }, [items.length]);
+
   const subtotal = getSubtotal();
   const deliveryCharge = deliveryChargeFrom(deliverySlabs, subtotal);
   const discountAmount =
@@ -48,6 +54,7 @@ export default function CartPanelContent({
       : 0;
   const grandTotal = Math.max(0, subtotal - discountAmount + deliveryCharge);
   const belowMinimum = minOrderValue > 0 && subtotal < minOrderValue;
+  const hasOutOfStock = items.some((i) => i.stock <= 0 || i.quantity > i.stock);
   const itemCount = items.reduce((n, i) => n + i.quantity, 0);
 
   useEffect(() => {
@@ -110,9 +117,12 @@ export default function CartPanelContent({
             </button>
           </div>
           <div className="divide-y divide-gray-50">
-            {items.map((item) => (
+            {items.map((item) => {
+              const outOfStock = item.stock <= 0;
+              const overStock = !outOfStock && item.quantity > item.stock;
+              return (
               <div key={itemLineKey(item)} className="p-3.5 flex gap-3">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100 overflow-hidden flex-shrink-0">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100 overflow-hidden flex-shrink-0 relative">
                   {item.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -127,6 +137,13 @@ export default function CartPanelContent({
                       </span>
                     </div>
                   )}
+                  {outOfStock ? (
+                    <div className="absolute inset-0 bg-white/75 flex items-center justify-center">
+                      <span className="bg-gray-800 text-white text-[8px] font-bold px-1.5 py-0.5 rounded uppercase">
+                        Out of stock
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-sm text-gray-900 truncate">{item.name}</h3>
@@ -136,6 +153,13 @@ export default function CartPanelContent({
                     </p>
                   ) : null}
                   <p className="text-xs text-gray-400">{item.unit}</p>
+                  {outOfStock ? (
+                    <p className="text-[11px] font-semibold text-red-500 mt-1">Out of stock — remove to continue</p>
+                  ) : overStock ? (
+                    <p className="text-[11px] font-semibold text-amber-600 mt-1">
+                      Only {item.stock} left — reduce quantity
+                    </p>
+                  ) : null}
                   <div className="flex items-baseline gap-1.5 mt-1">
                     <p className="font-bold text-sm">{formatCurrency(item.price)}</p>
                     {getListPrice(item.mrp ?? null, item.price) ? (
@@ -153,31 +177,38 @@ export default function CartPanelContent({
                   >
                     Remove
                   </button>
-                  <div className="flex items-center bg-blinkit-green rounded-lg overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => updateQuantity(itemLineKey(item), item.quantity - 1)}
-                      className="w-7 h-7 text-white font-bold"
-                      aria-label="Decrease quantity"
-                    >
-                      −
-                    </button>
-                    <span className="text-white font-bold text-sm w-5 text-center">
-                      {item.quantity}
+                  {outOfStock ? (
+                    <span className="text-[10px] font-bold uppercase text-gray-500 bg-gray-100 rounded-md px-2 py-1">
+                      Out of stock
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => updateQuantity(itemLineKey(item), item.quantity + 1)}
-                      disabled={item.quantity >= item.stock}
-                      className="w-7 h-7 text-white font-bold disabled:opacity-40"
-                      aria-label="Increase quantity"
-                    >
-                      +
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="flex items-center bg-blinkit-green rounded-lg overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(itemLineKey(item), item.quantity - 1)}
+                        className="w-7 h-7 text-white font-bold"
+                        aria-label="Decrease quantity"
+                      >
+                        −
+                      </button>
+                      <span className="text-white font-bold text-sm w-5 text-center">
+                        {item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(itemLineKey(item), item.quantity + 1)}
+                        disabled={item.quantity >= item.stock}
+                        className="w-7 h-7 text-white font-bold disabled:opacity-40"
+                        aria-label="Increase quantity"
+                      >
+                        +
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -231,6 +262,11 @@ export default function CartPanelContent({
               Add {formatCurrency(minOrderValue - subtotal)} more to checkout
             </p>
           )}
+          {hasOutOfStock && (
+            <p className="text-red-500 text-[11px] font-semibold text-center">
+              Remove out-of-stock items to continue
+            </p>
+          )}
           <div className="flex gap-2">
             {onContinueShopping ? (
               <Button
@@ -249,13 +285,13 @@ export default function CartPanelContent({
             <Button
               asChild
               className="flex-[1.2]"
-              disabled={belowMinimum}
+              disabled={belowMinimum || hasOutOfStock}
             >
               <Link
                 href="/checkout"
                 onClick={() => onBeforeCheckout?.()}
-                aria-disabled={belowMinimum}
-                className={belowMinimum ? 'pointer-events-none opacity-60' : undefined}
+                aria-disabled={belowMinimum || hasOutOfStock}
+                className={belowMinimum || hasOutOfStock ? 'pointer-events-none opacity-60' : undefined}
               >
                 <span className="flex w-full items-center justify-between gap-2 px-0.5">
                   <span className="font-bold">{formatCurrency(grandTotal)}</span>

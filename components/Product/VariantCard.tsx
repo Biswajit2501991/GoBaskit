@@ -59,9 +59,9 @@ export default function VariantCard({ option, inCartQty = 0, onAdd }: VariantCar
         size="sm"
         disabled={!option.inStock}
         onClick={() => onAdd(option)}
-        className="text-[11px] uppercase tracking-wide h-8 px-4 shrink-0 border-blinkit-green text-blinkit-green hover:bg-blinkit-green-light"
+        className="text-[11px] uppercase tracking-wide h-8 px-4 shrink-0 border-blinkit-green text-blinkit-green hover:bg-blinkit-green-light disabled:opacity-60"
       >
-        {inCartQty > 0 ? `${inCartQty}` : 'ADD'}
+        {!option.inStock ? 'Out of stock' : inCartQty > 0 ? `${inCartQty}` : 'ADD'}
       </Button>
     </div>
   );

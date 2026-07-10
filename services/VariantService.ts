@@ -86,12 +86,14 @@ export class VariantService {
   static async update(productId: string, variantId: string, input: VariantInput) {
     const existing = await prisma.productVariant.findFirst({
       where: { id: variantId, productId },
+      include: { product: { select: { id: true, name: true } } },
     });
     if (!existing) throw new Error('Variant not found');
 
     const pricing = this.pricingFields(input);
     const stock = Math.max(0, Math.trunc(input.stock ?? existing.stock));
     const stockBaseline = Math.max(existing.stockBaseline, stock);
+    const previous = existing.stock;
 
     const variant = await prisma.productVariant.update({
       where: { id: variantId },
@@ -120,19 +122,56 @@ export class VariantService {
         attributes: (input.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
       },
     });
+
+    if (stock <= 0 && previous > 0) {
+      const label = [existing.brand, existing.variantName, existing.weight, existing.unit]
+        .map((p) => String(p ?? '').trim())
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+      const { NotificationService } = await import('@/services/NotificationService');
+      await NotificationService.notifyOutOfStock({
+        id: productId,
+        name: label ? `${existing.product.name} (${label})` : existing.product.name,
+      });
+    }
+
+    const { InventoryService } = await import('@/services/InventoryService');
+    await InventoryService.syncVariantProductAvailability(productId);
+
     return variant;
   }
 
   static async updateStock(productId: string, variantId: string, stock: number) {
     const existing = await prisma.productVariant.findFirst({
       where: { id: variantId, productId },
+      include: { product: { select: { id: true, name: true } } },
     });
     if (!existing) throw new Error('Variant not found');
     const next = Math.max(0, Math.trunc(stock));
-    return prisma.productVariant.update({
+    const previous = existing.stock;
+    const variant = await prisma.productVariant.update({
       where: { id: variantId },
       data: { stock: next, stockBaseline: Math.max(existing.stockBaseline, next) },
     });
+
+    if (next <= 0 && previous > 0) {
+      const label = [existing.brand, existing.variantName, existing.weight, existing.unit]
+        .map((p) => String(p ?? '').trim())
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+      const { NotificationService } = await import('@/services/NotificationService');
+      await NotificationService.notifyOutOfStock({
+        id: productId,
+        name: label ? `${existing.product.name} (${label})` : existing.product.name,
+      });
+    }
+
+    const { InventoryService } = await import('@/services/InventoryService');
+    await InventoryService.syncVariantProductAvailability(productId);
+
+    return variant;
   }
 
   static async remove(productId: string, variantId: string) {

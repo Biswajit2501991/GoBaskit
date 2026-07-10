@@ -21,6 +21,8 @@ import {
   profileFromCheckout,
   saveCheckoutProfileLocal,
 } from '@/utils/customerProfile';
+import { prefetchCheckoutProfile } from '@/utils/prefetchCheckoutProfile';
+import { refreshCartStockFromServer } from '@/utils/refreshCartStock';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { checkoutSchema, type CheckoutSchema } from '@/lib/validations';
 import { buildWhatsAppMessage, buildWhatsAppUrl, openWhatsAppUrl } from '@/utils/whatsapp';
@@ -69,6 +71,7 @@ export default function CheckoutPage() {
       : 0;
   const grandTotal = Math.max(0, subtotal - discountAmount + deliveryCharge);
   const belowMinimum = minOrderValue > 0 && subtotal < minOrderValue;
+  const hasOutOfStock = items.some((i) => i.stock <= 0 || i.quantity > i.stock);
 
   const locationPin = useLocationStore((s) => s.pin);
   const locationCity = useLocationStore((s) => s.city);
@@ -112,23 +115,48 @@ export default function CheckoutPage() {
   const orderCompletedRef = useRef(false);
 
   useEffect(() => {
+    if (!items.length) return;
+    void refreshCartStockFromServer();
+  }, [items.length]);
+
+  useEffect(() => {
     if (profileLoaded) return;
 
-    async function loadProfile() {
-      const accountRes = await fetch('/api/customer/account');
-      const accountData = accountRes.ok ? await accountRes.json() : { mobile: null };
-      const sessionMobile = accountData.mobile ? normalizeMobile(accountData.mobile) : '';
-      const mobile = sessionMobile || customerMobile || checkedMobile;
-      let profile = sessionMobile ? loadCheckoutProfileLocal() : null;
+    // Instant fill from local cache so verified customers never stare at empty fields.
+    const localProfile = loadCheckoutProfileLocal();
+    if (localProfile) {
+      reset({
+        firstName: localProfile.firstName,
+        lastName: localProfile.lastName,
+        mobile: localProfile.mobile || customerMobile || checkedMobile || '',
+        alternateMobile: localProfile.alternateMobile || '',
+        houseNumber: localProfile.houseNumber,
+        street: localProfile.street,
+        area: localProfile.area,
+        landmark: localProfile.landmark || '',
+        city: localProfile.city,
+        state: localProfile.state,
+        pincode: localProfile.pincode || '',
+        paymentMethod: 'COD',
+        deliveryNotes: localProfile.deliveryNotes || '',
+      });
+    } else if (customerMobile || checkedMobile) {
+      setValue('mobile', customerMobile || checkedMobile || '', { shouldValidate: true });
+    }
 
-      // Apply logged-in verification once — drives Place Order UI without a second status flash.
+    async function loadProfile() {
+      const result = await prefetchCheckoutProfile();
+      const sessionMobile = result.mobile ? normalizeMobile(result.mobile) : '';
+      const mobile = sessionMobile || customerMobile || checkedMobile;
+      const profile = result.profile ?? (sessionMobile ? loadCheckoutProfileLocal() : null);
+
       if (sessionMobile) {
         const e164 = toE164('91', sessionMobile);
-        if (accountData.isWhatsappVerified || accountData.canCheckout) {
-          setWhatsappVerified(accountData.isWhatsappVerified === true);
+        if (result.isWhatsappVerified || result.canCheckout) {
+          setWhatsappVerified(result.isWhatsappVerified);
           setNeedsWhatsappVerification(false);
           setVerificationResolved(true);
-          if (e164 && accountData.isWhatsappVerified) {
+          if (e164 && result.isWhatsappVerified) {
             setVerifiedMobileE164(e164);
             setSessionVerifiedMobile(e164);
           }
@@ -137,22 +165,12 @@ export default function CheckoutPage() {
           setNeedsWhatsappVerification(false);
           setVerifiedMobileE164(e164);
           setVerificationResolved(true);
-        } else if (typeof accountData.needsVerification === 'boolean') {
-          setNeedsWhatsappVerification(accountData.needsVerification);
+        } else if (result.needsVerification !== null) {
+          setNeedsWhatsappVerification(result.needsVerification);
           setWhatsappVerified(false);
           setVerificationResolved(true);
-        }
-      }
-
-      if (sessionMobile && mobile) {
-        try {
-          const res = await fetch('/api/customer/profile');
-          if (res.ok) {
-            const data = await res.json();
-            if (data.profile) profile = data.profile;
-          }
-        } catch {
-          /* use local */
+        } else {
+          setVerificationResolved(true);
         }
       }
 
@@ -172,6 +190,12 @@ export default function CheckoutPage() {
           paymentMethod: 'COD',
           deliveryNotes: profile.deliveryNotes || '',
         });
+        if (profile.mobile || mobile) {
+          saveCheckoutProfileLocal({
+            ...profile,
+            mobile: profile.mobile || mobile || '',
+          });
+        }
       } else if (mobile) {
         setValue('mobile', mobile, { shouldValidate: true });
       }
@@ -383,6 +407,11 @@ export default function CheckoutPage() {
   function validateBeforeSubmit(data: CheckoutSchema): boolean {
     setOrderError('');
     if (belowMinimum) {
+      focusSection('summary');
+      return false;
+    }
+    if (hasOutOfStock) {
+      setOrderError('Some items are out of stock. Remove them from your cart to continue.');
       focusSection('summary');
       return false;
     }
@@ -613,6 +642,7 @@ export default function CheckoutPage() {
     deliveryServiceable &&
     isWhatsAppPatternValid &&
     !belowMinimum &&
+    !hasOutOfStock &&
     !isSubmitting;
 
   if (!hydrated) {
@@ -641,6 +671,12 @@ export default function CheckoutPage() {
         {belowMinimum && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
             Minimum order is {formatCurrency(minOrderValue)}. Add {formatCurrency(minOrderValue - subtotal)} more from the store.
+          </div>
+        )}
+
+        {hasOutOfStock && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+            Some items are out of stock. Go back to cart and remove them before placing your order.
           </div>
         )}
 

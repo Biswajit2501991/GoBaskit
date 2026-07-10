@@ -42,6 +42,10 @@ export default function ProductCard({ product }: ProductCardProps) {
   const cartItem = items.find((i) => i.productId === product.id && !i.variantId);
   const cartQty = hydrated ? (cartItem?.quantity ?? 0) : 0;
   const inStock = product.stock > 0 && product.status === 'ACTIVE';
+  const anyOptionInStock = showOptions
+    ? options.some((o) => o.inStock)
+    : inStock;
+  const showOutOfStock = !anyOptionInStock;
 
   /** Best (highest) health rating among the base product + options, when any are set. */
   const healthRating = useMemo(() => {
@@ -93,6 +97,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   }, [showOptions, options, product.actualPrice, product.price]);
 
   function handleAdd() {
+    if (!inStock) return;
     addItem({
       productId: product.id,
       name: product.name,
@@ -120,7 +125,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               position={healthStarDisplay.badgePosition}
             />
           )}
-          {!showOptions && !inStock && (
+          {showOutOfStock && (
             <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
               <span className="bg-gray-800 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase">Out of stock</span>
             </div>
@@ -162,7 +167,18 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
 
           {showOptions ? (
-            <VariantSelector product={product} label={optionsLabel} />
+            showOutOfStock ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled
+                className="text-[10px] uppercase tracking-wide h-6 px-2 min-w-[2.75rem] shrink-0 opacity-60"
+              >
+                Out of stock
+              </Button>
+            ) : (
+              <VariantSelector product={product} label={optionsLabel} />
+            )
           ) : cartQty > 0 ? (
             <div className="flex items-center bg-blinkit-green rounded-md overflow-hidden shrink-0">
               <button onClick={() => updateQuantity(product.id, cartQty - 1)} className="w-6 h-6 text-white text-sm font-bold hover:bg-blinkit-green-dark">−</button>

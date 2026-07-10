@@ -140,6 +140,7 @@ export default function ProductPage() {
     (healthStarDisplay.mode === 'stars' || healthStarDisplay.mode === 'both');
 
   function addSelected() {
+    if (!inStock) return;
     if (active) {
       addOptionToCart(addItem, product!, active, variants);
     } else {

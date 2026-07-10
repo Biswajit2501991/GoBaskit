@@ -24,6 +24,10 @@ interface CartState {
   addItem: (item: Omit<CartItem, 'quantity'>) => void;
   removeItem: (key: string) => void;
   updateQuantity: (key: string, quantity: number) => void;
+  /** Patch live stock from the server; clamps qty and flags OOS lines. */
+  syncLiveStock: (
+    updates: Array<{ productId: string; variantId?: string | null; stock: number }>,
+  ) => void;
   clearCart: () => void;
   getSubtotal: () => number;
   getItemCount: () => number;
@@ -37,9 +41,13 @@ export const useCartStore = create<CartState>()(
 
       addItem: (item) =>
         set((state) => {
+          // Never allow adding lines that are already out of stock.
+          if (item.stock <= 0) return state;
+
           const key = itemLineKey(item);
           const existing = state.items.find((i) => itemLineKey(i) === key);
           if (existing) {
+            if (existing.quantity >= item.stock) return state;
             const newQty = Math.min(existing.quantity + 1, item.stock);
             return {
               items: state.items.map((i) =>
@@ -76,6 +84,25 @@ export const useCartStore = create<CartState>()(
                 : i
             ),
           };
+        }),
+
+      syncLiveStock: (updates) =>
+        set((state) => {
+          if (!updates.length) return state;
+          const byKey = new Map(
+            updates.map((u) => [cartLineKey(u.productId, u.variantId), u.stock]),
+          );
+          let changed = false;
+          const items = state.items.map((item) => {
+            const key = itemLineKey(item);
+            if (!byKey.has(key)) return item;
+            const stock = Math.max(0, byKey.get(key)!);
+            const quantity = stock <= 0 ? item.quantity : Math.min(item.quantity, stock);
+            if (stock === item.stock && quantity === item.quantity) return item;
+            changed = true;
+            return { ...item, stock, quantity };
+          });
+          return changed ? { items } : state;
         }),
 
       clearCart: () => set({ items: [] }),

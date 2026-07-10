@@ -17,6 +17,7 @@ import OrderCelebration from '@/components/Cart/OrderCelebration';
 import { clearCheckoutProfileLocal } from '@/utils/customerProfile';
 import { clearSessionVerifiedMobile, setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
 import { toE164 } from '@/utils/phone';
+import { prefetchCheckoutProfile } from '@/utils/prefetchCheckoutProfile';
 
 interface HeaderProps {
   /** Set false to hide the global product search (e.g. focused flows like checkout). */
@@ -45,16 +46,22 @@ export default function Header({ showSearch = true }: HeaderProps) {
   const hasAccountIdentity = staffEligible || Boolean(customerMobile);
 
   useEffect(() => {
-    if (hasAccountIdentity) return;
+    if (hasAccountIdentity) {
+      // Already know the customer — warm checkout profile in the background.
+      void prefetchCheckoutProfile();
+      return;
+    }
     fetch('/api/customer/account')
       .then((res) => res.json())
-      .then((data: { mobile?: string | null; isWhatsappVerified?: boolean }) => {
+      .then(async (data: { mobile?: string | null; isWhatsappVerified?: boolean }) => {
         if (data.mobile) {
           setCustomerMobile(data.mobile);
           if (data.isWhatsappVerified) {
             const e164 = toE164('91', data.mobile);
             if (e164) setSessionVerifiedMobile(e164);
           }
+          // Prefetch profile so checkout autofills without waiting.
+          void prefetchCheckoutProfile();
         }
       })
       .catch(() => null);

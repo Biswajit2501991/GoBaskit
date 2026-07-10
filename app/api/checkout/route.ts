@@ -53,8 +53,8 @@ export async function POST(req: NextRequest) {
         ? discountRequest.type
         : 'NONE';
 
-    // Minimal parallel pre-work. Stock is enforced atomically inside the transaction
-    // (no separate validateCheckoutItems round-trip). Membership skips Action Plus.
+    // Minimal parallel pre-work. Friendly stock check before creating the order;
+    // atomic reserve inside the transaction still guards races.
     const [config, resolvedDiscount, verification] = await Promise.all([
       SettingsService.getStoreConfig(),
       DiscountEngine.resolveForCheckout({
@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
           typeof discountRequest?.memberId === 'string' ? discountRequest.memberId : null,
       }),
       WhatsAppVerificationService.getCheckoutVerificationState(mobileE164),
+      InventoryService.validateCheckoutItems(stockItems),
     ]);
 
     if (!resolvedDiscount.ok) {
@@ -116,6 +117,8 @@ export async function POST(req: NextRequest) {
     let inventoryUpdates: {
       productIds: string[];
       qtyByProduct: Map<string, number>;
+      variantIds: string[];
+      qtyByVariant: Map<string, number>;
     };
 
     // Keep the transaction lean: create + reserve only. No include of items/customer
@@ -244,6 +247,8 @@ export async function POST(req: NextRequest) {
           InventoryService.afterOrderReserved(
             inventorySnapshot.productIds,
             inventorySnapshot.qtyByProduct,
+            inventorySnapshot.variantIds,
+            inventorySnapshot.qtyByVariant,
           ),
           OrderService.onOrderCreated({
             id: orderSnapshot.id,

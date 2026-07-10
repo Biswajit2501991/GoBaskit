@@ -129,13 +129,16 @@ export class InventoryService {
       },
     });
 
-    await this.evaluateAlerts({
-      ...product,
-      stock: newStock,
-      stockBaseline,
-      status,
-      lowStockNotifiedAt: clearedAlert ? null : product.lowStockNotifiedAt,
-    });
+    await this.evaluateAlerts(
+      {
+        ...product,
+        stock: newStock,
+        stockBaseline,
+        status,
+        lowStockNotifiedAt: clearedAlert ? null : product.lowStockNotifiedAt,
+      },
+      product.stock,
+    );
 
     DashboardService.invalidateCache();
     return { stock: newStock, stockBaseline, status };
@@ -145,7 +148,12 @@ export class InventoryService {
     tx: Prisma.TransactionClient,
     orderId: string,
     items: OrderStockItem[],
-  ): Promise<{ productIds: string[]; qtyByProduct: Map<string, number> }> {
+  ): Promise<{
+    productIds: string[];
+    qtyByProduct: Map<string, number>;
+    variantIds: string[];
+    qtyByVariant: Map<string, number>;
+  }> {
     const byProduct = new Map<string, number>();
     const byVariant = new Map<string, number>();
     for (const item of items) {
@@ -183,13 +191,62 @@ export class InventoryService {
       }),
     ]);
 
-    return { productIds: [...byProduct.keys()], qtyByProduct: byProduct };
+    return {
+      productIds: [...byProduct.keys()],
+      qtyByProduct: byProduct,
+      variantIds: [...byVariant.keys()],
+      qtyByVariant: byVariant,
+    };
   }
 
   static async afterOrderReserved(
     productIds: string[],
     qtyByProduct: Map<string, number>,
+    variantIds: string[] = [],
+    qtyByVariant: Map<string, number> = new Map(),
   ): Promise<void> {
+    const parentIdsFromVariants = new Set<string>();
+
+    if (variantIds.length) {
+      const variants = await prisma.productVariant.findMany({
+        where: { id: { in: variantIds } },
+        select: {
+          id: true,
+          stock: true,
+          productId: true,
+          brand: true,
+          variantName: true,
+          weight: true,
+          unit: true,
+          product: { select: { id: true, name: true, status: true, hasVariants: true } },
+        },
+      });
+
+      for (const variant of variants) {
+        parentIdsFromVariants.add(variant.productId);
+        const reservedQty = qtyByVariant.get(variant.id) ?? 0;
+        const previousStock = variant.stock + reservedQty;
+        if (variant.stock <= 0 && previousStock > 0) {
+          const label = [variant.brand, variant.variantName, variant.weight, variant.unit]
+            .map((p) => String(p ?? '').trim())
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+          await NotificationService.notifyOutOfStock({
+            id: variant.productId,
+            name: label
+              ? `${variant.product.name} (${label})`
+              : variant.product.name,
+          });
+        }
+      }
+
+      // Sync parent product status when all active options are out of stock.
+      await Promise.all(
+        [...parentIdsFromVariants].map((productId) => this.syncVariantProductAvailability(productId)),
+      );
+    }
+
     if (!productIds.length) {
       DashboardService.invalidateCache();
       return;
@@ -231,6 +288,30 @@ export class InventoryService {
     );
 
     DashboardService.invalidateCache();
+  }
+
+  /** Mark parent OUT_OF_STOCK when every active option is at 0; restore ACTIVE when restocked. */
+  static async syncVariantProductAvailability(productId: string): Promise<void> {
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        id: true,
+        status: true,
+        hasVariants: true,
+        variants: { where: { isActive: true }, select: { stock: true } },
+      },
+    });
+    if (!product?.hasVariants) return;
+    if (product.status === 'INACTIVE') return;
+
+    const anyInStock = product.variants.some((v) => v.stock > 0);
+    const nextStatus = anyInStock ? 'ACTIVE' : 'OUT_OF_STOCK';
+    if (nextStatus === product.status) return;
+
+    await prisma.product.update({
+      where: { id: productId },
+      data: { status: nextStatus },
+    });
   }
 
   static async restoreForOrder(orderId: string): Promise<void> {
@@ -289,6 +370,17 @@ export class InventoryService {
     for (const product of updated) {
       await this.evaluateAlerts(product);
     }
+
+    // Restoring variant stock may bring a parent product back to ACTIVE.
+    const variantParentIds = [
+      ...new Set(
+        order.items.filter((i) => i.variantId).map((i) => i.productId),
+      ),
+    ];
+    await Promise.all(
+      variantParentIds.map((productId) => this.syncVariantProductAvailability(productId)),
+    );
+
     DashboardService.invalidateCache();
   }
 
