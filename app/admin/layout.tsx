@@ -24,6 +24,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   try {
     staff = await getStaffFromSession();
   } catch (err) {
+    // Let Next.js dynamic rendering proceed; only swallow unexpected failures.
+    const digest = err && typeof err === 'object' && 'digest' in err ? String((err as { digest?: string }).digest) : '';
+    if (digest === 'DYNAMIC_SERVER_USAGE') throw err;
     console.error('[admin/layout] session lookup failed', err);
   }
   if (!staff) {
