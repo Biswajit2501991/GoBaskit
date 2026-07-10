@@ -5,6 +5,7 @@ import { hashPassword } from '@/lib/auth';
 import { staffCreateSchema, formatZodFlattenError } from '@/lib/validations';
 import { normalizeMobile, isValidIndianMobile } from '@/utils/mobile';
 import { requireStaffPermission } from '@/lib/staff-auth';
+import { sealStaffPassword } from '@/lib/staff-password-vault';
 import { StaffService } from '@/services/StaffService';
 import { AuditService } from '@/services/AuditService';
 
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
         email: parsed.data.email || null,
         role: parsed.data.role,
         passwordHash: await hashPassword(password),
+        passwordVault: sealStaffPassword(password),
         permissions: parsed.data.permissions ?? [],
         active: parsed.data.active ?? true,
         assignedCity: parsed.data.assignedCity || null,

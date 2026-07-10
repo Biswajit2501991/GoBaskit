@@ -403,6 +403,8 @@ model StaffAccount {
   name            String
   role            StaffRole @default(READ_ONLY)
   passwordHash    String    @map("password_hash")
+  /** AES-GCM sealed password for All Super Admin recovery only — never returned in list APIs. */
+  passwordVault   String?   @map("password_vault")
   permissions     Json      @default("[]")
   assignedCity    String?   @map("assigned_city")
   assignedAreas   Json      @default("[]") @map("assigned_areas")

@@ -7,7 +7,7 @@ import type { StaffRole } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, KeyRound, Eye, EyeOff } from 'lucide-react';
 import StaffBulkImport from '@/components/Admin/StaffBulkImport';
 import ListPagination from './ListPagination';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
@@ -65,6 +65,10 @@ function staffPayloadError(form: typeof emptyForm, editingId: string | null): st
   return null;
 }
 
+function canEditStaffProfile(row: StaffRow): boolean {
+  return row.role !== 'SUPER_ADMIN' && row.role !== 'ALL_SUPER_ADMIN';
+}
+
 export default function StaffManager({
   canManage,
   actorRole,
@@ -83,7 +87,17 @@ export default function StaffManager({
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const roleOptions = assignableStaffRoles(actorRole);
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordModal, setPasswordModal] = useState<StaffRow | null>(null);
+  const [viewedPassword, setViewedPassword] = useState<string | null>(null);
+  const [passwordAvailable, setPasswordAvailable] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [showViewedPassword, setShowViewedPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const roleOptions = assignableStaffRoles(actorRole).filter((r) => r !== 'ALL_SUPER_ADMIN' || actorRole === 'ALL_SUPER_ADMIN');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,14 +125,14 @@ export default function StaffManager({
     if (!canManage) return;
     setEditingId(null);
     setForm(emptyForm);
+    setShowPassword(false);
     setShowForm(true);
     setError('');
     setSaving(false);
   }
 
   function openEdit(row: StaffRow) {
-    if (!canManage) return;
-    if (row.role === 'ALL_SUPER_ADMIN' && actorRole !== 'ALL_SUPER_ADMIN') return;
+    if (!canManage || !canEditStaffProfile(row)) return;
     setEditingId(row.id);
     setForm({
       name: row.name,
@@ -133,9 +147,68 @@ export default function StaffManager({
       longitude: row.longitude != null ? String(row.longitude) : '',
       deliveryRadius: row.deliveryRadius != null ? String(row.deliveryRadius) : '',
     });
+    setShowPassword(false);
     setShowForm(true);
     setError('');
     setSaving(false);
+  }
+
+  async function openPassword(row: StaffRow) {
+    if (!canManage) return;
+    setPasswordModal(row);
+    setViewedPassword(null);
+    setPasswordAvailable(false);
+    setNewPassword('');
+    setShowViewedPassword(false);
+    setShowNewPassword(false);
+    setPasswordError('');
+    setPasswordSaving(false);
+    setPasswordLoading(true);
+    try {
+      const res = await fetch(`/api/admin/staff/${row.id}/password`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPasswordError(typeof data.error === 'string' ? data.error : 'Could not load password');
+        return;
+      }
+      setViewedPassword(typeof data.password === 'string' ? data.password : null);
+      setPasswordAvailable(Boolean(data.available));
+    } catch {
+      setPasswordError('Network error loading password');
+    } finally {
+      setPasswordLoading(false);
+    }
+  }
+
+  async function handleSavePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!passwordModal || passwordSaving) return;
+    if (newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
+      return;
+    }
+    setPasswordSaving(true);
+    setPasswordError('');
+    try {
+      const res = await fetch(`/api/admin/staff/${passwordModal.id}/password`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: newPassword }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPasswordError(typeof data.error === 'string' ? data.error : 'Could not update password');
+        return;
+      }
+      setViewedPassword(newPassword);
+      setPasswordAvailable(true);
+      setNewPassword('');
+      setShowViewedPassword(true);
+    } catch {
+      setPasswordError('Network error. Please try again.');
+    } finally {
+      setPasswordSaving(false);
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -208,7 +281,7 @@ export default function StaffManager({
           <h1 className="text-2xl font-bold">Staff Management</h1>
           <p className="text-sm text-gray-500">
             {canManage
-              ? 'Add, edit, and manage staff access'
+              ? 'Add staff and manage passwords. Super Admin profiles cannot be edited.'
               : 'View staff access (only All Super Admin can add staff or change passwords)'}
           </p>
         </div>
@@ -274,21 +347,31 @@ export default function StaffManager({
                   onChange={(e) => setForm({ ...form, role: e.target.value as StaffRole })}
                   className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
                 >
-                  {roleOptions.map((r) => (
+                  {roleOptions.filter((r) => r !== 'ALL_SUPER_ADMIN').map((r) => (
                     <option key={r} value={r}>{STAFF_ROLE_LABELS[r]}</option>
                   ))}
                 </select>
               </div>
-              {canManage && (
+              {canManage && !editingId && (
                 <div>
-                  <Label>{editingId ? 'New Password (optional)' : 'Password'}</Label>
-                  <Input
-                    type="password"
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    className="mt-1"
-                    required={!editingId}
-                  />
+                  <Label>Password</Label>
+                  <div className="relative mt-1">
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      value={form.password}
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                      className="pr-10"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-800"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
               )}
               <label className="flex items-center gap-2 text-sm">
@@ -356,6 +439,84 @@ export default function StaffManager({
         </div>
       )}
 
+      {passwordModal && (
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/30 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-xl my-auto">
+            <div className="flex justify-between items-center p-6 pb-4 border-b border-gray-100">
+              <div>
+                <h2 className="font-bold">Staff password</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {passwordModal.name} · {passwordModal.mobile}
+                </p>
+              </div>
+              <button type="button" onClick={() => setPasswordModal(null)} aria-label="Close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {passwordLoading ? (
+                <p className="text-sm text-gray-400">Loading…</p>
+              ) : (
+                <>
+                  <div>
+                    <Label>Current password</Label>
+                    {passwordAvailable && viewedPassword ? (
+                      <div className="relative mt-1">
+                        <Input
+                          readOnly
+                          type={showViewedPassword ? 'text' : 'password'}
+                          value={viewedPassword}
+                          className="pr-10 bg-gray-50"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-800"
+                          onClick={() => setShowViewedPassword((v) => !v)}
+                          aria-label={showViewedPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showViewedPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-amber-700 mt-1 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                        No recoverable password stored yet. Set a new password below to enable viewing.
+                      </p>
+                    )}
+                  </div>
+                  <form onSubmit={handleSavePassword} className="space-y-3 border-t pt-4">
+                    <div>
+                      <Label>Set new password</Label>
+                      <div className="relative mt-1">
+                        <Input
+                          type={showNewPassword ? 'text' : 'password'}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className="pr-10"
+                          minLength={6}
+                          placeholder="Min 6 characters"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-800"
+                          onClick={() => setShowNewPassword((v) => !v)}
+                          aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    {passwordError && <p className="text-red-500 text-xs">{passwordError}</p>}
+                    <Button type="submit" className="w-full" disabled={passwordSaving || newPassword.length < 6}>
+                      {passwordSaving ? 'Saving…' : 'Update password'}
+                    </Button>
+                  </form>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-left text-gray-500">
@@ -365,7 +526,7 @@ export default function StaffManager({
               <th className="p-3">Role</th>
               <th className="p-3">Zone</th>
               <th className="p-3">Status</th>
-              <th className="p-3 w-24">Actions</th>
+              <th className="p-3 w-28">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -391,8 +552,19 @@ export default function StaffManager({
                   <td className="p-3 flex gap-1">
                     {canManage && (
                       <>
-                        <button type="button" onClick={() => openEdit(row)} className="p-1.5 hover:bg-gray-100 rounded" aria-label="Edit">
-                          <Pencil className="w-4 h-4" />
+                        {canEditStaffProfile(row) && (
+                          <button type="button" onClick={() => openEdit(row)} className="p-1.5 hover:bg-gray-100 rounded" aria-label="Edit">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => openPassword(row)}
+                          className="p-1.5 hover:bg-gray-100 rounded text-amber-700"
+                          aria-label="View password"
+                          title="View / change password"
+                        >
+                          <KeyRound className="w-4 h-4" />
                         </button>
                         {row.role !== 'ALL_SUPER_ADMIN' && (
                           <button type="button" onClick={() => handleDelete(row.id)} className="p-1.5 hover:bg-red-50 text-red-500 rounded" aria-label="Deactivate">

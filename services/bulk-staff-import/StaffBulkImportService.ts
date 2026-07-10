@@ -1,6 +1,7 @@
 import type { StaffRole } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth';
+import { sealStaffPassword } from '@/lib/staff-password-vault';
 import { isValidStaffRole, type StaffTemplateRow } from '@/types/StaffBulkImport';
 import { normalizeMobile, isValidIndianMobile } from '@/utils/mobile';
 import { StaffService } from '@/services/StaffService';
@@ -133,6 +134,7 @@ export class StaffBulkImportService {
               email: valid.email,
               role: source.role.trim() as StaffRole,
               passwordHash: await hashPassword(password),
+              passwordVault: sealStaffPassword(password),
               permissions: [],
               active: parseActive(source.active),
             },

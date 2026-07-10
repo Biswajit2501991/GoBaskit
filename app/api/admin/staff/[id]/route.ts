@@ -4,6 +4,7 @@ import { hashPassword, revokeStaffRefreshTokens } from '@/lib/auth';
 import { staffUpdateSchema, formatZodFlattenError } from '@/lib/validations';
 import { normalizeMobile, isValidIndianMobile } from '@/utils/mobile';
 import { requireStaffPermission } from '@/lib/staff-auth';
+import { sealStaffPassword } from '@/lib/staff-password-vault';
 import { StaffService } from '@/services/StaffService';
 import { AuditService } from '@/services/AuditService';
 
@@ -31,6 +32,29 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       { error: 'Only All Super Admin can edit an All Super Admin account' },
       { status: 403 },
     );
+  }
+
+  // Super Admin profiles are locked — password changes go through /password.
+  if (existing.role === 'SUPER_ADMIN') {
+    const touchingProfile = Boolean(
+      parsed.data.name ||
+      parsed.data.mobile ||
+      parsed.data.email !== undefined ||
+      parsed.data.role ||
+      parsed.data.permissions ||
+      parsed.data.active !== undefined ||
+      parsed.data.assignedCity !== undefined ||
+      parsed.data.assignedAreas ||
+      parsed.data.latitude !== undefined ||
+      parsed.data.longitude !== undefined ||
+      parsed.data.deliveryRadius !== undefined,
+    );
+    if (touchingProfile) {
+      return NextResponse.json(
+        { error: 'Super Admin accounts cannot be edited. Use View password to change their password.' },
+        { status: 403 },
+      );
+    }
   }
 
   if (parsed.data.role === 'ALL_SUPER_ADMIN' && auth.staff!.role !== 'ALL_SUPER_ADMIN') {
@@ -99,6 +123,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   if (parsed.data.password) {
     data.passwordHash = await hashPassword(parsed.data.password);
+    data.passwordVault = sealStaffPassword(parsed.data.password);
     await revokeStaffRefreshTokens(id);
   }
 
