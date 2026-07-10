@@ -51,7 +51,9 @@ export default function CategoryPage() {
 
         <div className="mb-5 rounded-2xl bg-gradient-to-r from-green-50 to-yellow-50 border border-gray-100 p-5 flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center text-4xl overflow-hidden shrink-0">
-            {categoryImage ? (
+            {showSkeleton ? (
+              <div className="w-full h-full skeleton" aria-hidden />
+            ) : categoryImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={categoryImage}
@@ -63,7 +65,13 @@ export default function CategoryPage() {
             )}
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-gray-900">{category?.name || slug}</h1>
+            <h1 className="text-xl font-extrabold text-gray-900">
+              {showSkeleton ? (
+                <span className="inline-block h-6 w-36 skeleton rounded" />
+              ) : (
+                category?.name || slug
+              )}
+            </h1>
             <p className="text-sm text-gray-500 mt-0.5">
               {showSkeleton ? 'Loading…' : `${products.length} product${products.length === 1 ? '' : 's'} available`}
             </p>
