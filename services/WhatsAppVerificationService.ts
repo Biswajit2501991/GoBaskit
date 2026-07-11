@@ -87,11 +87,59 @@ export class WhatsAppVerificationService {
 
   static async isMobileVerified(mobileE164: string): Promise<boolean> {
     if (!isValidE164(mobileE164)) return false;
-    const record = await prisma.customerMobile.findUnique({
-      where: { mobile: mobileE164 },
+    const variants = mobileVariantsFromE164(mobileE164);
+    const record = await prisma.customerMobile.findFirst({
+      where: { mobile: { in: variants } },
       select: { isWhatsappVerified: true },
     });
-    return record?.isWhatsappVerified === true;
+    if (record?.isWhatsappVerified === true) return true;
+
+    // Heal out-of-sync flags (e.g. after delete + re-verify / leftover VERIFIED rows).
+    return this.syncVerifiedFlagsForMobile(mobileE164);
+  }
+
+  /**
+   * Source of truth: any VERIFIED WhatsAppVerification for this mobile.
+   * Syncs CustomerMobile + all Customer order rows so admin locks unlock on re-verify.
+   */
+  static async syncVerifiedFlagsForMobile(mobileE164: string): Promise<boolean> {
+    if (!isValidE164(mobileE164)) return false;
+    const variants = mobileVariantsFromE164(mobileE164);
+
+    const latestVerified = await prisma.whatsAppVerification.findFirst({
+      where: {
+        mobile: { in: variants },
+        status: 'VERIFIED',
+      },
+      orderBy: [{ verifiedAt: 'desc' }, { createdAt: 'desc' }],
+      select: { verifiedAt: true, verifiedById: true },
+    });
+
+    const verified = Boolean(latestVerified);
+    const data = verified
+      ? {
+          isWhatsappVerified: true,
+          verifiedAt: latestVerified!.verifiedAt ?? new Date(),
+          verifiedById: latestVerified!.verifiedById ?? null,
+        }
+      : {
+          isWhatsappVerified: false,
+          verifiedAt: null,
+          verifiedById: null,
+        };
+
+    await prisma.$transaction([
+      prisma.customerMobile.updateMany({
+        where: { mobile: { in: variants } },
+        data,
+      }),
+      prisma.customer.updateMany({
+        where: { mobile: { in: variants } },
+        data,
+      }),
+    ]);
+
+    return verified;
   }
 
   static async needsVerification(mobileE164: string): Promise<boolean> {
@@ -572,6 +620,16 @@ export class WhatsAppVerificationService {
         },
       });
 
+      // Also mark any other CustomerMobile variant rows verified.
+      await tx.customerMobile.updateMany({
+        where: { mobile: { in: variants } },
+        data: {
+          isWhatsappVerified: true,
+          verifiedAt: now,
+          verifiedById: staffId,
+        },
+      });
+
       await tx.whatsAppVerification.updateMany({
         where: {
           mobile: verification.mobile,
@@ -581,6 +639,9 @@ export class WhatsAppVerificationService {
         data: { status: 'EXPIRED' },
       });
     });
+
+    // Ensure every Customer row for this number is unlocked after re-verify.
+    await this.syncVerifiedFlagsForMobile(verification.mobile);
 
     await VerificationAuditService.log({
       action: VERIFICATION_AUDIT_ACTIONS.APPROVED,
@@ -632,8 +693,9 @@ export class WhatsAppVerificationService {
   }
 
   /**
-   * Admin deletes a verification row and clears permanent WhatsApp-verified flags
-   * for that mobile so the customer can re-verify from scratch.
+   * Admin deletes a verification row. Recomputes WhatsApp-verified flags for that
+   * mobile from any remaining VERIFIED rows so re-verify unlocks orders again,
+   * and deleting one row doesn't leave flags stuck when another VERIFIED exists.
    */
   static async deleteVerification(verificationId: string, staffId: string, ip?: string) {
     const verification = await prisma.whatsAppVerification.findUnique({
@@ -642,29 +704,10 @@ export class WhatsAppVerificationService {
     if (!verification) throw new Error('Verification request not found');
 
     const mobile = verification.mobile;
-    const variants = mobileVariantsFromE164(mobile);
 
-    await prisma.$transaction(async (tx) => {
-      await tx.whatsAppVerification.delete({ where: { id: verificationId } });
+    await prisma.whatsAppVerification.delete({ where: { id: verificationId } });
 
-      await tx.customerMobile.updateMany({
-        where: { mobile: { in: variants } },
-        data: {
-          isWhatsappVerified: false,
-          verifiedAt: null,
-          verifiedById: null,
-        },
-      });
-
-      await tx.customer.updateMany({
-        where: { mobile: { in: variants } },
-        data: {
-          isWhatsappVerified: false,
-          verifiedAt: null,
-          verifiedById: null,
-        },
-      });
-    });
+    const stillVerified = await this.syncVerifiedFlagsForMobile(mobile);
 
     await VerificationAuditService.log({
       action: VERIFICATION_AUDIT_ACTIONS.DELETED,
@@ -673,15 +716,20 @@ export class WhatsAppVerificationService {
       actorType: 'staff',
       actorId: staffId,
       ip,
-      meta: { previousStatus: verification.status },
+      meta: { previousStatus: verification.status, stillVerified },
     });
 
     adminEventBus.emit({
       type: 'whatsapp_verification_updated',
-      payload: { id: verificationId, status: 'DELETED', mobile },
+      payload: {
+        id: verificationId,
+        status: 'DELETED',
+        mobile,
+        stillVerified,
+      },
     });
 
-    return { id: verificationId, deleted: true as const, mobile };
+    return { id: verificationId, deleted: true as const, mobile, stillVerified };
   }
 
   static async listAdmin(params: {

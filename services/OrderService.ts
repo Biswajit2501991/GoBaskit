@@ -6,6 +6,9 @@ import { adminEventBus } from '@/lib/realtime/eventBus';
 import { DashboardService } from '@/services/DashboardService';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { InventoryService } from '@/services/InventoryService';
+import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationService';
+import { toE164 } from '@/utils/phone';
+import { normalizeMobile } from '@/utils/mobile';
 
 export interface OrderListParams {
   search?: string;
@@ -210,7 +213,7 @@ export class OrderService {
   ) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: { customer: { select: { isWhatsappVerified: true } } },
+      include: { customer: { select: { isWhatsappVerified: true, mobile: true } } },
     });
     if (!order) throw new Error('Order not found');
     if (!this.canEditOrder(order, actor)) {
@@ -223,9 +226,16 @@ export class OrderService {
       data.status !== 'CANCELLED' &&
       !order.customer.isWhatsappVerified
     ) {
-      throw new Error(
-        'Customer WhatsApp is not verified yet. Verify the customer before progressing this order.',
-      );
+      // Heal stale Customer flags after delete/re-verify before locking the status change.
+      const e164 = toE164('91', normalizeMobile(order.customer.mobile));
+      const healed = e164
+        ? await WhatsAppVerificationService.syncVerifiedFlagsForMobile(e164)
+        : false;
+      if (!healed) {
+        throw new Error(
+          'Customer WhatsApp is not verified yet. Verify the customer before progressing this order.',
+        );
+      }
     }
 
     await prisma.order.update({

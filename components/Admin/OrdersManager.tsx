@@ -706,6 +706,11 @@ export default function OrdersManager({
       if (data.type === 'order_created' || data.type === 'orders_archived') {
         scheduleSilentReload();
       }
+
+      // Re-verify / delete updates Customer.isWhatsappVerified — refresh locks.
+      if (data.type === 'whatsapp_verification_updated') {
+        scheduleSilentReload();
+      }
     });
 
     return () => {
