@@ -107,38 +107,45 @@ export async function getAdminSession() {
 
 /** Deduped per RSC/request — layout + page share one staff DB lookup. */
 export const getStaffFromSession = cache(async () => {
-  const session = await getSession();
-  if (!session) return null;
+  try {
+    const session = await getSession();
+    if (!session) return null;
 
-  if ('type' in session && session.type === 'staff') {
-    const staff = await prisma.staffAccount.findFirst({
-      where: { id: session.sub, active: true, deletedAt: null },
-    });
-    return staff;
+    if ('type' in session && session.type === 'staff') {
+      const staff = await prisma.staffAccount.findFirst({
+        where: { id: session.sub, active: true, deletedAt: null },
+      });
+      return staff;
+    }
+
+    // Legacy admin table
+    const admin = await prisma.admin.findUnique({ where: { id: session.sub } });
+    if (!admin?.isActive) return null;
+    return {
+      id: admin.id,
+      mobile: '',
+      email: admin.email,
+      name: admin.name,
+      role: 'SUPER_ADMIN' as StaffRole,
+      passwordHash: '',
+      permissions: [],
+      assignedCity: null,
+      assignedAreas: [],
+      latitude: null,
+      longitude: null,
+      deliveryRadius: null,
+      active: true,
+      deletedAt: null,
+      lastLogin: null,
+      createdAt: admin.createdAt,
+      updatedAt: admin.updatedAt,
+    };
+  } catch (err) {
+    // Never reject the shared React cache() promise — layout may swallow it while
+    // a child page rethrows the same rejection and trips the admin error boundary.
+    console.error('[auth] getStaffFromSession failed', err);
+    return null;
   }
-
-  // Legacy admin table
-  const admin = await prisma.admin.findUnique({ where: { id: session.sub } });
-  if (!admin?.isActive) return null;
-  return {
-    id: admin.id,
-    mobile: '',
-    email: admin.email,
-    name: admin.name,
-    role: 'SUPER_ADMIN' as StaffRole,
-    passwordHash: '',
-    permissions: [],
-    assignedCity: null,
-    assignedAreas: [],
-    latitude: null,
-    longitude: null,
-    deliveryRadius: null,
-    active: true,
-    deletedAt: null,
-    lastLogin: null,
-    createdAt: admin.createdAt,
-    updatedAt: admin.updatedAt,
-  };
 });
 
 export function sessionHasPermission(

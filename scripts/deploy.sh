@@ -10,18 +10,33 @@ export NODE_ENV=production
 
 log() { echo "[deploy $(date -u +%H:%M:%S)] $*"; }
 
+cleanup() {
+  rm -f "$ROOT/.deploy-lock"
+}
+trap cleanup EXIT
+
 log "Pulling latest..."
 git pull --ff-only
 
 log "Running migrations..."
 npx prisma migrate deploy
 
-# Stop serving before wiping .next so in-flight requests cannot hit missing chunks.
-log "Stopping app for clean build..."
+# Prevent serve-app KeepAlive from restarting into a half-deleted .next.
+log "Locking app during clean build..."
+touch "$ROOT/.deploy-lock"
+
+log "Stopping app..."
 launchctl kill SIGTERM "gui/$(id -u)/com.gobaskit.app" 2>/dev/null || true
-# Also stop any stray next start if the LaunchAgent already exited.
+# Stop any stray next start still bound to :3000.
 pkill -f "next start -p 3000" 2>/dev/null || true
-sleep 1
+
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  if ! lsof -nP -iTCP:3000 -sTCP:LISTEN >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+  pkill -f "next start -p 3000" 2>/dev/null || true
+done
 
 log "Clean build..."
 rm -rf .next
@@ -33,9 +48,32 @@ if [[ "${chunk_count:-0}" -lt 10 ]]; then
   log "Build looks incomplete ($chunk_count JS chunks)"
   exit 1
 fi
+if [[ ! -f .next/BUILD_ID ]] || [[ ! -f .next/required-server-files.json ]]; then
+  log "Build missing required Next.js files"
+  exit 1
+fi
 
-log "Restarting app..."
+log "Releasing deploy lock and restarting app..."
+rm -f "$ROOT/.deploy-lock"
+trap - EXIT
+
 launchctl kickstart -k "gui/$(id -u)/com.gobaskit.app"
 
-log "Done."
-log "If /checkout still shows 'This page couldn't load', purge Cloudflare cache for /checkout and /_next/static/*"
+# Brief health wait so callers know the new process is up.
+ok=false
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  if curl -sf --max-time 5 http://127.0.0.1:3000/api/config >/dev/null 2>&1; then
+    ok=true
+    break
+  fi
+  sleep 1
+done
+
+if $ok; then
+  log "Done — app healthy on :3000"
+else
+  log "Done — but health check failed; see logs/launchd-app.err.log"
+  exit 1
+fi
+
+log "If an admin page still shows a load error, hard-reload once or purge Cloudflare cache for /_next/static/*"

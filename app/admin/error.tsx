@@ -47,11 +47,18 @@ export default function AdminError({
           This often happens right after a site update. Use Reload page once — that usually
           clears it. If it continues, open another tab from the menu.
         </p>
+        {(error.message || error.digest) && (
+          <p className="text-[11px] text-gray-400 break-all px-2">
+            {error.name ? `${error.name}: ` : ''}
+            {error.message || 'Unknown error'}
+            {error.digest ? ` (${error.digest})` : ''}
+          </p>
+        )}
         <div className="flex flex-wrap gap-2 justify-center">
           <Button
             onClick={() => {
               reset();
-              window.location.href = window.location.href;
+              window.location.replace(window.location.pathname + window.location.search);
             }}
           >
             Reload page

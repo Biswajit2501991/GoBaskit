@@ -18,10 +18,33 @@ mkdir -p "$ROOT/logs"
 
 log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*"; }
 
+wait_for_deploy_lock() {
+  # deploy.sh sets this while wiping/rebuilding .next so we never start mid-build.
+  local waited=0
+  while [[ -f "$ROOT/.deploy-lock" ]]; do
+    if (( waited % 10 == 0 )); then
+      log "Deploy in progress — waiting before start..."
+    fi
+    sleep 1
+    waited=$((waited + 1))
+    if (( waited > 600 )); then
+      log "Deploy lock stuck >10m — removing stale lock"
+      rm -f "$ROOT/.deploy-lock"
+      break
+    fi
+  done
+}
+
 while true; do
-  if [[ ! -d .next ]]; then
-    log "No build found — running npm run build..."
-    npm run build || { log "Build failed; retry in 60s"; sleep 60; continue; }
+  wait_for_deploy_lock
+
+  if [[ ! -d .next ]] || [[ ! -f .next/BUILD_ID ]]; then
+    if [[ -f "$ROOT/.deploy-lock" ]]; then
+      continue
+    fi
+    log "No complete build found — waiting for deploy (will not build here)..."
+    sleep 5
+    continue
   fi
 
   log "Starting Next.js on :3000"
