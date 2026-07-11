@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom';
 import { ArrowLeft, ShoppingBag } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import CartPanelContent from '@/components/Cart/CartPanelContent';
-import CartLoginGate from '@/components/Cart/CartLoginGate';
 import { useCartStore } from '@/store/cartStore';
 import { useCartUiStore } from '@/store/cartUiStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
@@ -149,33 +148,23 @@ export default function CartDrawer() {
               <div key={i} className="h-20 skeleton rounded-xl" />
             ))}
           </div>
+        ) : itemCount === 0 ? (
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 text-center">
+            <div className="w-20 h-20 bg-blinkit-green-light rounded-full flex items-center justify-center mb-4 text-3xl">
+              🛒
+            </div>
+            <h3 className="text-lg font-bold mb-1">Your cart is empty</h3>
+            <p className="text-sm text-gray-500 mb-5">Add groceries to get started</p>
+            <Button type="button" onClick={closeCart}>
+              Start Shopping
+            </Button>
+          </div>
         ) : (
-          <CartLoginGate
-            secondaryAction={
-              <Button type="button" variant="secondary" onClick={closeCart} className="w-full sm:w-auto">
-                Continue Shopping
-              </Button>
-            }
-          >
-            {itemCount === 0 ? (
-              <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 text-center">
-                <div className="w-20 h-20 bg-blinkit-green-light rounded-full flex items-center justify-center mb-4 text-3xl">
-                  🛒
-                </div>
-                <h3 className="text-lg font-bold mb-1">Your cart is empty</h3>
-                <p className="text-sm text-gray-500 mb-5">Add groceries to get started</p>
-                <Button type="button" onClick={closeCart}>
-                  Start Shopping
-                </Button>
-              </div>
-            ) : (
-              <CartPanelContent
-                className="flex-1 min-h-0"
-                onContinueShopping={closeCart}
-                onBeforeCheckout={closeCart}
-              />
-            )}
-          </CartLoginGate>
+          <CartPanelContent
+            className="flex-1 min-h-0"
+            onContinueShopping={closeCart}
+            onBeforeCheckout={closeCart}
+          />
         )}
       </aside>
     </div>,

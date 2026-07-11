@@ -127,6 +127,12 @@ export default function CartPanelContent({
       setCheckoutBusy(false);
     }
 
+    onBeforeCheckout?.();
+    openAccountModal();
+  }
+
+  function handleLoginToProceed() {
+    onBeforeCheckout?.();
     openAccountModal();
   }
 
@@ -292,43 +298,65 @@ export default function CartPanelContent({
 
       {showFooterActions && (
         <div className="shrink-0 border-t border-gray-200 bg-white p-3 pb-mobile-chrome space-y-2 shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
-          {belowMinimum && (
+          {customerMobile && belowMinimum && (
             <p className="text-amber-600 text-[11px] font-semibold text-center">
               Add {formatCurrency(minOrderValue - subtotal)} more to checkout
             </p>
           )}
-          {hasOutOfStock && (
+          {customerMobile && hasOutOfStock && (
             <p className="text-red-500 text-[11px] font-semibold text-center">
               Remove out-of-stock items to continue
             </p>
           )}
-          <div className="flex gap-2">
-            {onContinueShopping ? (
+          {!customerMobile ? (
+            <div className="flex gap-2">
+              {onContinueShopping ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={onContinueShopping}
+                >
+                  Continue Shopping
+                </Button>
+              ) : (
+                <Button variant="secondary" asChild className="flex-1">
+                  <Link href="/">Continue Shopping</Link>
+                </Button>
+              )}
+              <Button type="button" className="flex-[1.2]" onClick={handleLoginToProceed}>
+                Login to Proceed
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              {onContinueShopping ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={onContinueShopping}
+                >
+                  Continue Shopping
+                </Button>
+              ) : (
+                <Button variant="secondary" asChild className="flex-1">
+                  <Link href="/">Continue Shopping</Link>
+                </Button>
+              )}
               <Button
                 type="button"
-                variant="secondary"
-                className="flex-1"
-                onClick={onContinueShopping}
+                className="flex-[1.2]"
+                disabled={belowMinimum || hasOutOfStock || checkoutBusy}
+                onClick={() => void handleCheckoutClick()}
               >
-                Continue Shopping
+                <span className="flex w-full items-center justify-between gap-2 px-0.5">
+                  <span className="font-bold">{formatCurrency(grandTotal)}</span>
+                  <span>{checkoutBusy ? 'Please wait…' : 'Checkout →'}</span>
+                </span>
               </Button>
-            ) : (
-              <Button variant="secondary" asChild className="flex-1">
-                <Link href="/">Continue Shopping</Link>
-              </Button>
-            )}
-            <Button
-              type="button"
-              className="flex-[1.2]"
-              disabled={belowMinimum || hasOutOfStock || checkoutBusy}
-              onClick={() => void handleCheckoutClick()}
-            >
-              <span className="flex w-full items-center justify-between gap-2 px-0.5">
-                <span className="font-bold">{formatCurrency(grandTotal)}</span>
-                <span>{checkoutBusy ? 'Please wait…' : 'Checkout →'}</span>
-              </span>
-            </Button>
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>

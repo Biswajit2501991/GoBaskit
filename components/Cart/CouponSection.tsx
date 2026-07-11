@@ -23,7 +23,6 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
   const setApplied = useDiscountStore((s) => s.setApplied);
   const clearDiscount = useDiscountStore((s) => s.clear);
   const customerMobile = useStaffPortalStore((s) => s.customerMobile);
-  const openAccountModal = useStaffPortalStore((s) => s.openAccountModal);
 
   const [config, setConfig] = useState<PublicDiscountConfig | null>(null);
   const [code, setCode] = useState('');
@@ -69,6 +68,15 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
     return () => window.clearTimeout(timer);
   }, [subtotal, applied, clearDiscount]);
 
+  // Guests cannot keep an applied offer — clear if session ends.
+  useEffect(() => {
+    if (!customerMobile && applied) {
+      clearDiscount();
+      setError('');
+      setCode('');
+    }
+  }, [customerMobile, applied, clearDiscount]);
+
   const applyQuote = useCallback(
     (quote: AppliedDiscount) => {
       setApplied(quote);
@@ -82,14 +90,9 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
   const loggedIn = sessionMobile.length === 10;
 
   const verifyMembership = useCallback(async () => {
-    if (!config?.membershipEnabled || subtotal <= 0) return;
+    if (!loggedIn || !config?.membershipEnabled || subtotal <= 0) return;
     if (applied?.type === 'COUPON') {
       setError('Remove coupon first to verify membership discount');
-      return;
-    }
-    if (sessionMobile.length !== 10) {
-      setError('Please log in to verify membership');
-      openAccountModal();
       return;
     }
 
@@ -104,7 +107,6 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
       const data = await res.json();
       if (res.status === 401 || data.code === 'LOGIN_REQUIRED') {
         setError('Please log in to verify membership');
-        openAccountModal();
         return;
       }
       if (!data.ok) {
@@ -124,22 +126,10 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
     } finally {
       setBusy(false);
     }
-  }, [
-    config?.membershipEnabled,
-    subtotal,
-    applied,
-    sessionMobile,
-    applyQuote,
-    openAccountModal,
-  ]);
+  }, [loggedIn, config?.membershipEnabled, subtotal, applied, applyQuote]);
 
   async function applyCoupon() {
-    if (!config?.couponsEnabled) return;
-    if (sessionMobile.length !== 10) {
-      setError('Please log in to apply offers');
-      openAccountModal();
-      return;
-    }
+    if (!loggedIn || !config?.couponsEnabled) return;
     const trimmed = code.trim();
     if (!trimmed) {
       setError('Enter a coupon code');
@@ -164,7 +154,6 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
       const data = await res.json();
       if (res.status === 401 || data.code === 'LOGIN_REQUIRED') {
         setError('Please log in to apply a coupon');
-        openAccountModal();
         return;
       }
       if (!data.ok) {
@@ -203,7 +192,11 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
     <div className="space-y-3">
       {/* Choice screen / coupon path — matches cart design when nothing applied */}
       {config.couponsEnabled && (showChoiceScreen || couponApplied) && (
-        <div className="rounded-xl border border-dashed border-blinkit-green/50 bg-[#E8F8EE] p-3.5">
+        <div
+          className={`rounded-xl border border-dashed border-blinkit-green/50 bg-[#E8F8EE] p-3.5 ${
+            !loggedIn ? 'opacity-80' : ''
+          }`}
+        >
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-md bg-blinkit-green flex items-center justify-center shrink-0 text-white font-bold text-sm">
               %
@@ -211,9 +204,11 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
             <div className="flex-1 min-w-0">
               <p className="font-bold text-sm text-gray-900">Apply Coupon Code</p>
               <p className="text-xs text-gray-500 mt-0.5">
-                {loggedIn ? 'Enter code to get discount' : 'Log in to apply a coupon'}
+                {loggedIn
+                  ? 'Enter code to get discount'
+                  : 'Available after login — use Login to Proceed below'}
               </p>
-              {couponApplied ? (
+              {couponApplied && loggedIn ? (
                 <div className="mt-2.5 flex items-center justify-between gap-2">
                   <div>
                     <p className="text-sm font-semibold text-blinkit-green">{applied.couponCode}</p>
@@ -227,15 +222,20 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
                     Remove
                   </button>
                 </div>
-              ) : loggedIn ? (
-                <div className="mt-2.5 flex gap-2">
+              ) : (
+                <div
+                  className={`mt-2.5 flex gap-2 ${!loggedIn ? 'pointer-events-none' : ''}`}
+                  aria-disabled={!loggedIn}
+                >
                   <Input
-                    value={code}
+                    value={loggedIn ? code : ''}
                     onChange={(e) => setCode(e.target.value.toUpperCase())}
                     placeholder="Enter coupon code"
                     className="bg-white h-10"
-                    disabled={busy}
+                    disabled={!loggedIn || busy}
+                    readOnly={!loggedIn}
                     onKeyDown={(e) => {
+                      if (!loggedIn) return;
                       if (e.key === 'Enter') {
                         e.preventDefault();
                         void applyCoupon();
@@ -245,23 +245,13 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
                   <Button
                     type="button"
                     onClick={() => void applyCoupon()}
-                    disabled={busy}
+                    disabled={!loggedIn || busy}
                     className="shrink-0 px-5"
+                    tabIndex={loggedIn ? undefined : -1}
                   >
                     Apply
                   </Button>
                 </div>
-              ) : (
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setError('');
-                    openAccountModal();
-                  }}
-                  className="mt-2.5 w-full sm:w-auto"
-                >
-                  Login to apply
-                </Button>
               )}
             </div>
           </div>
@@ -270,9 +260,13 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
 
       {/* Membership: Verify on choice screen; applied state with Remove */}
       {config.membershipEnabled && (showChoiceScreen || membershipApplied) && (
-        <div className="rounded-xl border border-gray-100 bg-white p-3.5 space-y-2">
+        <div
+          className={`rounded-xl border border-gray-100 bg-white p-3.5 space-y-2 ${
+            !loggedIn ? 'opacity-80' : ''
+          }`}
+        >
           <p className="font-bold text-sm text-gray-900">Action Plus Membership</p>
-          {membershipApplied ? (
+          {membershipApplied && loggedIn ? (
             <div className="flex items-center justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold text-blinkit-green">
@@ -299,25 +293,19 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
               </p>
               <Button
                 type="button"
-                disabled={busy}
-                onClick={() => {
-                  if (!loggedIn) {
-                    setError('');
-                    openAccountModal();
-                    return;
-                  }
-                  void verifyMembership();
-                }}
+                disabled={!loggedIn || busy}
+                onClick={() => void verifyMembership()}
                 className="w-full sm:w-auto"
+                tabIndex={loggedIn ? undefined : -1}
               >
-                {busy ? 'Verifying…' : loggedIn ? 'Verify' : 'Login to verify'}
+                {busy ? 'Verifying…' : 'Verify'}
               </Button>
             </>
           )}
         </div>
       )}
 
-      {error && <p className="text-xs font-medium text-red-600">{error}</p>}
+      {error && loggedIn && <p className="text-xs font-medium text-red-600">{error}</p>}
     </div>
   );
 }
