@@ -55,12 +55,10 @@ export async function refreshCartStockFromServer(): Promise<CartStockRefreshResu
   for (const product of results) {
     if (!product?.id) continue;
     const lines = items.filter((i) => i.productId === product.id);
-    const missing = 'missing' in product && product.missing;
-    const inactiveProduct =
-      !missing && 'status' in product && product.status === 'INACTIVE';
+    const missing = 'missing' in product && product.missing === true;
 
     for (const line of lines) {
-      if (missing || inactiveProduct) {
+      if (missing || (!('missing' in product) && product.status === 'INACTIVE')) {
         updates.push({
           productId: product.id,
           variantId: line.variantId ?? null,
@@ -69,20 +67,23 @@ export async function refreshCartStockFromServer(): Promise<CartStockRefreshResu
         continue;
       }
 
+      // After the missing/INACTIVE branches, only a live product payload remains.
+      const live = product as ProductStockPayload;
+
       if (line.variantId) {
-        const variant = product.variants?.find((v) => v.id === line.variantId);
+        const variant = live.variants?.find((v) => v.id === line.variantId);
         const stock =
           !variant || variant.isActive === false ? 0 : Math.max(0, variant.stock ?? 0);
         updates.push({
-          productId: product.id,
+          productId: live.id,
           variantId: line.variantId,
           stock,
         });
       } else {
         updates.push({
-          productId: product.id,
+          productId: live.id,
           variantId: null,
-          stock: Math.max(0, product.stock ?? 0),
+          stock: Math.max(0, live.stock ?? 0),
         });
       }
     }
