@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import CouponSection from '@/components/Cart/CouponSection';
 import CancellationPolicyCard from '@/components/Cart/CancellationPolicyCard';
 import DeliveryEtaButton from '@/components/Header/DeliveryEtaButton';
 import { useCartStore, itemLineKey } from '@/store/cartStore';
 import { useConfigStore } from '@/store/configStore';
 import { useDiscountStore } from '@/store/discountStore';
+import { useStaffPortalStore } from '@/store/staffPortalStore';
 import { deliveryChargeFrom } from '@/constants';
 import { formatCurrency } from '@/utils/formatter';
 import { getListPrice } from '@/utils/pricing';
@@ -31,10 +33,15 @@ export default function CartPanelContent({
   showFooterActions = true,
   className = '',
 }: CartPanelContentProps) {
+  const router = useRouter();
   const { items, updateQuantity, removeItem, clearCart, getSubtotal } = useCartStore();
   const { deliverySlabs, minOrderValue, homepageConfig, fetchConfig } = useConfigStore();
   const appliedDiscount = useDiscountStore((s) => s.applied);
   const clearDiscount = useDiscountStore((s) => s.clear);
+  const customerMobile = useStaffPortalStore((s) => s.customerMobile);
+  const setCustomerMobile = useStaffPortalStore((s) => s.setCustomerMobile);
+  const openAccountModal = useStaffPortalStore((s) => s.openAccountModal);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
   const imageFetchAttempted = useRef(new Set<string>());
 
   useEffect(() => {
@@ -93,6 +100,34 @@ export default function CartPanelContent({
   function handleClearCart() {
     clearCart();
     clearDiscount();
+  }
+
+  async function handleCheckoutClick() {
+    if (belowMinimum || hasOutOfStock || checkoutBusy) return;
+
+    if (customerMobile) {
+      onBeforeCheckout?.();
+      router.push('/checkout');
+      return;
+    }
+
+    setCheckoutBusy(true);
+    try {
+      const res = await fetch('/api/customer/account');
+      const data = (await res.json().catch(() => ({}))) as { mobile?: string | null };
+      if (data.mobile) {
+        setCustomerMobile(data.mobile);
+        onBeforeCheckout?.();
+        router.push('/checkout');
+        return;
+      }
+    } catch {
+      /* fall through to login */
+    } finally {
+      setCheckoutBusy(false);
+    }
+
+    openAccountModal();
   }
 
   return (
@@ -283,21 +318,15 @@ export default function CartPanelContent({
               </Button>
             )}
             <Button
-              asChild
+              type="button"
               className="flex-[1.2]"
-              disabled={belowMinimum || hasOutOfStock}
+              disabled={belowMinimum || hasOutOfStock || checkoutBusy}
+              onClick={() => void handleCheckoutClick()}
             >
-              <Link
-                href="/checkout"
-                onClick={() => onBeforeCheckout?.()}
-                aria-disabled={belowMinimum || hasOutOfStock}
-                className={belowMinimum || hasOutOfStock ? 'pointer-events-none opacity-60' : undefined}
-              >
-                <span className="flex w-full items-center justify-between gap-2 px-0.5">
-                  <span className="font-bold">{formatCurrency(grandTotal)}</span>
-                  <span>Checkout →</span>
-                </span>
-              </Link>
+              <span className="flex w-full items-center justify-between gap-2 px-0.5">
+                <span className="font-bold">{formatCurrency(grandTotal)}</span>
+                <span>{checkoutBusy ? 'Please wait…' : 'Checkout →'}</span>
+              </span>
             </Button>
           </div>
         </div>

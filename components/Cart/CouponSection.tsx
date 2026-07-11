@@ -23,10 +23,10 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
   const setApplied = useDiscountStore((s) => s.setApplied);
   const clearDiscount = useDiscountStore((s) => s.clear);
   const customerMobile = useStaffPortalStore((s) => s.customerMobile);
+  const openAccountModal = useStaffPortalStore((s) => s.openAccountModal);
 
   const [config, setConfig] = useState<PublicDiscountConfig | null>(null);
   const [code, setCode] = useState('');
-  const [guestMobile, setGuestMobile] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const staleClearedForRef = useRef<number | null>(null);
@@ -79,6 +79,7 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
   );
 
   const sessionMobile = customerMobile ? normalizeMobile(customerMobile) : '';
+  const loggedIn = sessionMobile.length === 10;
 
   const verifyMembership = useCallback(async () => {
     if (!config?.membershipEnabled || subtotal <= 0) return;
@@ -86,10 +87,9 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
       setError('Remove coupon first to verify membership discount');
       return;
     }
-
-    const mobile = sessionMobile || normalizeMobile(guestMobile);
-    if (mobile.length !== 10) {
-      setError('Enter a valid 10-digit mobile number to verify membership');
+    if (sessionMobile.length !== 10) {
+      setError('Please log in to verify membership');
+      openAccountModal();
       return;
     }
 
@@ -99,9 +99,14 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
       const res = await fetch('/api/discount/membership/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile, subtotal }),
+        body: JSON.stringify({ subtotal }),
       });
       const data = await res.json();
+      if (res.status === 401 || data.code === 'LOGIN_REQUIRED') {
+        setError('Please log in to verify membership');
+        openAccountModal();
+        return;
+      }
       if (!data.ok) {
         setError(data.error || 'No Active Membership Found');
         return;
@@ -119,10 +124,22 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
     } finally {
       setBusy(false);
     }
-  }, [config?.membershipEnabled, subtotal, applied, sessionMobile, guestMobile, applyQuote]);
+  }, [
+    config?.membershipEnabled,
+    subtotal,
+    applied,
+    sessionMobile,
+    applyQuote,
+    openAccountModal,
+  ]);
 
   async function applyCoupon() {
     if (!config?.couponsEnabled) return;
+    if (sessionMobile.length !== 10) {
+      setError('Please log in to apply offers');
+      openAccountModal();
+      return;
+    }
     const trimmed = code.trim();
     if (!trimmed) {
       setError('Enter a coupon code');
@@ -142,10 +159,14 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
         body: JSON.stringify({
           code: trimmed,
           subtotal,
-          mobile: sessionMobile || guestMobile || undefined,
         }),
       });
       const data = await res.json();
+      if (res.status === 401 || data.code === 'LOGIN_REQUIRED') {
+        setError('Please log in to apply a coupon');
+        openAccountModal();
+        return;
+      }
       if (!data.ok) {
         setError(data.error || 'Invalid Coupon Code');
         return;
@@ -189,7 +210,9 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-sm text-gray-900">Apply Coupon Code</p>
-              <p className="text-xs text-gray-500 mt-0.5">Enter code to get discount</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {loggedIn ? 'Enter code to get discount' : 'Log in to apply a coupon'}
+              </p>
               {couponApplied ? (
                 <div className="mt-2.5 flex items-center justify-between gap-2">
                   <div>
@@ -204,7 +227,7 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
                     Remove
                   </button>
                 </div>
-              ) : (
+              ) : loggedIn ? (
                 <div className="mt-2.5 flex gap-2">
                   <Input
                     value={code}
@@ -215,19 +238,30 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        applyCoupon();
+                        void applyCoupon();
                       }
                     }}
                   />
                   <Button
                     type="button"
-                    onClick={applyCoupon}
+                    onClick={() => void applyCoupon()}
                     disabled={busy}
                     className="shrink-0 px-5"
                   >
                     Apply
                   </Button>
                 </div>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setError('');
+                    openAccountModal();
+                  }}
+                  className="mt-2.5 w-full sm:w-auto"
+                >
+                  Login to apply
+                </Button>
               )}
             </div>
           </div>
@@ -257,27 +291,26 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
           ) : (
             <>
               <p className="text-xs text-gray-500">
-                {config.membershipDiscountPercent > 0
-                  ? `${config.membershipDiscountPercent}% off for active Action Plus members`
-                  : 'Verify your Action Plus membership to get a discount'}
+                {loggedIn
+                  ? config.membershipDiscountPercent > 0
+                    ? `${config.membershipDiscountPercent}% off for active Action Plus members`
+                    : 'Verify your Action Plus membership to get a discount'
+                  : 'Log in to verify your Action Plus membership and get the offer'}
               </p>
-              {!sessionMobile && (
-                <Input
-                  value={guestMobile}
-                  onChange={(e) => setGuestMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  placeholder="Mobile number"
-                  className="h-10"
-                  inputMode="numeric"
-                  disabled={busy}
-                />
-              )}
               <Button
                 type="button"
                 disabled={busy}
-                onClick={() => void verifyMembership()}
+                onClick={() => {
+                  if (!loggedIn) {
+                    setError('');
+                    openAccountModal();
+                    return;
+                  }
+                  void verifyMembership();
+                }}
                 className="w-full sm:w-auto"
               >
-                {busy ? 'Verifying…' : 'Verify'}
+                {busy ? 'Verifying…' : loggedIn ? 'Verify' : 'Login to verify'}
               </Button>
             </>
           )}

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
 import CartPanelContent from '@/components/Cart/CartPanelContent';
+import CartLoginGate from '@/components/Cart/CartLoginGate';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { Button } from '@/components/ui/button';
@@ -53,7 +54,15 @@ export default function CartPage() {
         <div className="px-4 pt-3 pb-2 flex items-center justify-between shrink-0">
           <h2 className="text-lg font-bold text-gray-900">My Cart</h2>
         </div>
-        <CartPanelContent className="flex-1 min-h-0" />
+        <CartLoginGate
+          secondaryAction={
+            <Button type="button" variant="secondary" asChild className="w-full sm:w-auto">
+              <Link href="/">Continue Shopping</Link>
+            </Button>
+          }
+        >
+          <CartPanelContent className="flex-1 min-h-0" />
+        </CartLoginGate>
       </main>
     </div>
   );

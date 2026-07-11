@@ -78,6 +78,7 @@ export default function CheckoutPage() {
   const checkedMobile = useStaffPortalStore((s) => s.checkedMobile);
   const customerMobile = useStaffPortalStore((s) => s.customerMobile);
   const setCustomerMobile = useStaffPortalStore((s) => s.setCustomerMobile);
+  const openAccountModal = useStaffPortalStore((s) => s.openAccountModal);
 
   const {
     register,
@@ -98,6 +99,7 @@ export default function CheckoutPage() {
     },
   });
 
+  const [authChecked, setAuthChecked] = useState(false);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [whatsappVerified, setWhatsappVerified] = useState(false);
   // Optimistic: don't assume verification is required until we know (avoids Place Order flash).
@@ -119,8 +121,39 @@ export default function CheckoutPage() {
     void refreshCartStockFromServer();
   }, [items.length]);
 
+  // Guests must log in before checkout. Re-check when session becomes available.
+  useEffect(() => {
+    if (customerMobile) {
+      setAuthChecked(true);
+      return;
+    }
+
+    let alive = true;
+    fetch('/api/customer/account')
+      .then((res) => res.json())
+      .then((data: { mobile?: string | null }) => {
+        if (!alive) return;
+        if (data.mobile) {
+          setCustomerMobile(data.mobile);
+        } else {
+          openAccountModal();
+        }
+        setAuthChecked(true);
+      })
+      .catch(() => {
+        if (!alive) return;
+        openAccountModal();
+        setAuthChecked(true);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [customerMobile, setCustomerMobile, openAccountModal]);
+
   useEffect(() => {
     if (profileLoaded) return;
+    if (!customerMobile) return;
 
     // Instant fill from local cache so verified customers never stare at empty fields.
     const localProfile = loadCheckoutProfileLocal();
@@ -128,7 +161,7 @@ export default function CheckoutPage() {
       reset({
         firstName: localProfile.firstName,
         lastName: localProfile.lastName,
-        mobile: localProfile.mobile || customerMobile || checkedMobile || '',
+        mobile: customerMobile || localProfile.mobile || checkedMobile || '',
         alternateMobile: localProfile.alternateMobile || '',
         houseNumber: localProfile.houseNumber,
         street: localProfile.street,
@@ -147,7 +180,7 @@ export default function CheckoutPage() {
     async function loadProfile() {
       const result = await prefetchCheckoutProfile();
       const sessionMobile = result.mobile ? normalizeMobile(result.mobile) : '';
-      const mobile = sessionMobile || customerMobile || checkedMobile;
+      const mobile = customerMobile || sessionMobile || checkedMobile;
       const profile = result.profile ?? (sessionMobile ? loadCheckoutProfileLocal() : null);
 
       if (sessionMobile) {
@@ -178,7 +211,7 @@ export default function CheckoutPage() {
         reset({
           firstName: profile.firstName,
           lastName: profile.lastName,
-          mobile: profile.mobile || mobile || '',
+          mobile: customerMobile || profile.mobile || mobile || '',
           alternateMobile: profile.alternateMobile || '',
           houseNumber: profile.houseNumber,
           street: profile.street,
@@ -193,7 +226,7 @@ export default function CheckoutPage() {
         if (profile.mobile || mobile) {
           saveCheckoutProfileLocal({
             ...profile,
-            mobile: profile.mobile || mobile || '',
+            mobile: customerMobile || profile.mobile || mobile || '',
           });
         }
       } else if (mobile) {
@@ -300,16 +333,11 @@ export default function CheckoutPage() {
   ]);
 
   useEffect(() => {
-    if (checkedMobile && !getValues('mobile')) {
-      setValue('mobile', checkedMobile, { shouldValidate: true });
-    }
-  }, [checkedMobile, getValues, setValue]);
-
-  useEffect(() => {
-    if (customerMobile && !getValues('mobile')) {
+    // Keep checkout mobile locked to the logged-in account.
+    if (customerMobile) {
       setValue('mobile', customerMobile, { shouldValidate: true });
     }
-  }, [customerMobile, getValues, setValue]);
+  }, [customerMobile, setValue]);
 
   useEffect(() => {
     if (!isWhatsAppPatternValid || !mobileE164) {
@@ -546,7 +574,9 @@ export default function CheckoutPage() {
       const result = await res.json().catch(() => ({}));
       if (!res.ok) {
         setOrderError(typeof result.error === 'string' ? result.error : 'Failed to place order');
-        if (result.code === 'VERIFICATION_REQUIRED') {
+        if (result.code === 'LOGIN_REQUIRED') {
+          openAccountModal();
+        } else if (result.code === 'VERIFICATION_REQUIRED') {
           setNeedsWhatsappVerification(true);
           setShowVerificationModal(true);
         }
@@ -671,7 +701,7 @@ export default function CheckoutPage() {
     !hasOutOfStock &&
     !isSubmitting;
 
-  if (!hydrated) {
+  if (!hydrated || !authChecked) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header showSearch={false} />
@@ -679,6 +709,30 @@ export default function CheckoutPage() {
           <div className="h-8 w-32 skeleton rounded" />
           <div className="h-64 skeleton rounded-xl" />
         </div>
+      </div>
+    );
+  }
+
+  if (!customerMobile) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        <Header showSearch={false} />
+        <main className="flex-1 max-w-lg mx-auto w-full px-4 py-10">
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center space-y-4">
+            <h2 className="text-lg font-bold text-gray-900">Login required</h2>
+            <p className="text-sm text-gray-500">
+              Please log in with your mobile number to apply offers and complete checkout.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2 justify-center">
+              <Button type="button" onClick={openAccountModal}>
+                Login to continue
+              </Button>
+              <Button type="button" variant="secondary" asChild>
+                <Link href="/cart">Back to cart</Link>
+              </Button>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
@@ -732,8 +786,17 @@ export default function CheckoutPage() {
             </div>
             <div>
               <Label>Mobile *</Label>
-              <Input {...register('mobile')} placeholder="10-digit mobile number" maxLength={10} inputMode="numeric" className="mt-1" />
-              <p className="text-[11px] text-gray-400 mt-1">We&apos;ll confirm your order on this WhatsApp number.</p>
+              <Input
+                {...register('mobile')}
+                placeholder="10-digit mobile number"
+                maxLength={10}
+                inputMode="numeric"
+                className="mt-1 bg-gray-50"
+                readOnly
+              />
+              <p className="text-[11px] text-gray-400 mt-1">
+                Orders are placed on your logged-in WhatsApp number (+91 {customerMobile}).
+              </p>
               {whatsappVerified && isWhatsAppPatternValid && (
                 <p className="text-xs text-green-700 flex items-center gap-1 mt-1">
                   <CheckCircle2 className="w-3.5 h-3.5" /> WhatsApp verified

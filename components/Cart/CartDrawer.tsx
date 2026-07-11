@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { ArrowLeft, ShoppingBag } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import CartPanelContent from '@/components/Cart/CartPanelContent';
+import CartLoginGate from '@/components/Cart/CartLoginGate';
 import { useCartStore } from '@/store/cartStore';
 import { useCartUiStore } from '@/store/cartUiStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
@@ -160,11 +161,19 @@ export default function CartDrawer() {
             </Button>
           </div>
         ) : (
-          <CartPanelContent
-            className="flex-1 min-h-0"
-            onContinueShopping={closeCart}
-            onBeforeCheckout={closeCart}
-          />
+          <CartLoginGate
+            secondaryAction={
+              <Button type="button" variant="secondary" onClick={closeCart} className="w-full sm:w-auto">
+                Continue Shopping
+              </Button>
+            }
+          >
+            <CartPanelContent
+              className="flex-1 min-h-0"
+              onContinueShopping={closeCart}
+              onBeforeCheckout={closeCart}
+            />
+          </CartLoginGate>
         )}
       </aside>
     </div>,

@@ -3,13 +3,23 @@ import { z } from 'zod';
 import { DiscountEngine } from '@/services/DiscountEngine';
 import { checkRateLimit } from '@/lib/simple-rate-limit';
 import { getRequestMeta } from '@/lib/request-meta';
+import { getCustomerMobileFromRequest } from '@/lib/customer-session';
 
 const bodySchema = z.object({
-  mobile: z.string().min(8).max(20),
   subtotal: z.number().positive(),
+  /** @deprecated Ignored — membership is always checked against the logged-in session mobile. */
+  mobile: z.string().min(8).max(20).optional(),
 });
 
 export async function POST(req: NextRequest) {
+  const sessionMobile = getCustomerMobileFromRequest(req);
+  if (!sessionMobile) {
+    return NextResponse.json(
+      { ok: false, code: 'LOGIN_REQUIRED', error: 'Please log in to verify membership' },
+      { status: 401 },
+    );
+  }
+
   const meta = getRequestMeta(req);
   const limited = checkRateLimit(`membership-check:${meta.ip || 'unknown'}`, 20, 60_000);
   if (!limited.ok) {
@@ -29,13 +39,13 @@ export async function POST(req: NextRequest) {
   }
 
   const result = await DiscountEngine.checkMembership({
-    mobile: parsed.data.mobile,
+    mobile: sessionMobile,
     subtotal: parsed.data.subtotal,
   });
 
   if (!result.ok) {
     await DiscountEngine.logAttempt({
-      mobile: parsed.data.mobile,
+      mobile: sessionMobile,
       membership: true,
       discountType: 'MEMBERSHIP',
       status: result.code,

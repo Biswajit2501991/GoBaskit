@@ -16,17 +16,37 @@ import {
   CUSTOMER_MOBILE_COOKIE,
   createCustomerSessionToken,
   customerSessionCookieOptions,
+  getCustomerMobileFromRequest,
 } from '@/lib/customer-session';
+import { normalizeMobile } from '@/utils/mobile';
 
 export async function POST(req: NextRequest) {
   const started = Date.now();
   try {
+    const sessionMobile = getCustomerMobileFromRequest(req);
+    if (!sessionMobile) {
+      return NextResponse.json(
+        { error: 'Please log in to place your order.', code: 'LOGIN_REQUIRED' },
+        { status: 401 },
+      );
+    }
+
     const body = await req.json();
     const { customer, items, paymentMethod, orderSource, customerLat, customerLng, discount } = body;
 
     const parsed = checkoutSchema.safeParse({ ...customer, paymentMethod });
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    }
+
+    if (normalizeMobile(parsed.data.mobile) !== sessionMobile) {
+      return NextResponse.json(
+        {
+          error: 'Checkout mobile must match your logged-in account. Please use your account mobile number.',
+          code: 'MOBILE_MISMATCH',
+        },
+        { status: 403 },
+      );
     }
 
     if (!items?.length) {
@@ -60,7 +80,7 @@ export async function POST(req: NextRequest) {
       DiscountEngine.resolveForCheckout({
         type: discountTypeRaw,
         couponCode: typeof discountRequest?.couponCode === 'string' ? discountRequest.couponCode : null,
-        mobile: parsed.data.mobile,
+        mobile: sessionMobile,
         subtotal,
         clientDiscountAmount:
           typeof discountRequest?.discountAmount === 'number' ? discountRequest.discountAmount : null,
