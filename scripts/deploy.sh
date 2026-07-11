@@ -16,6 +16,13 @@ git pull --ff-only
 log "Running migrations..."
 npx prisma migrate deploy
 
+# Stop serving before wiping .next so in-flight requests cannot hit missing chunks.
+log "Stopping app for clean build..."
+launchctl kill SIGTERM "gui/$(id -u)/com.gobaskit.app" 2>/dev/null || true
+# Also stop any stray next start if the LaunchAgent already exited.
+pkill -f "next start -p 3000" 2>/dev/null || true
+sleep 1
+
 log "Clean build..."
 rm -rf .next
 npm run build
