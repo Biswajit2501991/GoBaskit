@@ -1027,9 +1027,16 @@ export default function OrdersManager({
                     styles.border
                   } ${dragOverStatus === status ? 'ring-2 ring-blinkit-green shadow-md' : ''}`}
                 >
-                  <div className={`px-3 py-2.5 border-b shrink-0 ${styles.header}`}>
-                    <p className="font-semibold text-xs leading-tight">{statusLabel(status)}</p>
-                    <p className="text-[11px] opacity-80 mt-0.5">{sectionOrders.length} order{sectionOrders.length === 1 ? '' : 's'}</p>
+                  <div className={`px-3 py-3 border-b shrink-0 ${styles.header}`}>
+                    <p className="font-extrabold text-sm sm:text-base leading-tight tracking-wide uppercase">
+                      {statusLabel(status)}
+                      <span className="mx-1.5 font-bold opacity-70" aria-hidden="true">
+                        |
+                      </span>
+                      <span className="font-bold normal-case tracking-normal">
+                        {sectionOrders.length} order{sectionOrders.length === 1 ? '' : 's'}
+                      </span>
+                    </p>
                   </div>
 
                   <div
