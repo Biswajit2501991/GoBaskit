@@ -75,19 +75,23 @@ gobasket/
 
 ## WhatsApp Integration
 
-Orders are placed via WhatsApp. The message is built dynamically from the latest cart state:
+Orders are placed via WhatsApp. The message is built dynamically from the latest cart state.
 
-```
-Hello GoBaskit,
-I would like to place the following order.
-...
-```
+Customer account verification can be **auto-approved** when Meta WhatsApp Cloud API delivers an inbound message containing a matching `GB-######` code from the same mobile number. Admin Verify/Reject remains available as backup.
 
 Configure via `.env`:
 ```
 WHATSAPP_NUMBER=919046370119
 NEXT_PUBLIC_WHATSAPP_NUMBER=919046370119
+# Cloud API webhook (auto-verify)
+WHATSAPP_VERIFY_TOKEN=...
+WHATSAPP_APP_SECRET=...
+# Optional ack reply after auto-verify
+WHATSAPP_ACCESS_TOKEN=...
+WHATSAPP_PHONE_NUMBER_ID=...
 ```
+
+Webhook callback URL: `https://gobaskitkaro.com/api/webhooks/whatsapp` (subscribe to `messages`). The store WhatsApp number used for verification must be the Cloud API number once auto-verify is enabled.
 
 ## API Endpoints
 

@@ -318,7 +318,116 @@ export class WhatsAppVerificationService {
     });
   }
 
+  /** Extract GB-###### from inbound WhatsApp text. */
+  static extractVerificationCode(text: string): string | null {
+    const re = new RegExp(`\\b${VERIFICATION_CODE_PREFIX}-?(\\d{6})\\b`, 'i');
+    const match = text.match(re);
+    if (!match?.[1]) return null;
+    return `${VERIFICATION_CODE_PREFIX}-${match[1]}`;
+  }
+
+  /** Meta Cloud API sends `from` as digits without +. */
+  static normalizeInboundWaPhone(from: string): string | null {
+    const digits = from.replace(/\D/g, '');
+    if (!digits || digits.length < 8) return null;
+    const e164 = `+${digits}`;
+    return isValidE164(e164) ? e164 : null;
+  }
+
+  /**
+   * Auto-approve a PENDING verification when inbound WhatsApp text contains
+   * a matching code AND the sender number matches the verification mobile.
+   */
+  static async tryAutoApproveFromInbound(params: {
+    senderFrom: string;
+    messageBody: string;
+    waMessageId?: string;
+  }): Promise<'approved' | 'already_verified' | 'no_match' | 'expired'> {
+    await this.expireStalePending();
+
+    const code = this.extractVerificationCode(params.messageBody);
+    const senderE164 = this.normalizeInboundWaPhone(params.senderFrom);
+    if (!code || !senderE164) return 'no_match';
+
+    const senderVariants = mobileVariantsFromE164(senderE164);
+    const verification = await prisma.whatsAppVerification.findFirst({
+      where: {
+        verificationCode: code,
+        mobile: { in: senderVariants },
+        status: { in: ['PENDING', 'VERIFIED'] },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!verification) {
+      await VerificationAuditService.log({
+        action: 'verification_webhook_no_match',
+        mobile: senderE164,
+        actorType: 'system',
+        meta: {
+          code,
+          waMessageId: params.waMessageId,
+          reason: 'no_pending_or_verified_row',
+        },
+      });
+      return 'no_match';
+    }
+
+    if (verification.status === 'VERIFIED') return 'already_verified';
+
+    if (verification.expiresAt < new Date()) {
+      await prisma.whatsAppVerification.update({
+        where: { id: verification.id },
+        data: { status: 'EXPIRED' },
+      });
+      await VerificationAuditService.log({
+        action: VERIFICATION_AUDIT_ACTIONS.EXPIRED,
+        mobile: verification.mobile,
+        verificationId: verification.id,
+        actorType: 'system',
+        meta: { waMessageId: params.waMessageId, source: 'webhook' },
+      });
+      return 'expired';
+    }
+
+    await this.finalizeApproval(verification.id, {
+      actorType: 'system',
+      meta: { waMessageId: params.waMessageId, source: 'whatsapp_webhook' },
+    });
+    return 'approved';
+  }
+
   static async approve(verificationId: string, staffId: string, ip?: string) {
+    return this.finalizeApproval(verificationId, {
+      actorType: 'staff',
+      actorId: staffId,
+      ip,
+    });
+  }
+
+  /** System auto-approve (webhook). Idempotent if already verified. */
+  static async approveFromWebhook(verificationId: string, meta?: Record<string, unknown>) {
+    const existing = await prisma.whatsAppVerification.findUnique({
+      where: { id: verificationId },
+      select: { status: true, mobile: true },
+    });
+    if (!existing) throw new Error('Verification request not found');
+    if (existing.status === 'VERIFIED') return this.getStatus(existing.mobile);
+    return this.finalizeApproval(verificationId, {
+      actorType: 'system',
+      meta: { ...meta, source: 'whatsapp_webhook' },
+    });
+  }
+
+  private static async finalizeApproval(
+    verificationId: string,
+    actor: {
+      actorType: 'staff' | 'system';
+      actorId?: string;
+      ip?: string;
+      meta?: Record<string, unknown>;
+    },
+  ) {
     await this.expireStalePending();
 
     const verification = await prisma.whatsAppVerification.findUnique({
@@ -340,6 +449,7 @@ export class WhatsAppVerificationService {
     }
 
     const now = new Date();
+    const staffId = actor.actorType === 'staff' ? actor.actorId ?? null : null;
 
     await prisma.$transaction(async (tx) => {
       await tx.whatsAppVerification.update({
@@ -360,7 +470,6 @@ export class WhatsAppVerificationService {
         },
       });
 
-      const checkoutMobile = e164ToCheckoutMobile(verification.mobile);
       const variants = mobileVariantsFromE164(verification.mobile);
       await tx.customer.updateMany({
         where: { mobile: { in: variants } },
@@ -385,9 +494,10 @@ export class WhatsAppVerificationService {
       action: VERIFICATION_AUDIT_ACTIONS.APPROVED,
       mobile: verification.mobile,
       verificationId,
-      actorType: 'staff',
-      actorId: staffId,
-      ip,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      ip: actor.ip,
+      meta: actor.meta,
     });
 
     adminEventBus.emit({

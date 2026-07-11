@@ -1,13 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import Link from 'next/link';
 import { formatCustomerAddress, formatCustomerName } from '@/utils/customer';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { GripVertical, Lock, MapPin, MessageCircle, Phone, Trash2, Unlock } from 'lucide-react';
+import { AlertTriangle, GripVertical, Lock, MapPin, MessageCircle, Phone, Trash2, Unlock } from 'lucide-react';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
-import { buildWhatsAppUrl } from '@/utils/whatsapp';
+import { buildWhatsAppUrl, openWhatsAppUrl } from '@/utils/whatsapp';
 import { PAYMENT_METHODS } from '@/constants';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
 import ListPagination from './ListPagination';
@@ -31,6 +32,7 @@ interface CustomerDetails {
   city: string;
   state: string;
   pincode: string;
+  isWhatsappVerified?: boolean;
 }
 
 interface StatusHistoryEntry {
@@ -99,6 +101,59 @@ function getWhatsAppMessage(order: OrderRow) {
   ].join('\n');
 }
 
+function staffWhatsAppPhone(mobile: string): string {
+  const digits = mobile.replace(/\D/g, '');
+  if (digits.length === 10) return `91${digits}`;
+  return digits;
+}
+
+function getStaffDeliveryWhatsAppMessage(order: OrderRow): string {
+  const c = order.customer;
+  const name = formatCustomerName(c.firstName, c.lastName);
+  const paymentLabel =
+    PAYMENT_METHODS[order.paymentMethod as keyof typeof PAYMENT_METHODS] ?? order.paymentMethod;
+  const lines: string[] = [
+    `GoBaskit delivery — ${order.orderNumber}`,
+    `Status: ${order.status.replace(/_/g, ' ')}`,
+    `Payment: ${paymentLabel}`,
+    `Total: ${formatCurrency(order.grandTotal)}`,
+    '',
+    'Customer',
+    `Name: ${name}`,
+    `Phone: +91 ${c.mobile}`,
+  ];
+  if (c.alternateMobile) {
+    lines.push(`Alt phone: +91 ${c.alternateMobile}`);
+  }
+  lines.push(
+    '',
+    'Address',
+    `${c.houseNumber}, ${c.street}`,
+    `${c.area}${c.landmark ? `, ${c.landmark}` : ''}`,
+    `${c.city}, ${c.state}`,
+    `PIN ${c.pincode}`,
+  );
+  if (order.deliveryNotes) {
+    lines.push(`Delivery notes: ${order.deliveryNotes}`);
+  }
+  lines.push('', 'Items');
+  order.items.forEach((item, index) => {
+    lines.push(`${index + 1}. ${item.productName} × ${item.quantity}`);
+  });
+  return lines.join('\n');
+}
+
+function isCustomerUnverified(order: OrderRow): boolean {
+  return order.customer.isWhatsappVerified !== true;
+}
+
+function needsVerifyBeforeDelivery(order: OrderRow): boolean {
+  return (
+    isCustomerUnverified(order) &&
+    (order.status === 'PACKED' || order.status === 'OUT_FOR_DELIVERY' || order.status === 'ACCEPTED')
+  );
+}
+
 function patchOrderFromEvent(order: OrderRow, payload: Record<string, unknown>): OrderRow {
   const assignedStaff = payload.assignedStaff as { id: string; name: string; mobile?: string } | null | undefined;
   const customer = payload.customer as CustomerDetails | undefined;
@@ -146,6 +201,7 @@ function OrderCard({
   onAssign,
   onRelease,
   onWhatsApp,
+  onStaffWhatsApp,
 }: {
   order: OrderRow;
   expanded: boolean;
@@ -168,6 +224,7 @@ function OrderCard({
   onAssign: (id: string, staffId: string) => void;
   onRelease: (id: string) => void;
   onWhatsApp: (order: OrderRow) => void;
+  onStaffWhatsApp: (order: OrderRow) => void;
 }) {
   const [history, setHistory] = useState<StatusHistoryEntry[] | null>(order.statusHistory ?? null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -302,6 +359,43 @@ function OrderCard({
           <p className="text-[11px] text-gray-500 flex items-center gap-0.5">
             <Phone className="w-3 h-3 shrink-0" /> +91 {order.customer.mobile}
           </p>
+          {isCustomerUnverified(order) && (
+            <div
+              className={`flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[10px] leading-snug ${
+                needsVerifyBeforeDelivery(order)
+                  ? 'bg-amber-50 text-amber-900 border border-amber-200'
+                  : 'bg-gray-50 text-gray-600 border border-gray-100'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+              <span>
+                {needsVerifyBeforeDelivery(order)
+                  ? 'Customer not WhatsApp-verified — verify before delivery. '
+                  : 'Customer not WhatsApp-verified. '}
+                <Link
+                  href="/admin/whatsapp-verification"
+                  className="font-semibold underline underline-offset-2"
+                >
+                  Open verification
+                </Link>
+              </span>
+            </div>
+          )}
+          {order.assignedStaffId && order.assignedStaff?.mobile && (
+            <button
+              type="button"
+              aria-label={`WhatsApp ${order.assignedStaff.name} with order details`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onStaffWhatsApp(order);
+              }}
+              className="inline-flex items-center gap-1 text-[10px] font-semibold text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded px-1.5 py-0.5"
+            >
+              <MessageCircle className="w-3 h-3" />
+              WA to {order.assignedStaff.name.split(' ')[0]}
+            </button>
+          )}
           <p className="text-[11px] text-gray-500 flex items-start gap-1 line-clamp-2 leading-snug">
             <MapPin className="w-3 h-3 shrink-0 mt-0.5" />
             {address}
@@ -332,6 +426,19 @@ function OrderCard({
               <p className="font-medium">{formatCustomerName(order.customer.firstName, order.customer.lastName)}</p>
               <p>+91 {order.customer.mobile}</p>
               {order.customer.alternateMobile && <p>Alt: +91 {order.customer.alternateMobile}</p>}
+              {isCustomerUnverified(order) && (
+                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 mt-2 flex items-start gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    {needsVerifyBeforeDelivery(order)
+                      ? 'Not WhatsApp-verified — verify this customer before delivery. '
+                      : 'Not WhatsApp-verified. '}
+                    <Link href="/admin/whatsapp-verification" className="font-semibold underline">
+                      Open verification
+                    </Link>
+                  </span>
+                </p>
+              )}
             </div>
             <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Delivery Address</p>
@@ -382,6 +489,18 @@ function OrderCard({
             {order.assignedStaffId && canEdit && (isMine || !isLocked || canOverrideLock) && (
               <Button type="button" variant="outline" size="sm" onClick={() => onRelease(order.id)} className="gap-1 h-7 text-xs">
                 <Unlock className="w-3 h-3" /> Release
+              </Button>
+            )}
+
+            {order.assignedStaffId && order.assignedStaff?.mobile && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1 h-7 text-xs text-green-700 border-green-200 hover:bg-green-50"
+                onClick={() => onStaffWhatsApp(order)}
+              >
+                <MessageCircle className="w-3 h-3" /> WhatsApp assigned staff
               </Button>
             )}
 
@@ -721,7 +840,22 @@ export default function OrdersManager({
   function sendWhatsAppUpdate(order: OrderRow) {
     const message = getWhatsAppMessage(order);
     const url = buildWhatsAppUrl(`91${order.customer.mobile}`, message);
-    window.open(url, '_blank', 'noopener,noreferrer');
+    openWhatsAppUrl(url);
+  }
+
+  function sendStaffDeliveryWhatsApp(order: OrderRow) {
+    const mobile = order.assignedStaff?.mobile;
+    if (!mobile) {
+      alert('Assigned staff has no mobile number.');
+      return;
+    }
+    const phone = staffWhatsAppPhone(mobile);
+    if (!phone) {
+      alert('Assigned staff mobile is invalid.');
+      return;
+    }
+    const message = getStaffDeliveryWhatsAppMessage(order);
+    openWhatsAppUrl(buildWhatsAppUrl(phone, message));
   }
 
   async function releaseOrder(id: string) {
@@ -923,6 +1057,7 @@ export default function OrdersManager({
                           onAssign={assignOrder}
                           onRelease={releaseOrder}
                           onWhatsApp={sendWhatsAppUpdate}
+                          onStaffWhatsApp={sendStaffDeliveryWhatsApp}
                         />
                       ))
                     )}

@@ -28,6 +28,7 @@ const customerListSelect = {
   city: true,
   state: true,
   pincode: true,
+  isWhatsappVerified: true,
 } as const;
 
 const staffTimelineSelect = { name: true, mobile: true } as const;
