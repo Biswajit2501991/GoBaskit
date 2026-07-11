@@ -602,6 +602,59 @@ export class WhatsAppVerificationService {
     return { id: verificationId, status: 'REJECTED' as WhatsAppVerificationStatus };
   }
 
+  /**
+   * Admin deletes a verification row and clears permanent WhatsApp-verified flags
+   * for that mobile so the customer can re-verify from scratch.
+   */
+  static async deleteVerification(verificationId: string, staffId: string, ip?: string) {
+    const verification = await prisma.whatsAppVerification.findUnique({
+      where: { id: verificationId },
+    });
+    if (!verification) throw new Error('Verification request not found');
+
+    const mobile = verification.mobile;
+    const variants = mobileVariantsFromE164(mobile);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.whatsAppVerification.delete({ where: { id: verificationId } });
+
+      await tx.customerMobile.updateMany({
+        where: { mobile: { in: variants } },
+        data: {
+          isWhatsappVerified: false,
+          verifiedAt: null,
+          verifiedById: null,
+        },
+      });
+
+      await tx.customer.updateMany({
+        where: { mobile: { in: variants } },
+        data: {
+          isWhatsappVerified: false,
+          verifiedAt: null,
+          verifiedById: null,
+        },
+      });
+    });
+
+    await VerificationAuditService.log({
+      action: VERIFICATION_AUDIT_ACTIONS.DELETED,
+      mobile,
+      verificationId,
+      actorType: 'staff',
+      actorId: staffId,
+      ip,
+      meta: { previousStatus: verification.status },
+    });
+
+    adminEventBus.emit({
+      type: 'whatsapp_verification_updated',
+      payload: { id: verificationId, status: 'DELETED', mobile },
+    });
+
+    return { id: verificationId, deleted: true as const, mobile };
+  }
+
   static async listAdmin(params: {
     search?: string;
     status?: WhatsAppVerificationStatus;

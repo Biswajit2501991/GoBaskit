@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
 import ListPagination from './ListPagination';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
+import { Trash2 } from 'lucide-react';
 
 interface VerificationRow {
   id: string;
@@ -119,6 +120,28 @@ export default function WhatsAppVerificationManager({ canManage }: { canManage: 
     }
   }
 
+  async function deleteRow(id: string, mobile: string, status: string) {
+    if (!canManage) return;
+    const confirmed = window.confirm(
+      `Delete verification for ${formatE164Display(mobile)}?\n\n` +
+        `This removes the ${status} record and clears WhatsApp-verified status for this number so the customer can verify again.`,
+    );
+    if (!confirmed) return;
+
+    setActingId(id);
+    try {
+      const res = await fetch(`/api/admin/whatsapp-verifications/${id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(typeof data.error === 'string' ? data.error : 'Delete failed');
+        return;
+      }
+      await load();
+    } finally {
+      setActingId(null);
+    }
+  }
+
   return (
     <div className="p-6 w-full">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
@@ -185,31 +208,48 @@ export default function WhatsAppVerificationManager({ canManage }: { canManage: 
                   </td>
                   <td className="px-4 py-3 text-gray-500">{formatDateTime(row.createdAt)}</td>
                   <td className="px-4 py-3">
-                    {row.status === 'PENDING' && canManage ? (
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={actingId === row.id}
-                          onClick={() => verifyRow(row.id, row.mobile)}
-                        >
-                          Verify
-                        </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {row.status === 'PENDING' && canManage && (
+                        <>
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={actingId === row.id}
+                            onClick={() => verifyRow(row.id, row.mobile)}
+                          >
+                            Verify
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={actingId === row.id}
+                            onClick={() => rejectRow(row.id)}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                      {row.status !== 'PENDING' && (
+                        <span className="text-xs text-gray-400">
+                          {row.verifiedBy ? `By ${row.verifiedBy.name}` : '—'}
+                        </span>
+                      )}
+                      {canManage && (
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
                           disabled={actingId === row.id}
-                          onClick={() => rejectRow(row.id)}
+                          onClick={() => deleteRow(row.id, row.mobile, row.status)}
+                          className="gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                          aria-label={`Delete verification ${row.verificationCode}`}
                         >
-                          Reject
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete
                         </Button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-gray-400">
-                        {row.verifiedBy ? `By ${row.verifiedBy.name}` : '—'}
-                      </span>
-                    )}
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

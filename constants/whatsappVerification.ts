@@ -10,6 +10,7 @@ export const VERIFICATION_AUDIT_ACTIONS = {
   REJECTED: 'verification_rejected',
   EXPIRED: 'verification_expired',
   SENT_ACK: 'verification_sent_ack',
+  DELETED: 'verification_deleted',
 } as const;
 
 export const DEFAULT_COUNTRY_OPTIONS = [
