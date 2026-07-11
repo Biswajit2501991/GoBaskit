@@ -5,9 +5,11 @@ import { createPortal } from 'react-dom';
 import { ArrowLeft, ShoppingBag } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import CartPanelContent from '@/components/Cart/CartPanelContent';
+import StockRemovalNotice from '@/components/Cart/StockRemovalNotice';
 import { useCartStore } from '@/store/cartStore';
 import { useCartUiStore } from '@/store/cartUiStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
+import { refreshCartStockFromServer } from '@/utils/refreshCartStock';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
@@ -21,6 +23,7 @@ export default function CartDrawer() {
   const isOpen = useCartUiStore((s) => s.isOpen);
   const closeCart = useCartUiStore((s) => s.closeCart);
   const itemCount = useCartStore((s) => s.getItemCount());
+  const itemsLength = useCartStore((s) => s.items.length);
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
@@ -28,6 +31,12 @@ export default function CartDrawer() {
   useEffect(() => {
     setPortalRoot(document.body);
   }, []);
+
+  // When the drawer opens, re-check live stock so OOS lines are cleared early.
+  useEffect(() => {
+    if (!isOpen || !hydrated || itemsLength === 0) return;
+    void refreshCartStockFromServer();
+  }, [isOpen, hydrated, itemsLength]);
 
   // Close when navigating to cart/checkout full pages to avoid double UI.
   useEffect(() => {
@@ -150,6 +159,7 @@ export default function CartDrawer() {
           </div>
         ) : itemCount === 0 ? (
           <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 text-center">
+            <StockRemovalNotice className="w-full max-w-sm mb-4 text-left" />
             <div className="w-20 h-20 bg-blinkit-green-light rounded-full flex items-center justify-center mb-4 text-3xl">
               🛒
             </div>

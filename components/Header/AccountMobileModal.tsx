@@ -82,6 +82,10 @@ export default function AccountMobileModal() {
     void import('@/utils/warmCustomerSession').then(({ warmCustomerSession }) => {
       void warmCustomerSession({ force: true });
     });
+    // Drop any cart lines that went OOS while the customer was logging in.
+    void import('@/utils/refreshCartStock').then(({ refreshCartStockFromServer }) => {
+      void refreshCartStockFromServer();
+    });
     resetState();
     closeAccountModal();
     router.refresh();

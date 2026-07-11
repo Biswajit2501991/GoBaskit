@@ -1,16 +1,25 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
 import CartPanelContent from '@/components/Cart/CartPanelContent';
+import StockRemovalNotice from '@/components/Cart/StockRemovalNotice';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
+import { refreshCartStockFromServer } from '@/utils/refreshCartStock';
 import { Button } from '@/components/ui/button';
 
 export default function CartPage() {
   const hydrated = useCartHydrated();
   const itemCount = useCartStore((s) => s.getItemCount());
+  const itemsLength = useCartStore((s) => s.items.length);
+
+  useEffect(() => {
+    if (!hydrated || itemsLength === 0) return;
+    void refreshCartStockFromServer();
+  }, [hydrated, itemsLength]);
 
   if (!hydrated) {
     return (
@@ -30,6 +39,7 @@ export default function CartPage() {
       <div className="min-h-dvh flex flex-col bg-gray-50 overflow-x-hidden">
         <Header showSearch={false} />
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
+          <StockRemovalNotice className="w-full max-w-sm mb-4 text-left" />
           <div className="w-24 h-24 bg-blinkit-green-light rounded-full flex items-center justify-center mb-5 text-4xl">
             🛒
           </div>

@@ -24,6 +24,7 @@ import {
 } from '@/utils/customerProfile';
 import { prefetchCheckoutProfile } from '@/utils/prefetchCheckoutProfile';
 import { refreshCartStockFromServer } from '@/utils/refreshCartStock';
+import StockRemovalNotice from '@/components/Cart/StockRemovalNotice';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { checkoutSchema, type CheckoutSchema } from '@/lib/validations';
 import { buildWhatsAppMessage, buildWhatsAppUrl, openWhatsAppUrl } from '@/utils/whatsapp';
@@ -748,6 +749,8 @@ export default function CheckoutPage() {
           <Link href="/cart" className="text-gray-400 hover:text-gray-600">←</Link>
           <h2 className="text-lg font-bold">Checkout</h2>
         </div>
+
+        <StockRemovalNotice />
 
         {belowMinimum && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
