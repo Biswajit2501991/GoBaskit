@@ -18,6 +18,14 @@ export async function POST(
 
   try {
     const result = await WhatsAppVerificationService.approve(id, auth.staff!.id, meta.ip);
+    // Best-effort customer notification when Cloud API is configured.
+    if (result.mobile) {
+      const { sendWhatsAppTextReply } = await import('@/lib/whatsapp-cloud');
+      void sendWhatsAppTextReply(
+        result.mobile,
+        'GoBaskit: Your WhatsApp account is verified. Thank you!',
+      );
+    }
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Verification failed';

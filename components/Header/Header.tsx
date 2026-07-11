@@ -14,6 +14,7 @@ import GlobalSearch from '@/components/Header/GlobalSearch';
 import AccountMobileModal from '@/components/Header/AccountMobileModal';
 import StaffAdminLoginModal from '@/components/Header/StaffAdminLoginModal';
 import RestockToastHost from '@/components/Header/RestockToastHost';
+import AccountVerifiedToast from '@/components/Header/AccountVerifiedToast';
 import PoweredByBanner from '@/components/Header/PoweredByBanner';
 import CartDrawer from '@/components/Cart/CartDrawer';
 import OrderCelebration from '@/components/Cart/OrderCelebration';
@@ -123,11 +124,12 @@ export default function Header({ showSearch = true }: HeaderProps) {
       <CartDrawer />
       <OrderCelebration />
       <RestockToastHost enabled={Boolean(customerMobile) && !staffEligible} />
+      <AccountVerifiedToast enabled={Boolean(customerMobile) && !staffEligible} mobile10={customerMobile} />
       <div className="bg-blinkit-yellow">
-        <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
           <div className="flex items-center gap-2 shrink-0">
-            <Link href="/" className="bg-white rounded-lg px-2.5 py-1 shadow-sm shrink-0">
-              <span className="font-extrabold text-xl text-gray-900 tracking-tight">
+            <Link href="/" className="bg-white rounded-lg px-2 py-1 sm:px-2.5 shadow-sm shrink-0">
+              <span className="font-extrabold text-base sm:text-xl text-gray-900 tracking-tight">
                 Go<span className="text-blinkit-green">Baskit</span>
               </span>
             </Link>
@@ -144,12 +146,12 @@ export default function Header({ showSearch = true }: HeaderProps) {
           </div>
 
           {showPoweredByBanner && poweredByText ? (
-            <PoweredByBanner text={poweredByText} />
+            <PoweredByBanner text={poweredByText} className="order-3 w-full basis-full sm:order-none sm:w-auto sm:basis-auto sm:flex-1 sm:min-w-0" />
           ) : (
-            <div className="flex-1 min-w-0" aria-hidden />
+            <div className="hidden sm:block flex-1 min-w-0" aria-hidden />
           )}
 
-          <div ref={actionsRef} className="relative flex items-center gap-2 shrink-0">
+          <div ref={actionsRef} className="relative flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
             {staffEligible && (
               <button
                 type="button"
@@ -178,7 +180,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
             <button
               type="button"
               onClick={handleAccountClick}
-              className="sm:hidden bg-white/80 hover:bg-white rounded-lg p-2 shadow-sm"
+              className="sm:hidden bg-white/80 hover:bg-white rounded-lg p-1.5 shadow-sm"
               aria-label={accountLabel}
               aria-expanded={accountMenuOpen}
               aria-haspopup="menu"
@@ -194,7 +196,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
                   openAccountModal();
                 }
               }}
-              className="relative bg-white hover:bg-gray-50 rounded-lg p-2 transition-colors shadow-sm"
+              className="relative bg-white hover:bg-gray-50 rounded-lg p-1.5 sm:p-2 transition-colors shadow-sm"
               aria-label="Wishlist"
             >
               <Heart className="w-5 h-5 text-gray-800" />
@@ -208,7 +210,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
             <button
               type="button"
               onClick={openCart}
-              className="relative bg-white hover:bg-gray-50 rounded-lg p-2 transition-colors shadow-sm"
+              className="relative bg-white hover:bg-gray-50 rounded-lg p-1.5 sm:p-2 transition-colors shadow-sm"
               aria-label="Open cart"
             >
               <ShoppingCart className="w-5 h-5 text-gray-800" />

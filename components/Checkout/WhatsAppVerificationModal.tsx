@@ -12,6 +12,7 @@ import {
   stripPhoneInput,
   toE164,
 } from '@/utils/phone';
+import { isValidIndianMobile, normalizeMobile } from '@/utils/mobile';
 import { openWhatsAppUrl } from '@/utils/whatsapp';
 
 interface VerificationData {
@@ -29,7 +30,13 @@ interface WhatsAppVerificationModalProps {
   initialNationalNumber?: string;
   initialCountryDial?: string;
   customerName?: string;
+  /** Called when admin/webhook fully verifies the number. */
   onVerified: (mobileE164: string) => void;
+  /**
+   * Called after the customer confirms they sent the WhatsApp message —
+   * unlocks placing an order while admin verification is still pending.
+   */
+  onMessageSent?: (mobileE164: string) => void;
   onClose: () => void;
 }
 
@@ -39,6 +46,7 @@ export default function WhatsAppVerificationModal({
   initialCountryDial,
   customerName,
   onVerified,
+  onMessageSent,
   onClose,
 }: WhatsAppVerificationModalProps) {
   const defaultCountry = useMemo(() => detectCountryFromBrowser(), []);
@@ -50,17 +58,24 @@ export default function WhatsAppVerificationModal({
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
   const [pending, setPending] = useState(false);
+  const [sentContinue, setSentContinue] = useState(false);
 
   const mobileE164 = useMemo(() => toE164(countryDial, nationalNumber), [countryDial, nationalNumber]);
+  const nationalValid =
+    countryDial === '91'
+      ? isValidIndianMobile(normalizeMobile(nationalNumber))
+      : Boolean(mobileE164);
 
   useEffect(() => {
     if (!open) return;
     setError('');
     setVerified(false);
     setPending(false);
+    setSentContinue(false);
     setVerification(null);
     setWhatsappUrl(null);
-    setNationalNumber(initialNationalNumber);
+    const seed = initialNationalNumber.replace(/\D/g, '').slice(-10);
+    setNationalNumber(seed);
     setCountryDial(initialCountryDial || defaultCountry.dial);
   }, [open, initialNationalNumber, initialCountryDial, defaultCountry.dial]);
 
@@ -75,6 +90,11 @@ export default function WhatsAppVerificationModal({
         if (data.verified) {
           setVerified(true);
           setPending(false);
+          try {
+            sessionStorage.setItem('gobaskit_account_verified_toast', '1');
+          } catch {
+            /* ignore */
+          }
           setTimeout(() => onVerified(mobileE164), 1200);
         } else if (data.verification) {
           setVerification(data.verification);
@@ -90,8 +110,12 @@ export default function WhatsAppVerificationModal({
   }, [open, pending, mobileE164, verified, onVerified]);
 
   async function generateCode(forceNew = false) {
-    if (!mobileE164) {
-      setError('Enter a valid mobile number with country code');
+    if (!mobileE164 || !nationalValid) {
+      setError(
+        countryDial === '91'
+          ? 'Enter a valid 10-digit Indian mobile number'
+          : 'Enter a valid mobile number with country code',
+      );
       return;
     }
 
@@ -151,15 +175,31 @@ export default function WhatsAppVerificationModal({
 
   async function acknowledgeSent() {
     if (!mobileE164) return;
-    await fetch('/api/customer/verification/sent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mobile: mobileE164,
-        verificationId: verification?.id,
-      }),
-    }).catch(() => {});
-    setPending(true);
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/customer/verification/sent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mobile: mobileE164,
+          verificationId: verification?.id,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(typeof data.error === 'string' ? data.error : 'Could not confirm message sent');
+        return;
+      }
+      setPending(true);
+      setSentContinue(true);
+      // Unlock checkout immediately; keep polling in background for full verify toast.
+      if (onMessageSent) {
+        setTimeout(() => onMessageSent(mobileE164), 400);
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (!open) return null;
@@ -171,7 +211,7 @@ export default function WhatsAppVerificationModal({
           <div>
             <h2 className="text-lg font-bold">Verify Your WhatsApp Number</h2>
             <p className="text-sm text-gray-500 mt-1">
-              One-time verification — takes less than 10 seconds.
+              Send the code on WhatsApp, then you can place your order.
             </p>
           </div>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Close">
@@ -184,12 +224,20 @@ export default function WhatsAppVerificationModal({
             <div className="text-center py-6 space-y-3">
               <CheckCircle2 className="w-14 h-14 text-green-600 mx-auto" />
               <p className="font-semibold text-green-700">WhatsApp Verified Successfully</p>
-              <p className="text-sm text-gray-500">Continuing to checkout...</p>
+              <p className="text-sm text-gray-500">Continuing…</p>
+            </div>
+          ) : sentContinue ? (
+            <div className="text-center py-6 space-y-3">
+              <CheckCircle2 className="w-14 h-14 text-blinkit-green mx-auto" />
+              <p className="font-semibold text-gray-900">Message sent — you can place your order</p>
+              <p className="text-sm text-gray-500">
+                We&apos;ll fully verify your account shortly. You&apos;ll get a notification when it&apos;s done.
+              </p>
             </div>
           ) : !pending || !verification ? (
             <>
               <p className="text-sm text-gray-600">
-                To place your order, please verify your WhatsApp number. We&apos;ll send a code via WhatsApp — no SMS or paid API.
+                Send a one-time WhatsApp code so we can confirm your number. After you send it, you can place your order right away.
               </p>
 
               <div>
@@ -208,14 +256,25 @@ export default function WhatsAppVerificationModal({
                   </select>
                   <Input
                     value={nationalNumber}
-                    onChange={(e) => setNationalNumber(stripPhoneInput(e.target.value))}
-                    placeholder="412345678"
+                    onChange={(e) => {
+                      const digits = stripPhoneInput(e.target.value);
+                      setNationalNumber(countryDial === '91' ? digits.slice(0, 10) : digits.slice(0, 14));
+                    }}
+                    placeholder={countryDial === '91' ? '9876543210' : '412345678'}
                     inputMode="numeric"
+                    maxLength={countryDial === '91' ? 10 : 14}
                     className="flex-1"
                   />
                 </div>
-                {mobileE164 && (
-                  <p className="text-xs text-gray-500 mt-1">Stored as {formatE164Display(mobileE164)}</p>
+                {mobileE164 && nationalValid && (
+                  <p className="text-xs text-gray-500 mt-1">WhatsApp: {formatE164Display(mobileE164)}</p>
+                )}
+                {nationalNumber && !nationalValid && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {countryDial === '91'
+                      ? 'Enter a valid 10-digit mobile starting with 6–9'
+                      : 'Enter a valid mobile number'}
+                  </p>
                 )}
               </div>
 
@@ -224,7 +283,7 @@ export default function WhatsAppVerificationModal({
               <Button
                 type="button"
                 className="w-full bg-[#25D366] hover:bg-[#1ebe57] text-white gap-2"
-                disabled={loading || !mobileE164}
+                disabled={loading || !mobileE164 || !nationalValid}
                 onClick={() => generateCode(false)}
               >
                 <MessageCircle className="w-5 h-5" />
@@ -234,8 +293,10 @@ export default function WhatsAppVerificationModal({
           ) : (
             <>
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
-                <p className="text-sm font-medium text-amber-900">Waiting for verification...</p>
-                <p className="text-xs text-amber-700 mt-1">We&apos;ll confirm once you send the WhatsApp message.</p>
+                <p className="text-sm font-medium text-amber-900">Send the message on WhatsApp</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  After sending, tap below to continue and place your order. Admin will finish verification.
+                </p>
               </div>
 
               <div className="bg-gray-50 rounded-xl p-4 text-center space-y-1">
@@ -253,8 +314,8 @@ export default function WhatsAppVerificationModal({
                   <MessageCircle className="w-5 h-5" />
                   Open WhatsApp Again
                 </Button>
-                <Button type="button" variant="outline" className="w-full" onClick={acknowledgeSent}>
-                  I&apos;ve Sent the Message
+                <Button type="button" variant="outline" className="w-full" disabled={loading} onClick={acknowledgeSent}>
+                  I&apos;ve Sent the Message — Continue to Order
                 </Button>
                 <Button
                   type="button"
@@ -269,6 +330,7 @@ export default function WhatsAppVerificationModal({
                   Cancel
                 </Button>
               </div>
+              {error && <p className="text-sm text-red-600">{error}</p>}
             </>
           )}
         </div>

@@ -112,14 +112,21 @@ export default function ProductCard({ product }: ProductCardProps) {
             alt={product.name}
             fallback={<span>{CATEGORY_ICONS[product.category?.slug ?? ''] ?? '🛒'}</span>}
           />
-          <DiscountRibbon percent={discountPercent} />
+          <DiscountRibbon percent={discountPercent} className="max-sm:left-1 max-sm:scale-90 origin-top-left" />
           {showBadge && (
             <HealthStarBadge
               url={healthStarDisplay.badgeUrl}
-              position={healthStarDisplay.badgePosition}
+              position={
+                healthStarDisplay.badgePosition === 'top-left' ||
+                healthStarDisplay.badgePosition === 'top-right'
+                  ? 'bottom-left'
+                  : healthStarDisplay.badgePosition
+              }
+              size={28}
+              className="!w-5 !h-5 sm:!w-7 sm:!h-7"
             />
           )}
-          <div className="absolute top-1.5 right-1.5 z-10" onClick={(e) => e.preventDefault()}>
+          <div className="absolute top-1 right-1 z-10 sm:top-1.5 sm:right-1.5" onClick={(e) => e.preventDefault()}>
             <WishlistButton productId={product.id} />
           </div>
           {showOutOfStock && (

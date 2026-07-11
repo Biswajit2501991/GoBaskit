@@ -322,7 +322,7 @@ export default function ProductPage() {
               <BadgePercent className="w-4 h-4 text-blinkit-green" />
               <h2 className="font-bold text-gray-900 text-base">More from {product.category?.name}</h2>
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
               {similar.map((p) => <ProductCard key={p.id} product={p} />)}
             </div>
           </section>

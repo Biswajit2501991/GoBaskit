@@ -63,13 +63,13 @@ export default function LocationBar() {
     setOpen(false);
   }
 
-  const label = pin ? `Delivering to ${pin}` : city ? `Delivering to ${city}` : 'Select delivery location';
+  const label = pin ? `PIN ${pin}` : city ? city : 'Set location';
 
   return (
     <div className="relative" ref={ref}>
-      <div className="max-w-7xl mx-auto px-4 py-2 flex items-center gap-2 border-b border-gray-100">
-        <div className="pr-2 mr-1 border-r border-gray-200 shrink-0">
-          <DeliveryEtaButton variant="inline" className="text-[11px] font-bold text-gray-800 max-w-[9.5rem] sm:max-w-none" />
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2 border-b border-gray-100">
+        <div className="sm:pr-2 sm:mr-1 sm:border-r sm:border-gray-200 shrink-0">
+          <DeliveryEtaButton variant="inline" className="text-[11px] font-bold text-gray-800" />
         </div>
         <button
           type="button"
@@ -79,10 +79,10 @@ export default function LocationBar() {
             setError('');
             setOpen((v) => !v);
           }}
-          className="flex items-center gap-1.5 min-w-0 group"
+          className="flex items-center gap-1.5 min-w-0 group w-full sm:w-auto"
         >
           <MapPin className="w-4 h-4 text-blinkit-green flex-shrink-0" />
-          <span className="text-sm font-semibold text-gray-900 truncate group-hover:text-blinkit-green">{label}</span>
+          <span className="text-xs sm:text-sm font-semibold text-gray-900 truncate group-hover:text-blinkit-green">{label}</span>
           <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
         </button>
       </div>

@@ -103,16 +103,46 @@ export class WhatsAppVerificationService {
   static async getCheckoutVerificationState(mobileE164: string): Promise<{
     needsVerification: boolean;
     isVerified: boolean;
+    canCheckout: boolean;
+    messageSent: boolean;
   }> {
     if (!isValidE164(mobileE164)) {
-      return { needsVerification: true, isVerified: false };
+      return { needsVerification: true, isVerified: false, canCheckout: false, messageSent: false };
     }
     const isVerified = await this.isMobileVerified(mobileE164);
-    if (isVerified) return { needsVerification: false, isVerified: true };
+    if (isVerified) {
+      return { needsVerification: false, isVerified: true, canCheckout: true, messageSent: false };
+    }
 
     const checkoutMobile = e164ToCheckoutMobile(mobileE164);
-    const orderCount = await CustomerOrderService.completedOrderCountForMobile(checkoutMobile);
-    return { needsVerification: orderCount === 0, isVerified: false };
+    const orderCount = checkoutMobile
+      ? await CustomerOrderService.completedOrderCountForMobile(checkoutMobile)
+      : 0;
+    if (orderCount > 0) {
+      return { needsVerification: false, isVerified: false, canCheckout: true, messageSent: false };
+    }
+
+    const messageSent = await this.hasSentAcknowledgement(mobileE164);
+    return {
+      needsVerification: true,
+      isVerified: false,
+      canCheckout: messageSent,
+      messageSent,
+    };
+  }
+
+  static async hasSentAcknowledgement(mobileE164: string): Promise<boolean> {
+    const variants = mobileVariantsFromE164(mobileE164);
+    const pending = await prisma.whatsAppVerification.findFirst({
+      where: {
+        mobile: { in: variants },
+        status: 'PENDING',
+        expiresAt: { gt: new Date() },
+        sentAcknowledgedAt: { not: null },
+      },
+      select: { id: true },
+    });
+    return Boolean(pending);
   }
 
   static async countAttemptsToday(mobileE164: string): Promise<number> {
@@ -239,12 +269,12 @@ export class WhatsAppVerificationService {
 
     await this.expireStalePending();
 
-    const verified = await this.isMobileVerified(mobileE164);
-    const needsVerification = verified ? false : await this.needsVerification(mobileE164);
+    const state = await this.getCheckoutVerificationState(mobileE164);
+    const variants = mobileVariantsFromE164(mobileE164);
 
     const pending = await prisma.whatsAppVerification.findFirst({
       where: {
-        mobile: mobileE164,
+        mobile: { in: variants },
         status: 'PENDING',
         expiresAt: { gt: new Date() },
       },
@@ -253,9 +283,10 @@ export class WhatsAppVerificationService {
 
     return {
       mobile: mobileE164,
-      verified,
-      needsVerification,
-      canCheckout: verified || !needsVerification,
+      verified: state.isVerified,
+      needsVerification: state.needsVerification,
+      canCheckout: state.canCheckout,
+      messageSent: state.messageSent,
       verification: pending ? this.serializeVerification(pending) : null,
     };
   }
@@ -308,6 +339,36 @@ export class WhatsAppVerificationService {
     ip?: string;
     userAgent?: string;
   }) {
+    const now = new Date();
+    const variants = mobileVariantsFromE164(params.mobileE164);
+
+    if (params.verificationId) {
+      await prisma.whatsAppVerification.updateMany({
+        where: {
+          id: params.verificationId,
+          mobile: { in: variants },
+          status: 'PENDING',
+        },
+        data: { sentAcknowledgedAt: now },
+      });
+    } else {
+      const pending = await prisma.whatsAppVerification.findFirst({
+        where: {
+          mobile: { in: variants },
+          status: 'PENDING',
+          expiresAt: { gt: now },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      });
+      if (pending) {
+        await prisma.whatsAppVerification.update({
+          where: { id: pending.id },
+          data: { sentAcknowledgedAt: now },
+        });
+      }
+    }
+
     await VerificationAuditService.log({
       action: VERIFICATION_AUDIT_ACTIONS.SENT_ACK,
       mobile: params.mobileE164,
@@ -316,6 +377,8 @@ export class WhatsAppVerificationService {
       ip: params.ip,
       userAgent: params.userAgent,
     });
+
+    return this.getStatus(params.mobileE164);
   }
 
   /** Extract GB-###### from inbound WhatsApp text. */
@@ -618,6 +681,7 @@ export class WhatsAppVerificationService {
     createdAt: Date;
     expiresAt: Date;
     verifiedAt: Date | null;
+    sentAcknowledgedAt?: Date | null;
   }) {
     return {
       id: v.id,
@@ -627,6 +691,7 @@ export class WhatsAppVerificationService {
       createdAt: v.createdAt.toISOString(),
       expiresAt: v.expiresAt.toISOString(),
       verifiedAt: v.verifiedAt?.toISOString() ?? null,
+      sentAcknowledgedAt: v.sentAcknowledgedAt?.toISOString() ?? null,
     };
   }
 }

@@ -28,7 +28,7 @@ import { checkoutSchema, type CheckoutSchema } from '@/lib/validations';
 import { buildWhatsAppMessage, buildWhatsAppUrl, openWhatsAppUrl } from '@/utils/whatsapp';
 import { formatCurrency } from '@/utils/formatter';
 import { WHATSAPP_NUMBER, STORE_NAME } from '@/constants';
-import { normalizeMobile } from '@/utils/mobile';
+import { isValidIndianMobile, normalizeMobile } from '@/utils/mobile';
 import { e164ToCheckoutMobile, toE164 } from '@/utils/phone';
 import {
   isMobileVerifiedInSession,
@@ -602,14 +602,40 @@ export default function CheckoutPage() {
     setVerificationResolved(true);
     setShowVerificationModal(false);
     const checkoutMobile = e164ToCheckoutMobile(mobile);
-    if (checkoutMobile && checkoutMobile !== getValues('mobile')) {
+    if (checkoutMobile && isValidIndianMobile(checkoutMobile) && checkoutMobile !== getValues('mobile')) {
+      setValue('mobile', checkoutMobile, { shouldValidate: true });
+    }
+    try {
+      sessionStorage.setItem('gobaskit_account_verified_toast', '1');
+    } catch {
+      /* ignore */
+    }
+    const data = getValues();
+    if (pendingSubmitSource) {
+      const source = pendingSubmitSource;
+      setPendingSubmitSource(null);
+      const mobileForOrder =
+        checkoutMobile && isValidIndianMobile(checkoutMobile) ? checkoutMobile : data.mobile;
+      await submitOrder({ ...data, mobile: mobileForOrder }, source);
+    }
+  }
+
+  async function handleMessageSent(mobile: string) {
+    // Customer sent WA SMS — unlock checkout without marking fully verified.
+    setNeedsWhatsappVerification(false);
+    setVerificationResolved(true);
+    setShowVerificationModal(false);
+    const checkoutMobile = e164ToCheckoutMobile(mobile);
+    if (checkoutMobile && isValidIndianMobile(checkoutMobile) && checkoutMobile !== getValues('mobile')) {
       setValue('mobile', checkoutMobile, { shouldValidate: true });
     }
     const data = getValues();
     if (pendingSubmitSource) {
       const source = pendingSubmitSource;
       setPendingSubmitSource(null);
-      await submitOrder({ ...data, mobile: checkoutMobile || data.mobile }, source);
+      const mobileForOrder =
+        checkoutMobile && isValidIndianMobile(checkoutMobile) ? checkoutMobile : data.mobile;
+      await submitOrder({ ...data, mobile: mobileForOrder }, source);
     }
   }
 
@@ -692,7 +718,7 @@ export default function CheckoutPage() {
             }`}
           >
             <h3 className="font-bold text-sm">Customer Details</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>First Name *</Label>
                 <Input {...register('firstName')} placeholder="Rahul" className="mt-1" />
@@ -748,7 +774,7 @@ export default function CheckoutPage() {
               <Label>Landmark</Label>
               <Input {...register('landmark')} className="mt-1" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>City *</Label>
                 <Input {...register('city')} className="mt-1" />
@@ -857,7 +883,7 @@ export default function CheckoutPage() {
                     : !isWhatsAppPatternValid
                       ? 'Enter valid mobile number'
                       : verificationResolved && needsWhatsappVerification && !whatsappVerified
-                      ? 'Verify WhatsApp to place order'
+                      ? 'Send WhatsApp code to place order'
                       : 'Place Order'}
               </Button>
             )}
@@ -883,6 +909,7 @@ export default function CheckoutPage() {
         initialCountryDial="91"
         customerName={formValues.firstName ? `${formValues.firstName} ${formValues.lastName ?? ''}`.trim() : undefined}
         onVerified={handleVerified}
+        onMessageSent={handleMessageSent}
         onClose={() => {
           setShowVerificationModal(false);
           setPendingSubmitSource(null);

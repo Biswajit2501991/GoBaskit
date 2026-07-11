@@ -22,12 +22,12 @@ export async function POST(req: NextRequest) {
   }
 
   const meta = getRequestMeta(req);
-  await WhatsAppVerificationService.logSentAck({
+  const status = await WhatsAppVerificationService.logSentAck({
     mobileE164: mobile,
     verificationId: parsed.data.verificationId,
     ip: meta.ip,
     userAgent: meta.userAgent,
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, ...status });
 }

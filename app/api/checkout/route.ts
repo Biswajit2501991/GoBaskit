@@ -97,10 +97,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (verification.needsVerification && !verification.isVerified) {
+    if (!verification.canCheckout) {
       return NextResponse.json(
         {
-          error: 'WhatsApp verification required before placing your first order.',
+          error: 'Please send the WhatsApp verification message first, then place your order.',
           code: 'VERIFICATION_REQUIRED',
         },
         { status: 403 },

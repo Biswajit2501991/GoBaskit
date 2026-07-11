@@ -154,6 +154,11 @@ function needsVerifyBeforeDelivery(order: OrderRow): boolean {
   );
 }
 
+/** Pending orders for unverified customers stay locked until Admin verifies WhatsApp. */
+function isPendingUnverifiedLock(order: OrderRow): boolean {
+  return isCustomerUnverified(order) && order.status === 'PENDING';
+}
+
 function patchOrderFromEvent(order: OrderRow, payload: Record<string, unknown>): OrderRow {
   const assignedStaff = payload.assignedStaff as { id: string; name: string; mobile?: string } | null | undefined;
   const customer = payload.customer as CustomerDetails | undefined;
@@ -254,7 +259,8 @@ function OrderCard({
   const isLocked = Boolean(order.lockedAt && order.assignedStaffId);
   const isMine = order.assignedStaffId === currentStaffId;
   const lockedByOther = isLocked && !isMine && !canOverrideLock;
-  const canDrag = canEdit && !lockedByOther;
+  const pendingVerifyLock = isPendingUnverifiedLock(order);
+  const canDrag = canEdit && !lockedByOther && !pendingVerifyLock;
   const address = formatCustomerAddress(order.customer);
   const paymentLabel =
     PAYMENT_METHODS[order.paymentMethod as keyof typeof PAYMENT_METHODS] ?? order.paymentMethod;
@@ -275,7 +281,9 @@ function OrderCard({
       onDragEnd={onDragEnd}
       className={`bg-white rounded-lg border shadow-sm overflow-hidden transition-all ${
         isDragging ? 'opacity-40 border-dashed border-blinkit-green scale-[0.98]' : 'border-gray-100'
-      } ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      } ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''} ${
+        pendingVerifyLock ? 'opacity-75 ring-1 ring-amber-300' : ''
+      }`}
     >
       <div
         role="button"
@@ -362,7 +370,7 @@ function OrderCard({
           {isCustomerUnverified(order) && (
             <div
               className={`flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[10px] leading-snug ${
-                needsVerifyBeforeDelivery(order)
+                pendingVerifyLock || needsVerifyBeforeDelivery(order)
                   ? 'bg-amber-50 text-amber-900 border border-amber-200'
                   : 'bg-gray-50 text-gray-600 border border-gray-100'
               }`}
@@ -370,9 +378,11 @@ function OrderCard({
             >
               <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
               <span>
-                {needsVerifyBeforeDelivery(order)
-                  ? 'Customer not WhatsApp-verified — verify before delivery. '
-                  : 'Customer not WhatsApp-verified. '}
+                {pendingVerifyLock
+                  ? 'Order locked — verify customer WhatsApp before accepting. '
+                  : needsVerifyBeforeDelivery(order)
+                    ? 'Customer not WhatsApp-verified — verify before delivery. '
+                    : 'Customer not WhatsApp-verified. '}
                 <Link
                   href="/admin/whatsapp-verification"
                   className="font-semibold underline underline-offset-2"
@@ -405,13 +415,19 @@ function OrderCard({
             onClick={(e) => e.stopPropagation()}
             onChange={(e) => {
               e.stopPropagation();
+              if (pendingVerifyLock && e.target.value !== 'CANCELLED') {
+                alert('Verify the customer on WhatsApp before progressing this order.');
+                return;
+              }
               onUpdate(order.id, { status: e.target.value }, { status: e.target.value });
             }}
-            className="w-full text-[11px] font-semibold border rounded px-2 py-1 mt-1"
-            disabled={!canEdit || lockedByOther}
+            className="w-full text-[11px] font-semibold border rounded px-2 py-1 mt-1 disabled:bg-gray-100 disabled:text-gray-500"
+            disabled={!canEdit || lockedByOther || (pendingVerifyLock && order.status === 'PENDING')}
           >
             {STATUSES.map((s) => (
-              <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+              <option key={s} value={s} disabled={pendingVerifyLock && s !== 'PENDING' && s !== 'CANCELLED'}>
+                {s.replace(/_/g, ' ')}
+              </option>
             ))}
           </select>
           <p className="text-[10px] text-gray-400">{formatDateTime(order.createdAt)}</p>
@@ -898,6 +914,10 @@ export default function OrdersManager({
     const lockedByOther = isLocked && !isMine && !canOverrideLock;
     if (lockedByOther) {
       alert('This order is locked to another staff member.');
+      return;
+    }
+    if (isPendingUnverifiedLock(order) && targetStatus !== 'CANCELLED') {
+      alert('Verify the customer on WhatsApp before progressing this order.');
       return;
     }
 

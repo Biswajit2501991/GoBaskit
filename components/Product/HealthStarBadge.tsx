@@ -30,10 +30,11 @@ export default function HealthStarBadge({
 }: HealthStarBadgeProps) {
   if (!url) return null;
   const src = sizedImageUrl(url, Math.max(64, size * 3)) || url;
+  const hasExplicitSize = /\b(?:w-|h-|!w-|!h-)/.test(className);
   return (
     <span
       className={`absolute z-[11] rounded-full overflow-hidden bg-white shadow-[0_1px_3px_rgba(0,0,0,0.18)] ring-1 ring-black/5 pointer-events-none ${POSITION_CLASS[position]} ${className}`}
-      style={{ width: size, height: size }}
+      style={hasExplicitSize ? undefined : { width: size, height: size }}
       aria-hidden
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}

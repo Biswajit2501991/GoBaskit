@@ -1,7 +1,13 @@
 'use client';
 
 /** Scrolling “Powered by…” ticker so the full line is readable on mobile. */
-export default function PoweredByBanner({ text }: { text: string }) {
+export default function PoweredByBanner({
+  text,
+  className = '',
+}: {
+  text: string;
+  className?: string;
+}) {
   const label = text.trim();
   if (!label) return null;
 
@@ -10,7 +16,7 @@ export default function PoweredByBanner({ text }: { text: string }) {
 
   return (
     <div
-      className="powered-by-banner flex items-center min-w-0 flex-1 mx-1 sm:mx-3 overflow-hidden"
+      className={`powered-by-banner flex items-center min-w-0 overflow-hidden ${className || 'flex-1 mx-1 sm:mx-3'}`}
       aria-label={label}
     >
       <div className="powered-by-track w-full max-w-full overflow-hidden rounded-full border border-black/10 bg-white/60 py-1 shadow-sm backdrop-blur-[2px]">

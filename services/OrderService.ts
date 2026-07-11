@@ -208,10 +208,24 @@ export class OrderService {
     data: { status?: OrderStatus; priority?: OrderPriority; adminNotes?: string },
     actor: { id: string; role: string; permissions: unknown },
   ) {
-    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { customer: { select: { isWhatsappVerified: true } } },
+    });
     if (!order) throw new Error('Order not found');
     if (!this.canEditOrder(order, actor)) {
       throw new Error('Order is locked to another staff member');
+    }
+
+    if (
+      data.status &&
+      data.status !== order.status &&
+      data.status !== 'CANCELLED' &&
+      !order.customer.isWhatsappVerified
+    ) {
+      throw new Error(
+        'Customer WhatsApp is not verified yet. Verify the customer before progressing this order.',
+      );
     }
 
     await prisma.order.update({
