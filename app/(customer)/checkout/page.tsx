@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Header from '@/components/Header/Header';
 import CancellationPolicyCard from '@/components/Cart/CancellationPolicyCard';
+import CouponSection from '@/components/Cart/CouponSection';
 import { markOrderCelebration } from '@/components/Cart/OrderCelebration';
 import { useCartStore } from '@/store/cartStore';
 import { useConfigStore } from '@/store/configStore';
@@ -877,16 +878,30 @@ export default function CheckoutPage() {
             </div>
           </div>
 
+          <CouponSection subtotal={subtotal} />
+
           <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
             <h3 className="font-bold text-sm">Payment Method</h3>
-            <label className="flex items-center gap-3 p-3 border-2 border-blinkit-green bg-blinkit-green-light rounded-xl cursor-pointer">
+            <label
+              className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${
+                formValues.paymentMethod === 'COD'
+                  ? 'border-2 border-blinkit-green bg-blinkit-green-light'
+                  : 'border border-gray-200 hover:border-blinkit-green'
+              }`}
+            >
               <input type="radio" value="COD" {...register('paymentMethod')} className="accent-blinkit-green" />
               <div>
                 <p className="font-bold text-sm">Cash On Delivery</p>
                 <p className="text-xs text-gray-500">Pay when order arrives</p>
               </div>
             </label>
-            <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:border-blinkit-green">
+            <label
+              className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${
+                formValues.paymentMethod === 'QR_ON_DELIVERY'
+                  ? 'border-2 border-blinkit-green bg-blinkit-green-light'
+                  : 'border border-gray-200 hover:border-blinkit-green'
+              }`}
+            >
               <input type="radio" value="QR_ON_DELIVERY" {...register('paymentMethod')} className="accent-blinkit-green" />
               <div>
                 <p className="font-bold text-sm">QR Payment on Delivery</p>
