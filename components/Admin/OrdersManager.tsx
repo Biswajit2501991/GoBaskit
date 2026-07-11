@@ -12,6 +12,10 @@ import { buildWhatsAppUrl, openWhatsAppUrl } from '@/utils/whatsapp';
 import { PAYMENT_METHODS } from '@/constants';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
 import ListPagination from './ListPagination';
+import OrdersLiveOpsStrip, {
+  type OpsFilter,
+  type OpsSummary,
+} from './OrdersLiveOpsStrip';
 
 interface OrderItem {
   id: string;
@@ -614,10 +618,42 @@ export default function OrdersManager({
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [draggingOrderId, setDraggingOrderId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
+  const [opsSummary, setOpsSummary] = useState<OpsSummary | null>(null);
+  const [opsLoading, setOpsLoading] = useState(false);
+  const [opsFilter, setOpsFilter] = useState<OpsFilter>(null);
 
   const initialLoadDone = useRef(false);
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const opsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadRef = useRef<(options?: { silent?: boolean }) => Promise<void>>(async () => {});
+  const loadOpsRef = useRef<() => Promise<void>>(async () => {});
+  const showLiveOps = !forceAssignedToMe;
+
+  const loadOpsSummary = useCallback(async () => {
+    if (!showLiveOps) return;
+    setOpsLoading(true);
+    try {
+      const res = await fetch('/api/admin/orders/ops-summary');
+      if (!res.ok) return;
+      const data = (await res.json()) as OpsSummary;
+      setOpsSummary(data);
+    } catch {
+      /* keep previous */
+    } finally {
+      setOpsLoading(false);
+    }
+  }, [showLiveOps]);
+
+  loadOpsRef.current = loadOpsSummary;
+
+  function scheduleOpsRefresh() {
+    if (!showLiveOps) return;
+    if (opsTimerRef.current) clearTimeout(opsTimerRef.current);
+    opsTimerRef.current = setTimeout(() => {
+      opsTimerRef.current = null;
+      void loadOpsRef.current();
+    }, SSE_RELOAD_DEBOUNCE_MS);
+  }
 
   const load = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? initialLoadDone.current;
@@ -632,7 +668,16 @@ export default function OrdersManager({
       pageSize: String(BOARD_PAGE_SIZE),
     });
     if (search) params.set('search', search);
-    if (forceAssignedToMe) params.set('assignedStaffId', currentStaffId);
+    if (forceAssignedToMe) {
+      params.set('assignedStaffId', currentStaffId);
+    } else if (opsFilter?.type === 'unassigned') {
+      params.set('assignedStaffId', 'unassigned');
+      if (opsFilter.status) params.set('status', opsFilter.status);
+      else params.set('activeOnly', '1');
+    } else if (opsFilter?.type === 'staff') {
+      params.set('assignedStaffId', opsFilter.staffId);
+      params.set('activeOnly', '1');
+    }
 
     try {
       const res = await fetch(`/api/admin/orders?${params}`);
@@ -649,7 +694,7 @@ export default function OrdersManager({
       }
       initialLoadDone.current = true;
     }
-  }, [page, search, forceAssignedToMe, currentStaffId]);
+  }, [page, search, forceAssignedToMe, currentStaffId, opsFilter]);
 
   loadRef.current = load;
 
@@ -662,6 +707,11 @@ export default function OrdersManager({
     const t = setTimeout(() => load(), 300);
     return () => clearTimeout(t);
   }, [load, search]);
+
+  useEffect(() => {
+    if (!showLiveOps) return;
+    void loadOpsSummary();
+  }, [showLiveOps, loadOpsSummary]);
 
   useEffect(() => {
     let cancelled = false;
@@ -683,6 +733,7 @@ export default function OrdersManager({
       reloadTimerRef.current = setTimeout(() => {
         reloadTimerRef.current = null;
         void loadRef.current({ silent: true });
+        scheduleOpsRefresh();
       }, SSE_RELOAD_DEBOUNCE_MS);
     }
 
@@ -699,6 +750,7 @@ export default function OrdersManager({
             }
             return prev.map((o) => (o.id === id ? patchOrderFromEvent(o, payload) : o));
           });
+          scheduleOpsRefresh();
         }
         return;
       }
@@ -719,9 +771,18 @@ export default function OrdersManager({
         clearTimeout(reloadTimerRef.current);
         reloadTimerRef.current = null;
       }
+      if (opsTimerRef.current) {
+        clearTimeout(opsTimerRef.current);
+        opsTimerRef.current = null;
+      }
     };
-  }, []);
+  }, [showLiveOps]);
 
+  function handleOpsFilterChange(next: OpsFilter) {
+    setOpsFilter(next);
+    setPage(1);
+    setSelectedIds(new Set());
+  }
   const ordersByStatus = useMemo(() => {
     const grouped: Record<string, OrderRow[]> = {};
     for (const status of STATUSES) {
@@ -777,6 +838,7 @@ export default function OrdersManager({
       return next;
     });
     await load();
+    scheduleOpsRefresh();
     return data;
   }
 
@@ -826,6 +888,7 @@ export default function OrdersManager({
     }
     const updated = await res.json();
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
+    scheduleOpsRefresh();
   }
 
   async function assignOrder(id: string, staffId: string) {
@@ -856,6 +919,7 @@ export default function OrdersManager({
     }
     const updated = await res.json();
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
+    scheduleOpsRefresh();
   }
 
   function sendWhatsAppUpdate(order: OrderRow) {
@@ -892,6 +956,7 @@ export default function OrdersManager({
     }
     const updated = await res.json();
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
+    scheduleOpsRefresh();
   }
 
   function statusLabel(status: string) {
@@ -959,9 +1024,18 @@ export default function OrdersManager({
         <h1 className="text-2xl font-bold">Orders ({total})</h1>
         {refreshing && <span className="text-xs text-gray-400 animate-pulse">Updating…</span>}
       </div>
-      <p className="text-sm text-gray-500 mb-6">
+      <p className="text-sm text-gray-500 mb-4">
         Kanban board by status — drag cards between columns or use the status dropdown. Status updates automatically when dropped.
       </p>
+
+      {showLiveOps && (
+        <OrdersLiveOpsStrip
+          summary={opsSummary}
+          loading={opsLoading}
+          filter={opsFilter}
+          onFilterChange={handleOpsFilterChange}
+        />
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex flex-wrap items-center gap-3">
@@ -1012,7 +1086,18 @@ export default function OrdersManager({
       {loading ? (
         <p className="text-gray-400">Loading...</p>
       ) : orders.length === 0 ? (
-        <p className="text-gray-500">No orders found</p>
+        <div className="text-gray-500 space-y-2">
+          <p>{opsFilter ? 'No orders match this live ops filter.' : 'No orders found'}</p>
+          {opsFilter && (
+            <button
+              type="button"
+              onClick={() => handleOpsFilterChange(null)}
+              className="text-sm font-semibold text-blinkit-green hover:underline"
+            >
+              Clear filter
+            </button>
+          )}
+        </div>
       ) : (
         <div className="overflow-x-auto pb-4 -mx-2 px-2">
           <div className="flex gap-3 items-start min-h-[calc(100vh-13rem)]">

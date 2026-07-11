@@ -9,15 +9,32 @@ import { InventoryService } from '@/services/InventoryService';
 import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationService';
 import { toE164 } from '@/utils/phone';
 import { normalizeMobile } from '@/utils/mobile';
+import { ACTIVE_ORDER_STATUSES } from '@/constants/orders';
 
 export interface OrderListParams {
   search?: string;
   status?: OrderStatus;
+  /** Staff id, or `unassigned` for orders with no assignee. */
   assignedStaffId?: string;
+  /** When true and no status filter, limit to active fulfillment statuses. */
+  activeOnly?: boolean;
   page?: number;
   pageSize?: number;
   includeHistory?: boolean;
 }
+
+export type OrderOpsSummary = {
+  unassigned: {
+    total: number;
+    byStatus: Record<string, number>;
+  };
+  staff: Array<{
+    id: string;
+    name: string;
+    total: number;
+    byStatus: Record<string, number>;
+  }>;
+};
 
 const customerListSelect = {
   firstName: true,
@@ -89,8 +106,16 @@ export class OrderService {
     const pageSize = Math.min(params.pageSize ?? 20, 100);
     const where: Prisma.OrderWhereInput = {
       archivedAt: null,
-      ...(params.status ? { status: params.status } : {}),
-      ...(params.assignedStaffId ? { assignedStaffId: params.assignedStaffId } : {}),
+      ...(params.status
+        ? { status: params.status }
+        : params.activeOnly
+          ? { status: { in: ACTIVE_ORDER_STATUSES } }
+          : {}),
+      ...(params.assignedStaffId === 'unassigned'
+        ? { assignedStaffId: null }
+        : params.assignedStaffId
+          ? { assignedStaffId: params.assignedStaffId }
+          : {}),
       ...(params.search
         ? {
             OR: [
@@ -115,6 +140,68 @@ export class OrderService {
     ]);
 
     return { items, total, page, pageSize };
+  }
+
+  /** Live active-order counts for the Orders ops strip (excludes delivered/cancelled). */
+  static async getOpsSummary(): Promise<OrderOpsSummary> {
+    const emptyByStatus = (): Record<string, number> =>
+      Object.fromEntries(ACTIVE_ORDER_STATUSES.map((s) => [s, 0]));
+
+    const groups = await prisma.order.groupBy({
+      by: ['status', 'assignedStaffId'],
+      where: {
+        archivedAt: null,
+        status: { in: ACTIVE_ORDER_STATUSES },
+      },
+      _count: { _all: true },
+    });
+
+    const unassigned = { total: 0, byStatus: emptyByStatus() };
+    const staffMap = new Map<string, { total: number; byStatus: Record<string, number> }>();
+
+    for (const row of groups) {
+      const count = row._count._all;
+      const status = row.status;
+      if (!ACTIVE_ORDER_STATUSES.includes(status)) continue;
+
+      if (!row.assignedStaffId) {
+        unassigned.total += count;
+        unassigned.byStatus[status] = (unassigned.byStatus[status] ?? 0) + count;
+        continue;
+      }
+
+      const existing = staffMap.get(row.assignedStaffId) ?? {
+        total: 0,
+        byStatus: emptyByStatus(),
+      };
+      existing.total += count;
+      existing.byStatus[status] = (existing.byStatus[status] ?? 0) + count;
+      staffMap.set(row.assignedStaffId, existing);
+    }
+
+    const staffIds = [...staffMap.keys()];
+    const staffRows =
+      staffIds.length === 0
+        ? []
+        : await prisma.staffAccount.findMany({
+            where: { id: { in: staffIds } },
+            select: { id: true, name: true },
+          });
+    const nameById = new Map(staffRows.map((s) => [s.id, s.name]));
+
+    const staff = staffIds
+      .map((id) => {
+        const stats = staffMap.get(id)!;
+        return {
+          id,
+          name: nameById.get(id) ?? 'Staff',
+          total: stats.total,
+          byStatus: stats.byStatus,
+        };
+      })
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+
+    return { unassigned, staff };
   }
 
   static async getStatusHistory(orderId: string) {

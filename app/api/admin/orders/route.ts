@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
     search: searchParams.get('search') || undefined,
     status: (searchParams.get('status') as OrderStatus) || undefined,
     assignedStaffId: searchParams.get('assignedStaffId') || undefined,
+    activeOnly: searchParams.get('activeOnly') === '1',
     page: Number(searchParams.get('page') || 1),
     pageSize: Number(searchParams.get('pageSize') || 20),
     includeHistory: searchParams.get('includeHistory') === '1',
