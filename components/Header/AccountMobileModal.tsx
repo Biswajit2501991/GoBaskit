@@ -78,9 +78,9 @@ export default function AccountMobileModal() {
     } else {
       setCustomerMobile(normalized);
     }
-    // Warm wishlist + restock notices after login (Header also loads these).
-    void import('@/store/wishlistStore').then(({ useWishlistStore }) => {
-      void useWishlistStore.getState().load();
+    // Warm profile, orders, notices, wishlist in one pass for faster account/checkout.
+    void import('@/utils/warmCustomerSession').then(({ warmCustomerSession }) => {
+      void warmCustomerSession({ force: true });
     });
     resetState();
     closeAccountModal();

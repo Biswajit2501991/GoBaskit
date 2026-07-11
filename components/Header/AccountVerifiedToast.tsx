@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, X } from 'lucide-react';
 import { toE164 } from '@/utils/phone';
 import { setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
+import { peekWarmCustomerSession } from '@/utils/warmCustomerSession';
 
 const TOAST_KEY = 'gobaskit_account_verified_toast';
 const SEEN_KEY = 'gobaskit_account_verified_seen';
@@ -11,6 +12,7 @@ const SEEN_KEY = 'gobaskit_account_verified_seen';
 /**
  * Shows “Account verified” when admin/webhook finishes WhatsApp verification.
  * Triggered by sessionStorage flag (set after verify poll) or by account poll.
+ * Polls only while verification is still pending — skips forever-poll when already verified.
  */
 export default function AccountVerifiedToast({
   enabled,
@@ -47,11 +49,23 @@ export default function AccountVerifiedToast({
 
     if (!mobile10) return;
 
+    const warm = peekWarmCustomerSession();
+    if (warm?.isWhatsappVerified && warm.needsVerification !== true) {
+      wasVerified.current = true;
+      return;
+    }
+
+    let timer: number | undefined;
+
     const poll = async () => {
       try {
         const res = await fetch('/api/customer/account');
         if (!res.ok) return;
-        const data = (await res.json()) as { isWhatsappVerified?: boolean; mobile?: string };
+        const data = (await res.json()) as {
+          isWhatsappVerified?: boolean;
+          needsVerification?: boolean;
+          mobile?: string;
+        };
         const verified = data.isWhatsappVerified === true;
         if (wasVerified.current === false && verified) {
           const e164 = toE164('91', mobile10);
@@ -64,14 +78,21 @@ export default function AccountVerifiedToast({
           showOnce();
         }
         wasVerified.current = verified;
+        // Stop polling once verified and no longer needed.
+        if (verified && data.needsVerification !== true && timer) {
+          window.clearInterval(timer);
+          timer = undefined;
+        }
       } catch {
         /* ignore */
       }
     };
 
     void poll();
-    const timer = window.setInterval(poll, 12_000);
-    return () => window.clearInterval(timer);
+    timer = window.setInterval(poll, 12_000);
+    return () => {
+      if (timer) window.clearInterval(timer);
+    };
   }, [enabled, mobile10]);
 
   if (!visible) return null;

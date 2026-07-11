@@ -76,13 +76,17 @@ async function load(
       lastFetched: Date.now(),
     });
 
-    // Warm the browser cache for every product and option image while the
-    // browser is idle, so switching options or navigating feels instant for
-    // the rest of the session.
+    // Warm the browser cache for a capped set of product images while idle.
+    // Cap avoids unbounded Image() + Set growth on large catalogs.
+    const MAX_IDLE_PRELOAD = 60;
     const imageUrls: Array<string | null | undefined> = [];
     for (const p of productList) {
+      if (imageUrls.length >= MAX_IDLE_PRELOAD) break;
       imageUrls.push(sizedImageUrl(p.imageUrl, 400));
-      for (const v of p.variants ?? []) imageUrls.push(sizedImageUrl(v.imageUrl, 400));
+      for (const v of p.variants ?? []) {
+        if (imageUrls.length >= MAX_IDLE_PRELOAD) break;
+        imageUrls.push(sizedImageUrl(v.imageUrl, 400));
+      }
     }
     preloadImagesIdle(imageUrls);
   } catch {

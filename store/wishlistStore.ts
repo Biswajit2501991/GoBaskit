@@ -34,6 +34,8 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
 
   load: async () => {
     if (get().loading) return;
+    // Skip network when already warmed (e.g. post-login / Header remount).
+    if (get().loaded) return;
     set({ loading: true });
     try {
       const res = await fetch('/api/customer/wishlist');

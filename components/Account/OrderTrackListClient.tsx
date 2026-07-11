@@ -8,6 +8,12 @@ import Header from '@/components/Header/Header';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { ChevronLeft } from 'lucide-react';
+import {
+  getWarmCustomerSession,
+  peekWarmCustomerSession,
+  warmCustomerSession,
+  type WarmActiveOrder,
+} from '@/utils/warmCustomerSession';
 
 interface OrderListItem {
   id: string;
@@ -18,23 +24,42 @@ interface OrderListItem {
   itemCount: number;
 }
 
+function toListItem(order: WarmActiveOrder): OrderListItem {
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    status: order.status as OrderStatus,
+    grandTotal: order.grandTotal,
+    createdAt: order.createdAt,
+    itemCount: order.itemCount,
+  };
+}
+
 export default function OrderTrackListClient() {
   const router = useRouter();
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const res = await fetch('/api/customer/orders?active=1', { cache: 'no-store' });
-    if (res.status === 401) {
+    const cached = peekWarmCustomerSession();
+    if (cached?.activeOrders?.length) {
+      if (cached.activeOrders.length === 1) {
+        router.replace(`/account/track/${cached.activeOrders[0].id}`);
+        return;
+      }
+      setOrders(cached.activeOrders.map(toListItem));
+      setLoading(false);
+    }
+
+    const warm = await warmCustomerSession({
+      force: !getWarmCustomerSession()?.mobile,
+    });
+    if (!warm.mobile) {
       router.replace('/account');
       return;
     }
-    if (!res.ok) {
-      setLoading(false);
-      return;
-    }
-    const data = await res.json();
-    const list: OrderListItem[] = data.orders ?? [];
+
+    const list = warm.activeOrders.map(toListItem);
     if (list.length === 1) {
       router.replace(`/account/track/${list[0].id}`);
       return;

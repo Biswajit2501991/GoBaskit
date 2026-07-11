@@ -7,9 +7,12 @@ import Header from '@/components/Header/Header';
 import { Button } from '@/components/ui/button';
 import { formatCustomerName } from '@/utils/customer';
 import type { SavedCheckoutProfile } from '@/utils/customerProfile';
-import { loadCheckoutProfileLocal } from '@/utils/customerProfile';
-import { normalizeMobile } from '@/utils/mobile';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
+import {
+  getWarmCustomerSession,
+  peekWarmCustomerSession,
+  warmCustomerSession,
+} from '@/utils/warmCustomerSession';
 import { MapPin, Package, User } from 'lucide-react';
 import AccountWishlistSection from '@/components/Account/AccountWishlistSection';
 
@@ -25,9 +28,20 @@ export default function AccountPageClient() {
   const [tracking, setTracking] = useState(false);
 
   const load = useCallback(async () => {
-    const accountRes = await fetch('/api/customer/account');
-    const accountData = await accountRes.json();
-    const resolvedMobile = accountData.mobile || customerMobile || null;
+    const cached = peekWarmCustomerSession();
+    if (cached?.mobile) {
+      setMobile(cached.mobile);
+      setProfile(cached.profile);
+      setActiveCount(cached.activeCount);
+      setNotices(cached.notices);
+      setLoading(false);
+    }
+
+    const warm = await warmCustomerSession({
+      force: !getWarmCustomerSession()?.mobile,
+    });
+
+    const resolvedMobile = warm.mobile || customerMobile || null;
     setMobile(resolvedMobile);
 
     if (!resolvedMobile) {
@@ -35,34 +49,9 @@ export default function AccountPageClient() {
       return;
     }
 
-    const [profileRes, ordersRes, noticesRes] = await Promise.all([
-      fetch('/api/customer/profile'),
-      fetch('/api/customer/orders?active=1'),
-      fetch('/api/customer/notices'),
-    ]);
-
-    if (profileRes.ok) {
-      const profileData = await profileRes.json();
-      let resolvedProfile: SavedCheckoutProfile | null = profileData.profile ?? null;
-      if (!resolvedProfile) {
-        const local = loadCheckoutProfileLocal();
-        if (local && normalizeMobile(local.mobile) === normalizeMobile(resolvedMobile)) {
-          resolvedProfile = local;
-        }
-      }
-      setProfile(resolvedProfile);
-    }
-
-    if (ordersRes.ok) {
-      const ordersData = await ordersRes.json();
-      setActiveCount(ordersData.activeCount ?? 0);
-    }
-
-    if (noticesRes.ok) {
-      const noticesData = await noticesRes.json();
-      setNotices(Array.isArray(noticesData.notices) ? noticesData.notices : []);
-    }
-
+    setProfile(warm.profile);
+    setActiveCount(warm.activeCount);
+    setNotices(warm.notices);
     setLoading(false);
   }, [customerMobile]);
 
@@ -73,17 +62,14 @@ export default function AccountPageClient() {
   async function handleTrackOrder() {
     setTracking(true);
     try {
-      const res = await fetch('/api/customer/orders?active=1', { cache: 'no-store' });
-      if (!res.ok) {
+      const warm = await warmCustomerSession({ force: true });
+      if (!warm.mobile) {
         openAccountModal();
         return;
       }
-      const data = await res.json();
-      const orders = data.orders ?? [];
-      if (orders.length === 0) {
-        setActiveCount(0);
-        return;
-      }
+      const orders = warm.activeOrders ?? [];
+      setActiveCount(warm.activeCount);
+      if (orders.length === 0) return;
       if (orders.length === 1) {
         router.push(`/account/track/${orders[0].id}`);
         return;

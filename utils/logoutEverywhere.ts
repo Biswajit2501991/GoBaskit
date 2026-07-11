@@ -16,6 +16,13 @@ export async function logoutEverywhere(redirectTo = '/') {
   }
 
   try {
+    const { clearWarmCustomerSession } = await import('@/utils/warmCustomerSession');
+    clearWarmCustomerSession();
+  } catch {
+    /* ignore */
+  }
+
+  try {
     const { useAdminProductsStore } = await import('@/store/adminProductsStore');
     useAdminProductsStore.getState().invalidateProducts();
     useAdminProductsStore.getState().invalidateCategories();

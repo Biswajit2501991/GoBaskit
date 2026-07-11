@@ -21,7 +21,7 @@ import OrderCelebration from '@/components/Cart/OrderCelebration';
 import { clearCheckoutProfileLocal } from '@/utils/customerProfile';
 import { clearSessionVerifiedMobile, setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
 import { toE164 } from '@/utils/phone';
-import { prefetchCheckoutProfile } from '@/utils/prefetchCheckoutProfile';
+import { warmCustomerSession } from '@/utils/warmCustomerSession';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
 import { useConfigStore } from '@/store/configStore';
 
@@ -43,7 +43,6 @@ export default function Header({ showSearch = true }: HeaderProps) {
   const openAdminLoginModal = useStaffPortalStore((s) => s.openAdminLoginModal);
   const openCart = useCartUiStore((s) => s.openCart);
   const wishlistCount = useWishlistStore((s) => s.count);
-  const loadWishlist = useWishlistStore((s) => s.load);
   const clearWishlist = useWishlistStore((s) => s.clear);
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
   const showPoweredByBanner = useConfigStore((s) => s.homepageConfig.showPoweredByBanner !== false);
@@ -63,9 +62,8 @@ export default function Header({ showSearch = true }: HeaderProps) {
 
   useEffect(() => {
     if (hasAccountIdentity) {
-      // Already know the customer — warm checkout profile + wishlist in the background.
-      void prefetchCheckoutProfile();
-      void loadWishlist();
+      // Warm account + profile + orders + wishlist once (TTL / dedupe inside).
+      void warmCustomerSession();
       return;
     }
     fetch('/api/customer/account')
@@ -77,13 +75,11 @@ export default function Header({ showSearch = true }: HeaderProps) {
             const e164 = toE164('91', data.mobile);
             if (e164) setSessionVerifiedMobile(e164);
           }
-          // Prefetch profile so checkout autofills without waiting.
-          void prefetchCheckoutProfile();
-          void loadWishlist();
+          void warmCustomerSession({ force: true });
         }
       })
       .catch(() => null);
-  }, [hasAccountIdentity, setCustomerMobile, loadWishlist]);
+  }, [hasAccountIdentity, setCustomerMobile]);
 
   useEffect(() => {
     if (!accountMenuOpen) return;
@@ -146,7 +142,10 @@ export default function Header({ showSearch = true }: HeaderProps) {
           </div>
 
           {showPoweredByBanner && poweredByText ? (
-            <PoweredByBanner text={poweredByText} className="order-3 w-full basis-full sm:order-none sm:w-auto sm:basis-auto sm:flex-1 sm:min-w-0" />
+            <PoweredByBanner
+              text={poweredByText}
+              className="order-3 w-full basis-full min-w-0 sm:order-none sm:w-auto sm:basis-auto sm:flex-1 sm:min-w-0 sm:mx-3"
+            />
           ) : (
             <div className="hidden sm:block flex-1 min-w-0" aria-hidden />
           )}

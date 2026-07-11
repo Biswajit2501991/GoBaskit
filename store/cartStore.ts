@@ -118,8 +118,18 @@ export const useCartStore = create<CartState>()(
         return subtotal + calculateDeliveryCharge(subtotal);
       },
     }),
-    { name: 'gobaskit-cart' }
-  )
+    {
+      name: 'gobaskit-cart',
+      // Keep localStorage lean — images are rehydrated lazily in CartPanelContent.
+      partialize: (state) => ({
+        items: state.items.map((item) => {
+          const { imageUrl: _, ...rest } = item;
+          void _;
+          return rest;
+        }),
+      }),
+    },
+  ),
 );
 
 export { MIN_ORDER_VALUE, calculateDeliveryCharge, isPinServiceable, SERVICEABLE_PINS };
