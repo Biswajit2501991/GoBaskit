@@ -25,6 +25,11 @@ import {
 
 export type { AdminProduct, AdminCategory };
 
+/** Stable empty refs — Zustand selectors must not return a fresh `[]` each call
+ *  or useSyncExternalStore loops (React minified error #185). */
+const EMPTY_CATEGORIES: AdminCategory[] = [];
+const EMPTY_PRODUCTS: AdminProduct[] = [];
+
 const emptyProduct: ProductFormData = {
   name: '',
   description: '',
@@ -76,14 +81,18 @@ export default function ProductManager({
   };
   const cacheKey = adminProductListKey(listParams);
   const cached = useAdminProductsStore((s) => s.lists[cacheKey]);
-  const categories = useAdminProductsStore((s) =>
-    s.categories.length ? s.categories : initialCategories ?? [],
-  );
+  const storeCategories = useAdminProductsStore((s) => s.categories);
+  const categories =
+    storeCategories.length > 0
+      ? storeCategories
+      : initialCategories?.length
+        ? initialCategories
+        : EMPTY_CATEGORIES;
   const fetchProducts = useAdminProductsStore((s) => s.fetchProducts);
   const refreshProducts = useAdminProductsStore((s) => s.refreshProducts);
   const setStoreCategories = useAdminProductsStore((s) => s.setCategories);
 
-  const products = cached?.items ?? [];
+  const products = cached?.items ?? EMPTY_PRODUCTS;
   const total = cached?.total ?? 0;
   // Only blank the table when we have nothing cached for this filter.
   const loading = !cached;
