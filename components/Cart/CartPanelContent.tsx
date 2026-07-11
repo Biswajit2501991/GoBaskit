@@ -325,7 +325,10 @@ export default function CartPanelContent({
                 </Button>
               )}
               <Button type="button" className="flex-[1.2]" onClick={handleLoginToProceed}>
-                Login to Proceed
+                <span className="flex w-full items-center justify-between gap-2 px-0.5">
+                  <span className="font-bold">{formatCurrency(grandTotal)}</span>
+                  <span>Login to Proceed</span>
+                </span>
               </Button>
             </div>
           ) : (
