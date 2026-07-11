@@ -262,9 +262,38 @@ export class WhatsAppVerificationService {
     };
   }
 
-  static async getStatus(mobileE164: string) {
+  static async getStatus(mobileE164: string, verificationId?: string) {
     if (!isValidE164(mobileE164)) {
       throw new Error('Invalid mobile number');
+    }
+
+    // Fast client-poll path: one indexed row read for the verification this browser started.
+    // Skips expire sweep + checkout eligibility work so login can poll frequently.
+    if (verificationId) {
+      const v = await prisma.whatsAppVerification.findUnique({
+        where: { id: verificationId },
+      });
+      const variants = mobileVariantsFromE164(mobileE164);
+      if (!v || (!variants.includes(v.mobile) && v.mobile !== mobileE164)) {
+        return {
+          mobile: mobileE164,
+          verified: false,
+          needsVerification: true,
+          canCheckout: false,
+          messageSent: false,
+          verification: null,
+        };
+      }
+
+      const verified = v.status === 'VERIFIED';
+      return {
+        mobile: mobileE164,
+        verified,
+        needsVerification: !verified,
+        canCheckout: verified || Boolean(v.sentAcknowledgedAt),
+        messageSent: Boolean(v.sentAcknowledgedAt),
+        verification: this.serializeVerification(v),
+      };
     }
 
     await this.expireStalePending();

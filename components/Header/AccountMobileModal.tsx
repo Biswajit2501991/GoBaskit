@@ -14,8 +14,7 @@ import { openWhatsAppUrl } from '@/utils/whatsapp';
 import { setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
 import LoginBrandSeal from '@/components/Header/LoginBrandSeal';
 import { useConfigStore } from '@/store/configStore';
-
-const LOGIN_POLL_INTERVAL_MS = 4000;
+import { LOGIN_VERIFICATION_POLL_INTERVAL_MS } from '@/constants/whatsappVerification';
 
 interface PendingVerification {
   id: string;
@@ -88,33 +87,57 @@ export default function AccountMobileModal() {
     router.refresh();
   }
 
-  // Poll for admin WhatsApp approval → then prompt to create / reset password.
+  // Poll for admin / webhook WhatsApp approval → then prompt to create / reset password.
   useEffect(() => {
     if (phase !== 'waiting' || !verification || !mobileE164) return;
 
     let active = true;
+    let inFlight = false;
+
     const poll = async () => {
+      if (!active || inFlight) return;
+      inFlight = true;
       try {
-        const res = await fetch(
-          `/api/customer/verification/status?mobile=${encodeURIComponent(mobileE164)}`,
-        );
+        const params = new URLSearchParams({
+          mobile: mobileE164,
+          verificationId: verification.id,
+        });
+        const res = await fetch(`/api/customer/verification/status?${params.toString()}`);
         if (!res.ok || !active) return;
         const data = await res.json();
-        if (data.verified) {
+        const approved =
+          data.verified === true || data.verification?.status === 'VERIFIED';
+        if (approved) {
           setSessionVerifiedMobile(mobileE164);
           setPhase('create-password');
           setError('');
         }
       } catch {
         /* keep polling */
+      } finally {
+        inFlight = false;
       }
     };
 
-    poll();
-    const timer = setInterval(poll, LOGIN_POLL_INTERVAL_MS);
+    void poll();
+    const timer = setInterval(() => {
+      void poll();
+    }, LOGIN_VERIFICATION_POLL_INTERVAL_MS);
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void poll();
+    };
+    const onFocus = () => {
+      void poll();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
+
     return () => {
       active = false;
       clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
     };
   }, [phase, verification, mobileE164]);
 
@@ -143,19 +166,17 @@ export default function AccountMobileModal() {
         setError(typeof data.error === 'string' ? data.error : 'Could not start verification');
         return;
       }
-      if (data.verified && data.verification) {
-        // Already has pending verification reused
-      }
       setVerification(data.verification);
       setWhatsappUrl(data.whatsappUrl ?? null);
       setPhase('waiting');
       if (data.whatsappUrl && data.verification?.id) {
-        await fetch('/api/customer/verification/opened', {
+        // Open WhatsApp immediately; track "opened" in the background.
+        openWhatsAppUrl(data.whatsappUrl);
+        void fetch('/api/customer/verification/opened', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ mobile: mobileE164, verificationId: data.verification.id }),
         }).catch(() => {});
-        openWhatsAppUrl(data.whatsappUrl);
       }
     } catch {
       setError('Network error. Please try again.');
@@ -169,11 +190,21 @@ export default function AccountMobileModal() {
     setLoading(true);
     try {
       const normalized = normalizeMobile(mobile);
-      const checkRes = await fetch('/api/staff/check-mobile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile }),
-      });
+      if (!mobileE164) {
+        setError('Enter a valid 10-digit mobile number');
+        return;
+      }
+
+      // Run staff + auth status checks in parallel to cut login wait.
+      const [checkRes, statusRes] = await Promise.all([
+        fetch('/api/staff/check-mobile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mobile }),
+        }),
+        fetch(`/api/customer/auth/status?mobile=${encodeURIComponent(mobileE164)}`),
+      ]);
+
       const checkData = await checkRes.json().catch(() => ({}));
       if (!checkRes.ok) {
         setError(checkData.error || 'Something went wrong');
@@ -216,9 +247,6 @@ export default function AccountMobileModal() {
       staffNameRef.current = '';
       clearStaffEligible();
 
-      const statusRes = await fetch(
-        `/api/customer/auth/status?mobile=${encodeURIComponent(mobileE164!)}`,
-      );
       const status = statusRes.ok ? await statusRes.json() : { requiresWhatsApp: true };
 
       if (status.hasPassword && !status.isLocked) {
