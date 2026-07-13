@@ -52,6 +52,10 @@ export interface StoreConfig {
   whatsappNumber: string;
   checkoutMode: 'website' | 'whatsapp' | 'both';
   notificationSoundEnabled: boolean;
+  /** When true, idle staff are force-logged out after staffIdleTimeoutMinutes. */
+  staffIdleTimeoutEnabled: boolean;
+  /** Minutes of no activity before forced staff logout (5–240). */
+  staffIdleTimeoutMinutes: number;
   homepageConfig: {
     showHeroBanner: boolean;
     showCategories: boolean;
@@ -153,8 +157,18 @@ const KEY_WHATSAPP_TEMPLATES = 'whatsapp_templates';
 const KEY_WHATSAPP_NUMBER = 'whatsapp_number';
 const KEY_CHECKOUT_MODE = 'checkout_mode';
 const KEY_NOTIFICATION_SOUND = 'notification_sound_enabled';
+const KEY_STAFF_IDLE_TIMEOUT_ENABLED = 'staff_idle_timeout_enabled';
+const KEY_STAFF_IDLE_TIMEOUT_MINUTES = 'staff_idle_timeout_minutes';
 const KEY_HOMEPAGE_CONFIG = 'homepage_config';
 const KEY_DISCOUNT_CONFIG = 'discount_config';
+
+const DEFAULT_STAFF_IDLE_TIMEOUT_MINUTES = 15;
+
+function clampIdleTimeoutMinutes(raw: unknown): number {
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(n)) return DEFAULT_STAFF_IDLE_TIMEOUT_MINUTES;
+  return Math.min(240, Math.max(5, Math.round(n)));
+}
 
 const DEFAULT_DISCOUNT_CONFIG: DiscountConfig = {
   couponsEnabled: false,
@@ -183,6 +197,8 @@ const DEFAULTS: StoreConfig = {
   paymentMethods: ['COD', 'QR_ON_DELIVERY'],
   checkoutMode: 'both',
   notificationSoundEnabled: true,
+  staffIdleTimeoutEnabled: true,
+  staffIdleTimeoutMinutes: DEFAULT_STAFF_IDLE_TIMEOUT_MINUTES,
   whatsappTemplates: {
     ORDER_RECEIVED: 'Your order is received and will be confirmed shortly.',
     ORDER_ACCEPTED: 'Your order has been accepted and is being prepared.',
@@ -368,6 +384,12 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
   const notificationSoundEnabled =
     (map.get(KEY_NOTIFICATION_SOUND) ?? 'true').toLowerCase() !== 'false';
 
+  const staffIdleTimeoutEnabled =
+    (map.get(KEY_STAFF_IDLE_TIMEOUT_ENABLED) ?? 'true').toLowerCase() !== 'false';
+  const staffIdleTimeoutMinutes = clampIdleTimeoutMinutes(
+    map.get(KEY_STAFF_IDLE_TIMEOUT_MINUTES) ?? DEFAULT_STAFF_IDLE_TIMEOUT_MINUTES,
+  );
+
   let minOrderValue = DEFAULTS.minOrderValue;
   const rawMin = map.get(KEY_MIN);
   if (rawMin != null && rawMin !== '') {
@@ -509,6 +531,8 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     whatsappNumber,
     checkoutMode,
     notificationSoundEnabled,
+    staffIdleTimeoutEnabled,
+    staffIdleTimeoutMinutes,
     homepageConfig,
     discountConfig,
   };
@@ -538,6 +562,8 @@ export const SettingsService = {
               KEY_WHATSAPP_NUMBER,
               KEY_CHECKOUT_MODE,
               KEY_NOTIFICATION_SOUND,
+              KEY_STAFF_IDLE_TIMEOUT_ENABLED,
+              KEY_STAFF_IDLE_TIMEOUT_MINUTES,
               KEY_HOMEPAGE_CONFIG,
               KEY_DISCOUNT_CONFIG,
             ],
@@ -601,6 +627,19 @@ export const SettingsService = {
     if (partial.notificationSoundEnabled != null) {
       writes.push(
         upsert(KEY_NOTIFICATION_SOUND, partial.notificationSoundEnabled ? 'true' : 'false'),
+      );
+    }
+    if (partial.staffIdleTimeoutEnabled != null) {
+      writes.push(
+        upsert(KEY_STAFF_IDLE_TIMEOUT_ENABLED, partial.staffIdleTimeoutEnabled ? 'true' : 'false'),
+      );
+    }
+    if (partial.staffIdleTimeoutMinutes != null) {
+      writes.push(
+        upsert(
+          KEY_STAFF_IDLE_TIMEOUT_MINUTES,
+          String(clampIdleTimeoutMinutes(partial.staffIdleTimeoutMinutes)),
+        ),
       );
     }
     if (partial.deliverySlabs) {

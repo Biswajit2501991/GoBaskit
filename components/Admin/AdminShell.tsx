@@ -8,6 +8,7 @@ import { NotificationCenter } from '@/components/Admin/NotificationCenter';
 import { AdminNavLink } from '@/components/Admin/AdminNavLink';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
+import StaffSessionKeeper from '@/components/Admin/StaffSessionKeeper';
 
 type AdminShellProps = {
   staff: { id: string; name: string; role: string };
@@ -122,6 +123,7 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
 
   return (
     <div className="h-screen bg-gray-50 flex overflow-hidden">
+      <StaffSessionKeeper />
       <aside
         className={`shrink-0 h-screen bg-white border-r border-gray-200 p-3 flex flex-col sticky top-0 transition-all duration-200 ${
           collapsed ? 'w-20' : 'w-56'

@@ -21,6 +21,7 @@ const SETTINGS_SECTIONS = [
   { id: 'whatsapp', label: 'WhatsApp Number', group: 'Orders' },
   { id: 'checkout', label: 'Checkout Mode', group: 'Orders' },
   { id: 'notifications', label: 'Notifications', group: 'Orders' },
+  { id: 'session', label: 'Staff Session', group: 'Orders' },
   { id: 'store-status', label: 'Store Status', group: 'Orders' },
   { id: 'payments', label: 'Payments', group: 'Orders' },
   { id: 'wa-templates', label: 'WA Templates', group: 'Orders' },
@@ -64,6 +65,8 @@ interface StoreConfig {
   whatsappNumber: string;
   checkoutMode: 'website' | 'whatsapp' | 'both';
   notificationSoundEnabled: boolean;
+  staffIdleTimeoutEnabled: boolean;
+  staffIdleTimeoutMinutes: number;
   homepageConfig: {
     showHeroBanner: boolean;
     showCategories: boolean;
@@ -169,6 +172,12 @@ export default function SettingsManager({
   const [checkoutMode, setCheckoutMode] = useState<StoreConfig['checkoutMode']>(initialConfig.checkoutMode ?? 'both');
   const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(
     initialConfig.notificationSoundEnabled ?? true,
+  );
+  const [staffIdleTimeoutEnabled, setStaffIdleTimeoutEnabled] = useState(
+    initialConfig.staffIdleTimeoutEnabled ?? true,
+  );
+  const [staffIdleTimeoutMinutes, setStaffIdleTimeoutMinutes] = useState(
+    initialConfig.staffIdleTimeoutMinutes ?? 15,
   );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
@@ -340,6 +349,8 @@ export default function SettingsManager({
           whatsappNumber,
           checkoutMode,
           notificationSoundEnabled,
+          staffIdleTimeoutEnabled,
+          staffIdleTimeoutMinutes: Number(staffIdleTimeoutMinutes),
           homepageConfig,
         }),
       });
@@ -360,6 +371,8 @@ export default function SettingsManager({
       setWhatsappNumber(updated.whatsappNumber ?? '');
       setCheckoutMode(updated.checkoutMode ?? 'both');
       setNotificationSoundEnabled(updated.notificationSoundEnabled ?? true);
+      setStaffIdleTimeoutEnabled(updated.staffIdleTimeoutEnabled ?? true);
+      setStaffIdleTimeoutMinutes(updated.staffIdleTimeoutMinutes ?? 15);
       setHomepageConfig({
         ...updated.homepageConfig,
         healthStarDisplay: {
@@ -618,6 +631,42 @@ export default function SettingsManager({
           />
           Play sound when a new order arrives
         </label>
+      </section>
+          )}
+
+          {activeSection === 'session' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+        <div>
+          <h2 className="font-bold text-sm">Staff session timeout</h2>
+          <p className="text-xs text-gray-400 mt-1">
+            While staff use Admin, a live heartbeat keeps the login active. If idle timeout is on
+            and nobody interacts for the chosen time, they are logged out automatically.
+          </p>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={staffIdleTimeoutEnabled}
+            onChange={(e) => setStaffIdleTimeoutEnabled(e.target.checked)}
+            disabled={!canEdit}
+            className="accent-blinkit-green"
+          />
+          Auto log out idle staff
+        </label>
+        <div className="max-w-xs space-y-1">
+          <Label htmlFor="staff-idle-minutes">Idle timeout (minutes)</Label>
+          <Input
+            id="staff-idle-minutes"
+            type="number"
+            min={5}
+            max={240}
+            step={1}
+            value={staffIdleTimeoutMinutes}
+            onChange={(e) => setStaffIdleTimeoutMinutes(Number(e.target.value) || 15)}
+            disabled={!canEdit || !staffIdleTimeoutEnabled}
+          />
+          <p className="text-[11px] text-gray-400">Allowed range: 5–240 minutes. Default: 15.</p>
+        </div>
       </section>
           )}
 
