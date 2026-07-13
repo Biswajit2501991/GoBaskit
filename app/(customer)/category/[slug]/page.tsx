@@ -6,7 +6,6 @@ import Link from 'next/link';
 import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
 import ProductCard from '@/components/ProductCard/ProductCard';
-import CategoryScroller from '@/components/CategoryCard/CategoryScroller';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { CATEGORY_ICONS } from '@/constants';
 import { resolvePublicImageUrl } from '@/utils/image';
@@ -77,8 +76,6 @@ export default function CategoryPage() {
             </p>
           </div>
         </div>
-
-        <CategoryScroller categories={categories} activeSlug={slug} />
 
         {showSkeleton ? (
           <div className={PRODUCT_GRID}>

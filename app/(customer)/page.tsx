@@ -4,29 +4,39 @@ import { useState, useEffect, useMemo } from 'react';
 import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
 import Link from 'next/link';
-import ProductCard from '@/components/ProductCard/ProductCard';
-import CategoryScroller from '@/components/CategoryCard/CategoryScroller';
+import CategoryGrid from '@/components/CategoryCard/CategoryGrid';
+import AllCategoriesModal from '@/components/CategoryCard/AllCategoriesModal';
+import ProductRail from '@/components/ProductCard/ProductRail';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { useConfigStore } from '@/store/configStore';
 import { useCatalogStore } from '@/store/catalogStore';
 
-const PRODUCT_GRID = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2';
+const RAIL_SIZE = 8;
+const CATEGORY_RAIL_COUNT = 4;
 
 export default function HomePage() {
   const [activeBanner, setActiveBanner] = useState(0);
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const { homepageConfig, refreshConfig } = useConfigStore();
   const products = useCatalogStore((s) => s.products);
   const categories = useCatalogStore((s) => s.categories);
   const loaded = useCatalogStore((s) => s.loaded);
   const loading = useCatalogStore((s) => s.loading);
   const fetchCatalog = useCatalogStore((s) => s.fetchCatalog);
-  // Only show skeletons on the very first load; cached data renders instantly
-  // when navigating back so the screen never re-flashes.
   const showSkeleton = loading && !loaded;
-  const featured = useMemo(() => products.filter((p) => p.isFeatured).slice(0, 8), [products]);
+  const featured = useMemo(() => products.filter((p) => p.isFeatured).slice(0, RAIL_SIZE), [products]);
   const showFeaturedSection = homepageConfig.showBestSellers && featured.length > 0;
-  // Only admin-enabled promo sections — never fall back to hardcoded banners
-  // when every section is toggled off.
+
+  const categoryRails = useMemo(() => {
+    return categories
+      .map((cat) => ({
+        category: cat,
+        items: products.filter((p) => p.category?.slug === cat.slug).slice(0, RAIL_SIZE),
+      }))
+      .filter((rail) => rail.items.length > 0)
+      .slice(0, CATEGORY_RAIL_COUNT);
+  }, [categories, products]);
+
   const rotatingBanners = (homepageConfig.promoSections ?? [])
     .filter((section) => section.enabled)
     .map((section) => ({
@@ -103,32 +113,22 @@ export default function HomePage() {
         )}
 
         {homepageConfig.showCategories && categories.length > 0 && (
-          <CategoryScroller categories={categories} />
+          <>
+            <CategoryGrid categories={categories} onSeeAll={() => setShowAllCategories(true)} />
+            <AllCategoriesModal
+              open={showAllCategories}
+              categories={categories}
+              onClose={() => setShowAllCategories(false)}
+            />
+          </>
         )}
 
-        {showFeaturedSection && (
-          <section className="mb-6 transition-all duration-500 ease-out opacity-100 translate-y-0">
-            <h2 className="font-bold text-gray-900 text-base mb-3">Best Sellers</h2>
-            <div className={PRODUCT_GRID}>
-              {featured.map((p) => <ProductCard key={p.id} product={p} />)}
-            </div>
-          </section>
-        )}
-
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-gray-900 text-base">
-              Buy groceries & essentials
-            </h2>
-            <span className="text-xs text-gray-400">
-              {homepageConfig.deliveryTimeText} · {products.length} items
-            </span>
-          </div>
-
-          {showSkeleton ? (
-            <div className={PRODUCT_GRID}>
-              {[...Array(12)].map((_, i) => (
-                <div key={i} className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+        {showSkeleton ? (
+          <div className="space-y-4">
+            <div className="h-5 w-40 skeleton rounded" />
+            <div className="flex gap-2 overflow-hidden">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="w-[148px] shrink-0 bg-white rounded-lg border border-gray-100 overflow-hidden">
                   <div className="aspect-[4/5] skeleton" />
                   <div className="p-2 space-y-1.5">
                     <div className="h-2.5 skeleton rounded" />
@@ -137,17 +137,44 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
-          ) : products.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
-              <span className="text-5xl mb-4 block">🔍</span>
-              <p className="font-semibold text-gray-700">No products found</p>
-            </div>
-          ) : (
-            <div className={PRODUCT_GRID}>
-              {products.map((p) => <ProductCard key={p.id} product={p} />)}
-            </div>
-          )}
-        </section>
+          </div>
+        ) : (
+          <>
+            {showFeaturedSection && (
+              <ProductRail title="Best Sellers" products={featured} />
+            )}
+
+            {categoryRails.map(({ category, items }) => (
+              <ProductRail
+                key={category.id}
+                title={category.name}
+                products={items}
+                seeAllHref={`/category/${category.slug}`}
+              />
+            ))}
+
+            {!showFeaturedSection && categoryRails.length === 0 && products.length === 0 && (
+              <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
+                <span className="text-5xl mb-4 block">🔍</span>
+                <p className="font-semibold text-gray-700">No products found</p>
+              </div>
+            )}
+
+            {categories.length > 0 && (
+              <div className="rounded-2xl border border-gray-100 bg-white px-4 py-5 text-center">
+                <p className="text-sm text-gray-600 mb-2">
+                  {homepageConfig.deliveryTimeText} · browse any aisle anytime
+                </p>
+                <Link
+                  href={`/category/${categories[0].slug}`}
+                  className="inline-flex text-sm font-semibold text-blinkit-green hover:underline"
+                >
+                  Start shopping →
+                </Link>
+              </div>
+            )}
+          </>
+        )}
       </main>
 
       <Footer />

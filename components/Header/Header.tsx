@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { ShoppingCart, User, Shield, Heart } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
@@ -18,19 +19,26 @@ import AccountVerifiedToast from '@/components/Header/AccountVerifiedToast';
 import PoweredByBanner from '@/components/Header/PoweredByBanner';
 import CartDrawer from '@/components/Cart/CartDrawer';
 import OrderCelebration from '@/components/Cart/OrderCelebration';
+import StickyCategoryChips from '@/components/CategoryCard/StickyCategoryChips';
+import AllCategoriesModal from '@/components/CategoryCard/AllCategoriesModal';
 import { clearCheckoutProfileLocal } from '@/utils/customerProfile';
 import { clearSessionVerifiedMobile, setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
 import { toE164 } from '@/utils/phone';
 import { warmCustomerSession } from '@/utils/warmCustomerSession';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
 import { useConfigStore } from '@/store/configStore';
+import { useCatalogStore } from '@/store/catalogStore';
 
 interface HeaderProps {
   /** Set false to hide the global product search (e.g. focused flows like checkout). */
   showSearch?: boolean;
+  /** Sticky category chips under search. Defaults to same as showSearch. */
+  showCategoryChips?: boolean;
 }
 
-export default function Header({ showSearch = true }: HeaderProps) {
+export default function Header({ showSearch = true, showCategoryChips }: HeaderProps) {
+  const pathname = usePathname();
+  const chipsEnabled = showCategoryChips ?? showSearch;
   const hydrated = useCartHydrated();
   const itemCount = useCartStore((s) => s.getItemCount());
   const staffEligible = useStaffPortalStore((s) => s.staffEligible);
@@ -47,8 +55,15 @@ export default function Header({ showSearch = true }: HeaderProps) {
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
   const showPoweredByBanner = useConfigStore((s) => s.homepageConfig.showPoweredByBanner !== false);
   const poweredByText = useConfigStore((s) => s.homepageConfig.poweredByText);
+  const categories = useCatalogStore((s) => s.categories);
+  const fetchCatalog = useCatalogStore((s) => s.fetchCatalog);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [allCategoriesOpen, setAllCategoriesOpen] = useState(false);
+  const [compact, setCompact] = useState(false);
   const actionsRef = useRef<HTMLDivElement | null>(null);
+  const activeCategorySlug = pathname.startsWith('/category/')
+    ? pathname.split('/')[2] || undefined
+    : undefined;
   const accountLabel = staffEligible
     ? staffName || `Staff ${checkedMobile}`
     : customerMobile
@@ -59,6 +74,21 @@ export default function Header({ showSearch = true }: HeaderProps) {
   useEffect(() => {
     void fetchConfig();
   }, [fetchConfig]);
+
+  useEffect(() => {
+    if (chipsEnabled) void fetchCatalog();
+  }, [chipsEnabled, fetchCatalog]);
+
+  useEffect(() => {
+    if (!showSearch) {
+      setCompact(false);
+      return;
+    }
+    const onScroll = () => setCompact(window.scrollY > 40);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [showSearch]);
 
   useEffect(() => {
     if (hasAccountIdentity) {
@@ -122,10 +152,18 @@ export default function Header({ showSearch = true }: HeaderProps) {
       <RestockToastHost enabled={Boolean(customerMobile) && !staffEligible} />
       <AccountVerifiedToast enabled={Boolean(customerMobile) && !staffEligible} mobile10={customerMobile} />
       <div className="bg-blinkit-yellow">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+        <div
+          className={`max-w-7xl mx-auto px-3 sm:px-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 transition-[padding] ${
+            compact ? 'py-1.5' : 'py-2 sm:py-2.5'
+          }`}
+        >
           <div className="flex items-center gap-2 shrink-0">
             <Link href="/" className="bg-white rounded-lg px-2 py-1 sm:px-2.5 shadow-sm shrink-0">
-              <span className="font-extrabold text-base sm:text-xl text-gray-900 tracking-tight">
+              <span
+                className={`font-extrabold text-gray-900 tracking-tight ${
+                  compact ? 'text-sm sm:text-lg' : 'text-base sm:text-xl'
+                }`}
+              >
                 Go<span className="text-blinkit-green">Baskit</span>
               </span>
             </Link>
@@ -141,7 +179,7 @@ export default function Header({ showSearch = true }: HeaderProps) {
             )}
           </div>
 
-          {showPoweredByBanner && poweredByText ? (
+          {showPoweredByBanner && poweredByText && !compact ? (
             <PoweredByBanner
               text={poweredByText}
               className="order-3 w-full basis-full min-w-0 sm:order-none sm:w-auto sm:basis-auto sm:flex-1 sm:min-w-0 sm:mx-3"
@@ -298,12 +336,44 @@ export default function Header({ showSearch = true }: HeaderProps) {
         </div>
       </div>
 
-      <LocationBar />
+      <div
+        className={`overflow-hidden transition-[max-height,opacity] duration-200 ease-out ${
+          compact ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-24 opacity-100'
+        }`}
+      >
+        <LocationBar />
+      </div>
 
       {showSearch && (
-        <div className="max-w-7xl mx-auto px-4 py-3 border-b border-gray-100">
-          <GlobalSearch />
+        <div
+          className={`max-w-7xl mx-auto px-3 sm:px-4 border-b border-gray-100 ${
+            compact ? 'py-2' : 'py-2.5 sm:py-3'
+          }`}
+        >
+          <Suspense
+            fallback={
+              <div className="h-10 w-full rounded-xl bg-gray-50 border border-gray-200" aria-hidden />
+            }
+          >
+            <GlobalSearch />
+          </Suspense>
         </div>
+      )}
+
+      {chipsEnabled && categories.length > 0 && (
+        <>
+          <StickyCategoryChips
+            categories={categories}
+            activeSlug={activeCategorySlug}
+            onOpenAll={() => setAllCategoriesOpen(true)}
+          />
+          <AllCategoriesModal
+            open={allCategoriesOpen}
+            categories={categories}
+            activeSlug={activeCategorySlug}
+            onClose={() => setAllCategoriesOpen(false)}
+          />
+        </>
       )}
     </header>
   );
