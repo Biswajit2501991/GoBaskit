@@ -15,7 +15,9 @@ import {
 } from '@/lib/auth';
 import {
   CUSTOMER_MOBILE_COOKIE,
+  createCustomerSessionToken,
   customerSessionClearOptions,
+  customerSessionCookieOptions,
 } from '@/lib/customer-session';
 import { StaffService } from '@/services/StaffService';
 import { AuditService } from '@/services/AuditService';
@@ -73,6 +75,13 @@ export async function POST(req: NextRequest) {
     },
   });
   setAuthCookies(response, access, refresh);
+  // Dual-role: open a customer session on the same response so storefront
+  // offers (membership / coupons) work without a second round-trip.
+  response.cookies.set(
+    CUSTOMER_MOBILE_COOKIE,
+    createCustomerSessionToken(mobile),
+    customerSessionCookieOptions(),
+  );
   return response;
 }
 

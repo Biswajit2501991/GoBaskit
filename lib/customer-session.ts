@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import type { NextRequest } from 'next/server';
 import { isValidIndianMobile, normalizeMobile } from '@/utils/mobile';
+import { COOKIE_NAME, verifyToken } from '@/lib/auth';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 
@@ -65,6 +66,18 @@ export function mobileFromSessionValue(raw: string | null | undefined): string |
   return null;
 }
 
+/**
+ * Customer identity for storefront APIs: prefer the customer session cookie,
+ * then fall back to a staff access token on their own number (dual-role shopping).
+ */
 export function getCustomerMobileFromRequest(req: NextRequest): string | null {
-  return mobileFromSessionValue(req.cookies.get(CUSTOMER_MOBILE_COOKIE)?.value);
+  const fromCustomer = mobileFromSessionValue(req.cookies.get(CUSTOMER_MOBILE_COOKIE)?.value);
+  if (fromCustomer) return fromCustomer;
+
+  const staffRaw = req.cookies.get(COOKIE_NAME)?.value;
+  if (!staffRaw) return null;
+  const session = verifyToken(staffRaw);
+  if (!session || !('type' in session) || session.type !== 'staff') return null;
+  const mobile = normalizeMobile(String(session.mobile ?? ''));
+  return isValidIndianMobile(mobile) ? mobile : null;
 }

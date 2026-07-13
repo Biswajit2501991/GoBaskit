@@ -91,6 +91,21 @@ export default function AccountMobileModal() {
     router.refresh();
   }
 
+  /** Confirm the httpOnly session cookie is readable before treating UI as logged in. */
+  async function confirmServerSession(normalized: string): Promise<boolean> {
+    try {
+      const res = await fetch('/api/customer/account', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      const data = (await res.json().catch(() => ({}))) as { mobile?: string | null };
+      const serverMobile = typeof data.mobile === 'string' ? normalizeMobile(data.mobile) : '';
+      return serverMobile === normalized;
+    } catch {
+      return false;
+    }
+  }
+
   // Poll for admin / webhook WhatsApp approval → then prompt to create / reset password.
   useEffect(() => {
     if (phase !== 'waiting' || !verification || !mobileE164) return;
@@ -228,10 +243,16 @@ export default function AccountMobileModal() {
         const sessionRes = await fetch('/api/customer/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ mobile: mobileE164 }),
         });
         const sessionData = await sessionRes.json().catch(() => ({}));
         if (sessionRes.ok && sessionData.verified) {
+          const sessionOk = await confirmServerSession(normalized);
+          if (!sessionOk) {
+            setError('Could not start customer session. Please try again.');
+            return;
+          }
           finishLogin(normalized);
           return;
         }
@@ -278,6 +299,7 @@ export default function AccountMobileModal() {
       const res = await fetch('/api/customer/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ mobile: mobileE164, password }),
       });
       const data = await res.json().catch(() => ({}));
@@ -297,8 +319,14 @@ export default function AccountMobileModal() {
         setError(data.error || 'Incorrect password');
         return;
       }
+      const normalized = normalizeMobile(mobile);
+      const sessionOk = await confirmServerSession(normalized);
+      if (!sessionOk) {
+        setError('Signed in, but session cookie failed. Please allow cookies and try again.');
+        return;
+      }
       setPhase('verified');
-      setTimeout(() => finishLogin(normalizeMobile(mobile)), 800);
+      setTimeout(() => finishLogin(normalized), 800);
     } catch {
       setError('Network error. Please try again.');
     } finally {
@@ -325,6 +353,7 @@ export default function AccountMobileModal() {
       const res = await fetch('/api/customer/password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           mobile: mobileE164,
           password,
@@ -337,8 +366,14 @@ export default function AccountMobileModal() {
         setError(data.error || 'Could not save password');
         return;
       }
+      const normalized = normalizeMobile(mobile);
+      const sessionOk = await confirmServerSession(normalized);
+      if (!sessionOk) {
+        setError('Password saved, but session cookie failed. Please allow cookies and log in.');
+        return;
+      }
       setPhase('verified');
-      setTimeout(() => finishLogin(normalizeMobile(mobile)), 800);
+      setTimeout(() => finishLogin(normalized), 800);
     } catch {
       setError('Network error. Please try again.');
     } finally {
