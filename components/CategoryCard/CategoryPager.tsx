@@ -9,9 +9,9 @@ import type { CategoryItem } from '@/types';
 
 const PAGE_SIZE = 6;
 const MOBILE_MQ = '(max-width: 767px)';
-const PEEK_DURATION_MS = 1800;
-const END_PAUSE_MS = 700;
-const START_PAUSE_MS = 1200;
+const PAGE_DURATION_MS = 900;
+const PAGE_PAUSE_MS = 1600;
+const LOOP_PAUSE_MS = 2000;
 
 interface CategoryPagerProps {
   categories: CategoryItem[];
@@ -56,6 +56,7 @@ function animateScroll(el: HTMLElement, to: number, duration: number, signal: Ab
 export default function CategoryPager({ categories, onSeeAll }: CategoryPagerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hintActive, setHintActive] = useState(false);
+  const [snapEnabled, setSnapEnabled] = useState(true);
   const userInteractedRef = useRef(false);
   const autoScrollingRef = useRef(false);
   const loopRunningRef = useRef(false);
@@ -72,6 +73,7 @@ export default function CategoryPager({ categories, onSeeAll }: CategoryPagerPro
     if (userInteractedRef.current) return;
     userInteractedRef.current = true;
     setHintActive(false);
+    setSnapEnabled(true);
   }, []);
 
   useEffect(() => {
@@ -84,41 +86,44 @@ export default function CategoryPager({ categories, onSeeAll }: CategoryPagerPro
 
     const abort = new AbortController();
 
-    function pageWidth() {
-      const container = scrollRef.current;
-      if (!container) return 0;
-      return container.clientWidth;
-    }
-
-    async function runPeekLoop() {
+    async function runPageLoop() {
       const container = scrollRef.current;
       if (!container || userInteractedRef.current || loopRunningRef.current) return;
-      const width = pageWidth();
-      if (width <= 0) return;
 
       loopRunningRef.current = true;
       autoScrollingRef.current = true;
       setHintActive(true);
+      // Disable CSS snap while we programmatically advance pages (snap fights mid-scroll).
+      setSnapEnabled(false);
 
       try {
         while (!userInteractedRef.current && !abort.signal.aborted) {
-          await animateScroll(container, width * 0.35, PEEK_DURATION_MS, abort.signal);
-          await sleep(END_PAUSE_MS, abort.signal);
-          await animateScroll(container, 0, PEEK_DURATION_MS, abort.signal);
-          await sleep(START_PAUSE_MS, abort.signal);
+          const width = container.clientWidth;
+          if (width <= 0) break;
+
+          for (let i = 1; i < pages.length; i++) {
+            if (userInteractedRef.current || abort.signal.aborted) break;
+            await animateScroll(container, width * i, PAGE_DURATION_MS, abort.signal);
+            await sleep(PAGE_PAUSE_MS, abort.signal);
+          }
+
+          if (userInteractedRef.current || abort.signal.aborted) break;
+          await animateScroll(container, 0, PAGE_DURATION_MS, abort.signal);
+          await sleep(LOOP_PAUSE_MS, abort.signal);
         }
       } catch {
-        /* aborted */
+        /* aborted or user interrupted */
       } finally {
         autoScrollingRef.current = false;
         loopRunningRef.current = false;
+        setSnapEnabled(true);
         if (!userInteractedRef.current) setHintActive(false);
       }
     }
 
     const startTimer = window.setTimeout(() => {
-      if (!userInteractedRef.current) void runPeekLoop();
-    }, 500);
+      if (!userInteractedRef.current) void runPageLoop();
+    }, 600);
 
     const onMqChange = (e: MediaQueryListEvent) => {
       if (!e.matches) stopAutoScroll();
@@ -176,13 +181,17 @@ export default function CategoryPager({ categories, onSeeAll }: CategoryPagerPro
         )}
         <div
           ref={scrollRef}
-          className="overflow-x-auto scrollbar-hide overscroll-x-contain snap-x snap-mandatory"
+          className={`overflow-x-auto scrollbar-hide overscroll-x-contain ${
+            snapEnabled ? 'snap-x snap-mandatory' : ''
+          }`}
         >
           <div className="flex">
             {pages.map((page, pageIndex) => (
               <div
                 key={pageIndex}
-                className="min-w-full shrink-0 snap-start grid grid-cols-3 gap-2.5 sm:gap-3"
+                className={`min-w-full shrink-0 grid grid-cols-3 gap-2.5 sm:gap-3 ${
+                  snapEnabled ? 'snap-start' : ''
+                }`}
               >
                 {page.map((cat) => {
                   const icon = CATEGORY_ICONS[cat.slug] || '🏪';
