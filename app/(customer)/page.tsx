@@ -123,7 +123,7 @@ export default function HomePage() {
           </>
         )}
 
-        {showSkeleton ? (
+        {showSkeleton || !loaded ? (
           <div className="space-y-4">
             <div className="h-5 w-40 skeleton rounded" />
             <div className="flex gap-2 overflow-hidden">
