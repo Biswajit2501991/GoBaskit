@@ -60,6 +60,8 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [allCategoriesOpen, setAllCategoriesOpen] = useState(false);
   const [compact, setCompact] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(showSearch ? 168 : 72);
+  const headerRef = useRef<HTMLElement | null>(null);
   const actionsRef = useRef<HTMLDivElement | null>(null);
   const activeCategorySlug = pathname.startsWith('/category/')
     ? pathname.split('/')[2] || undefined
@@ -89,6 +91,21 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, [showSearch]);
+
+  // Keep page content below the fixed header as its height changes (compact / chips).
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const update = () => setHeaderHeight(Math.ceil(el.getBoundingClientRect().height));
+    update();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
+    ro?.observe(el);
+    window.addEventListener('resize', update);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', update);
+    };
+  }, [compact, showSearch, chipsEnabled, categories.length]);
 
   useEffect(() => {
     if (hasAccountIdentity) {
@@ -144,7 +161,11 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-sm">
+    <>
+    <header
+      ref={headerRef}
+      className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm pt-[env(safe-area-inset-top,0px)]"
+    >
       <AccountMobileModal />
       <StaffAdminLoginModal />
       <CartDrawer />
@@ -376,5 +397,12 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
         </>
       )}
     </header>
+    {/* Spacer so page content starts below the fixed header */}
+    <div
+      aria-hidden
+      className="shrink-0"
+      style={{ height: headerHeight || undefined }}
+    />
+    </>
   );
 }
