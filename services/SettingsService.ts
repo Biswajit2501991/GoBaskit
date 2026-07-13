@@ -77,6 +77,17 @@ export interface StoreConfig {
     /** Customer login modal brand seal. */
     showLoginLogo: boolean;
     loginLogoUrl: string;
+    /** Top Discounted Items rail on home. */
+    showTopDiscounted: boolean;
+    topDiscountedTitle: string;
+    topDiscountedLimit: number;
+    /** Most Loved rail (curated via product isFeatured / Best Seller). */
+    showMostLoved: boolean;
+    mostLovedTitle: string;
+    mostLovedLimit: number;
+    /** One product rail per category on home. */
+    showCategoryRails: boolean;
+    categoryRailLimit: number;
     promoSections: Array<{
       id: string;
       title: string;
@@ -227,6 +238,14 @@ const DEFAULTS: StoreConfig = {
     poweredByText: 'Powered by Action Plus Gym · Healthy Life · Wealthy Life',
     showLoginLogo: true,
     loginLogoUrl: '/branding/gobaskit-seal.png',
+    showTopDiscounted: true,
+    topDiscountedTitle: 'Top Discounted Items',
+    topDiscountedLimit: 12,
+    showMostLoved: true,
+    mostLovedTitle: 'Most Loved',
+    mostLovedLimit: 8,
+    showCategoryRails: true,
+    categoryRailLimit: 8,
     promoSections: [
       {
         id: 'paan-corner',
@@ -281,6 +300,12 @@ function toSlabs(value: unknown): DeliverySlab[] | null {
     }))
     .filter((s) => Number.isFinite(s.min) && Number.isFinite(s.max) && Number.isFinite(s.charge));
   return slabs.length ? slabs.sort((a, b) => a.min - b.min) : null;
+}
+
+function clampHomepageLimit(value: unknown, fallback: number, max = 48): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(1, Math.round(n)));
 }
 
 function parseRows(rows: { key: string; value: string }[]): StoreConfig {
@@ -459,6 +484,29 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
         showLoginLogo: parsed.showLoginLogo !== false,
         loginLogoUrl:
           String(parsed.loginLogoUrl ?? '').trim() || DEFAULTS.homepageConfig.loginLogoUrl,
+        showTopDiscounted: parsed.showTopDiscounted !== false,
+        topDiscountedTitle:
+          String(parsed.topDiscountedTitle ?? '').trim() ||
+          DEFAULTS.homepageConfig.topDiscountedTitle,
+        topDiscountedLimit: clampHomepageLimit(
+          parsed.topDiscountedLimit,
+          DEFAULTS.homepageConfig.topDiscountedLimit,
+        ),
+        showMostLoved:
+          parsed.showMostLoved !== undefined
+            ? parsed.showMostLoved !== false
+            : parsed.showBestSellers !== false,
+        mostLovedTitle:
+          String(parsed.mostLovedTitle ?? '').trim() || DEFAULTS.homepageConfig.mostLovedTitle,
+        mostLovedLimit: clampHomepageLimit(
+          parsed.mostLovedLimit,
+          DEFAULTS.homepageConfig.mostLovedLimit,
+        ),
+        showCategoryRails: parsed.showCategoryRails !== false,
+        categoryRailLimit: clampHomepageLimit(
+          parsed.categoryRailLimit,
+          DEFAULTS.homepageConfig.categoryRailLimit,
+        ),
         promoSections: Array.isArray(parsed.promoSections)
           ? parsed.promoSections
               .map((section, index) => ({
@@ -695,8 +743,6 @@ export const SettingsService = {
           hc.showHeroBanner !== undefined ? Boolean(hc.showHeroBanner) : current.homepageConfig.showHeroBanner,
         showCategories:
           hc.showCategories !== undefined ? Boolean(hc.showCategories) : current.homepageConfig.showCategories,
-        showBestSellers:
-          hc.showBestSellers !== undefined ? Boolean(hc.showBestSellers) : current.homepageConfig.showBestSellers,
         showOffers: hc.showOffers !== undefined ? Boolean(hc.showOffers) : current.homepageConfig.showOffers,
         showHealthStarRating:
           hc.showHealthStarRating !== undefined
@@ -733,6 +779,48 @@ export const SettingsService = {
           hc.loginLogoUrl !== undefined
             ? String(hc.loginLogoUrl ?? '').trim() || DEFAULTS.homepageConfig.loginLogoUrl
             : current.homepageConfig.loginLogoUrl,
+        showTopDiscounted:
+          hc.showTopDiscounted !== undefined
+            ? Boolean(hc.showTopDiscounted)
+            : current.homepageConfig.showTopDiscounted,
+        topDiscountedTitle:
+          hc.topDiscountedTitle !== undefined
+            ? String(hc.topDiscountedTitle ?? '').trim() ||
+              DEFAULTS.homepageConfig.topDiscountedTitle
+            : current.homepageConfig.topDiscountedTitle,
+        topDiscountedLimit:
+          hc.topDiscountedLimit !== undefined
+            ? clampHomepageLimit(hc.topDiscountedLimit, current.homepageConfig.topDiscountedLimit)
+            : current.homepageConfig.topDiscountedLimit,
+        showMostLoved:
+          hc.showMostLoved !== undefined
+            ? Boolean(hc.showMostLoved)
+            : hc.showBestSellers !== undefined
+              ? Boolean(hc.showBestSellers)
+              : current.homepageConfig.showMostLoved,
+        mostLovedTitle:
+          hc.mostLovedTitle !== undefined
+            ? String(hc.mostLovedTitle ?? '').trim() || DEFAULTS.homepageConfig.mostLovedTitle
+            : current.homepageConfig.mostLovedTitle,
+        mostLovedLimit:
+          hc.mostLovedLimit !== undefined
+            ? clampHomepageLimit(hc.mostLovedLimit, current.homepageConfig.mostLovedLimit)
+            : current.homepageConfig.mostLovedLimit,
+        showCategoryRails:
+          hc.showCategoryRails !== undefined
+            ? Boolean(hc.showCategoryRails)
+            : current.homepageConfig.showCategoryRails,
+        categoryRailLimit:
+          hc.categoryRailLimit !== undefined
+            ? clampHomepageLimit(hc.categoryRailLimit, current.homepageConfig.categoryRailLimit)
+            : current.homepageConfig.categoryRailLimit,
+        // Keep showBestSellers in sync with showMostLoved for older clients.
+        showBestSellers:
+          hc.showMostLoved !== undefined
+            ? Boolean(hc.showMostLoved)
+            : hc.showBestSellers !== undefined
+              ? Boolean(hc.showBestSellers)
+              : current.homepageConfig.showBestSellers,
         promoSections: Array.isArray(hc.promoSections)
           ? hc.promoSections
               .map((section, index) => ({

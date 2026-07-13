@@ -4,15 +4,23 @@ import { useState, useEffect, useMemo } from 'react';
 import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
 import Link from 'next/link';
-import CategoryGrid from '@/components/CategoryCard/CategoryGrid';
+import CategoryPager from '@/components/CategoryCard/CategoryPager';
 import AllCategoriesModal from '@/components/CategoryCard/AllCategoriesModal';
 import ProductRail from '@/components/ProductCard/ProductRail';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { useConfigStore } from '@/store/configStore';
 import { useCatalogStore } from '@/store/catalogStore';
+import { calculateDiscountPercentage } from '@/utils/pricing';
+import type { ProductWithCategory } from '@/types';
 
-const RAIL_SIZE = 8;
-const CATEGORY_RAIL_COUNT = 4;
+function productDiscountPercent(p: ProductWithCategory): number {
+  let best = calculateDiscountPercentage(p.actualPrice, p.price);
+  for (const v of p.variants ?? []) {
+    if (!v.isActive) continue;
+    best = Math.max(best, calculateDiscountPercentage(v.mrp, v.price));
+  }
+  return best;
+}
 
 export default function HomePage() {
   const [activeBanner, setActiveBanner] = useState(0);
@@ -24,18 +32,45 @@ export default function HomePage() {
   const loading = useCatalogStore((s) => s.loading);
   const fetchCatalog = useCatalogStore((s) => s.fetchCatalog);
   const showSkeleton = loading && !loaded;
-  const featured = useMemo(() => products.filter((p) => p.isFeatured).slice(0, RAIL_SIZE), [products]);
-  const showFeaturedSection = homepageConfig.showBestSellers && featured.length > 0;
+
+  const mostLovedLimit = homepageConfig.mostLovedLimit ?? 8;
+  const topDiscountedLimit = homepageConfig.topDiscountedLimit ?? 12;
+  const categoryRailLimit = homepageConfig.categoryRailLimit ?? 8;
+
+  const mostLoved = useMemo(
+    () => products.filter((p) => p.isFeatured).slice(0, mostLovedLimit),
+    [products, mostLovedLimit],
+  );
+
+  // Prefer explicit showMostLoved; fall back to legacy showBestSellers when missing.
+  const mostLovedEnabled =
+    homepageConfig.showMostLoved !== undefined
+      ? homepageConfig.showMostLoved !== false
+      : homepageConfig.showBestSellers !== false;
+
+  const topDiscounted = useMemo(() => {
+    return products
+      .map((p) => ({ product: p, pct: productDiscountPercent(p) }))
+      .filter((row) => row.pct > 0)
+      .sort((a, b) => b.pct - a.pct)
+      .slice(0, topDiscountedLimit)
+      .map((row) => row.product);
+  }, [products, topDiscountedLimit]);
+
+  const showTopDiscounted =
+    homepageConfig.showTopDiscounted !== false && topDiscounted.length > 0;
 
   const categoryRails = useMemo(() => {
+    if (homepageConfig.showCategoryRails === false) return [];
     return categories
       .map((cat) => ({
         category: cat,
-        items: products.filter((p) => p.category?.slug === cat.slug).slice(0, RAIL_SIZE),
+        items: products
+          .filter((p) => p.category?.slug === cat.slug)
+          .slice(0, categoryRailLimit),
       }))
-      .filter((rail) => rail.items.length > 0)
-      .slice(0, CATEGORY_RAIL_COUNT);
-  }, [categories, products]);
+      .filter((rail) => rail.items.length > 0);
+  }, [categories, products, categoryRailLimit, homepageConfig.showCategoryRails]);
 
   const rotatingBanners = (homepageConfig.promoSections ?? [])
     .filter((section) => section.enabled)
@@ -114,7 +149,7 @@ export default function HomePage() {
 
         {homepageConfig.showCategories && categories.length > 0 && (
           <>
-            <CategoryGrid categories={categories} onSeeAll={() => setShowAllCategories(true)} />
+            <CategoryPager categories={categories} onSeeAll={() => setShowAllCategories(true)} />
             <AllCategoriesModal
               open={showAllCategories}
               categories={categories}
@@ -140,8 +175,18 @@ export default function HomePage() {
           </div>
         ) : (
           <>
-            {showFeaturedSection && (
-              <ProductRail title="Best Sellers" products={featured} />
+            {showTopDiscounted && (
+              <ProductRail
+                title={homepageConfig.topDiscountedTitle || 'Top Discounted Items'}
+                products={topDiscounted}
+              />
+            )}
+
+            {mostLovedEnabled && mostLoved.length > 0 && (
+              <ProductRail
+                title={homepageConfig.mostLovedTitle || 'Most Loved'}
+                products={mostLoved}
+              />
             )}
 
             {categoryRails.map(({ category, items }) => (
@@ -153,26 +198,15 @@ export default function HomePage() {
               />
             ))}
 
-            {!showFeaturedSection && categoryRails.length === 0 && products.length === 0 && (
-              <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
-                <span className="text-5xl mb-4 block">🔍</span>
-                <p className="font-semibold text-gray-700">No products found</p>
-              </div>
-            )}
-
-            {categories.length > 0 && (
-              <div className="rounded-2xl border border-gray-100 bg-white px-4 py-5 text-center">
-                <p className="text-sm text-gray-600 mb-2">
-                  {homepageConfig.deliveryTimeText} · browse any aisle anytime
-                </p>
-                <Link
-                  href={`/category/${categories[0].slug}`}
-                  className="inline-flex text-sm font-semibold text-blinkit-green hover:underline"
-                >
-                  Start shopping →
-                </Link>
-              </div>
-            )}
+            {!showTopDiscounted &&
+              !(mostLovedEnabled && mostLoved.length > 0) &&
+              categoryRails.length === 0 &&
+              products.length === 0 && (
+                <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
+                  <span className="text-5xl mb-4 block">🔍</span>
+                  <p className="font-semibold text-gray-700">No products found</p>
+                </div>
+              )}
           </>
         )}
       </main>

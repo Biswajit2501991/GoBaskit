@@ -51,7 +51,7 @@ export default function StickyCategoryChips({
         )}
         <div
           ref={scrollRef}
-          className="flex-1 overflow-x-auto scrollbar-hide overscroll-x-contain touch-pan-x"
+          className="flex-1 overflow-x-auto scrollbar-hide overscroll-x-contain"
         >
           <div className="flex gap-1.5 w-max pr-2">
             {categories.map((cat) => {

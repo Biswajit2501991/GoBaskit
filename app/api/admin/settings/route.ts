@@ -63,6 +63,14 @@ const settingsSchema = z.object({
       poweredByText: z.string().max(160).optional(),
       showLoginLogo: z.boolean().optional(),
       loginLogoUrl: z.string().max(500).optional(),
+      showTopDiscounted: z.boolean().optional(),
+      topDiscountedTitle: z.string().max(80).optional(),
+      topDiscountedLimit: z.number().int().min(1).max(48).optional(),
+      showMostLoved: z.boolean().optional(),
+      mostLovedTitle: z.string().max(80).optional(),
+      mostLovedLimit: z.number().int().min(1).max(48).optional(),
+      showCategoryRails: z.boolean().optional(),
+      categoryRailLimit: z.number().int().min(1).max(48).optional(),
       promoSections: z
         .array(
           z.object({

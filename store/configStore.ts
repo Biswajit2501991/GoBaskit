@@ -38,6 +38,14 @@ interface ConfigState {
     poweredByText: string;
     showLoginLogo: boolean;
     loginLogoUrl: string;
+    showTopDiscounted: boolean;
+    topDiscountedTitle: string;
+    topDiscountedLimit: number;
+    showMostLoved: boolean;
+    mostLovedTitle: string;
+    mostLovedLimit: number;
+    showCategoryRails: boolean;
+    categoryRailLimit: number;
     promoSections: Array<{
       id: string;
       title: string;
@@ -85,6 +93,14 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     poweredByText: 'Powered by Action Plus Gym · Healthy Life · Wealthy Life',
     showLoginLogo: true,
     loginLogoUrl: '/branding/gobaskit-seal.png',
+    showTopDiscounted: true,
+    topDiscountedTitle: 'Top Discounted Items',
+    topDiscountedLimit: 12,
+    showMostLoved: true,
+    mostLovedTitle: 'Most Loved',
+    mostLovedLimit: 8,
+    showCategoryRails: true,
+    categoryRailLimit: 8,
     promoSections: [],
   },
   loaded: false,
@@ -146,6 +162,10 @@ async function loadConfig(
                       ? c.homepageConfig.healthStarDisplay.badges
                       : DEFAULT_HEALTH_STAR_DISPLAY.badges,
                 },
+                showMostLoved:
+                  c.homepageConfig.showMostLoved !== undefined
+                    ? c.homepageConfig.showMostLoved !== false
+                    : c.homepageConfig.showBestSellers !== false,
               }
             : get().homepageConfig,
         loaded: true,

@@ -32,7 +32,7 @@ export default function ProductRail({
           </Link>
         )}
       </div>
-      <div className="overflow-x-auto scrollbar-hide overscroll-x-contain touch-pan-x -mx-4 px-4">
+      <div className="overflow-x-auto scrollbar-hide overscroll-x-contain -mx-4 px-4">
         <div className="flex gap-2 w-max pb-1">
           {products.map((p) => (
             <div key={p.id} className="w-[148px] sm:w-[160px] shrink-0">

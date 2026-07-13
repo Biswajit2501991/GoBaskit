@@ -181,7 +181,7 @@ export default function CategoryScroller({ categories, activeSlug }: CategoryScr
       )}
       <div
         ref={scrollRef}
-        className="overflow-x-auto md:overflow-x-auto scrollbar-hide overscroll-x-contain touch-pan-x"
+        className="overflow-x-auto md:overflow-x-auto scrollbar-hide overscroll-x-contain"
       >
         <div className="flex gap-4 pb-1 w-max">
           {categories.map((cat) => (

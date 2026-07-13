@@ -26,7 +26,7 @@ const SETTINGS_SECTIONS = [
   { id: 'payments', label: 'Payments', group: 'Orders' },
   { id: 'wa-templates', label: 'WA Templates', group: 'Orders' },
   { id: 'cancellation', label: 'Cancellation Policy', group: 'Orders' },
-  { id: 'featured', label: 'Featured', group: 'Homepage' },
+  { id: 'featured', label: 'Discovery Rails', group: 'Homepage' },
   { id: 'health-star', label: 'Health Star', group: 'Homepage' },
   { id: 'branding', label: 'Branding', group: 'Homepage' },
   { id: 'promo', label: 'Promo Cards', group: 'Homepage' },
@@ -83,6 +83,14 @@ interface StoreConfig {
     poweredByText: string;
     showLoginLogo: boolean;
     loginLogoUrl: string;
+    showTopDiscounted?: boolean;
+    topDiscountedTitle?: string;
+    topDiscountedLimit?: number;
+    showMostLoved?: boolean;
+    mostLovedTitle?: string;
+    mostLovedLimit?: number;
+    showCategoryRails?: boolean;
+    categoryRailLimit?: number;
     promoSections: Array<{
       id: string;
       title: string;
@@ -158,6 +166,15 @@ export default function SettingsManager({
         hc.poweredByText ?? 'Powered by Action Plus Gym · Healthy Life · Wealthy Life',
       showLoginLogo: hc.showLoginLogo !== false,
       loginLogoUrl: hc.loginLogoUrl || '/branding/gobaskit-seal.png',
+      showTopDiscounted: hc.showTopDiscounted !== false,
+      topDiscountedTitle: hc.topDiscountedTitle ?? 'Top Discounted Items',
+      topDiscountedLimit: hc.topDiscountedLimit ?? 12,
+      showMostLoved:
+        hc.showMostLoved !== undefined ? hc.showMostLoved !== false : hc.showBestSellers !== false,
+      mostLovedTitle: hc.mostLovedTitle ?? 'Most Loved',
+      mostLovedLimit: hc.mostLovedLimit ?? 8,
+      showCategoryRails: hc.showCategoryRails !== false,
+      categoryRailLimit: hc.categoryRailLimit ?? 8,
       promoSections: hc.promoSections ?? [],
       healthStarDisplay: {
         ...DEFAULT_HEALTH_STAR_DISPLAY,
@@ -375,6 +392,18 @@ export default function SettingsManager({
       setStaffIdleTimeoutMinutes(updated.staffIdleTimeoutMinutes ?? 15);
       setHomepageConfig({
         ...updated.homepageConfig,
+        showTopDiscounted: updated.homepageConfig.showTopDiscounted !== false,
+        topDiscountedTitle:
+          updated.homepageConfig.topDiscountedTitle ?? 'Top Discounted Items',
+        topDiscountedLimit: updated.homepageConfig.topDiscountedLimit ?? 12,
+        showMostLoved:
+          updated.homepageConfig.showMostLoved !== undefined
+            ? updated.homepageConfig.showMostLoved !== false
+            : updated.homepageConfig.showBestSellers !== false,
+        mostLovedTitle: updated.homepageConfig.mostLovedTitle ?? 'Most Loved',
+        mostLovedLimit: updated.homepageConfig.mostLovedLimit ?? 8,
+        showCategoryRails: updated.homepageConfig.showCategoryRails !== false,
+        categoryRailLimit: updated.homepageConfig.categoryRailLimit ?? 8,
         healthStarDisplay: {
           ...DEFAULT_HEALTH_STAR_DISPLAY,
           ...(updated.homepageConfig.healthStarDisplay ?? {}),
@@ -771,23 +800,138 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'featured' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-        <h2 className="font-bold text-sm">Featured Section</h2>
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+        <h2 className="font-bold text-sm">Home discovery rails</h2>
         <p className="text-xs text-gray-400">
-          Controls the customer homepage Best Sellers (featured products) section visibility.
+          Control Top Discounted, Most Loved, and per-category rails on the customer homepage.
+          Most Loved uses products marked Best Seller in Admin → Products.
         </p>
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <input
-            type="checkbox"
-            checked={homepageConfig.showBestSellers}
-            onChange={(e) =>
-              setHomepageConfig((prev) => ({ ...prev, showBestSellers: e.target.checked }))
-            }
-            disabled={!canEdit}
-            className="accent-blinkit-green"
-          />
-          Show Featured Products (Best Sellers)
-        </label>
+
+        <div className="space-y-3 border-b border-gray-50 pb-4">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={homepageConfig.showTopDiscounted !== false}
+              onChange={(e) =>
+                setHomepageConfig((prev) => ({ ...prev, showTopDiscounted: e.target.checked }))
+              }
+              disabled={!canEdit}
+              className="accent-blinkit-green"
+            />
+            Show Top Discounted Items
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs text-gray-500">Section title</Label>
+              <Input
+                value={homepageConfig.topDiscountedTitle ?? 'Top Discounted Items'}
+                onChange={(e) =>
+                  setHomepageConfig((prev) => ({ ...prev, topDiscountedTitle: e.target.value }))
+                }
+                disabled={!canEdit}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500">Max items (1–48)</Label>
+              <Input
+                type="number"
+                min={1}
+                max={48}
+                value={homepageConfig.topDiscountedLimit ?? 12}
+                onChange={(e) =>
+                  setHomepageConfig((prev) => ({
+                    ...prev,
+                    topDiscountedLimit: Number(e.target.value) || 12,
+                  }))
+                }
+                disabled={!canEdit}
+                className="mt-1"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3 border-b border-gray-50 pb-4">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={homepageConfig.showMostLoved !== false}
+              onChange={(e) =>
+                setHomepageConfig((prev) => ({
+                  ...prev,
+                  showMostLoved: e.target.checked,
+                  showBestSellers: e.target.checked,
+                }))
+              }
+              disabled={!canEdit}
+              className="accent-blinkit-green"
+            />
+            Show Most Loved
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs text-gray-500">Section title</Label>
+              <Input
+                value={homepageConfig.mostLovedTitle ?? 'Most Loved'}
+                onChange={(e) =>
+                  setHomepageConfig((prev) => ({ ...prev, mostLovedTitle: e.target.value }))
+                }
+                disabled={!canEdit}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500">Max items (1–48)</Label>
+              <Input
+                type="number"
+                min={1}
+                max={48}
+                value={homepageConfig.mostLovedLimit ?? 8}
+                onChange={(e) =>
+                  setHomepageConfig((prev) => ({
+                    ...prev,
+                    mostLovedLimit: Number(e.target.value) || 8,
+                  }))
+                }
+                disabled={!canEdit}
+                className="mt-1"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={homepageConfig.showCategoryRails !== false}
+              onChange={(e) =>
+                setHomepageConfig((prev) => ({ ...prev, showCategoryRails: e.target.checked }))
+              }
+              disabled={!canEdit}
+              className="accent-blinkit-green"
+            />
+            Show a product rail for every category
+          </label>
+          <div>
+            <Label className="text-xs text-gray-500">Items per category rail (1–48)</Label>
+            <Input
+              type="number"
+              min={1}
+              max={48}
+              value={homepageConfig.categoryRailLimit ?? 8}
+              onChange={(e) =>
+                setHomepageConfig((prev) => ({
+                  ...prev,
+                  categoryRailLimit: Number(e.target.value) || 8,
+                }))
+              }
+              disabled={!canEdit}
+              className="mt-1 max-w-xs"
+            />
+          </div>
+        </div>
       </section>
           )}
 

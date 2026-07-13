@@ -86,7 +86,17 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
       setCompact(false);
       return;
     }
-    const onScroll = () => setCompact(window.scrollY > 40);
+    const onScroll = () => {
+      const y = window.scrollY;
+      const doc = document.documentElement;
+      const distanceFromBottom = doc.scrollHeight - (y + window.innerHeight);
+      // Near the bottom, shrinking the fixed header fights upward scroll — stay expanded.
+      if (distanceFromBottom < 160) {
+        setCompact(false);
+        return;
+      }
+      setCompact(y > 40);
+    };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
