@@ -4,6 +4,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { formatCurrency } from '@/utils/formatter';
 
 type CategoryOption = { id: string; name: string };
@@ -42,6 +50,8 @@ type UndoInfo = {
   } | null;
 };
 
+type ConfirmKind = 'apply' | 'undo' | null;
+
 function money(n: number | null | undefined) {
   if (n == null) return '—';
   return formatCurrency(n);
@@ -54,6 +64,7 @@ export default function BulkPriceAdjustClient({ canEdit }: { canEdit: boolean })
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [undo, setUndo] = useState<UndoInfo | null>(null);
   const [loading, setLoading] = useState(false);
+  const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const loadUndo = useCallback(async () => {
@@ -112,17 +123,9 @@ export default function BulkPriceAdjustClient({ canEdit }: { canEdit: boolean })
     }
   }
 
-  async function runApply() {
+  async function executeApply() {
     if (!canEdit || !preview) return;
-    const scope = preview.categoryName ? `category “${preview.categoryName}”` : 'ALL products';
-    const ok = window.confirm(
-      `Apply ${preview.percent}% to selling + MRP for ${scope}?\n\n` +
-        `${preview.productCount} products, ${preview.variantCount} variants` +
-        (preview.skipped ? ` (${preview.skipped} skipped)` : '') +
-        `\n\nYou can undo within 24 hours.`,
-    );
-    if (!ok) return;
-
+    setConfirmKind(null);
     setLoading(true);
     setMessage(null);
     try {
@@ -151,13 +154,9 @@ export default function BulkPriceAdjustClient({ canEdit }: { canEdit: boolean })
     }
   }
 
-  async function runUndo() {
+  async function executeUndo() {
     if (!canEdit || !undo?.available) return;
-    const ok = window.confirm(
-      'Restore the previous prices from the last bulk adjust? This cannot be re-done after undo.',
-    );
-    if (!ok) return;
-
+    setConfirmKind(null);
     setLoading(true);
     setMessage(null);
     try {
@@ -180,6 +179,10 @@ export default function BulkPriceAdjustClient({ canEdit }: { canEdit: boolean })
       setLoading(false);
     }
   }
+
+  const applyScope = preview?.categoryName
+    ? `category “${preview.categoryName}”`
+    : 'ALL products';
 
   return (
     <div className="p-6 max-w-5xl space-y-6">
@@ -246,7 +249,7 @@ export default function BulkPriceAdjustClient({ canEdit }: { canEdit: boolean })
           <Button
             type="button"
             variant="outline"
-            onClick={runApply}
+            onClick={() => setConfirmKind('apply')}
             disabled={!canEdit || loading || !preview}
             className="border-blinkit-green text-blinkit-green"
           >
@@ -277,7 +280,12 @@ export default function BulkPriceAdjustClient({ canEdit }: { canEdit: boolean })
             {new Date(undo.undo.createdAt).toLocaleString()}
           </p>
           {undo.available ? (
-            <Button type="button" variant="outline" onClick={runUndo} disabled={!canEdit || loading}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmKind('undo')}
+              disabled={!canEdit || loading}
+            >
               Undo last adjust
             </Button>
           ) : (
@@ -341,6 +349,103 @@ export default function BulkPriceAdjustClient({ canEdit }: { canEdit: boolean })
           )}
         </section>
       )}
+
+      <Dialog
+        open={confirmKind === 'apply' && Boolean(preview)}
+        onOpenChange={(open) => {
+          if (!open && !loading) setConfirmKind(null);
+        }}
+      >
+        <DialogContent className="max-w-md" showClose={!loading}>
+          <DialogHeader>
+            <DialogTitle>Apply price change?</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-3 pt-1 text-left">
+                <p>
+                  Apply{' '}
+                  <span className="font-semibold text-gray-800">{preview?.percent}%</span> to
+                  selling price and MRP for{' '}
+                  <span className="font-semibold text-gray-800">{applyScope}</span>.
+                </p>
+                <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2.5 text-sm text-gray-700">
+                  <p className="font-medium">
+                    {preview?.productCount ?? 0} products · {preview?.variantCount ?? 0} variants
+                  </p>
+                  {preview?.skipped ? (
+                    <p className="text-xs text-amber-700 mt-1">
+                      {preview.skipped} item(s) will be skipped (invalid result).
+                    </p>
+                  ) : null}
+                </div>
+                <p className="text-xs text-gray-500">
+                  You can undo this adjust within 24 hours. Past orders are never changed.
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setConfirmKind(null)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={executeApply} disabled={loading}>
+              {loading ? 'Applying…' : 'Apply to catalog'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={confirmKind === 'undo'}
+        onOpenChange={(open) => {
+          if (!open && !loading) setConfirmKind(null);
+        }}
+      >
+        <DialogContent className="max-w-md" showClose={!loading}>
+          <DialogHeader>
+            <DialogTitle>Undo last price adjust?</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-3 pt-1 text-left">
+                <p>Restore previous selling prices and MRP from the last bulk adjust.</p>
+                {undo?.undo && (
+                  <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2.5 text-sm text-gray-700">
+                    <p className="font-medium">
+                      {undo.undo.percent}% ·{' '}
+                      {undo.undo.categoryName
+                        ? `“${undo.undo.categoryName}”`
+                        : 'all categories'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {undo.undo.products.length} products · {undo.undo.variants.length} variants
+                    </p>
+                  </div>
+                )}
+                <p className="text-xs text-amber-700">
+                  This cannot be re-done after undo. A new adjust will create a fresh undo
+                  snapshot.
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setConfirmKind(null)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" onClick={executeUndo} disabled={loading}>
+              {loading ? 'Restoring…' : 'Undo last adjust'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
