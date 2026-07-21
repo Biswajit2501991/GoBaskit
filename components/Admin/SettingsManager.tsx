@@ -222,10 +222,15 @@ export default function SettingsManager({
   const [activeSection, setActiveSection] = useState<SettingsSectionId>('min-order');
 
   useEffect(() => {
-    const hash = window.location.hash.replace(/^#/, '');
-    if (hash && isSettingsSectionId(hash)) {
-      setActiveSection(hash);
-    }
+    const applyHash = () => {
+      const hash = window.location.hash.replace(/^#/, '');
+      if (hash && isSettingsSectionId(hash)) {
+        setActiveSection(hash);
+      }
+    };
+    applyHash();
+    window.addEventListener('hashchange', applyHash);
+    return () => window.removeEventListener('hashchange', applyHash);
   }, []);
 
   function openSection(id: SettingsSectionId) {
