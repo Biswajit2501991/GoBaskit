@@ -4,7 +4,48 @@ import { buildProductPricingData } from '@/utils/pricing';
 const UNDO_SETTING_KEY = 'bulk_price_adjust_last';
 const UNDO_WINDOW_MS = 24 * 60 * 60 * 1000;
 const PREVIEW_SAMPLE = 25;
-const UPDATE_CHUNK = 80;
+/** Small batches — avoids Prisma interactive-tx 5s timeout on large catalogs. */
+const UPDATE_CHUNK = 25;
+
+async function applyProductPriceChunks(
+  rows: Array<{ id: string; price: number; actualPrice: number | null; discount: number }>,
+) {
+  for (let i = 0; i < rows.length; i += UPDATE_CHUNK) {
+    const chunk = rows.slice(i, i + UPDATE_CHUNK);
+    await Promise.all(
+      chunk.map((row) =>
+        prisma.product.updateMany({
+          where: { id: row.id },
+          data: {
+            price: row.price,
+            actualPrice: row.actualPrice,
+            discount: row.discount,
+          },
+        }),
+      ),
+    );
+  }
+}
+
+async function applyVariantPriceChunks(
+  rows: Array<{ id: string; price: number; mrp: number | null; discount: number }>,
+) {
+  for (let i = 0; i < rows.length; i += UPDATE_CHUNK) {
+    const chunk = rows.slice(i, i + UPDATE_CHUNK);
+    await Promise.all(
+      chunk.map((row) =>
+        prisma.productVariant.updateMany({
+          where: { id: row.id },
+          data: {
+            price: row.price,
+            mrp: row.mrp,
+            discount: row.discount,
+          },
+        }),
+      ),
+    );
+  }
+}
 
 export type BulkPricePreviewRow = {
   kind: 'product' | 'variant';
@@ -280,39 +321,6 @@ export class BulkPriceAdjustService {
       throw new Error('No prices could be updated with this percent');
     }
 
-    await prisma.$transaction(async (tx) => {
-      for (let i = 0; i < productUpdates.length; i += UPDATE_CHUNK) {
-        const chunk = productUpdates.slice(i, i + UPDATE_CHUNK);
-        await Promise.all(
-          chunk.map((row) =>
-            tx.product.update({
-              where: { id: row.id },
-              data: {
-                price: row.price,
-                actualPrice: row.actualPrice,
-                discount: row.discount,
-              },
-            }),
-          ),
-        );
-      }
-      for (let i = 0; i < variantUpdates.length; i += UPDATE_CHUNK) {
-        const chunk = variantUpdates.slice(i, i + UPDATE_CHUNK);
-        await Promise.all(
-          chunk.map((row) =>
-            tx.productVariant.update({
-              where: { id: row.id },
-              data: {
-                price: row.price,
-                mrp: row.mrp,
-                discount: row.discount,
-              },
-            }),
-          ),
-        );
-      }
-    });
-
     const now = Date.now();
     const undo: BulkPriceUndoRecord = {
       id: `bpa_${now.toString(36)}`,
@@ -325,11 +333,27 @@ export class BulkPriceAdjustService {
       variants: variantSnapshots,
     };
 
+    // Persist undo first so a mid-apply failure can still be restored.
     await prisma.setting.upsert({
       where: { key: UNDO_SETTING_KEY },
       create: { key: UNDO_SETTING_KEY, value: JSON.stringify(undo) },
       update: { value: JSON.stringify(undo) },
     });
+
+    try {
+      // Chunked updates (no single interactive transaction) — large catalogs
+      // were exceeding Prisma's default 5s tx timeout.
+      await applyProductPriceChunks(productUpdates);
+      await applyVariantPriceChunks(variantUpdates);
+    } catch (err) {
+      try {
+        await applyProductPriceChunks(productSnapshots);
+        await applyVariantPriceChunks(variantSnapshots);
+      } catch (rollbackErr) {
+        console.error('[BulkPriceAdjust] rollback after apply failure', rollbackErr);
+      }
+      throw err;
+    }
 
     return {
       percent,
@@ -369,38 +393,8 @@ export class BulkPriceAdjustService {
 
     const { products, variants } = status.undo;
 
-    await prisma.$transaction(async (tx) => {
-      for (let i = 0; i < products.length; i += UPDATE_CHUNK) {
-        const chunk = products.slice(i, i + UPDATE_CHUNK);
-        await Promise.all(
-          chunk.map((row) =>
-            tx.product.updateMany({
-              where: { id: row.id },
-              data: {
-                price: row.price,
-                actualPrice: row.actualPrice,
-                discount: row.discount,
-              },
-            }),
-          ),
-        );
-      }
-      for (let i = 0; i < variants.length; i += UPDATE_CHUNK) {
-        const chunk = variants.slice(i, i + UPDATE_CHUNK);
-        await Promise.all(
-          chunk.map((row) =>
-            tx.productVariant.updateMany({
-              where: { id: row.id },
-              data: {
-                price: row.price,
-                mrp: row.mrp,
-                discount: row.discount,
-              },
-            }),
-          ),
-        );
-      }
-    });
+    await applyProductPriceChunks(products);
+    await applyVariantPriceChunks(variants);
 
     await prisma.setting.delete({ where: { key: UNDO_SETTING_KEY } }).catch(() => undefined);
 
