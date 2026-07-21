@@ -28,6 +28,7 @@ import { warmCustomerSession } from '@/utils/warmCustomerSession';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
 import { useConfigStore } from '@/store/configStore';
 import { useCatalogStore } from '@/store/catalogStore';
+import SeasonalThemeProvider from '@/components/Theme/SeasonalThemeProvider';
 
 interface HeaderProps {
   /** Set false to hide the global product search (e.g. focused flows like checkout). */
@@ -55,6 +56,8 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
   const showPoweredByBanner = useConfigStore((s) => s.homepageConfig.showPoweredByBanner !== false);
   const poweredByText = useConfigStore((s) => s.homepageConfig.poweredByText);
+  const seasonalThemeEnabled = useConfigStore((s) => s.homepageConfig.seasonalThemeEnabled === true);
+  const seasonalRibbonText = useConfigStore((s) => s.homepageConfig.seasonalRibbonText);
   const categories = useCatalogStore((s) => s.categories);
   const fetchCatalog = useCatalogStore((s) => s.fetchCatalog);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -172,6 +175,7 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
 
   return (
     <>
+    <SeasonalThemeProvider />
     <header
       ref={headerRef}
       className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm pt-[env(safe-area-inset-top,0px)]"
@@ -388,6 +392,12 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
           >
             <GlobalSearch />
           </Suspense>
+        </div>
+      )}
+
+      {seasonalThemeEnabled && seasonalRibbonText?.trim() && (
+        <div className="seasonal-ribbon" role="status">
+          {seasonalRibbonText.trim()}
         </div>
       )}
 

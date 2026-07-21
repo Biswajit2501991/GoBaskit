@@ -34,7 +34,7 @@ export default function StickyCategoryChips({
   if (categories.length === 0) return null;
 
   return (
-    <div className="border-b border-gray-100 bg-white">
+    <div className="border-b border-gray-100 bg-white" data-sticky-chips>
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-1.5 flex items-center gap-2">
         {onOpenAll && (
           <button

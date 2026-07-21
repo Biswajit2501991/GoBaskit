@@ -88,6 +88,15 @@ export interface StoreConfig {
     /** One product rail per category on home. */
     showCategoryRails: boolean;
     categoryRailLimit: number;
+    /** Independence Day (or future) seasonal visual skin — presentation only. */
+    seasonalThemeEnabled: boolean;
+    seasonalThemeId: 'independence-day';
+    seasonalPromoEnabled: boolean;
+    seasonalPromoTitle: string;
+    seasonalPromoSubtitle: string;
+    seasonalPromoCode: string;
+    seasonalPromoCtaLabel: string;
+    seasonalRibbonText: string;
     promoSections: Array<{
       id: string;
       title: string;
@@ -246,6 +255,14 @@ const DEFAULTS: StoreConfig = {
     mostLovedLimit: 8,
     showCategoryRails: true,
     categoryRailLimit: 8,
+    seasonalThemeEnabled: false,
+    seasonalThemeId: 'independence-day',
+    seasonalPromoEnabled: false,
+    seasonalPromoTitle: 'Freedom Day Offer',
+    seasonalPromoSubtitle: 'Apply this code in cart after login for 10% off',
+    seasonalPromoCode: 'FREEDOM10',
+    seasonalPromoCtaLabel: 'Copy code',
+    seasonalRibbonText: 'Celebrating 15 August · Order fresh essentials today',
     promoSections: [
       {
         id: 'paan-corner',
@@ -507,6 +524,26 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
           parsed.categoryRailLimit,
           DEFAULTS.homepageConfig.categoryRailLimit,
         ),
+        seasonalThemeEnabled: parsed.seasonalThemeEnabled === true,
+        seasonalThemeId: 'independence-day',
+        seasonalPromoEnabled: parsed.seasonalPromoEnabled === true,
+        seasonalPromoTitle:
+          String(parsed.seasonalPromoTitle ?? '').trim() ||
+          DEFAULTS.homepageConfig.seasonalPromoTitle,
+        seasonalPromoSubtitle:
+          String(parsed.seasonalPromoSubtitle ?? '').trim() ||
+          DEFAULTS.homepageConfig.seasonalPromoSubtitle,
+        seasonalPromoCode:
+          String(parsed.seasonalPromoCode ?? '')
+            .trim()
+            .toUpperCase()
+            .slice(0, 32) || DEFAULTS.homepageConfig.seasonalPromoCode,
+        seasonalPromoCtaLabel:
+          String(parsed.seasonalPromoCtaLabel ?? '').trim() ||
+          DEFAULTS.homepageConfig.seasonalPromoCtaLabel,
+        seasonalRibbonText:
+          String(parsed.seasonalRibbonText ?? '').trim() ||
+          DEFAULTS.homepageConfig.seasonalRibbonText,
         promoSections: Array.isArray(parsed.promoSections)
           ? parsed.promoSections
               .map((section, index) => ({
@@ -814,6 +851,42 @@ export const SettingsService = {
           hc.categoryRailLimit !== undefined
             ? clampHomepageLimit(hc.categoryRailLimit, current.homepageConfig.categoryRailLimit)
             : current.homepageConfig.categoryRailLimit,
+        seasonalThemeEnabled:
+          hc.seasonalThemeEnabled !== undefined
+            ? Boolean(hc.seasonalThemeEnabled)
+            : current.homepageConfig.seasonalThemeEnabled,
+        seasonalThemeId: 'independence-day' as const,
+        seasonalPromoEnabled:
+          hc.seasonalPromoEnabled !== undefined
+            ? Boolean(hc.seasonalPromoEnabled)
+            : current.homepageConfig.seasonalPromoEnabled,
+        seasonalPromoTitle:
+          hc.seasonalPromoTitle !== undefined
+            ? String(hc.seasonalPromoTitle ?? '').trim() ||
+              DEFAULTS.homepageConfig.seasonalPromoTitle
+            : current.homepageConfig.seasonalPromoTitle,
+        seasonalPromoSubtitle:
+          hc.seasonalPromoSubtitle !== undefined
+            ? String(hc.seasonalPromoSubtitle ?? '').trim() ||
+              DEFAULTS.homepageConfig.seasonalPromoSubtitle
+            : current.homepageConfig.seasonalPromoSubtitle,
+        seasonalPromoCode:
+          hc.seasonalPromoCode !== undefined
+            ? String(hc.seasonalPromoCode ?? '')
+                .trim()
+                .toUpperCase()
+                .slice(0, 32) || DEFAULTS.homepageConfig.seasonalPromoCode
+            : current.homepageConfig.seasonalPromoCode,
+        seasonalPromoCtaLabel:
+          hc.seasonalPromoCtaLabel !== undefined
+            ? String(hc.seasonalPromoCtaLabel ?? '').trim() ||
+              DEFAULTS.homepageConfig.seasonalPromoCtaLabel
+            : current.homepageConfig.seasonalPromoCtaLabel,
+        seasonalRibbonText:
+          hc.seasonalRibbonText !== undefined
+            ? String(hc.seasonalRibbonText ?? '').trim() ||
+              DEFAULTS.homepageConfig.seasonalRibbonText
+            : current.homepageConfig.seasonalRibbonText,
         // Keep showBestSellers in sync with showMostLoved for older clients.
         showBestSellers:
           hc.showMostLoved !== undefined

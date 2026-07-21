@@ -257,3 +257,59 @@ body {
     opacity: 0;
   }
 }
+
+/* ── Independence Day seasonal skin (presentation only) ──
+   Toggle via Admin → Seasonal / 15 Aug. Removing data-theme restores defaults. */
+html[data-theme='independence-day'] {
+  --color-background: #fffbf5;
+  --color-blinkit-yellow: #f0a83a;
+  --color-blinkit-yellow-dark: #e08f28;
+  --color-blinkit-green: #136b3a;
+  --color-blinkit-green-dark: #0e5630;
+  --color-blinkit-green-light: #e8f3ec;
+}
+
+html[data-theme='independence-day'] body {
+  background:
+    linear-gradient(180deg, rgba(255, 153, 51, 0.07) 0%, transparent 220px),
+    var(--color-background);
+}
+
+/* Refined tricolor wash on the yellow header bar */
+html[data-theme='independence-day'] header .bg-blinkit-yellow {
+  background: linear-gradient(
+    90deg,
+    #ff9933 0%,
+    #f7c948 18%,
+    #fff8e7 48%,
+    #fff8e7 52%,
+    #c8e6c9 78%,
+    #138808 100%
+  );
+}
+
+html[data-theme='independence-day'] .sticky-category-chips,
+html[data-theme='independence-day'] [data-sticky-chips] {
+  border-bottom-color: rgba(255, 153, 51, 0.35);
+}
+
+.seasonal-ribbon {
+  background: linear-gradient(90deg, #ff9933 0%, #fff8e7 50%, #138808 100%);
+  color: #1a1a1a;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: center;
+  padding: 0.35rem 0.75rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.seasonal-promo-banner {
+  background: linear-gradient(135deg, #fff8e7 0%, #ffffff 45%, #e8f3ec 100%);
+  border: 1px solid rgba(19, 107, 58, 0.18);
+  box-shadow: 0 1px 0 rgba(255, 153, 51, 0.12);
+}
+
+.seasonal-promo-eyebrow {
+  color: #9a5b12;
+}

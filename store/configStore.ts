@@ -46,6 +46,14 @@ interface ConfigState {
     mostLovedLimit: number;
     showCategoryRails: boolean;
     categoryRailLimit: number;
+    seasonalThemeEnabled: boolean;
+    seasonalThemeId: 'independence-day';
+    seasonalPromoEnabled: boolean;
+    seasonalPromoTitle: string;
+    seasonalPromoSubtitle: string;
+    seasonalPromoCode: string;
+    seasonalPromoCtaLabel: string;
+    seasonalRibbonText: string;
     promoSections: Array<{
       id: string;
       title: string;
@@ -101,6 +109,14 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     mostLovedLimit: 8,
     showCategoryRails: true,
     categoryRailLimit: 8,
+    seasonalThemeEnabled: false,
+    seasonalThemeId: 'independence-day',
+    seasonalPromoEnabled: false,
+    seasonalPromoTitle: 'Freedom Day Offer',
+    seasonalPromoSubtitle: 'Apply this code in cart after login for 10% off',
+    seasonalPromoCode: 'FREEDOM10',
+    seasonalPromoCtaLabel: 'Copy code',
+    seasonalRibbonText: 'Celebrating 15 August · Order fresh essentials today',
     promoSections: [],
   },
   loaded: false,

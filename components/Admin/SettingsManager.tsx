@@ -29,6 +29,7 @@ const SETTINGS_SECTIONS = [
   { id: 'featured', label: 'Discovery Rails', group: 'Homepage' },
   { id: 'health-star', label: 'Health Star', group: 'Homepage' },
   { id: 'branding', label: 'Branding', group: 'Homepage' },
+  { id: 'seasonal', label: 'Seasonal / 15 Aug', group: 'Homepage' },
   { id: 'promo', label: 'Promo Cards', group: 'Homepage' },
   { id: 'homepage', label: 'Homepage Layout', group: 'Homepage' },
   { id: 'discounts', label: 'Discounts & Coupons', group: 'Offers' },
@@ -91,6 +92,14 @@ interface StoreConfig {
     mostLovedLimit?: number;
     showCategoryRails?: boolean;
     categoryRailLimit?: number;
+    seasonalThemeEnabled?: boolean;
+    seasonalThemeId?: 'independence-day';
+    seasonalPromoEnabled?: boolean;
+    seasonalPromoTitle?: string;
+    seasonalPromoSubtitle?: string;
+    seasonalPromoCode?: string;
+    seasonalPromoCtaLabel?: string;
+    seasonalRibbonText?: string;
     promoSections: Array<{
       id: string;
       title: string;
@@ -175,6 +184,16 @@ export default function SettingsManager({
       mostLovedLimit: hc.mostLovedLimit ?? 8,
       showCategoryRails: hc.showCategoryRails !== false,
       categoryRailLimit: hc.categoryRailLimit ?? 8,
+      seasonalThemeEnabled: hc.seasonalThemeEnabled === true,
+      seasonalThemeId: 'independence-day' as const,
+      seasonalPromoEnabled: hc.seasonalPromoEnabled === true,
+      seasonalPromoTitle: hc.seasonalPromoTitle ?? 'Freedom Day Offer',
+      seasonalPromoSubtitle:
+        hc.seasonalPromoSubtitle ?? 'Apply this code in cart after login for 10% off',
+      seasonalPromoCode: hc.seasonalPromoCode ?? 'FREEDOM10',
+      seasonalPromoCtaLabel: hc.seasonalPromoCtaLabel ?? 'Copy code',
+      seasonalRibbonText:
+        hc.seasonalRibbonText ?? 'Celebrating 15 August · Order fresh essentials today',
       promoSections: hc.promoSections ?? [],
       healthStarDisplay: {
         ...DEFAULT_HEALTH_STAR_DISPLAY,
@@ -404,6 +423,18 @@ export default function SettingsManager({
         mostLovedLimit: updated.homepageConfig.mostLovedLimit ?? 8,
         showCategoryRails: updated.homepageConfig.showCategoryRails !== false,
         categoryRailLimit: updated.homepageConfig.categoryRailLimit ?? 8,
+        seasonalThemeEnabled: updated.homepageConfig.seasonalThemeEnabled === true,
+        seasonalThemeId: 'independence-day' as const,
+        seasonalPromoEnabled: updated.homepageConfig.seasonalPromoEnabled === true,
+        seasonalPromoTitle: updated.homepageConfig.seasonalPromoTitle ?? 'Freedom Day Offer',
+        seasonalPromoSubtitle:
+          updated.homepageConfig.seasonalPromoSubtitle ??
+          'Apply this code in cart after login for 10% off',
+        seasonalPromoCode: updated.homepageConfig.seasonalPromoCode ?? 'FREEDOM10',
+        seasonalPromoCtaLabel: updated.homepageConfig.seasonalPromoCtaLabel ?? 'Copy code',
+        seasonalRibbonText:
+          updated.homepageConfig.seasonalRibbonText ??
+          'Celebrating 15 August · Order fresh essentials today',
         healthStarDisplay: {
           ...DEFAULT_HEALTH_STAR_DISPLAY,
           ...(updated.homepageConfig.healthStarDisplay ?? {}),
@@ -1102,6 +1133,142 @@ export default function SettingsManager({
                   </div>
                 )}
               </>
+            )}
+          </div>
+        )}
+      </section>
+          )}
+
+          {activeSection === 'seasonal' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+        <div>
+          <h2 className="font-bold text-sm">Seasonal / 15 August</h2>
+          <p className="text-xs text-gray-400 mt-1">
+            Presentation-only Independence Day skin and festive promo strip. Turning this off
+            restores the normal yellow/green storefront. Discount still requires a real coupon
+            in Discounts &amp; Coupons — this only displays the code.
+          </p>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={homepageConfig.seasonalThemeEnabled === true}
+            onChange={(e) =>
+              setHomepageConfig((prev) => ({
+                ...prev,
+                seasonalThemeEnabled: e.target.checked,
+                seasonalThemeId: 'independence-day',
+              }))
+            }
+            disabled={!canEdit}
+            className="accent-blinkit-green"
+          />
+          Enable Independence Day theme
+        </label>
+
+        {homepageConfig.seasonalThemeEnabled === true && (
+          <div className="space-y-4 border-t border-gray-50 pt-4">
+            <div>
+              <Label className="text-xs text-gray-500">Header ribbon text</Label>
+              <Input
+                value={homepageConfig.seasonalRibbonText ?? ''}
+                onChange={(e) =>
+                  setHomepageConfig((prev) => ({ ...prev, seasonalRibbonText: e.target.value }))
+                }
+                disabled={!canEdit}
+                className="mt-1"
+                maxLength={160}
+                placeholder="Celebrating 15 August · Order fresh essentials today"
+              />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={homepageConfig.seasonalPromoEnabled === true}
+                onChange={(e) =>
+                  setHomepageConfig((prev) => ({
+                    ...prev,
+                    seasonalPromoEnabled: e.target.checked,
+                  }))
+                }
+                disabled={!canEdit}
+                className="accent-blinkit-green"
+              />
+              Show festive promo banner on home
+            </label>
+
+            {homepageConfig.seasonalPromoEnabled === true && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <Label className="text-xs text-gray-500">Promo title</Label>
+                  <Input
+                    value={homepageConfig.seasonalPromoTitle ?? ''}
+                    onChange={(e) =>
+                      setHomepageConfig((prev) => ({
+                        ...prev,
+                        seasonalPromoTitle: e.target.value,
+                      }))
+                    }
+                    disabled={!canEdit}
+                    className="mt-1"
+                    maxLength={80}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label className="text-xs text-gray-500">Subtitle / tip</Label>
+                  <Input
+                    value={homepageConfig.seasonalPromoSubtitle ?? ''}
+                    onChange={(e) =>
+                      setHomepageConfig((prev) => ({
+                        ...prev,
+                        seasonalPromoSubtitle: e.target.value,
+                      }))
+                    }
+                    disabled={!canEdit}
+                    className="mt-1"
+                    maxLength={200}
+                    placeholder="Apply this code in cart after login"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">Coupon code (display only)</Label>
+                  <Input
+                    value={homepageConfig.seasonalPromoCode ?? ''}
+                    onChange={(e) =>
+                      setHomepageConfig((prev) => ({
+                        ...prev,
+                        seasonalPromoCode: e.target.value.toUpperCase(),
+                      }))
+                    }
+                    disabled={!canEdit}
+                    className="mt-1 font-mono tracking-wide"
+                    maxLength={32}
+                    placeholder="FREEDOM10"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">CTA label</Label>
+                  <Input
+                    value={homepageConfig.seasonalPromoCtaLabel ?? ''}
+                    onChange={(e) =>
+                      setHomepageConfig((prev) => ({
+                        ...prev,
+                        seasonalPromoCtaLabel: e.target.value,
+                      }))
+                    }
+                    disabled={!canEdit}
+                    className="mt-1"
+                    maxLength={40}
+                    placeholder="Copy code"
+                  />
+                </div>
+                <p className="sm:col-span-2 text-[11px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                  Create or enable a matching coupon under Discounts &amp; Coupons if you want this
+                  code to actually discount orders.
+                </p>
+              </div>
             )}
           </div>
         )}
