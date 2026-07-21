@@ -7,6 +7,7 @@ import { LogoutButton } from '@/components/Admin/LogoutButton';
 import { NotificationCenter } from '@/components/Admin/NotificationCenter';
 import { AdminNavLink } from '@/components/Admin/AdminNavLink';
 import AdminMasterSearch from '@/components/Admin/AdminMasterSearch';
+import AdminThemeToggle from '@/components/Admin/AdminThemeToggle';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
 import StaffSessionKeeper from '@/components/Admin/StaffSessionKeeper';
@@ -185,6 +186,7 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
       <main ref={mainRef} className="flex-1 min-w-0 h-screen overflow-y-auto flex flex-col">
         <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center gap-3 sticky top-0 z-10">
           <AdminMasterSearch navItems={visibleNav} />
+          <AdminThemeToggle />
           <div className="text-right shrink-0">
             <p className="text-xs font-semibold text-gray-700">{staff.name}</p>
             <p className="text-[10px] text-gray-400">{staff.role.replace(/_/g, ' ')}</p>

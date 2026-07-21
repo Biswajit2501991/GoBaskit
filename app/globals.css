@@ -313,3 +313,132 @@ html[data-theme='independence-day'] [data-sticky-chips] {
 .seasonal-promo-eyebrow {
   color: #9a5b12;
 }
+
+/* ── Admin color mode (light / dark / system) ──
+   Scoped via html[data-admin-theme]. Cleared when leaving AdminShell.
+   Presentation only — remaps common admin utility surfaces. */
+html[data-admin-theme='dark'] {
+  color-scheme: dark;
+  --admin-canvas: #0c0f0d;
+  --admin-surface: #141916;
+  --admin-elevated: #1c221e;
+  --admin-border: rgba(232, 235, 233, 0.1);
+  --admin-border-strong: rgba(232, 235, 233, 0.16);
+  --admin-text: #e8ebe9;
+  --admin-muted: #9aa39c;
+  --admin-green: #4cc86a;
+  --admin-green-soft: rgba(76, 200, 106, 0.16);
+  --admin-amber-bg: rgba(245, 158, 11, 0.12);
+  --admin-amber-text: #f6c35b;
+  --admin-red-bg: rgba(239, 68, 68, 0.12);
+  --admin-red-text: #fca5a5;
+  --admin-green-ok-bg: rgba(76, 200, 106, 0.12);
+  --admin-green-ok-text: #86efac;
+}
+
+html[data-admin-theme='dark'] body {
+  background: var(--admin-canvas);
+  color: var(--admin-text);
+}
+
+html[data-admin-theme='dark'] .bg-white {
+  background-color: var(--admin-surface) !important;
+}
+html[data-admin-theme='dark'] .bg-gray-50,
+html[data-admin-theme='dark'] .bg-gray-50\/80 {
+  background-color: var(--admin-canvas) !important;
+}
+html[data-admin-theme='dark'] .bg-gray-100 {
+  background-color: var(--admin-elevated) !important;
+}
+html[data-admin-theme='dark'] .border-gray-50,
+html[data-admin-theme='dark'] .border-gray-100,
+html[data-admin-theme='dark'] .border-gray-200 {
+  border-color: var(--admin-border) !important;
+}
+html[data-admin-theme='dark'] .text-gray-900,
+html[data-admin-theme='dark'] .text-gray-800,
+html[data-admin-theme='dark'] .text-gray-700 {
+  color: var(--admin-text) !important;
+}
+html[data-admin-theme='dark'] .text-gray-600,
+html[data-admin-theme='dark'] .text-gray-500,
+html[data-admin-theme='dark'] .text-gray-400 {
+  color: var(--admin-muted) !important;
+}
+html[data-admin-theme='dark'] .bg-blinkit-green-light,
+html[data-admin-theme='dark'] .bg-blinkit-green-light\/70 {
+  background-color: var(--admin-green-soft) !important;
+}
+html[data-admin-theme='dark'] .text-blinkit-green {
+  color: var(--admin-green) !important;
+}
+html[data-admin-theme='dark'] .hover\:bg-gray-50:hover,
+html[data-admin-theme='dark'] .hover\:bg-gray-100:hover {
+  background-color: var(--admin-elevated) !important;
+}
+html[data-admin-theme='dark'] .hover\:bg-blinkit-green-light:hover {
+  background-color: var(--admin-green-soft) !important;
+}
+html[data-admin-theme='dark'] .hover\:text-blinkit-green:hover {
+  color: var(--admin-green) !important;
+}
+html[data-admin-theme='dark'] .hover\:text-gray-700:hover {
+  color: var(--admin-text) !important;
+}
+html[data-admin-theme='dark'] input,
+html[data-admin-theme='dark'] select,
+html[data-admin-theme='dark'] textarea {
+  background-color: var(--admin-elevated);
+  color: var(--admin-text);
+  border-color: var(--admin-border-strong);
+}
+html[data-admin-theme='dark'] input::placeholder,
+html[data-admin-theme='dark'] textarea::placeholder {
+  color: #6b756e;
+}
+html[data-admin-theme='dark'] .shadow-sm,
+html[data-admin-theme='dark'] .shadow-xl,
+html[data-admin-theme='dark'] .shadow-\[0_18px_50px_-24px_rgba\(15\,23\,42\,0\.45\)\] {
+  --tw-shadow-color: rgba(0, 0, 0, 0.45);
+}
+html[data-admin-theme='dark'] .bg-amber-50,
+html[data-admin-theme='dark'] .border-amber-100 {
+  background-color: var(--admin-amber-bg) !important;
+  border-color: rgba(245, 158, 11, 0.25) !important;
+}
+html[data-admin-theme='dark'] .text-amber-700,
+html[data-admin-theme='dark'] .text-amber-800 {
+  color: var(--admin-amber-text) !important;
+}
+html[data-admin-theme='dark'] .bg-red-50 {
+  background-color: var(--admin-red-bg) !important;
+}
+html[data-admin-theme='dark'] .text-red-600,
+html[data-admin-theme='dark'] .text-red-700 {
+  color: var(--admin-red-text) !important;
+}
+html[data-admin-theme='dark'] .bg-green-50 {
+  background-color: var(--admin-green-ok-bg) !important;
+}
+html[data-admin-theme='dark'] .text-green-800 {
+  color: var(--admin-green-ok-text) !important;
+}
+html[data-admin-theme='dark'] .ring-black\/5 {
+  --tw-ring-color: rgba(255, 255, 255, 0.08);
+}
+html[data-admin-theme='dark'] .admin-theme-toggle {
+  background: var(--admin-elevated);
+  border-color: var(--admin-border);
+}
+html[data-admin-theme='dark'] .admin-theme-toggle button[aria-pressed='true'] {
+  background: var(--admin-surface) !important;
+  color: var(--admin-text) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+html[data-admin-theme='dark'] .admin-theme-toggle button[aria-pressed='false'] {
+  color: var(--admin-muted) !important;
+}
+html[data-admin-theme='dark'] .admin-theme-toggle button[aria-pressed='false']:hover {
+  color: var(--admin-text) !important;
+}

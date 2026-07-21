@@ -38,11 +38,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const visibleNav = nav.filter((item) => staffHasPermission(staff!.role, perms, item.permission));
 
   return (
-    <AdminShell
-      staff={{ id: staff.id, name: staff.name, role: staff.role }}
-      visibleNav={visibleNav.map((item) => ({ href: item.href, label: item.label }))}
-    >
-      {children}
-    </AdminShell>
+    <>
+      {/* Avoid light flash before AdminThemeToggle hydrates. */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `(function(){try{var p=localStorage.getItem('gobaskit_admin_color_mode')||'system';var dark=p==='dark'||(p==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.adminTheme=dark?'dark':'light';document.documentElement.style.colorScheme=dark?'dark':'light';}catch(e){}})();`,
+        }}
+      />
+      <AdminShell
+        staff={{ id: staff.id, name: staff.name, role: staff.role }}
+        visibleNav={visibleNav.map((item) => ({ href: item.href, label: item.label }))}
+      >
+        {children}
+      </AdminShell>
+    </>
   );
 }
