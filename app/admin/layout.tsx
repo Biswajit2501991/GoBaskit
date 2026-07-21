@@ -9,6 +9,7 @@ const nav: { href: string; label: string; permission: Permission }[] = [
   { href: '/admin/inventory', label: 'Inventory Desk', permission: 'products:view' },
   { href: '/admin/finance', label: 'Finance Desk', permission: 'finance:view' },
   { href: '/admin/products', label: 'Products', permission: 'products:view' },
+  { href: '/admin/price-adjust', label: 'Price Adjust', permission: 'products:edit' },
   { href: '/admin/categories', label: 'Categories', permission: 'categories:view' },
   { href: '/admin/orders', label: 'Orders', permission: 'orders:view' },
   { href: '/admin/whatsapp-verification', label: 'WhatsApp Verification', permission: 'verification:view' },
