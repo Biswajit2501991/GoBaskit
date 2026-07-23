@@ -6,6 +6,8 @@ import { useStaffPortalStore } from '@/store/staffPortalStore';
 
 export default function Footer() {
   const staffEligible = useStaffPortalStore((s) => s.staffEligible);
+  const adminSessionActive = useStaffPortalStore((s) => s.adminSessionActive);
+  const showAdminEntry = staffEligible || adminSessionActive;
 
   return (
     <footer className="bg-gray-50 border-t border-gray-200 mt-8">
@@ -16,8 +18,8 @@ export default function Footer() {
             <ul className="space-y-2 text-sm text-gray-600">
               <li><Link href="#" className="hover:text-blinkit-green">About</Link></li>
               <li><Link href="#" className="hover:text-blinkit-green">Careers</Link></li>
-              {staffEligible && (
-                <li><Link href="/admin" className="hover:text-blinkit-green">Admin</Link></li>
+              {showAdminEntry && (
+                <li><Link href="/admin/dashboard" className="hover:text-blinkit-green">Admin</Link></li>
               )}
             </ul>
           </div>

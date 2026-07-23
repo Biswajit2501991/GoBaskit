@@ -11,7 +11,8 @@ import { toE164 } from '@/utils/phone';
 
 export default function StaffAdminLoginModal() {
   const router = useRouter();
-  const { showAdminLoginModal, closeAdminLoginModal, checkedMobile } = useStaffPortalStore();
+  const { showAdminLoginModal, closeAdminLoginModal, checkedMobile, setAdminSessionActive } =
+    useStaffPortalStore();
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -45,6 +46,9 @@ export default function StaffAdminLoginModal() {
         }).catch(() => null);
       }
       closeAdminLoginModal();
+      setAdminSessionActive(true, {
+        mobile: checkedMobile,
+      });
       router.push('/admin/dashboard');
       router.refresh();
     } catch {

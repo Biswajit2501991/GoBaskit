@@ -43,10 +43,12 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
   const hydrated = useCartHydrated();
   const itemCount = useCartStore((s) => s.getItemCount());
   const staffEligible = useStaffPortalStore((s) => s.staffEligible);
+  const adminSessionActive = useStaffPortalStore((s) => s.adminSessionActive);
   const checkedMobile = useStaffPortalStore((s) => s.checkedMobile);
   const customerMobile = useStaffPortalStore((s) => s.customerMobile);
   const staffName = useStaffPortalStore((s) => s.staffName);
   const setCustomerMobile = useStaffPortalStore((s) => s.setCustomerMobile);
+  const setAdminSessionActive = useStaffPortalStore((s) => s.setAdminSessionActive);
   const clearAccount = useStaffPortalStore((s) => s.clearAccount);
   const openAccountModal = useStaffPortalStore((s) => s.openAccountModal);
   const openAdminLoginModal = useStaffPortalStore((s) => s.openAdminLoginModal);
@@ -75,10 +77,47 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
       ? `+91 ${customerMobile}`
       : 'My Account';
   const hasAccountIdentity = staffEligible || Boolean(customerMobile);
+  const showAdminEntry = staffEligible || adminSessionActive;
 
   useEffect(() => {
     void fetchConfig();
   }, [fetchConfig]);
+
+  // Rehydrate Super Admin / Open Admin from live staff cookie after refresh.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth/staff-status', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(
+        (data: {
+          authenticated?: boolean;
+          mobile?: string | null;
+          name?: string | null;
+        } | null) => {
+          if (cancelled || !data) return;
+          if (data.authenticated) {
+            setAdminSessionActive(true, {
+              mobile: data.mobile || undefined,
+              name: data.name || undefined,
+            });
+          } else {
+            setAdminSessionActive(false);
+          }
+        },
+      )
+      .catch(() => null);
+    return () => {
+      cancelled = true;
+    };
+  }, [setAdminSessionActive, pathname]);
+
+  function handleAdminEntryClick() {
+    if (adminSessionActive) {
+      window.location.href = '/admin/dashboard';
+      return;
+    }
+    openAdminLoginModal();
+  }
 
   useEffect(() => {
     if (chipsEnabled) void fetchCatalog();
@@ -202,14 +241,14 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
                 Go<span className="text-blinkit-green">Baskit</span>
               </span>
             </Link>
-            {staffEligible && (
+            {showAdminEntry && (
               <button
                 type="button"
-                onClick={openAdminLoginModal}
+                onClick={handleAdminEntryClick}
                 className="hidden sm:inline-flex items-center gap-1 bg-gray-900 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg hover:bg-gray-800 shrink-0"
               >
                 <Shield className="w-3.5 h-3.5" />
-                Login as Admin
+                {adminSessionActive ? 'Open Admin' : 'Login as Admin'}
               </button>
             )}
           </div>
@@ -224,10 +263,10 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
           )}
 
           <div ref={actionsRef} className="relative flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
-            {staffEligible && (
+            {showAdminEntry && (
               <button
                 type="button"
-                onClick={openAdminLoginModal}
+                onClick={handleAdminEntryClick}
                 className="sm:hidden inline-flex items-center gap-1 bg-gray-900 text-white text-[10px] font-semibold px-2 py-1 rounded-lg"
               >
                 <Shield className="w-3 h-3" />
@@ -330,18 +369,18 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
                     </Link>
                   </>
                 )}
-                {staffEligible && (
+                {showAdminEntry && (
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => {
                       setAccountMenuOpen(false);
-                      openAdminLoginModal();
+                      handleAdminEntryClick();
                     }}
                     className="w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-gray-900 flex items-center gap-1.5"
                   >
                     <Shield className="w-3.5 h-3.5" />
-                    Login as Admin
+                    {adminSessionActive ? 'Open Admin' : 'Login as Admin'}
                   </button>
                 )}
                 <button
