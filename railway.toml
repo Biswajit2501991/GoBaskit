@@ -1,0 +1,19 @@
+# GoBaskit on Railway — app host only. Postgres = Supabase.
+#
+# Setup:
+# 1. Railway → New Project → Deploy from GitHub → this repo (branch: main)
+# 2. Add Variables (DATABASE_URL, DIRECT_URL, JWT_SECRET, NEXT_PUBLIC_*, …)
+# 3. Settings → Networking → Generate Domain
+# 4. Optional: Volume mount → /app/public/uploads
+# 5. Every git push to main auto-deploys
+#
+# Do NOT add Railway Postgres if you want Supabase as the backend.
+
+[build]
+# Dockerfile in repo root is used automatically when present.
+
+[deploy]
+healthcheckPath = "/api/config"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
