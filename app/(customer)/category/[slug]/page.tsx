@@ -13,9 +13,21 @@ import { useCatalogStore } from '@/store/catalogStore';
 
 const PRODUCT_GRID = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2';
 
+function safeDecodeSlug(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function slugKey(value: string): string {
+  return safeDecodeSlug(value).trim().toLowerCase().replace(/[\s_-]+/g, '-');
+}
+
 export default function CategoryPage() {
   const params = useParams();
-  const slug = params.slug as string;
+  const rawSlug = params.slug as string;
   const allProducts = useCatalogStore((s) => s.products);
   const categories = useCatalogStore((s) => s.categories);
   const loaded = useCatalogStore((s) => s.loaded);
@@ -26,17 +38,24 @@ export default function CategoryPage() {
     fetchCatalog();
   }, [fetchCatalog]);
 
-  const products = useMemo(
-    () => allProducts.filter((p) => p.category?.slug === slug),
-    [allProducts, slug],
-  );
+  const decodedSlug = useMemo(() => safeDecodeSlug(rawSlug), [rawSlug]);
+  const activeSlugKey = useMemo(() => slugKey(rawSlug), [rawSlug]);
   const category = useMemo(
-    () => categories.find((c) => c.slug === slug) ?? null,
-    [categories, slug],
+    () => categories.find((c) => slugKey(c.slug) === activeSlugKey) ?? null,
+    [categories, activeSlugKey],
+  );
+  const products = useMemo(
+    () => {
+      if (category?.id) {
+        return allProducts.filter((p) => p.category?.id === category.id);
+      }
+      return allProducts.filter((p) => slugKey(p.category?.slug ?? '') === activeSlugKey);
+    },
+    [allProducts, category?.id, activeSlugKey],
   );
   const showSkeleton = loading && !loaded;
   const categoryImage = category?.imageUrl ? resolvePublicImageUrl(category.imageUrl) : null;
-  const categoryIcon = CATEGORY_ICONS[slug] || '🛒';
+  const categoryIcon = CATEGORY_ICONS[category?.slug ?? decodedSlug] || '🛒';
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -45,7 +64,7 @@ export default function CategoryPage() {
         <nav className="text-xs text-gray-400 mb-3">
           <Link href="/" className="hover:text-blinkit-green">Home</Link>
           <span className="mx-1.5">/</span>
-          <span className="text-gray-600 font-medium">{category?.name || slug}</span>
+          <span className="text-gray-600 font-medium">{category?.name || decodedSlug}</span>
         </nav>
 
         <div className="mb-5 rounded-2xl bg-gradient-to-r from-green-50 to-yellow-50 border border-gray-100 p-5 flex items-center gap-4">
@@ -56,7 +75,7 @@ export default function CategoryPage() {
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={categoryImage}
-                alt={category?.name || slug}
+                alt={category?.name || decodedSlug}
                 className="w-full h-full object-cover"
               />
             ) : (
@@ -68,7 +87,7 @@ export default function CategoryPage() {
               {showSkeleton ? (
                 <span className="inline-block h-6 w-36 skeleton rounded" />
               ) : (
-                category?.name || slug
+                category?.name || decodedSlug
               )}
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
