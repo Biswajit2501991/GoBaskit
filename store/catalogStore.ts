@@ -20,9 +20,12 @@ interface CatalogState {
 
 // TTL after which cached catalog is refreshed in the background.
 const TTL_MS = 5 * 60 * 1000;
+const DISK_TTL_MS = 30 * 60 * 1000;
+const CATALOG_CACHE_KEY = 'gobaskit.catalog.v1';
 
 // Module-level guard so parallel mounts share a single in-flight request.
 let inFlight: Promise<void> | null = null;
+let hydratedFromDisk = false;
 
 export const useCatalogStore = create<CatalogState>((set, get) => ({
   products: [],
@@ -32,6 +35,22 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   lastFetched: 0,
 
   fetchCatalog: async () => {
+    // Hydrate from local browser cache on first call in a tab so repeat visits
+    // render instantly, then refresh in background when stale.
+    if (!hydratedFromDisk) {
+      hydratedFromDisk = true;
+      const cached = readCatalogFromDisk();
+      if (cached) {
+        set({
+          products: cached.products,
+          categories: cached.categories,
+          loaded: true,
+          loading: false,
+          lastFetched: cached.fetchedAt,
+        });
+      }
+    }
+
     const { loaded, lastFetched } = get();
     const stale = Date.now() - lastFetched > TTL_MS;
 
@@ -75,6 +94,11 @@ async function load(
       loading: false,
       lastFetched: Date.now(),
     });
+    writeCatalogToDisk({
+      products: productList,
+      categories: Array.isArray(categories) ? categories : [],
+      fetchedAt: Date.now(),
+    });
 
     // Warm the browser cache for a capped set of product images while idle.
     // Cap avoids unbounded Image() + Set growth on large catalogs.
@@ -93,6 +117,37 @@ async function load(
     set({ loading: false });
   } finally {
     inFlight = null;
+  }
+}
+
+type CatalogCache = {
+  products: ProductWithCategory[];
+  categories: CategoryItem[];
+  fetchedAt: number;
+};
+
+function readCatalogFromDisk(): CatalogCache | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(CATALOG_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CatalogCache;
+    if (!parsed?.fetchedAt || !Array.isArray(parsed.products) || !Array.isArray(parsed.categories)) {
+      return null;
+    }
+    if (Date.now() - parsed.fetchedAt > DISK_TTL_MS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeCatalogToDisk(payload: CatalogCache) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // Ignore quota/serialization errors; runtime fetch still works.
   }
 }
 

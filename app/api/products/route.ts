@@ -9,5 +9,9 @@ export async function GET(req: NextRequest) {
     featured: searchParams.get('featured') === 'true',
     sort: (searchParams.get('sort') as 'price_asc' | 'price_desc' | 'name') || 'name',
   });
-  return NextResponse.json(products);
+  return NextResponse.json(products, {
+    headers: {
+      'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
+    },
+  });
 }
