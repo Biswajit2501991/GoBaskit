@@ -41,12 +41,15 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/next.config.ts ./next.config.ts
 
-# Persist product/category uploads across deploys (mount Railway Volume here).
-RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads
+# Persist product/category uploads across deploys (mount Railway Volume at /app/public/uploads).
+# Run as root so the Railway volume is writable for admin image uploads.
+RUN mkdir -p /app/public/uploads/products /app/public/uploads/categories /app/public/uploads/badges
 
-USER nextjs
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-CMD ["sh", "-c", "npx prisma migrate deploy && npx next start -H 0.0.0.0 -p ${PORT:-3000}"]
+# Migrate should not block the web process forever if the DB blips.
+# Railway volumes can include a root-owned `lost+found` folder; make it traversable
+# so startup scanners don't crash with EACCES.
+CMD ["sh", "-c", "chmod 755 /app/public/uploads 2>/dev/null || true; chmod 755 /app/public/uploads/lost+found 2>/dev/null || true; npx prisma migrate deploy || echo 'migrate deploy skipped/failed'; exec npx next start -H 0.0.0.0 -p ${PORT:-3000}"]

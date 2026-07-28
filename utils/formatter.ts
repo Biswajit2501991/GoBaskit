@@ -3,7 +3,8 @@ export function formatCurrency(amount: number): string {
     style: 'currency',
     currency: 'INR',
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+    // Display at most one decimal (₹52.98 → ₹53); whole rupees stay without ".0".
+    maximumFractionDigits: 1,
   }).format(amount);
 }
 
