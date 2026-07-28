@@ -1,12 +1,12 @@
 {
-  "name": "GoBaskit",
+  "name": "GoBaskit Admin",
   "short_name": "GoBaskit",
-  "description": "Groceries delivered in minutes",
-  "start_url": "/",
+  "description": "GoBaskit staff portal — new order alerts",
+  "start_url": "/admin/orders",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#F5C518",
+  "theme_color": "#0A7A3E",
   "icons": [
     {
       "src": "/icon-192.png",

@@ -1,6 +1,18 @@
+import type { Metadata } from 'next';
 import { getStaffFromSession } from '@/lib/auth';
 import { AdminShell } from '@/components/Admin/AdminShell';
 import { parsePermissions, staffHasPermission, type Permission } from '@/types/staff';
+
+export const metadata: Metadata = {
+  // Keep staff "Add to Home Screen" opening Orders for push alerts,
+  // while sharing the same GoBaskit brand icons as the storefront.
+  manifest: '/admin-manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'GoBaskit Admin',
+    statusBarStyle: 'default',
+  },
+};
 
 const nav: { href: string; label: string; permission: Permission }[] = [
   { href: '/admin/dashboard', label: 'Dashboard', permission: 'analytics:view' },
