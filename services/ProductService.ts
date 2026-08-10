@@ -71,6 +71,10 @@ export class ProductService {
     const where: Record<string, unknown> = {
       isVisible: true,
       status: { in: ['ACTIVE', 'OUT_OF_STOCK'] },
+      // Hide products whose category is Disabled on the storefront.
+      category: params?.categorySlug
+        ? { slug: params.categorySlug, isActive: true }
+        : { isActive: true },
     };
 
     if (params?.search) {
@@ -78,10 +82,6 @@ export class ProductService {
         { name: { contains: params.search } },
         { description: { contains: params.search } },
       ];
-    }
-
-    if (params?.categorySlug) {
-      where.category = { slug: params.categorySlug };
     }
 
     if (params?.featured) {
@@ -127,6 +127,7 @@ export class ProductService {
       },
     });
     if (!product || !product.isVisible || product.status === 'INACTIVE') return null;
+    if (!product.category?.isActive) return null;
     return product;
   }
 
@@ -172,10 +173,12 @@ export class CategoryService {
   }
 
   static async getBySlug(slug: string) {
-    return prisma.category.findUnique({
+    const category = await prisma.category.findUnique({
       where: { slug },
       include: { _count: { select: { products: true } } },
     });
+    if (!category?.isActive) return null;
+    return category;
   }
 }
 

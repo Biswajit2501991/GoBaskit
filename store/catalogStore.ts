@@ -21,7 +21,7 @@ interface CatalogState {
 // TTL after which cached catalog is refreshed in the background.
 const TTL_MS = 5 * 60 * 1000;
 const DISK_TTL_MS = 30 * 60 * 1000;
-const CATALOG_CACHE_KEY = 'gobaskit.catalog.v1';
+const CATALOG_CACHE_KEY = 'gobaskit.catalog.v2';
 
 // Module-level guard so parallel mounts share a single in-flight request.
 let inFlight: Promise<void> | null = null;
