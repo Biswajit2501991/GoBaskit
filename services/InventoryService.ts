@@ -330,61 +330,79 @@ export class InventoryService {
     });
     if (!order?.stockReserved) return;
 
-    const updated: ProductRow[] = [];
-
-    await prisma.$transaction(async (tx) => {
-      for (const item of order.items) {
-        if (item.variantId) {
-          const variant = await tx.productVariant.findUnique({ where: { id: item.variantId } });
-          if (variant) {
-            await tx.productVariant.update({
-              where: { id: item.variantId },
-              data: { stock: variant.stock + item.quantity },
-            });
-          }
-          continue;
-        }
-        const product = await tx.product.findUnique({ where: { id: item.productId } });
-        if (!product) continue;
-
-        const newStock = product.stock + item.quantity;
-        const status = this.resolveStatus(newStock, product.status);
-        const clearedAlert = !this.isLowStock(newStock, product.stockBaseline);
-
-        const row = await tx.product.update({
-          where: { id: item.productId },
-          data: {
-            stock: newStock,
-            status,
-            ...(clearedAlert ? { lowStockNotifiedAt: null } : {}),
-          },
-          select: {
-            id: true,
-            name: true,
-            stock: true,
-            stockBaseline: true,
-            status: true,
-            lowStockNotifiedAt: true,
-          },
-        });
-        updated.push(row);
+    const byProduct = new Map<string, number>();
+    const byVariant = new Map<string, number>();
+    for (const item of order.items) {
+      if (item.variantId) {
+        byVariant.set(item.variantId, (byVariant.get(item.variantId) ?? 0) + item.quantity);
+      } else {
+        byProduct.set(item.productId, (byProduct.get(item.productId) ?? 0) + item.quantity);
       }
+    }
 
-      await tx.order.update({
+    // Sequential (array) $transaction works with PgBouncer. Interactive
+    // `async (tx) => findUnique + update` does not — bulk archive of reserved
+    // orders was failing with "Transaction not found".
+    await prisma.$transaction([
+      ...[...byProduct.entries()].map(([productId, qty]) =>
+        prisma.product.updateMany({
+          where: { id: productId },
+          data: { stock: { increment: qty } },
+        }),
+      ),
+      ...[...byVariant.entries()].map(([variantId, qty]) =>
+        prisma.productVariant.updateMany({
+          where: { id: variantId },
+          data: { stock: { increment: qty } },
+        }),
+      ),
+      prisma.order.update({
         where: { id: orderId },
         data: { stockReserved: false },
-      });
-    });
+      }),
+    ]);
 
-    for (const product of updated) {
-      await this.evaluateAlerts(product);
+    if (byProduct.size) {
+      const rows = await prisma.product.findMany({
+        where: { id: { in: [...byProduct.keys()] } },
+        select: {
+          id: true,
+          name: true,
+          stock: true,
+          stockBaseline: true,
+          status: true,
+          lowStockNotifiedAt: true,
+        },
+      });
+
+      for (const row of rows) {
+        const status = this.resolveStatus(row.stock, row.status);
+        const clearedAlert = !this.isLowStock(row.stock, row.stockBaseline);
+        const product =
+          status !== row.status || (clearedAlert && row.lowStockNotifiedAt)
+            ? await prisma.product.update({
+                where: { id: row.id },
+                data: {
+                  status,
+                  ...(clearedAlert ? { lowStockNotifiedAt: null } : {}),
+                },
+                select: {
+                  id: true,
+                  name: true,
+                  stock: true,
+                  stockBaseline: true,
+                  status: true,
+                  lowStockNotifiedAt: true,
+                },
+              })
+            : row;
+        await this.evaluateAlerts(product);
+      }
     }
 
     // Restoring variant stock may bring a parent product back to ACTIVE.
     const variantParentIds = [
-      ...new Set(
-        order.items.filter((i) => i.variantId).map((i) => i.productId),
-      ),
+      ...new Set(order.items.filter((i) => i.variantId).map((i) => i.productId)),
     ];
     await Promise.all(
       variantParentIds.map((productId) => this.syncVariantProductAvailability(productId)),
