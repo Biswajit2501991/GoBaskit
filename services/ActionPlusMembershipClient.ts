@@ -150,7 +150,13 @@ export class ActionPlusMembershipClient {
         memberCode: active?.memberCode ?? null,
         fullName: active?.fullName ?? null,
       });
-    } catch {
+    } catch (err) {
+      console.error('[ActionPlusMembershipClient] lookup failed', {
+        mobile,
+        gymId,
+        base,
+        message: err instanceof Error ? err.message : String(err),
+      });
       return {
         isActive: false,
         mobile,
