@@ -48,6 +48,9 @@ export class WhatsAppVerificationService {
   private static readonly EXPIRE_THROTTLE_MS = 5 * 60 * 1000;
 
   static async expireStalePending(force = false) {
+    // PENDING codes become EXPIRED when expiresAt passes (default TTL: 10 minutes).
+    // VERIFIED rows do not auto-expire by TTL — they only become EXPIRED when
+    // superseded by a newer approval, forceNew regenerate, or admin reject/delete.
     const nowMs = Date.now();
     if (!force && nowMs - this.lastExpireAt < this.EXPIRE_THROTTLE_MS) {
       return;
@@ -101,20 +104,30 @@ export class WhatsAppVerificationService {
   /**
    * Source of truth: any VERIFIED WhatsAppVerification for this mobile.
    * Syncs CustomerMobile + all Customer order rows so admin locks unlock on re-verify.
+   * Also heals historical duplicate VERIFIED rows (keeps the newest).
    */
   static async syncVerifiedFlagsForMobile(mobileE164: string): Promise<boolean> {
     if (!isValidE164(mobileE164)) return false;
     const variants = mobileVariantsFromE164(mobileE164);
 
-    const latestVerified = await prisma.whatsAppVerification.findFirst({
+    const verifiedRows = await prisma.whatsAppVerification.findMany({
       where: {
         mobile: { in: variants },
         status: 'VERIFIED',
       },
       orderBy: [{ verifiedAt: 'desc' }, { createdAt: 'desc' }],
-      select: { verifiedAt: true, verifiedById: true },
+      select: { id: true, verifiedAt: true, verifiedById: true },
     });
 
+    // Collapse duplicate VERIFIED history to a single active row (no deletes).
+    if (verifiedRows.length > 1) {
+      await prisma.whatsAppVerification.updateMany({
+        where: { id: { in: verifiedRows.slice(1).map((r) => r.id) } },
+        data: { status: 'EXPIRED' },
+      });
+    }
+
+    const latestVerified = verifiedRows[0] ?? null;
     const verified = Boolean(latestVerified);
     const data = verified
       ? {
@@ -194,9 +207,10 @@ export class WhatsAppVerificationService {
   }
 
   static async countAttemptsToday(mobileE164: string): Promise<number> {
+    const variants = mobileVariantsFromE164(mobileE164);
     return prisma.whatsAppVerification.count({
       where: {
-        mobile: mobileE164,
+        mobile: { in: variants },
         createdAt: { gte: startOfDay() },
       },
     });
@@ -221,6 +235,8 @@ export class WhatsAppVerificationService {
       throw new Error('Enter a valid mobile number with country code');
     }
 
+    const variants = mobileVariantsFromE164(mobileE164);
+
     await this.expireStalePending();
 
     if (!requireFresh && (await this.isMobileVerified(mobileE164))) {
@@ -241,14 +257,14 @@ export class WhatsAppVerificationService {
 
     if (forceNew) {
       await prisma.whatsAppVerification.updateMany({
-        where: { mobile: mobileE164, status: 'PENDING' },
+        where: { mobile: { in: variants }, status: 'PENDING' },
         data: { status: 'EXPIRED' },
       });
     }
 
     const existing = await prisma.whatsAppVerification.findFirst({
       where: {
-        mobile: mobileE164,
+        mobile: { in: variants },
         status: 'PENDING',
         expiresAt: { gt: now },
       },
@@ -269,11 +285,16 @@ export class WhatsAppVerificationService {
       };
     }
 
-    const customerMobile = await prisma.customerMobile.upsert({
-      where: { mobile: mobileE164 },
-      create: { mobile: mobileE164 },
-      update: {},
+    // Prefer an existing CustomerMobile row for any format variant so we don't
+    // create orphan rows that never get the verified flag on approve.
+    const existingCustomerMobile = await prisma.customerMobile.findFirst({
+      where: { mobile: { in: variants } },
     });
+    const customerMobile =
+      existingCustomerMobile ??
+      (await prisma.customerMobile.create({
+        data: { mobile: mobileE164 },
+      }));
 
     const verification = await prisma.whatsAppVerification.create({
       data: {
@@ -333,7 +354,14 @@ export class WhatsAppVerificationService {
         };
       }
 
-      const verified = v.status === 'VERIFIED';
+      // This browser may still be polling an older id after a sibling request for
+      // the same number was approved (row became EXPIRED). Treat the number as
+      // verified so checkout/account don't keep asking to verify again.
+      let verified = v.status === 'VERIFIED';
+      if (!verified && (v.status === 'EXPIRED' || v.status === 'REJECTED')) {
+        verified = await this.isMobileVerified(mobileE164);
+      }
+
       return {
         mobile: mobileE164,
         verified,
@@ -384,7 +412,10 @@ export class WhatsAppVerificationService {
       where: { id: verificationId },
       select: { mobile: true, status: true, verifiedAt: true },
     });
-    if (!v || v.mobile !== mobileE164) return { found: false, verified: false };
+    const variants = mobileVariantsFromE164(mobileE164);
+    if (!v || (!variants.includes(v.mobile) && v.mobile !== mobileE164)) {
+      return { found: false, verified: false };
+    }
 
     const fresh =
       v.status === 'VERIFIED' &&
@@ -590,55 +621,48 @@ export class WhatsAppVerificationService {
 
     const now = new Date();
     const staffId = actor.actorType === 'staff' ? actor.actorId ?? null : null;
+    const variants = mobileVariantsFromE164(verification.mobile);
+    const verifiedFlags = {
+      isWhatsappVerified: true,
+      verifiedAt: now,
+      verifiedById: staffId,
+    };
 
-    await prisma.$transaction(async (tx) => {
-      await tx.whatsAppVerification.update({
+    // Non-interactive transaction: Supabase PgBouncer drops interactive
+    // $transaction(async (tx) => …) mid-flight ("Transaction not found"), which
+    // left VERIFIED rows without CustomerMobile flags → app asked to verify again.
+    await prisma.$transaction([
+      prisma.whatsAppVerification.update({
         where: { id: verificationId },
         data: {
           status: 'VERIFIED',
           verifiedAt: now,
           verifiedById: staffId,
         },
-      });
-
-      await tx.customerMobile.update({
+      }),
+      prisma.customerMobile.update({
         where: { id: verification.customerMobileId },
-        data: {
-          isWhatsappVerified: true,
-          verifiedAt: now,
-          verifiedById: staffId,
-        },
-      });
-
-      const variants = mobileVariantsFromE164(verification.mobile);
-      await tx.customer.updateMany({
+        data: verifiedFlags,
+      }),
+      prisma.customerMobile.updateMany({
         where: { mobile: { in: variants } },
-        data: {
-          isWhatsappVerified: true,
-          verifiedAt: now,
-          verifiedById: staffId,
-        },
-      });
-
-      // Also mark any other CustomerMobile variant rows verified.
-      await tx.customerMobile.updateMany({
+        data: verifiedFlags,
+      }),
+      prisma.customer.updateMany({
         where: { mobile: { in: variants } },
-        data: {
-          isWhatsappVerified: true,
-          verifiedAt: now,
-          verifiedById: staffId,
-        },
-      });
-
-      await tx.whatsAppVerification.updateMany({
+        data: verifiedFlags,
+      }),
+      // One active VERIFIED per number: expire other PENDING + prior VERIFIED
+      // across all format variants (fixes duplicate VERIFIED in admin).
+      prisma.whatsAppVerification.updateMany({
         where: {
-          mobile: verification.mobile,
-          status: 'PENDING',
           id: { not: verificationId },
+          mobile: { in: variants },
+          status: { in: ['PENDING', 'VERIFIED'] },
         },
         data: { status: 'EXPIRED' },
-      });
-    });
+      }),
+    ]);
 
     // Ensure every Customer row for this number is unlocked after re-verify.
     await this.syncVerifiedFlagsForMobile(verification.mobile);
@@ -739,6 +763,18 @@ export class WhatsAppVerificationService {
     pageSize?: number;
   }) {
     await this.expireStalePending();
+
+    // Heal exact-mobile duplicate VERIFIED rows (keeps newest; no deletes).
+    const verifiedGroups = await prisma.whatsAppVerification.groupBy({
+      by: ['mobile'],
+      where: { status: 'VERIFIED' },
+      _count: { id: true },
+    });
+    await Promise.all(
+      verifiedGroups
+        .filter((g) => g._count.id > 1 && isValidE164(g.mobile))
+        .map((g) => this.syncVerifiedFlagsForMobile(g.mobile)),
+    );
 
     const page = Math.max(1, params.page ?? 1);
     const pageSize = Math.min(50, Math.max(1, params.pageSize ?? 20));
