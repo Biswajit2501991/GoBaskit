@@ -4,6 +4,8 @@ import { DiscountEngine } from '@/services/DiscountEngine';
 import { checkRateLimit } from '@/lib/simple-rate-limit';
 import { getRequestMeta } from '@/lib/request-meta';
 import { getCustomerMobileFromRequest } from '@/lib/customer-session';
+import { toE164 } from '@/utils/phone';
+import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationService';
 
 const bodySchema = z.object({
   subtotal: z.number().positive(),
@@ -17,6 +19,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { ok: false, code: 'LOGIN_REQUIRED', error: 'Please log in to verify membership' },
       { status: 401 },
+    );
+  }
+
+  const mobileE164 = toE164('91', sessionMobile);
+  const isVerified = mobileE164
+    ? await WhatsAppVerificationService.isMobileVerified(mobileE164)
+    : false;
+  if (!isVerified) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: 'VERIFICATION_REQUIRED',
+        error: 'Verify your WhatsApp number before checking membership.',
+      },
+      { status: 403 },
     );
   }
 

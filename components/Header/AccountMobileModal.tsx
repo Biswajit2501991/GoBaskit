@@ -44,6 +44,7 @@ export default function AccountMobileModal() {
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
   const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null);
   const staffNameRef = useRef<string>('');
+  const existingPasswordRef = useRef(false);
 
   const mobileE164 = toE164('91', mobile);
 
@@ -63,6 +64,7 @@ export default function AccountMobileModal() {
     setWhatsappUrl(null);
     setAttemptsRemaining(null);
     staffNameRef.current = '';
+    existingPasswordRef.current = false;
   }
 
   function handleClose() {
@@ -128,7 +130,7 @@ export default function AccountMobileModal() {
           data.verified === true || data.verification?.status === 'VERIFIED';
         if (approved) {
           setSessionVerifiedMobile(mobileE164);
-          setPhase('create-password');
+          setPhase(existingPasswordRef.current ? 'password' : 'create-password');
           setError('');
         }
       } catch {
@@ -190,7 +192,7 @@ export default function AccountMobileModal() {
         setSessionVerifiedMobile(mobileE164);
         setVerification(null);
         setWhatsappUrl(null);
-        setPhase('create-password');
+        setPhase(existingPasswordRef.current ? 'password' : 'create-password');
         return;
       }
       setVerification(data.verification);
@@ -282,7 +284,7 @@ export default function AccountMobileModal() {
 
       const status = statusRes.ok ? await statusRes.json() : { requiresWhatsApp: true };
 
-      if (status.hasPassword && !status.isLocked) {
+      if (status.hasPassword && !status.isLocked && status.isWhatsappVerified === true) {
         setPhase('password');
         setAttemptsRemaining(status.attemptsRemaining ?? null);
         return;
@@ -290,7 +292,17 @@ export default function AccountMobileModal() {
 
       // Locked account recovery must prove WhatsApp ownership again (forceNew).
       if (status.isLocked) {
+        existingPasswordRef.current = false;
         await startVerification(true);
+        return;
+      }
+
+      // Backend verification is mandatory before login/checkout. If an admin
+      // deleted verification for an existing account, verify first, then ask
+      // for its current password (do not overwrite it).
+      if (status.isWhatsappVerified !== true) {
+        existingPasswordRef.current = status.hasPassword === true;
+        await startVerification(false);
         return;
       }
 
@@ -325,6 +337,12 @@ export default function AccountMobileModal() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (data.code === 'VERIFICATION_REQUIRED') {
+          existingPasswordRef.current = true;
+          setPassword('');
+          await startVerification(false);
+          return;
+        }
         if (data.locked || data.code === 'LOCKED') {
           setError(data.error || 'Account locked. Verify via WhatsApp to reset.');
           setAttemptsRemaining(0);
@@ -567,6 +585,7 @@ export default function AccountMobileModal() {
                 onClick={() => {
                   setPassword('');
                   setError('');
+                  existingPasswordRef.current = false;
                   startVerification(true);
                 }}
               >

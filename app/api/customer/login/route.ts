@@ -35,7 +35,12 @@ export async function POST(req: NextRequest) {
         locked: 'locked' in result ? result.locked : undefined,
         attemptsRemaining: 'attemptsRemaining' in result ? result.attemptsRemaining : undefined,
       },
-      { status: result.code === 'LOCKED' ? 403 : 401 },
+      {
+        status:
+          result.code === 'LOCKED' || result.code === 'VERIFICATION_REQUIRED'
+            ? 403
+            : 401,
+      },
     );
   }
 

@@ -178,12 +178,10 @@ export async function warmCustomerSession(opts?: {
       cache = snapshot;
       return snapshot;
     } catch {
-      const fallback = {
-        ...emptySession(),
-        warmedAt: Date.now(),
-      };
-      cache = fallback;
-      return fallback;
+      // A transient account/network failure is not a confirmed logout. Do not
+      // cache an empty identity for three minutes and make checkout/membership
+      // repeatedly prompt a customer whose signed cookie is still valid.
+      return emptySession();
     } finally {
       inFlight = null;
     }

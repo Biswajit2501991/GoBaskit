@@ -7,11 +7,10 @@ import {
   VERIFICATION_AUDIT_ACTIONS,
 } from '@/constants/whatsappVerification';
 import { VerificationAuditService } from '@/services/VerificationAuditService';
-import { CustomerOrderService } from '@/services/CustomerOrderService';
 import { SettingsService } from '@/services/SettingsService';
 import { WHATSAPP_NUMBER } from '@/constants';
 import { buildWhatsAppUrl } from '@/utils/whatsapp';
-import { e164ToCheckoutMobile, isValidE164, mobileVariantsFromE164 } from '@/utils/phone';
+import { isValidE164, mobileVariantsFromE164 } from '@/utils/phone';
 import { adminEventBus } from '@/lib/realtime/eventBus';
 
 function addMinutes(date: Date, minutes: number): Date {
@@ -175,19 +174,13 @@ export class WhatsAppVerificationService {
       return { needsVerification: false, isVerified: true, canCheckout: true, messageSent: false };
     }
 
-    const checkoutMobile = e164ToCheckoutMobile(mobileE164);
-    const orderCount = checkoutMobile
-      ? await CustomerOrderService.completedOrderCountForMobile(checkoutMobile)
-      : 0;
-    if (orderCount > 0) {
-      return { needsVerification: false, isVerified: false, canCheckout: true, messageSent: false };
-    }
-
     const messageSent = await this.hasSentAcknowledgement(mobileE164);
     return {
       needsVerification: true,
       isVerified: false,
-      canCheckout: messageSent,
+      // A sent acknowledgement is only progress feedback. Checkout remains
+      // locked until the backend verification row is actually VERIFIED.
+      canCheckout: false,
       messageSent,
     };
   }
@@ -368,7 +361,7 @@ export class WhatsAppVerificationService {
         mobile: mobileE164,
         verified,
         needsVerification: !verified,
-        canCheckout: verified || Boolean(v.sentAcknowledgedAt),
+        canCheckout: verified,
         messageSent: Boolean(v.sentAcknowledgedAt),
         verification: this.serializeVerification(v),
       };

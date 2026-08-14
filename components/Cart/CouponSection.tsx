@@ -150,16 +150,9 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
     setBusy(true);
     setError('');
     try {
-      const serverMobile = await readServerSessionMobile();
-      if (!serverMobile) {
-        handleSessionLost();
-        return;
-      }
-      setServerSessionOk(true);
-      if (serverMobile !== sessionMobile) {
-        setCustomerMobile(serverMobile);
-      }
-
+      // The membership endpoint is the authoritative session check. Avoid a
+      // separate account preflight that could transiently fail and reopen login
+      // even while the signed session cookie is valid.
       const res = await fetch('/api/discount/membership/check', {
         method: 'POST',
         credentials: 'include',
@@ -169,6 +162,11 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
       const data = await res.json();
       if (res.status === 401 || data.code === 'LOGIN_REQUIRED') {
         handleSessionLost();
+        return;
+      }
+      if (res.status === 403 && data.code === 'VERIFICATION_REQUIRED') {
+        setError(data.error || 'Verify your WhatsApp number first');
+        openAccountModal();
         return;
       }
       if (!data.ok) {
@@ -193,9 +191,8 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
     subtotal,
     applied,
     applyQuote,
-    sessionMobile,
-    setCustomerMobile,
     handleSessionLost,
+    openAccountModal,
   ]);
 
   async function applyCoupon() {

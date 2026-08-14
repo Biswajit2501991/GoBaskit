@@ -32,11 +32,6 @@ interface WhatsAppVerificationModalProps {
   customerName?: string;
   /** Called when admin/webhook fully verifies the number. */
   onVerified: (mobileE164: string) => void;
-  /**
-   * Called after the customer confirms they sent the WhatsApp message —
-   * unlocks placing an order while admin verification is still pending.
-   */
-  onMessageSent?: (mobileE164: string) => void;
   onClose: () => void;
 }
 
@@ -46,7 +41,6 @@ export default function WhatsAppVerificationModal({
   initialCountryDial,
   customerName,
   onVerified,
-  onMessageSent,
   onClose,
 }: WhatsAppVerificationModalProps) {
   const defaultCountry = useMemo(() => detectCountryFromBrowser(), []);
@@ -193,10 +187,6 @@ export default function WhatsAppVerificationModal({
       }
       setPending(true);
       setSentContinue(true);
-      // Unlock checkout immediately; keep polling in background for full verify toast.
-      if (onMessageSent) {
-        setTimeout(() => onMessageSent(mobileE164), 400);
-      }
     } finally {
       setLoading(false);
     }
@@ -229,9 +219,9 @@ export default function WhatsAppVerificationModal({
           ) : sentContinue ? (
             <div className="text-center py-6 space-y-3">
               <CheckCircle2 className="w-14 h-14 text-blinkit-green mx-auto" />
-              <p className="font-semibold text-gray-900">Message sent — you can place your order</p>
+              <p className="font-semibold text-gray-900">Message sent — waiting for verification</p>
               <p className="text-sm text-gray-500">
-                We&apos;ll fully verify your account shortly. You&apos;ll get a notification when it&apos;s done.
+                Keep this window open. You can place the order after your number is verified.
               </p>
             </div>
           ) : !pending || !verification ? (

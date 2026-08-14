@@ -33,7 +33,6 @@ import { WHATSAPP_NUMBER, STORE_NAME } from '@/constants';
 import { isValidIndianMobile, normalizeMobile } from '@/utils/mobile';
 import { e164ToCheckoutMobile, toE164 } from '@/utils/phone';
 import {
-  isMobileVerifiedInSession,
   setSessionVerifiedMobile,
 } from '@/utils/whatsappVerificationSession';
 import WhatsAppVerificationModal from '@/components/Checkout/WhatsAppVerificationModal';
@@ -123,21 +122,20 @@ export default function CheckoutPage() {
     void refreshCartStockFromServer();
   }, [items.length]);
 
-  // Guests must log in before checkout. Re-check when session becomes available.
+  // The signed cookie is authoritative. Always validate it once on checkout;
+  // in-memory Zustand identity can outlive a failed/expired browser session.
   useEffect(() => {
-    if (customerMobile) {
-      setAuthChecked(true);
-      return;
-    }
+    if (authChecked) return;
 
     let alive = true;
-    fetch('/api/customer/account')
+    fetch('/api/customer/account', { credentials: 'include', cache: 'no-store' })
       .then((res) => res.json())
       .then((data: { mobile?: string | null }) => {
         if (!alive) return;
         if (data.mobile) {
           setCustomerMobile(data.mobile);
         } else {
+          setCustomerMobile('');
           openAccountModal();
         }
         setAuthChecked(true);
@@ -151,7 +149,7 @@ export default function CheckoutPage() {
     return () => {
       alive = false;
     };
-  }, [customerMobile, setCustomerMobile, openAccountModal]);
+  }, [authChecked, setCustomerMobile, openAccountModal]);
 
   useEffect(() => {
     if (profileLoaded) return;
@@ -195,11 +193,6 @@ export default function CheckoutPage() {
             setVerifiedMobileE164(e164);
             setSessionVerifiedMobile(e164);
           }
-        } else if (e164 && isMobileVerifiedInSession(e164)) {
-          setWhatsappVerified(true);
-          setNeedsWhatsappVerification(false);
-          setVerifiedMobileE164(e164);
-          setVerificationResolved(true);
         } else if (result.needsVerification !== null) {
           setNeedsWhatsappVerification(result.needsVerification);
           setWhatsappVerified(false);
@@ -350,8 +343,8 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Already verified for this mobile in this tab session — no status fetch, no UI flash.
-    if (isMobileVerifiedInSession(mobileE164) || verifiedMobileE164 === mobileE164) {
+    // Already confirmed by the backend for this mobile on this checkout page.
+    if (verifiedMobileE164 === mobileE164) {
       if (!whatsappVerified || needsWhatsappVerification || !verificationResolved) {
         setWhatsappVerified(true);
         setNeedsWhatsappVerification(false);
@@ -468,7 +461,6 @@ export default function CheckoutPage() {
     // Session / in-memory already confirmed — never re-check on Place Order.
     if (
       whatsappVerified ||
-      isMobileVerifiedInSession(e164) ||
       (verifiedMobileE164 && verifiedMobileE164 === e164)
     ) {
       return true;
@@ -644,25 +636,6 @@ export default function CheckoutPage() {
       sessionStorage.setItem('gobaskit_account_verified_toast', '1');
     } catch {
       /* ignore */
-    }
-    const data = getValues();
-    if (pendingSubmitSource) {
-      const source = pendingSubmitSource;
-      setPendingSubmitSource(null);
-      const mobileForOrder =
-        checkoutMobile && isValidIndianMobile(checkoutMobile) ? checkoutMobile : data.mobile;
-      await submitOrder({ ...data, mobile: mobileForOrder }, source);
-    }
-  }
-
-  async function handleMessageSent(mobile: string) {
-    // Customer sent WA SMS — unlock checkout without marking fully verified.
-    setNeedsWhatsappVerification(false);
-    setVerificationResolved(true);
-    setShowVerificationModal(false);
-    const checkoutMobile = e164ToCheckoutMobile(mobile);
-    if (checkoutMobile && isValidIndianMobile(checkoutMobile) && checkoutMobile !== getValues('mobile')) {
-      setValue('mobile', checkoutMobile, { shouldValidate: true });
     }
     const data = getValues();
     if (pendingSubmitSource) {
@@ -993,7 +966,6 @@ export default function CheckoutPage() {
         initialCountryDial="91"
         customerName={formValues.firstName ? `${formValues.firstName} ${formValues.lastName ?? ''}`.trim() : undefined}
         onVerified={handleVerified}
-        onMessageSent={handleMessageSent}
         onClose={() => {
           setShowVerificationModal(false);
           setPendingSubmitSource(null);

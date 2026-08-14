@@ -48,6 +48,14 @@ export class CustomerAuthService {
       };
     }
 
+    if (!(await WhatsAppVerificationService.isMobileVerified(mobileE164))) {
+      return {
+        ok: false as const,
+        code: 'VERIFICATION_REQUIRED' as const,
+        error: 'Verify your WhatsApp number before signing in.',
+      };
+    }
+
     if (this.isLocked(record)) {
       return {
         ok: false as const,

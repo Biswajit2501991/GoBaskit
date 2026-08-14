@@ -4,7 +4,9 @@ import { normalizeMobile, isValidIndianMobile } from '@/utils/mobile';
 import { toE164 } from '@/utils/phone';
 import {
   CUSTOMER_MOBILE_COOKIE,
+  createCustomerSessionToken,
   customerSessionClearOptions,
+  customerSessionCookieOptions,
   getCustomerMobileFromRequest,
 } from '@/lib/customer-session';
 import {
@@ -40,12 +42,21 @@ export async function GET(req: NextRequest) {
   }
 
   const status = await WhatsAppVerificationService.getStatus(e164);
-  return NextResponse.json({
+  const res = NextResponse.json({
     mobile,
     isWhatsappVerified: status.verified === true,
     needsVerification: status.needsVerification === true,
     canCheckout: status.canCheckout === true,
   });
+  // Rolling renewal: active signed-in customers do not lose their storefront
+  // session while using checkout/membership. Verification remains DB-backed and
+  // admin deletion still immediately makes checkout require verification.
+  res.cookies.set(
+    CUSTOMER_MOBILE_COOKIE,
+    createCustomerSessionToken(mobile),
+    customerSessionCookieOptions(),
+  );
+  return res;
 }
 
 /**
