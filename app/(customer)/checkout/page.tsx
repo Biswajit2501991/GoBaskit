@@ -468,10 +468,13 @@ export default function CheckoutPage() {
     // Session / in-memory already confirmed — never re-check on Place Order.
     if (
       whatsappVerified ||
-      !needsWhatsappVerification ||
       isMobileVerifiedInSession(e164) ||
       (verifiedMobileE164 && verifiedMobileE164 === e164)
     ) {
+      return true;
+    }
+    // Only trust needsWhatsappVerification=false after status has been resolved.
+    if (verificationResolved && !needsWhatsappVerification) {
       return true;
     }
 

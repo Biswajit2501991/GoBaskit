@@ -78,7 +78,9 @@ export const customerPasswordSchema = z
     mobile: z.string().min(8, 'Enter a valid mobile number').max(20),
     password: z.string().min(6, 'Password must be at least 6 characters'),
     confirmPassword: z.string().min(6, 'Password must be at least 6 characters'),
-    verificationId: z.string().min(1, 'Verification required'),
+    // Optional when the number is already permanently WhatsApp-verified (first password).
+    // Required for password reset (forgot / locked) after a fresh WhatsApp proof.
+    verificationId: z.string().min(1).optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',

@@ -219,18 +219,18 @@ export class WhatsAppVerificationService {
   static async getOrCreateVerification(params: {
     mobileE164: string;
     customerName?: string;
-    forceNew?: boolean;
     /**
-     * Login/session verification. When true, a fresh ownership proof is always
-     * required — the permanent "already verified" flag can NOT short-circuit it.
-     * This is what prevents someone from logging in on a new device just because
-     * the number was verified once in the past.
+     * When true (forgot-password / locked-account recovery), create a new PENDING
+     * code even if the number is already permanently verified. Otherwise a
+     * verified number never needs WhatsApp again until admin deletes it.
      */
+    forceNew?: boolean;
+    /** @deprecated Ignored — verification is permanent until admin delete. */
     requireFresh?: boolean;
     ip?: string;
     userAgent?: string;
   }) {
-    const { mobileE164, customerName, forceNew, requireFresh, ip, userAgent } = params;
+    const { mobileE164, customerName, forceNew, ip, userAgent } = params;
     if (!isValidE164(mobileE164)) {
       throw new Error('Enter a valid mobile number with country code');
     }
@@ -239,7 +239,9 @@ export class WhatsAppVerificationService {
 
     await this.expireStalePending();
 
-    if (!requireFresh && (await this.isMobileVerified(mobileE164))) {
+    // Permanent until admin deletes the VERIFIED record (or clears flags via delete).
+    // forceNew is the only escape hatch (explicit password recovery).
+    if (!forceNew && (await this.isMobileVerified(mobileE164))) {
       return {
         verified: true,
         mobile: mobileE164,

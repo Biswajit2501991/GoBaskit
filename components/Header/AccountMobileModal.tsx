@@ -185,6 +185,14 @@ export default function AccountMobileModal() {
         setError(typeof data.error === 'string' ? data.error : 'Could not start verification');
         return;
       }
+      // Already permanently verified — no WhatsApp again until admin deletes.
+      if (data.verified === true) {
+        setSessionVerifiedMobile(mobileE164);
+        setVerification(null);
+        setWhatsappUrl(null);
+        setPhase('create-password');
+        return;
+      }
       setVerification(data.verification);
       setWhatsappUrl(data.whatsappUrl ?? null);
       setPhase('waiting');
@@ -280,6 +288,19 @@ export default function AccountMobileModal() {
         return;
       }
 
+      // Locked account recovery must prove WhatsApp ownership again (forceNew).
+      if (status.isLocked) {
+        await startVerification(true);
+        return;
+      }
+
+      // Permanently verified — set first password without WhatsApp again.
+      if (status.isWhatsappVerified === true) {
+        setSessionVerifiedMobile(mobileE164);
+        setPhase('create-password');
+        return;
+      }
+
       await startVerification(false);
     } catch {
       setError('Network error. Please try again.');
@@ -335,8 +356,8 @@ export default function AccountMobileModal() {
   }
 
   async function handleCreatePassword() {
-    if (!mobileE164 || !verification?.id) {
-      setError('Verification expired. Please try again.');
+    if (!mobileE164) {
+      setError('Enter a valid mobile number');
       return;
     }
     if (password.length < 6) {
@@ -358,7 +379,7 @@ export default function AccountMobileModal() {
           mobile: mobileE164,
           password,
           confirmPassword,
-          verificationId: verification.id,
+          ...(verification?.id ? { verificationId: verification.id } : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -406,7 +427,9 @@ export default function AccountMobileModal() {
           <div className="text-center">
             <h2 className="text-xl font-bold text-gray-900 tracking-tight">Create your password</h2>
             <p className="text-sm text-gray-500 mt-1.5 mb-5 leading-relaxed">
-              WhatsApp verified. Set a password to sign in next time on any device.
+              {verification
+                ? 'WhatsApp verified. Set a password to sign in next time on any device.'
+                : 'Your WhatsApp is already verified. Set a password to sign in next time on any device.'}
             </p>
             <div className="space-y-3 text-left">
               <div>

@@ -7,10 +7,9 @@ import { isValidE164 } from '@/utils/phone';
 const bodySchema = z.object({
   mobile: z.string().min(8).max(20),
   customerName: z.string().max(120).optional(),
+  // Only for explicit password recovery — does NOT re-verify for normal login/checkout.
   forceNew: z.boolean().optional(),
-  // 'login' forces a fresh ownership proof (used when signing in), so a number
-  // that was verified once in the past still can't log in on a new device
-  // without a fresh admin-approved verification.
+  // Kept for older clients; verification is permanent until admin delete.
   purpose: z.enum(['checkout', 'login']).optional(),
 });
 
@@ -32,7 +31,6 @@ export async function POST(req: NextRequest) {
       mobileE164: mobile,
       customerName: parsed.data.customerName,
       forceNew: parsed.data.forceNew,
-      requireFresh: parsed.data.purpose === 'login',
       ip: meta.ip,
       userAgent: meta.userAgent,
     });

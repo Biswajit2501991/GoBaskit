@@ -24,15 +24,17 @@ export class CustomerAuthService {
     const hasPassword = Boolean(record?.passwordHash);
     const failedAttempts = record?.failedLoginAttempts ?? 0;
     const isLocked = record ? this.isLocked(record) : false;
+    // Source of truth includes VERIFIED rows + flag heal (permanent until admin delete).
+    const isWhatsappVerified = await WhatsAppVerificationService.isMobileVerified(mobileE164);
 
     return {
       hasPassword,
       isLocked,
-      isWhatsappVerified: record?.isWhatsappVerified ?? false,
+      isWhatsappVerified,
       failedAttempts,
       attemptsRemaining: Math.max(0, CUSTOMER_MAX_FAILED_LOGIN_ATTEMPTS - failedAttempts),
-      /** Must verify on WhatsApp before setting / resetting a password. */
-      requiresWhatsApp: !hasPassword || isLocked,
+      /** Must verify on WhatsApp before setting a password when not yet verified, or when locked. */
+      requiresWhatsApp: (!hasPassword && !isWhatsappVerified) || isLocked,
     };
   }
 
@@ -95,25 +97,42 @@ export class CustomerAuthService {
   }
 
   /**
-   * Set or reset a customer password. Requires a fresh, admin-approved WhatsApp
-   * verification the caller initiated (verificationId).
+   * Set or reset a customer password.
+   * - Fresh WhatsApp proof (verificationId recently approved) → set or reset.
+   * - Permanently verified number with no password yet → first password only
+   *   (no re-verify until admin deletes the verification).
+   * - Reset when a password already exists still requires fresh WhatsApp proof.
    */
   static async setPassword(params: {
     mobileE164: string;
     password: string;
-    verificationId: string;
+    verificationId?: string;
   }) {
     const { mobileE164, password, verificationId } = params;
 
-    const check = await WhatsAppVerificationService.getSessionVerification(
-      verificationId,
-      mobileE164,
-    );
-    if (!check.found || !check.verified) {
+    let record = await this.findByMobileE164(mobileE164);
+    const permanentlyVerified = await WhatsAppVerificationService.isMobileVerified(mobileE164);
+
+    let allowed = false;
+    if (verificationId) {
+      // Allow a recently approved verification request (incl. delayed password form).
+      const check = await WhatsAppVerificationService.getSessionVerification(
+        verificationId,
+        mobileE164,
+        7 * 24 * 60 * 60 * 1000,
+      );
+      if (check.found && check.verified) {
+        allowed = true;
+      }
+    }
+    // First password on a permanently verified number — do not ask WhatsApp again.
+    if (!allowed && permanentlyVerified && !record?.passwordHash) {
+      allowed = true;
+    }
+    if (!allowed) {
       throw new Error('WhatsApp verification required before setting your password');
     }
 
-    let record = await this.findByMobileE164(mobileE164);
     if (!record) {
       record = await prisma.customerMobile.create({
         data: { mobile: mobileE164 },
