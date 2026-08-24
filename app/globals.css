@@ -314,51 +314,131 @@ html[data-theme='independence-day'] [data-sticky-chips] {
   color: #9a5b12;
 }
 
-/* ── Raksha Bandhan seasonal skin (presentation only) ── */
+/* ── Raksha Bandhan seasonal skin (presentation only) ──
+   Keep brand green for Add to Cart / logo; festive red–gold is accents only. */
 html[data-theme='raksha-bandhan'] {
-  --color-background: #fff8f4;
-  --color-blinkit-yellow: #f0c14b;
-  --color-blinkit-yellow-dark: #d4a017;
-  --color-blinkit-green: #b42318;
-  --color-blinkit-green-dark: #8f1b13;
-  --color-blinkit-green-light: #fdece8;
+  --color-background: #fbf6ee;
+  --color-blinkit-yellow: #1f7a3a;
+  --color-blinkit-yellow-dark: #16632d;
 }
 
 html[data-theme='raksha-bandhan'] body {
   background:
-    linear-gradient(180deg, rgba(196, 30, 58, 0.08) 0%, transparent 220px),
+    radial-gradient(circle at 12% 8%, rgba(196, 30, 58, 0.06), transparent 28%),
+    radial-gradient(circle at 88% 12%, rgba(212, 160, 23, 0.1), transparent 26%),
     var(--color-background);
 }
 
+html[data-theme='raksha-bandhan'] .min-h-screen {
+  background-color: transparent;
+}
+
 html[data-theme='raksha-bandhan'] header .bg-blinkit-yellow {
-  background: linear-gradient(
-    90deg,
-    #c41e3a 0%,
-    #e8b923 28%,
-    #fff6e8 50%,
-    #e8b923 72%,
-    #c41e3a 100%
-  );
+  background: linear-gradient(180deg, #1f7a3a 0%, #16632d 100%);
 }
 
 html[data-theme='raksha-bandhan'] .sticky-category-chips,
 html[data-theme='raksha-bandhan'] [data-sticky-chips] {
-  border-bottom-color: rgba(196, 30, 58, 0.28);
+  border-bottom-color: rgba(31, 122, 58, 0.22);
+  background: #fffdf8;
 }
 
 html[data-theme='raksha-bandhan'] .seasonal-ribbon {
-  background: linear-gradient(90deg, #c41e3a 0%, #f4d03f 50%, #c41e3a 100%);
-  color: #3b0a0a;
+  position: relative;
+  background:
+    radial-gradient(circle at 18% 50%, rgba(244, 208, 63, 0.22), transparent 18%),
+    linear-gradient(90deg, #16632d 0%, #1f7a3a 50%, #16632d 100%);
+  color: #fffdf8;
+  letter-spacing: 0.03em;
+  padding-left: 2rem;
+  padding-right: 2rem;
+}
+
+html[data-theme='raksha-bandhan'] .seasonal-ribbon::before,
+html[data-theme='raksha-bandhan'] .seasonal-ribbon::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background:
+    radial-gradient(circle at 50% 50%, #fff6d8 0 22%, transparent 23%),
+    conic-gradient(from 0deg, #c41e3a, #f4d03f, #c41e3a, #f4d03f, #c41e3a);
+  box-shadow: 0 0 0 2px rgba(255, 246, 216, 0.55);
+}
+
+html[data-theme='raksha-bandhan'] .seasonal-ribbon::before {
+  left: 12px;
+}
+
+html[data-theme='raksha-bandhan'] .seasonal-ribbon::after {
+  right: 12px;
 }
 
 html[data-theme='raksha-bandhan'] .seasonal-promo-banner {
-  background: linear-gradient(135deg, #fff1e8 0%, #ffffff 48%, #fde8ec 100%);
-  border: 1px solid rgba(196, 30, 58, 0.18);
-  box-shadow: 0 1px 0 rgba(232, 185, 35, 0.18);
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 0 100%, rgba(196, 30, 58, 0.06), transparent 34%),
+    linear-gradient(135deg, #fff8ee 0%, #fffdf8 48%, #fff1e8 100%);
+  border: 1px solid rgba(196, 30, 58, 0.16);
+  box-shadow: 0 1px 0 rgba(212, 160, 23, 0.16);
+  padding-left: 4.25rem;
+}
+
+html[data-theme='raksha-bandhan'] .seasonal-promo-banner::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background:
+    radial-gradient(circle at 50% 50%, #fff6d8 0 18%, transparent 19%),
+    conic-gradient(from 20deg, #9b1c1c, #f4d03f, #c41e3a, #f7e7a1, #9b1c1c);
+  box-shadow:
+    0 0 0 3px rgba(196, 30, 58, 0.12),
+    0 2px 8px rgba(155, 28, 28, 0.18);
 }
 
 html[data-theme='raksha-bandhan'] .seasonal-promo-eyebrow {
+  color: #1f7a3a;
+}
+
+html[data-theme='raksha-bandhan'] .seasonal-promo-code {
+  display: inline-block;
+  margin-left: 0.15rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 0.4rem;
+  background: #9b1c1c;
+  color: #fffdf8;
+  border: 1px dashed rgba(155, 28, 28, 0.35);
+}
+
+html[data-theme='raksha-bandhan'] main .h-\[156px\] > div {
+  background-image: linear-gradient(90deg, #fff8ee 0%, #fffdf8 52%, #f7e7c6 100%);
+}
+
+html[data-theme='raksha-bandhan'] main .h-\[156px\] h2 {
   color: #9b1c1c;
+}
+
+html[data-theme='raksha-bandhan'] main .h-\[156px\] p {
+  color: #4b5563;
+}
+
+html[data-theme='raksha-bandhan'] main .h-\[156px\] .text-white,
+html[data-theme='raksha-bandhan'] main .h-\[156px\] .text-white\/80 {
+  color: inherit;
+}
+
+html[data-theme='raksha-bandhan'] footer {
+  background: #fbf6ee;
+  border-top-color: rgba(31, 122, 58, 0.12);
 }
 
 /* ── Admin color mode (light / dark / system) ──

@@ -43,7 +43,9 @@ export default function SeasonalPromoBanner() {
         </p>
         <p className="text-sm font-semibold text-gray-900 mt-0.5">
           Use code{' '}
-          <span className="font-mono tracking-wide text-blinkit-green">{code}</span>
+          <span className="seasonal-promo-code font-mono tracking-wide text-blinkit-green">
+            {code}
+          </span>
         </p>
         <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{subtitle}</p>
       </div>

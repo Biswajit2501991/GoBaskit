@@ -17,7 +17,7 @@ export const SEASONAL_THEME_OPTIONS: Array<{
   {
     id: 'raksha-bandhan',
     label: 'Raksha Bandhan',
-    description: 'Rakhi red–gold header, festive cream ribbon',
+    description: 'Forest-green header, cream banners, rakhi red–gold accents',
   },
 ];
 
@@ -32,9 +32,9 @@ export const SEASONAL_THEME_COPY: Record<
     promoSubtitle: 'Apply this code in cart after login for 10% off',
   },
   'raksha-bandhan': {
-    ribbon: 'Happy Raksha Bandhan · Fresh essentials for family',
-    promoTitle: 'Raksha Bandhan Offer',
-    promoSubtitle: 'Celebrate Rakhi with fresh essentials — apply this code in cart after login',
+    ribbon: 'Happy Raksha Bandhan · Bhai-Behen Ki Celebration, Snacks & Essentials Ke Saath!',
+    promoTitle: 'Raksha Bandhan Special',
+    promoSubtitle: 'Flat 10% OFF on orders above ₹499 · Apply code in cart',
   },
 };
 
