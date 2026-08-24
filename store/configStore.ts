@@ -11,7 +11,8 @@ import {
   DEFAULT_HEALTH_STAR_DISPLAY,
   type HealthStarDisplay,
 } from '@/constants/healthStarDisplay';
-import { type SeasonalThemeId } from '@/constants/seasonalThemes';
+import { parseSeasonalThemeId, type SeasonalThemeId } from '@/constants/seasonalThemes';
+import { persistStorefrontPresentation } from '@/utils/storefrontPresentation';
 
 interface ConfigState {
   serviceablePins: string[];
@@ -186,6 +187,11 @@ async function loadConfig(
               }
             : get().homepageConfig,
         loaded: true,
+      });
+      const hc = get().homepageConfig;
+      persistStorefrontPresentation({
+        seasonalThemeEnabled: hc.seasonalThemeEnabled === true,
+        seasonalThemeId: parseSeasonalThemeId(hc.seasonalThemeId),
       });
     }
   } catch {

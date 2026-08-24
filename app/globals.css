@@ -334,7 +334,31 @@ html[data-theme='raksha-bandhan'] .min-h-screen {
 }
 
 html[data-theme='raksha-bandhan'] header .bg-blinkit-yellow {
+  position: relative;
+  overflow: hidden;
   background: linear-gradient(180deg, #1f7a3a 0%, #16632d 100%);
+}
+
+html[data-theme='raksha-bandhan'] header .bg-blinkit-yellow::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: url('/seasonal/rakhi.jpg') center 40% / cover no-repeat;
+  box-shadow:
+    0 0 0 2px rgba(255, 246, 216, 0.45),
+    0 1px 6px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+html[data-theme='raksha-bandhan'] header .bg-blinkit-yellow > div {
+  position: relative;
+  z-index: 1;
+  padding-right: 3.75rem;
 }
 
 html[data-theme='raksha-bandhan'] .sticky-category-chips,
@@ -363,9 +387,9 @@ html[data-theme='raksha-bandhan'] .seasonal-ribbon::after {
   height: 14px;
   border-radius: 50%;
   transform: translateY(-50%);
-  background:
-    radial-gradient(circle at 50% 50%, #fff6d8 0 22%, transparent 23%),
-    conic-gradient(from 0deg, #c41e3a, #f4d03f, #c41e3a, #f4d03f, #c41e3a);
+  width: 22px;
+  height: 22px;
+  background: url('/seasonal/rakhi.jpg') center 40% / cover no-repeat;
   box-shadow: 0 0 0 2px rgba(255, 246, 216, 0.55);
 }
 
@@ -397,9 +421,7 @@ html[data-theme='raksha-bandhan'] .seasonal-promo-banner::before {
   height: 46px;
   border-radius: 50%;
   transform: translateY(-50%);
-  background:
-    radial-gradient(circle at 50% 50%, #fff6d8 0 18%, transparent 19%),
-    conic-gradient(from 20deg, #9b1c1c, #f4d03f, #c41e3a, #f7e7a1, #9b1c1c);
+  background: url('/seasonal/rakhi.jpg') center 40% / cover no-repeat;
   box-shadow:
     0 0 0 3px rgba(196, 30, 58, 0.12),
     0 2px 8px rgba(155, 28, 28, 0.18);

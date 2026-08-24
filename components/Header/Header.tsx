@@ -56,9 +56,13 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
   const wishlistCount = useWishlistStore((s) => s.count);
   const clearWishlist = useWishlistStore((s) => s.clear);
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
-  const showPoweredByBanner = useConfigStore((s) => s.homepageConfig.showPoweredByBanner !== false);
+  const showPoweredByBanner = useConfigStore(
+    (s) => s.loaded && s.homepageConfig.showPoweredByBanner !== false,
+  );
   const poweredByText = useConfigStore((s) => s.homepageConfig.poweredByText);
-  const seasonalThemeEnabled = useConfigStore((s) => s.homepageConfig.seasonalThemeEnabled === true);
+  const seasonalThemeEnabled = useConfigStore(
+    (s) => s.loaded && s.homepageConfig.seasonalThemeEnabled === true,
+  );
   const seasonalRibbonText = useConfigStore((s) => s.homepageConfig.seasonalRibbonText);
   const categories = useCatalogStore((s) => s.categories);
   const fetchCatalog = useCatalogStore((s) => s.fetchCatalog);

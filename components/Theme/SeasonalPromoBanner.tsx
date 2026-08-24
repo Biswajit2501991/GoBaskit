@@ -10,10 +10,12 @@ import { parseSeasonalThemeId, SEASONAL_THEME_COPY } from '@/constants/seasonalT
  * Does not auto-apply discounts; customer still verifies the code in cart.
  */
 export default function SeasonalPromoBanner() {
+  const loaded = useConfigStore((s) => s.loaded);
   const homepageConfig = useConfigStore((s) => s.homepageConfig);
   const [copied, setCopied] = useState(false);
 
   const show =
+    loaded &&
     homepageConfig.seasonalThemeEnabled === true &&
     homepageConfig.seasonalPromoEnabled === true;
 

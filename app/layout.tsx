@@ -2,8 +2,13 @@ import type { Metadata, Viewport } from 'next';
 import { DM_Sans } from 'next/font/google';
 import './globals.css';
 import { STORE_NAME, SITE_URL } from '@/constants';
+import { parseSeasonalThemeId } from '@/constants/seasonalThemes';
+import { SettingsService } from '@/services/SettingsService';
 
 const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans' });
+
+/** Live seasonal skin on first HTML — do not cache a stale data-theme. */
+export const dynamic = 'force-dynamic';
 
 const title = `${STORE_NAME} — Groceries delivered in minutes`;
 const description = 'Order groceries and essentials online. Fast delivery, cash on delivery, order via WhatsApp.';
@@ -56,9 +61,28 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+async function resolveSeasonalHtmlTheme(): Promise<string | undefined> {
+  try {
+    const config = await SettingsService.getStoreConfig();
+    if (config.homepageConfig.seasonalThemeEnabled === true) {
+      return parseSeasonalThemeId(config.homepageConfig.seasonalThemeId);
+    }
+  } catch {
+    /* Leave html without data-theme; client applies it after /api/config. */
+  }
+  return undefined;
+}
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const seasonalTheme = await resolveSeasonalHtmlTheme();
+
   return (
-    <html lang="en" className={dmSans.variable}>
+    <html
+      lang="en"
+      className={dmSans.variable}
+      {...(seasonalTheme ? { 'data-theme': seasonalTheme } : {})}
+      suppressHydrationWarning
+    >
       <body className="min-h-screen antialiased">{children}</body>
     </html>
   );

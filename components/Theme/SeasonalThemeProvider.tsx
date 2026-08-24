@@ -3,26 +3,36 @@
 import { useEffect } from 'react';
 import { useConfigStore } from '@/store/configStore';
 import { isSeasonalThemeId } from '@/constants/seasonalThemes';
+import { persistStorefrontPresentation } from '@/utils/storefrontPresentation';
 
 /**
- * Applies or removes `data-theme` on <html> from homepageConfig.
- * Presentation only — no cart/checkout side effects.
+ * Keeps `data-theme` on <html> in sync with homepageConfig after settings load.
+ * Does not clear a server-set theme until live config has arrived.
  */
 export default function SeasonalThemeProvider() {
+  const loaded = useConfigStore((s) => s.loaded);
   const seasonalThemeEnabled = useConfigStore((s) => s.homepageConfig.seasonalThemeEnabled);
   const seasonalThemeId = useConfigStore((s) => s.homepageConfig.seasonalThemeId);
 
   useEffect(() => {
+    if (!loaded) return;
+
     const root = document.documentElement;
     if (seasonalThemeEnabled && isSeasonalThemeId(seasonalThemeId)) {
       root.dataset.theme = seasonalThemeId;
-    } else {
-      delete root.dataset.theme;
+      persistStorefrontPresentation({
+        seasonalThemeEnabled: true,
+        seasonalThemeId,
+      });
+      return;
     }
-    return () => {
-      delete root.dataset.theme;
-    };
-  }, [seasonalThemeEnabled, seasonalThemeId]);
+
+    delete root.dataset.theme;
+    persistStorefrontPresentation({
+      seasonalThemeEnabled: false,
+      seasonalThemeId: isSeasonalThemeId(seasonalThemeId) ? seasonalThemeId : 'independence-day',
+    });
+  }, [loaded, seasonalThemeEnabled, seasonalThemeId]);
 
   return null;
 }

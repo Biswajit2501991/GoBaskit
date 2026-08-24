@@ -17,6 +17,10 @@ const nextConfig: NextConfig = {
     // old hashed JS chunks after deploy and breaks hydration ("This page couldn't load").
     const noStore = 'private, no-cache, no-store, max-age=0, must-revalidate';
     return [
+      { source: '/', headers: [{ key: 'Cache-Control', value: noStore }] },
+      { source: '/search', headers: [{ key: 'Cache-Control', value: noStore }] },
+      { source: '/product/:path*', headers: [{ key: 'Cache-Control', value: noStore }] },
+      { source: '/category/:path*', headers: [{ key: 'Cache-Control', value: noStore }] },
       { source: '/checkout', headers: [{ key: 'Cache-Control', value: noStore }] },
       { source: '/cart', headers: [{ key: 'Cache-Control', value: noStore }] },
       { source: '/account', headers: [{ key: 'Cache-Control', value: noStore }] },
