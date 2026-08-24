@@ -72,7 +72,7 @@ const settingsSchema = z.object({
       showCategoryRails: z.boolean().optional(),
       categoryRailLimit: z.number().int().min(1).max(48).optional(),
       seasonalThemeEnabled: z.boolean().optional(),
-      seasonalThemeId: z.literal('independence-day').optional(),
+      seasonalThemeId: z.enum(['independence-day', 'raksha-bandhan']).optional(),
       seasonalPromoEnabled: z.boolean().optional(),
       seasonalPromoTitle: z.string().max(80).optional(),
       seasonalPromoSubtitle: z.string().max(200).optional(),

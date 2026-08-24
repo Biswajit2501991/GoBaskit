@@ -13,6 +13,7 @@ import {
   type HealthStarBadgePosition,
   type HealthStarDisplayMode,
 } from '@/constants/healthStarDisplay';
+import { parseSeasonalThemeId, type SeasonalThemeId } from '@/constants/seasonalThemes';
 
 export type {
   HealthStarDisplay,
@@ -88,9 +89,9 @@ export interface StoreConfig {
     /** One product rail per category on home. */
     showCategoryRails: boolean;
     categoryRailLimit: number;
-    /** Independence Day (or future) seasonal visual skin — presentation only. */
+    /** Seasonal storefront skin (Independence Day / Raksha Bandhan) — presentation only. */
     seasonalThemeEnabled: boolean;
-    seasonalThemeId: 'independence-day';
+    seasonalThemeId: SeasonalThemeId;
     seasonalPromoEnabled: boolean;
     seasonalPromoTitle: string;
     seasonalPromoSubtitle: string;
@@ -525,7 +526,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
           DEFAULTS.homepageConfig.categoryRailLimit,
         ),
         seasonalThemeEnabled: parsed.seasonalThemeEnabled === true,
-        seasonalThemeId: 'independence-day',
+        seasonalThemeId: parseSeasonalThemeId(parsed.seasonalThemeId),
         seasonalPromoEnabled: parsed.seasonalPromoEnabled === true,
         seasonalPromoTitle:
           String(parsed.seasonalPromoTitle ?? '').trim() ||
@@ -855,7 +856,10 @@ export const SettingsService = {
           hc.seasonalThemeEnabled !== undefined
             ? Boolean(hc.seasonalThemeEnabled)
             : current.homepageConfig.seasonalThemeEnabled,
-        seasonalThemeId: 'independence-day' as const,
+        seasonalThemeId:
+          hc.seasonalThemeId !== undefined
+            ? parseSeasonalThemeId(hc.seasonalThemeId)
+            : current.homepageConfig.seasonalThemeId,
         seasonalPromoEnabled:
           hc.seasonalPromoEnabled !== undefined
             ? Boolean(hc.seasonalPromoEnabled)

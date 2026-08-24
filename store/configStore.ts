@@ -11,6 +11,7 @@ import {
   DEFAULT_HEALTH_STAR_DISPLAY,
   type HealthStarDisplay,
 } from '@/constants/healthStarDisplay';
+import { type SeasonalThemeId } from '@/constants/seasonalThemes';
 
 interface ConfigState {
   serviceablePins: string[];
@@ -47,7 +48,7 @@ interface ConfigState {
     showCategoryRails: boolean;
     categoryRailLimit: number;
     seasonalThemeEnabled: boolean;
-    seasonalThemeId: 'independence-day';
+    seasonalThemeId: SeasonalThemeId;
     seasonalPromoEnabled: boolean;
     seasonalPromoTitle: string;
     seasonalPromoSubtitle: string;

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { useConfigStore } from '@/store/configStore';
+import { parseSeasonalThemeId, SEASONAL_THEME_COPY } from '@/constants/seasonalThemes';
 
 /**
  * Festive promo strip — displays copy + coupon code for one-tap copy.
@@ -18,11 +19,10 @@ export default function SeasonalPromoBanner() {
 
   if (!show) return null;
 
+  const themeCopy = SEASONAL_THEME_COPY[parseSeasonalThemeId(homepageConfig.seasonalThemeId)];
   const code = (homepageConfig.seasonalPromoCode || 'FREEDOM10').trim().toUpperCase();
-  const title = homepageConfig.seasonalPromoTitle || 'Freedom Day Offer';
-  const subtitle =
-    homepageConfig.seasonalPromoSubtitle ||
-    'Apply this code in cart after login for 10% off';
+  const title = homepageConfig.seasonalPromoTitle || themeCopy.promoTitle;
+  const subtitle = homepageConfig.seasonalPromoSubtitle || themeCopy.promoSubtitle;
   const cta = homepageConfig.seasonalPromoCtaLabel || 'Copy code';
 
   async function handleCopy() {

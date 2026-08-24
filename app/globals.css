@@ -314,6 +314,53 @@ html[data-theme='independence-day'] [data-sticky-chips] {
   color: #9a5b12;
 }
 
+/* ── Raksha Bandhan seasonal skin (presentation only) ── */
+html[data-theme='raksha-bandhan'] {
+  --color-background: #fff8f4;
+  --color-blinkit-yellow: #f0c14b;
+  --color-blinkit-yellow-dark: #d4a017;
+  --color-blinkit-green: #b42318;
+  --color-blinkit-green-dark: #8f1b13;
+  --color-blinkit-green-light: #fdece8;
+}
+
+html[data-theme='raksha-bandhan'] body {
+  background:
+    linear-gradient(180deg, rgba(196, 30, 58, 0.08) 0%, transparent 220px),
+    var(--color-background);
+}
+
+html[data-theme='raksha-bandhan'] header .bg-blinkit-yellow {
+  background: linear-gradient(
+    90deg,
+    #c41e3a 0%,
+    #e8b923 28%,
+    #fff6e8 50%,
+    #e8b923 72%,
+    #c41e3a 100%
+  );
+}
+
+html[data-theme='raksha-bandhan'] .sticky-category-chips,
+html[data-theme='raksha-bandhan'] [data-sticky-chips] {
+  border-bottom-color: rgba(196, 30, 58, 0.28);
+}
+
+html[data-theme='raksha-bandhan'] .seasonal-ribbon {
+  background: linear-gradient(90deg, #c41e3a 0%, #f4d03f 50%, #c41e3a 100%);
+  color: #3b0a0a;
+}
+
+html[data-theme='raksha-bandhan'] .seasonal-promo-banner {
+  background: linear-gradient(135deg, #fff1e8 0%, #ffffff 48%, #fde8ec 100%);
+  border: 1px solid rgba(196, 30, 58, 0.18);
+  box-shadow: 0 1px 0 rgba(232, 185, 35, 0.18);
+}
+
+html[data-theme='raksha-bandhan'] .seasonal-promo-eyebrow {
+  color: #9b1c1c;
+}
+
 /* ── Admin color mode (light / dark / system) ──
    Scoped via html[data-admin-theme]. Cleared when leaving AdminShell.
    Presentation only — remaps common admin utility surfaces. */

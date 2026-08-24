@@ -10,6 +10,12 @@ import type { DeliverySlab } from '@/constants';
 import type { DiscountConfig } from '@/services/SettingsService';
 import type { HealthStarDisplay } from '@/constants/healthStarDisplay';
 import { DEFAULT_HEALTH_STAR_DISPLAY } from '@/constants/healthStarDisplay';
+import {
+  parseSeasonalThemeId,
+  SEASONAL_THEME_COPY,
+  SEASONAL_THEME_OPTIONS,
+  type SeasonalThemeId,
+} from '@/constants/seasonalThemes';
 import DiscountManager from '@/components/Admin/DiscountManager';
 import ProductImageUpload from '@/components/Admin/ProductImageUpload';
 
@@ -29,7 +35,7 @@ const SETTINGS_SECTIONS = [
   { id: 'featured', label: 'Discovery Rails', group: 'Homepage' },
   { id: 'health-star', label: 'Health Star', group: 'Homepage' },
   { id: 'branding', label: 'Branding', group: 'Homepage' },
-  { id: 'seasonal', label: 'Seasonal / 15 Aug', group: 'Homepage' },
+  { id: 'seasonal', label: 'Seasonal', group: 'Homepage' },
   { id: 'promo', label: 'Promo Cards', group: 'Homepage' },
   { id: 'homepage', label: 'Homepage Layout', group: 'Homepage' },
   { id: 'discounts', label: 'Discounts & Coupons', group: 'Offers' },
@@ -93,7 +99,7 @@ interface StoreConfig {
     showCategoryRails?: boolean;
     categoryRailLimit?: number;
     seasonalThemeEnabled?: boolean;
-    seasonalThemeId?: 'independence-day';
+    seasonalThemeId?: SeasonalThemeId;
     seasonalPromoEnabled?: boolean;
     seasonalPromoTitle?: string;
     seasonalPromoSubtitle?: string;
@@ -185,7 +191,7 @@ export default function SettingsManager({
       showCategoryRails: hc.showCategoryRails !== false,
       categoryRailLimit: hc.categoryRailLimit ?? 8,
       seasonalThemeEnabled: hc.seasonalThemeEnabled === true,
-      seasonalThemeId: 'independence-day' as const,
+      seasonalThemeId: parseSeasonalThemeId(hc.seasonalThemeId),
       seasonalPromoEnabled: hc.seasonalPromoEnabled === true,
       seasonalPromoTitle: hc.seasonalPromoTitle ?? 'Freedom Day Offer',
       seasonalPromoSubtitle:
@@ -429,7 +435,7 @@ export default function SettingsManager({
         showCategoryRails: updated.homepageConfig.showCategoryRails !== false,
         categoryRailLimit: updated.homepageConfig.categoryRailLimit ?? 8,
         seasonalThemeEnabled: updated.homepageConfig.seasonalThemeEnabled === true,
-        seasonalThemeId: 'independence-day' as const,
+        seasonalThemeId: parseSeasonalThemeId(updated.homepageConfig.seasonalThemeId),
         seasonalPromoEnabled: updated.homepageConfig.seasonalPromoEnabled === true,
         seasonalPromoTitle: updated.homepageConfig.seasonalPromoTitle ?? 'Freedom Day Offer',
         seasonalPromoSubtitle:
@@ -1147,10 +1153,10 @@ export default function SettingsManager({
           {activeSection === 'seasonal' && (
       <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
         <div>
-          <h2 className="font-bold text-sm">Seasonal / 15 August</h2>
+          <h2 className="font-bold text-sm">Seasonal theme</h2>
           <p className="text-xs text-gray-400 mt-1">
-            Presentation-only Independence Day skin and festive promo strip. Turning this off
-            restores the normal yellow/green storefront. Discount still requires a real coupon
+            Presentation-only storefront skin (header wash, ribbon, home promo strip). Turning this
+            off restores the normal yellow/green storefront. Discounts still require a real coupon
             in Discounts &amp; Coupons — this only displays the code.
           </p>
         </div>
@@ -1163,17 +1169,64 @@ export default function SettingsManager({
               setHomepageConfig((prev) => ({
                 ...prev,
                 seasonalThemeEnabled: e.target.checked,
-                seasonalThemeId: 'independence-day',
+                seasonalThemeId: parseSeasonalThemeId(prev.seasonalThemeId),
               }))
             }
             disabled={!canEdit}
             className="accent-blinkit-green"
           />
-          Enable Independence Day theme
+          Enable seasonal theme
         </label>
 
         {homepageConfig.seasonalThemeEnabled === true && (
           <div className="space-y-4 border-t border-gray-50 pt-4">
+            <div>
+              <Label className="text-xs text-gray-500">Festival skin</Label>
+              <select
+                value={parseSeasonalThemeId(homepageConfig.seasonalThemeId)}
+                onChange={(e) => {
+                  const nextId = parseSeasonalThemeId(e.target.value);
+                  setHomepageConfig((prev) => {
+                    const previousId = parseSeasonalThemeId(prev.seasonalThemeId);
+                    const nextCopy = SEASONAL_THEME_COPY[nextId];
+                    const previousCopy = SEASONAL_THEME_COPY[previousId];
+                    const ribbon = (prev.seasonalRibbonText ?? '').trim();
+                    const title = (prev.seasonalPromoTitle ?? '').trim();
+                    const subtitle = (prev.seasonalPromoSubtitle ?? '').trim();
+                    return {
+                      ...prev,
+                      seasonalThemeId: nextId,
+                      seasonalRibbonText:
+                        !ribbon || ribbon === previousCopy.ribbon ? nextCopy.ribbon : prev.seasonalRibbonText,
+                      seasonalPromoTitle:
+                        !title || title === previousCopy.promoTitle
+                          ? nextCopy.promoTitle
+                          : prev.seasonalPromoTitle,
+                      seasonalPromoSubtitle:
+                        !subtitle || subtitle === previousCopy.promoSubtitle
+                          ? nextCopy.promoSubtitle
+                          : prev.seasonalPromoSubtitle,
+                    };
+                  });
+                }}
+                disabled={!canEdit}
+                className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+              >
+                {SEASONAL_THEME_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {
+                  SEASONAL_THEME_OPTIONS.find(
+                    (option) => option.id === parseSeasonalThemeId(homepageConfig.seasonalThemeId),
+                  )?.description
+                }
+              </p>
+            </div>
+
             <div>
               <Label className="text-xs text-gray-500">Header ribbon text</Label>
               <Input
@@ -1184,7 +1237,9 @@ export default function SettingsManager({
                 disabled={!canEdit}
                 className="mt-1"
                 maxLength={160}
-                placeholder="Celebrating 15 August · Order fresh essentials today"
+                placeholder={
+                  SEASONAL_THEME_COPY[parseSeasonalThemeId(homepageConfig.seasonalThemeId)].ribbon
+                }
               />
             </div>
 

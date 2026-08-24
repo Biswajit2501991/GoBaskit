@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useConfigStore } from '@/store/configStore';
+import { isSeasonalThemeId } from '@/constants/seasonalThemes';
 
 /**
  * Applies or removes `data-theme` on <html> from homepageConfig.
@@ -13,8 +14,8 @@ export default function SeasonalThemeProvider() {
 
   useEffect(() => {
     const root = document.documentElement;
-    if (seasonalThemeEnabled && seasonalThemeId === 'independence-day') {
-      root.dataset.theme = 'independence-day';
+    if (seasonalThemeEnabled && isSeasonalThemeId(seasonalThemeId)) {
+      root.dataset.theme = seasonalThemeId;
     } else {
       delete root.dataset.theme;
     }
