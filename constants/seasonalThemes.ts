@@ -17,7 +17,7 @@ export const SEASONAL_THEME_OPTIONS: Array<{
   {
     id: 'raksha-bandhan',
     label: 'Raksha Bandhan',
-    description: 'Forest-green header, cream banners, rakhi red–gold accents',
+    description: 'Amber glass header, cream banners, rakhi red–gold accents',
   },
 ];
 
