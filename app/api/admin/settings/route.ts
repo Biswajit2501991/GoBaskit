@@ -22,6 +22,8 @@ const settingsSchema = z.object({
   storeStatus: z.enum(['OPEN', 'CLOSED', 'HOLIDAY']).optional(),
   holidayMode: z.boolean().optional(),
   paymentMethods: z.array(z.string().min(1)).optional(),
+  upiId: z.string().max(80).optional(),
+  upiQrImageUrl: z.string().max(500).optional(),
   whatsappTemplates: z.record(z.string(), z.string().max(500)).optional(),
   checkoutMode: z.enum(['website', 'whatsapp', 'both']).optional(),
   notificationSoundEnabled: z.boolean().optional(),

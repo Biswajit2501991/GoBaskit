@@ -24,6 +24,8 @@ interface ConfigState {
   minOrderValue: number;
   checkoutMode: 'website' | 'whatsapp' | 'both';
   notificationSoundEnabled: boolean;
+  upiId: string;
+  upiQrImageUrl: string;
   homepageConfig: {
     showHeroBanner: boolean;
     showCategories: boolean;
@@ -85,6 +87,8 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   minOrderValue: MIN_ORDER_VALUE,
   checkoutMode: 'both',
   notificationSoundEnabled: true,
+  upiId: '',
+  upiQrImageUrl: '',
   homepageConfig: {
     showHeroBanner: true,
     showCategories: true,
@@ -166,6 +170,9 @@ async function loadConfig(
           typeof c.notificationSoundEnabled === 'boolean'
             ? c.notificationSoundEnabled
             : get().notificationSoundEnabled,
+        upiId: typeof c.upiId === 'string' ? c.upiId.trim().slice(0, 80) : get().upiId,
+        upiQrImageUrl:
+          typeof c.upiQrImageUrl === 'string' ? c.upiQrImageUrl.trim().slice(0, 500) : get().upiQrImageUrl,
         homepageConfig:
           typeof c.homepageConfig === 'object' && c.homepageConfig
             ? {

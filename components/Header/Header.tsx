@@ -28,6 +28,7 @@ import { warmCustomerSession } from '@/utils/warmCustomerSession';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
 import { useConfigStore } from '@/store/configStore';
 import { useCatalogStore } from '@/store/catalogStore';
+import AccountMenu from '@/components/Header/AccountMenu';
 import SeasonalThemeProvider from '@/components/Theme/SeasonalThemeProvider';
 
 interface HeaderProps {
@@ -72,6 +73,7 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
   const [headerHeight, setHeaderHeight] = useState(showSearch ? 168 : 72);
   const headerRef = useRef<HTMLElement | null>(null);
   const actionsRef = useRef<HTMLDivElement | null>(null);
+  const accountButtonRef = useRef<HTMLDivElement | null>(null);
   const activeCategorySlug = pathname.startsWith('/category/')
     ? pathname.split('/')[2] || undefined
     : undefined;
@@ -186,17 +188,11 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
 
   useEffect(() => {
     if (!accountMenuOpen) return;
-    function onPointerDown(e: MouseEvent | TouchEvent) {
-      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
-        setAccountMenuOpen(false);
-      }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setAccountMenuOpen(false);
     }
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('touchstart', onPointerDown);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('touchstart', onPointerDown);
-    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, [accountMenuOpen]);
 
   async function handleAccountClick() {
@@ -284,6 +280,7 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
             </div>
 
             {/* Account sits immediately before cart */}
+            <div ref={accountButtonRef} className="inline-flex items-center">
             <button
               type="button"
               onClick={handleAccountClick}
@@ -302,6 +299,7 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
             >
               <User className="w-5 h-5 text-gray-800" />
             </button>
+            </div>
 
             <Link
               href={customerMobile ? '/account#wishlist' : '#'}
@@ -335,84 +333,26 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
                 </span>
               )}
             </button>
-
-            {accountMenuOpen && hasAccountIdentity && (
-              <div
-                role="menu"
-                className="absolute right-0 top-full mt-2 w-56 max-w-[calc(100vw-2rem)] bg-white rounded-xl border border-gray-200 shadow-lg p-2 z-30"
-              >
-                <p className="px-2 py-1 text-[11px] text-gray-500 truncate">{accountLabel}</p>
-                {staffEligible && (
-                  <p className="px-2 pb-1 text-[10px] text-gray-400">You&apos;re shopping as a customer</p>
-                )}
-                {customerMobile && (
-                  <>
-                    <Link
-                      href="/account"
-                      role="menuitem"
-                      onClick={() => setAccountMenuOpen(false)}
-                      className="block w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-blinkit-green"
-                    >
-                      My Account
-                    </Link>
-                    <Link
-                      href="/account#wishlist"
-                      role="menuitem"
-                      onClick={() => setAccountMenuOpen(false)}
-                      className="block w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-gray-900"
-                    >
-                      My Wishlist{wishlistCount > 0 ? ` (${wishlistCount})` : ''}
-                    </Link>
-                    <Link
-                      href="/account/track"
-                      role="menuitem"
-                      onClick={() => setAccountMenuOpen(false)}
-                      className="block w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-gray-900"
-                    >
-                      Track My Orders
-                    </Link>
-                  </>
-                )}
-                {showAdminEntry && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setAccountMenuOpen(false);
-                      handleAdminEntryClick();
-                    }}
-                    className="w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-gray-900 flex items-center gap-1.5"
-                  >
-                    <Shield className="w-3.5 h-3.5" />
-                    {adminSessionActive ? 'Open Admin' : 'Login as Admin'}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setAccountMenuOpen(false);
-                    openAccountModal();
-                  }}
-                  className="w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50"
-                >
-                  Use another number
-                </button>
-                {customerMobile && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={handleCustomerLogout}
-                    className="w-full text-left px-2 py-2 text-sm rounded-lg text-red-600 hover:bg-red-50"
-                  >
-                    Logout
-                  </button>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </div>
+
+      {accountMenuOpen && hasAccountIdentity && (
+        <AccountMenu
+          open={accountMenuOpen}
+          anchorRef={accountButtonRef}
+          accountLabel={accountLabel}
+          staffEligible={staffEligible}
+          customerMobile={customerMobile}
+          showAdminEntry={showAdminEntry}
+          adminSessionActive={adminSessionActive}
+          wishlistCount={wishlistCount}
+          onClose={() => setAccountMenuOpen(false)}
+          onOpenAdmin={handleAdminEntryClick}
+          onUseAnotherNumber={openAccountModal}
+          onLogout={handleCustomerLogout}
+        />
+      )}
 
       <div
         className={`overflow-hidden transition-[max-height,opacity] duration-200 ease-out ${

@@ -49,6 +49,10 @@ export interface StoreConfig {
   storeStatus: 'OPEN' | 'CLOSED' | 'HOLIDAY';
   holidayMode: boolean;
   paymentMethods: string[];
+  /** Customer UPI VPA shown in the account menu (Admin → Payments). */
+  upiId: string;
+  /** QR / UPI image URL shown in the account menu. */
+  upiQrImageUrl: string;
   whatsappTemplates: Record<string, string>;
   whatsappNumber: string;
   checkoutMode: 'website' | 'whatsapp' | 'both';
@@ -174,6 +178,8 @@ const KEY_TIMING = 'store_timing';
 const KEY_STATUS = 'store_status';
 const KEY_HOLIDAY = 'holiday_mode';
 const KEY_PAYMENT_METHODS = 'payment_methods';
+const KEY_UPI_ID = 'upi_id';
+const KEY_UPI_QR_IMAGE = 'upi_qr_image_url';
 const KEY_WHATSAPP_TEMPLATES = 'whatsapp_templates';
 const KEY_WHATSAPP_NUMBER = 'whatsapp_number';
 const KEY_CHECKOUT_MODE = 'checkout_mode';
@@ -216,6 +222,8 @@ const DEFAULTS: StoreConfig = {
   storeStatus: 'OPEN',
   holidayMode: false,
   paymentMethods: ['COD', 'QR_ON_DELIVERY'],
+  upiId: '',
+  upiQrImageUrl: '',
   checkoutMode: 'both',
   notificationSoundEnabled: true,
   staffIdleTimeoutEnabled: true,
@@ -460,6 +468,9 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     }
   }
 
+  const upiId = String(map.get(KEY_UPI_ID) ?? DEFAULTS.upiId).trim().slice(0, 80);
+  const upiQrImageUrl = String(map.get(KEY_UPI_QR_IMAGE) ?? DEFAULTS.upiQrImageUrl).trim().slice(0, 500);
+
   let whatsappTemplates = DEFAULTS.whatsappTemplates;
   const rawTemplates = map.get(KEY_WHATSAPP_TEMPLATES);
   if (rawTemplates) {
@@ -613,6 +624,8 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     storeStatus,
     holidayMode,
     paymentMethods,
+    upiId,
+    upiQrImageUrl,
     whatsappTemplates,
     whatsappNumber,
     checkoutMode,
@@ -644,6 +657,8 @@ export const SettingsService = {
               KEY_STATUS,
               KEY_HOLIDAY,
               KEY_PAYMENT_METHODS,
+              KEY_UPI_ID,
+              KEY_UPI_QR_IMAGE,
               KEY_WHATSAPP_TEMPLATES,
               KEY_WHATSAPP_NUMBER,
               KEY_CHECKOUT_MODE,
@@ -754,6 +769,12 @@ export const SettingsService = {
     if (partial.paymentMethods) {
       const methods = partial.paymentMethods.map((m) => String(m).trim()).filter(Boolean);
       writes.push(upsert(KEY_PAYMENT_METHODS, JSON.stringify([...new Set(methods)])));
+    }
+    if (partial.upiId !== undefined) {
+      writes.push(upsert(KEY_UPI_ID, String(partial.upiId ?? '').trim().slice(0, 80)));
+    }
+    if (partial.upiQrImageUrl !== undefined) {
+      writes.push(upsert(KEY_UPI_QR_IMAGE, String(partial.upiQrImageUrl ?? '').trim().slice(0, 500)));
     }
     if (partial.whatsappTemplates) {
       const sanitized = Object.fromEntries(

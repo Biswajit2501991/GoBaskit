@@ -68,6 +68,8 @@ interface StoreConfig {
   storeStatus: 'OPEN' | 'CLOSED' | 'HOLIDAY';
   holidayMode: boolean;
   paymentMethods: string[];
+  upiId?: string;
+  upiQrImageUrl?: string;
   whatsappTemplates: Record<string, string>;
   whatsappNumber: string;
   checkoutMode: 'website' | 'whatsapp' | 'both';
@@ -159,6 +161,8 @@ export default function SettingsManager({
   const [storeStatus, setStoreStatus] = useState<StoreConfig['storeStatus']>(initialConfig.storeStatus);
   const [holidayMode, setHolidayMode] = useState(initialConfig.holidayMode);
   const [paymentMethods, setPaymentMethods] = useState<string[]>(initialConfig.paymentMethods);
+  const [upiId, setUpiId] = useState(initialConfig.upiId ?? '');
+  const [upiQrImageUrl, setUpiQrImageUrl] = useState(initialConfig.upiQrImageUrl ?? '');
   const [whatsappTemplates, setWhatsappTemplates] = useState<Record<string, string>>(
     initialConfig.whatsappTemplates,
   );
@@ -392,6 +396,8 @@ export default function SettingsManager({
           storeStatus,
           holidayMode,
           paymentMethods,
+          upiId,
+          upiQrImageUrl,
           whatsappTemplates,
           whatsappNumber,
           checkoutMode,
@@ -414,6 +420,8 @@ export default function SettingsManager({
       setStoreStatus(updated.storeStatus);
       setHolidayMode(updated.holidayMode);
       setPaymentMethods(updated.paymentMethods);
+      setUpiId(updated.upiId ?? '');
+      setUpiQrImageUrl(updated.upiQrImageUrl ?? '');
       setWhatsappTemplates(updated.whatsappTemplates);
       setWhatsappNumber(updated.whatsappNumber ?? '');
       setCheckoutMode(updated.checkoutMode ?? 'both');
@@ -799,8 +807,13 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'payments' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-        <h2 className="font-bold text-sm">Payment Methods</h2>
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-5">
+        <div>
+          <h2 className="font-bold text-sm">Payment Methods</h2>
+          <p className="text-xs text-gray-400 mt-1">
+            Checkout methods and the UPI details shown to signed-in customers.
+          </p>
+        </div>
         <div className="flex flex-wrap gap-3">
           {PAYMENT_OPTIONS.map((method) => (
             <label key={method} className="flex items-center gap-2 text-sm">
@@ -817,6 +830,37 @@ export default function SettingsManager({
               {method}
             </label>
           ))}
+        </div>
+        <div className="space-y-3 border-t border-gray-50 pt-4">
+          <h3 className="font-semibold text-sm">Customer UPI</h3>
+          <p className="text-xs text-gray-400">
+            Shown under Payment Options in the account menu after login. Customers can copy the UPI ID.
+          </p>
+          <div>
+            <Label className="text-xs text-gray-500">UPI ID</Label>
+            <Input
+              value={upiId}
+              onChange={(e) => setUpiId(e.target.value)}
+              placeholder="gobaskit@upi"
+              className="mt-1"
+              disabled={!canEdit}
+              maxLength={80}
+            />
+          </div>
+          <ProductImageUpload
+            value={upiQrImageUrl}
+            onChange={setUpiQrImageUrl}
+            label="UPI QR / image"
+            uploadType="badge"
+            showWebSuggestions={false}
+            disabled={!canEdit}
+          />
+          {upiQrImageUrl ? (
+            <div className="w-28 h-28 rounded-lg border border-gray-200 overflow-hidden bg-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={upiQrImageUrl} alt="UPI QR preview" className="w-full h-full object-contain" />
+            </div>
+          ) : null}
         </div>
       </section>
           )}

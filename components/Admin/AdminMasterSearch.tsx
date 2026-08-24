@@ -73,7 +73,7 @@ const SETTINGS_DESTINATIONS: Omit<SearchDestination, 'group'>[] = [
     id: 'settings-payments',
     label: 'Payments',
     href: '/admin/settings#payments',
-    keywords: ['cod', 'upi', 'qr'],
+    keywords: ['cod', 'upi', 'qr', 'vpa', 'payment options'],
   },
   {
     id: 'settings-wa-templates',
