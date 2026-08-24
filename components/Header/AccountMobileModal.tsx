@@ -224,6 +224,11 @@ export default function AccountMobileModal() {
         return;
       }
 
+      // Shared device: drop the previous customer's cookie before this number
+      // verifies/logs in, so header account polls cannot overwrite the new session.
+      const { releaseOtherCustomerSession } = await import('@/utils/switchCustomerSession');
+      await releaseOtherCustomerSession(normalized);
+
       // Run staff + auth status checks in parallel to cut login wait.
       const [checkRes, statusRes] = await Promise.all([
         fetch('/api/staff/check-mobile', {

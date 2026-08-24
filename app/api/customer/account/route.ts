@@ -4,9 +4,7 @@ import { normalizeMobile, isValidIndianMobile } from '@/utils/mobile';
 import { toE164 } from '@/utils/phone';
 import {
   CUSTOMER_MOBILE_COOKIE,
-  createCustomerSessionToken,
   customerSessionClearOptions,
-  customerSessionCookieOptions,
   getCustomerMobileFromRequest,
 } from '@/lib/customer-session';
 import {
@@ -42,21 +40,14 @@ export async function GET(req: NextRequest) {
   }
 
   const status = await WhatsAppVerificationService.getStatus(e164);
-  const res = NextResponse.json({
+  // Do not re-issue the session cookie here. Rolling Set-Cookie on GET let a
+  // previous customer's in-flight poll overwrite the next login on this device.
+  return NextResponse.json({
     mobile,
     isWhatsappVerified: status.verified === true,
     needsVerification: status.needsVerification === true,
     canCheckout: status.canCheckout === true,
   });
-  // Rolling renewal: active signed-in customers do not lose their storefront
-  // session while using checkout/membership. Verification remains DB-backed and
-  // admin deletion still immediately makes checkout require verification.
-  res.cookies.set(
-    CUSTOMER_MOBILE_COOKIE,
-    createCustomerSessionToken(mobile),
-    customerSessionCookieOptions(),
-  );
-  return res;
 }
 
 /**
@@ -82,18 +73,23 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  // If this browser also has a staff session (admin shopping as customer),
-  // revoke all staff refresh tokens and clear admin cookies too.
-  const accessRaw = req.cookies.get(COOKIE_NAME)?.value;
-  const session = accessRaw ? verifyToken(accessRaw) : null;
-  if (session && 'type' in session && session.type === 'staff') {
-    await revokeStaffRefreshTokens(session.sub).catch(() => null);
+  const customerOnly = req.nextUrl.searchParams.get('customerOnly') === '1';
+
+  // Full logout also drops staff on this browser. customerOnly is for switching
+  // shoppers on a shared device without signing the admin out.
+  if (!customerOnly) {
+    const accessRaw = req.cookies.get(COOKIE_NAME)?.value;
+    const session = accessRaw ? verifyToken(accessRaw) : null;
+    if (session && 'type' in session && session.type === 'staff') {
+      await revokeStaffRefreshTokens(session.sub).catch(() => null);
+    }
   }
 
   const res = NextResponse.json({ ok: true });
   res.cookies.set(CUSTOMER_MOBILE_COOKIE, '', customerSessionClearOptions());
-  clearAuthCookies(res);
-  // clearAuthCookies uses delete; also expire refresh explicitly for older clients
-  res.cookies.delete(REFRESH_COOKIE_NAME);
+  if (!customerOnly) {
+    clearAuthCookies(res);
+    res.cookies.delete(REFRESH_COOKIE_NAME);
+  }
   return res;
 }

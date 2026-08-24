@@ -15,6 +15,8 @@ interface StaffPortalState {
   setStaffEligible: (mobile: string, name?: string) => void;
   setCustomerMobile: (mobile: string) => void;
   setAdminSessionActive: (active: boolean, meta?: { mobile?: string; name?: string }) => void;
+  /** Drop storefront customer identity without closing login or signing staff out. */
+  clearCustomerShoppingIdentity: () => void;
   clearAccount: () => void;
   clearStaffEligible: () => void;
   openAccountModal: () => void;
@@ -48,6 +50,11 @@ export const useStaffPortalStore = create<StaffPortalState>((set) => ({
       checkedMobile: mobile,
       showAccountModal: false,
     }),
+  clearCustomerShoppingIdentity: () =>
+    set((state) => ({
+      customerMobile: '',
+      checkedMobile: state.staffEligible ? state.checkedMobile : '',
+    })),
   setAdminSessionActive: (active, meta) =>
     set((state) => {
       if (!active) {
