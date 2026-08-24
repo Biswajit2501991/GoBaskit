@@ -1,4 +1,4 @@
-import { compressImage } from '@/services/bulk-upload/imageCompress';
+import { compressImage, uploadPublicFolder } from '@/services/bulk-upload/imageCompress';
 import sharp from 'sharp';
 
 describe('imageCompress', () => {
@@ -15,5 +15,13 @@ describe('imageCompress', () => {
     expect(result.main.byteLength).toBeLessThan(large.byteLength);
     expect(result.thumbnail.byteLength).toBeGreaterThan(0);
     expect(['jpg', 'webp', 'png']).toContain(result.ext);
+  });
+});
+
+describe('uploadPublicFolder', () => {
+  it('keeps badge uploads on /uploads/badges, not products', () => {
+    expect(uploadPublicFolder('/app/public/uploads/badges')).toBe('badges');
+    expect(uploadPublicFolder('/app/public/uploads/products')).toBe('products');
+    expect(uploadPublicFolder('/app/public/uploads/categories')).toBe('categories');
   });
 });

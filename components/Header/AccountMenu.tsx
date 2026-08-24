@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { Copy, Check, CreditCard, Shield } from 'lucide-react';
 import { useConfigStore } from '@/store/configStore';
+import { upiQrDisplayUrl } from '@/utils/image';
 
 type Props = {
   open: boolean;
@@ -42,7 +43,8 @@ export default function AccountMenu({
   const [copied, setCopied] = useState(false);
   const upiId = useConfigStore((s) => s.upiId.trim());
   const upiQrImageUrl = useConfigStore((s) => s.upiQrImageUrl.trim());
-  const hasPaymentDetails = Boolean(upiId || upiQrImageUrl);
+  const upiQrSrc = upiQrDisplayUrl(upiQrImageUrl, 360);
+  const hasPaymentDetails = Boolean(upiId || upiQrSrc);
 
   useEffect(() => {
     setMounted(true);
@@ -151,11 +153,11 @@ export default function AccountMenu({
             <div className="mx-1 mb-2 rounded-lg border border-gray-100 bg-gray-50 p-2.5 space-y-2">
               {hasPaymentDetails ? (
                 <>
-                  {upiQrImageUrl ? (
+                  {upiQrSrc ? (
                     <div className="mx-auto w-36 h-36 rounded-lg overflow-hidden bg-white border border-gray-200">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={upiQrImageUrl}
+                        src={upiQrSrc}
                         alt="UPI QR code"
                         className="w-full h-full object-contain"
                       />

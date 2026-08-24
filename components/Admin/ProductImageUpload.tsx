@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import { Upload, X, Loader2 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { resolvePublicImageUrl } from '@/utils/image';
+import { resolvePublicImageUrl, upiQrDisplayUrl } from '@/utils/image';
 
 interface ProductImageUploadProps {
   value: string;
@@ -133,7 +133,7 @@ export default function ProductImageUpload({
       {value && (
         <div className="relative inline-block">
           <div className="w-32 h-32 rounded-xl border border-gray-200 overflow-hidden bg-gray-50">
-            <img src={resolvePublicImageUrl(value)} alt="Image preview" className="w-full h-full object-contain" />
+            <img src={uploadType === 'badge' ? upiQrDisplayUrl(value, 256) || resolvePublicImageUrl(value) : resolvePublicImageUrl(value)} alt="Image preview" className="w-full h-full object-contain" />
           </div>
           <button
             type="button"

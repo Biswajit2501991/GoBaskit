@@ -24,3 +24,14 @@ export function sizedImageUrl(url: string | null | undefined, width: number): st
   return resolved;
 }
 
+/**
+ * UPI QR is uploaded as a badge but older saves pointed at /uploads/products/.
+ * Keep the stored setting unchanged; only fix the URL used to display it.
+ */
+export function upiQrDisplayUrl(url: string | null | undefined, width = 360): string {
+  const raw = (url ?? '').trim();
+  if (!raw) return '';
+  const badgeCorrected = raw.replace(/^\/uploads\/products\//, '/uploads/badges/');
+  return sizedImageUrl(badgeCorrected, width);
+}
+

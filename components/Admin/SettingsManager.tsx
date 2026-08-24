@@ -18,6 +18,7 @@ import {
 } from '@/constants/seasonalThemes';
 import DiscountManager from '@/components/Admin/DiscountManager';
 import ProductImageUpload from '@/components/Admin/ProductImageUpload';
+import { upiQrDisplayUrl } from '@/utils/image';
 
 const SETTINGS_SECTIONS = [
   { id: 'min-order', label: 'Min Order', group: 'Delivery' },
@@ -858,7 +859,7 @@ export default function SettingsManager({
           {upiQrImageUrl ? (
             <div className="w-28 h-28 rounded-lg border border-gray-200 overflow-hidden bg-white">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={upiQrImageUrl} alt="UPI QR preview" className="w-full h-full object-contain" />
+              <img src={upiQrDisplayUrl(upiQrImageUrl, 224) || upiQrImageUrl} alt="UPI QR preview" className="w-full h-full object-contain" />
             </div>
           ) : null}
         </div>

@@ -89,10 +89,19 @@ export async function compressAndSave(
   }
   await Promise.all(writes);
 
-  const folder = uploadDir.includes('categories') ? 'categories' : 'products';
+  const folder = uploadPublicFolder(uploadDir);
   return {
     url: `/uploads/${folder}/${filename}`,
     thumbUrl: withThumbnail ? `/uploads/${folder}/${thumbFilename}` : `/uploads/${folder}/${filename}`,
     filename,
   };
+}
+
+/** Last path segment of the upload directory: products, categories, or badges. */
+export function uploadPublicFolder(uploadDir: string): 'products' | 'categories' | 'badges' {
+  const base = uploadDir.replace(/\\/g, '/').replace(/\/+$/, '').split('/').pop() || '';
+  if (base === 'categories' || base === 'badges' || base === 'products') return base;
+  if (uploadDir.includes('categories')) return 'categories';
+  if (uploadDir.includes('badges')) return 'badges';
+  return 'products';
 }
