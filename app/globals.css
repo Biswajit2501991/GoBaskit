@@ -315,7 +315,7 @@ html[data-theme='independence-day'] [data-sticky-chips] {
 }
 
 /* ── Raksha Bandhan seasonal skin (presentation only) ──
-   Keep brand green for Add to Cart / logo; only the former forest-green
+   Keep brand green for Add to Cart; only the former forest-green
    chrome (header bar + ribbon) is a yellow–orange liquid-glass wash. */
 html[data-theme='raksha-bandhan'] {
   --color-background: #fbf6ee;

@@ -238,7 +238,7 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
                   compact ? 'text-sm sm:text-lg' : 'text-base sm:text-xl'
                 }`}
               >
-                Go<span className="text-blinkit-green">Baskit</span>
+                Go<span className="text-blinkit-yellow">Baskit</span>
               </span>
             </Link>
             {showAdminEntry && (
