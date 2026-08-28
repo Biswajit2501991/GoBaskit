@@ -2,6 +2,7 @@ import type { CartItem, CheckoutFormData } from '@/types';
 import { formatCustomerName } from '@/utils/customer';
 import { PAYMENT_METHODS } from '@/constants';
 import { formatCurrency } from '@/utils/formatter';
+import { formatCartLineName } from '@/utils/orderItemName';
 
 interface WhatsAppOrderParams {
   items: CartItem[];
@@ -58,7 +59,8 @@ export function buildWhatsAppMessage({
 
   items.forEach((item, index) => {
     const lineTotal = item.price * item.quantity;
-    lines.push(`${index + 1}. ${item.name} x${item.quantity} = ${formatCurrency(lineTotal)}`);
+    const lineName = formatCartLineName(item);
+    lines.push(`${index + 1}. ${lineName} x${item.quantity} = ${formatCurrency(lineTotal)}`);
   });
 
   lines.push(

@@ -9,6 +9,7 @@ import { parsePermissions, staffHasPermission } from '@/types/staff';
 import type { StaffRole } from '@prisma/client';
 import { InventoryService } from '@/services/InventoryService';
 import { AdminPushService } from '@/services/AdminPushService';
+import { formatOrderItemsSummary } from '@/utils/orderItemName';
 
 export interface NewOrderNotificationInput {
   id: string;
@@ -28,6 +29,7 @@ export interface NewOrderNotificationInput {
   };
   customerLat?: number | null;
   customerLng?: number | null;
+  items?: Array<{ name: string; quantity: number }>;
 }
 
 function formatAddress(customer: NewOrderNotificationInput['customer']): string {
@@ -41,11 +43,13 @@ function buildOrderMessage(order: NewOrderNotificationInput): string {
   const payment = PAYMENT_METHODS[order.paymentMethod] ?? order.paymentMethod;
   const source = order.orderSource === 'whatsapp' ? 'WhatsApp' : 'Website';
   const time = new Date().toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const itemLines = formatOrderItemsSummary(order.items ?? []);
   return [
     `${order.orderNumber} · ${name}`,
     `+91 ${order.customer.mobile} · ${order.customer.city}`,
     `₹${order.grandTotal} · ${payment} · ${source}`,
     formatAddress(order.customer),
+    ...(itemLines ? ['Items', itemLines] : []),
     time,
   ].join('\n');
 }
@@ -111,9 +115,12 @@ export class NotificationService {
 
     // System popup + sound even when admin browser is minimized (Web Push).
     const name = formatCustomerName(order.customer.firstName, order.customer.lastName);
+    const itemSummary = formatOrderItemsSummary(order.items ?? []).replace(/\n/g, ', ');
     void AdminPushService.notifyStaffIds(recipientIds, {
       title: `New Order · ${order.orderNumber}`,
-      body: `${name} · ₹${order.grandTotal} · ${order.customer.city}`,
+      body: itemSummary
+        ? `${name} · ₹${order.grandTotal} · ${order.customer.city}\n${itemSummary}`
+        : `${name} · ₹${order.grandTotal} · ${order.customer.city}`,
       url: '/admin/orders',
       tag: `order-${order.id}`,
     });

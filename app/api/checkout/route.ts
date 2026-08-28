@@ -19,6 +19,8 @@ import {
   getCustomerMobileFromRequest,
 } from '@/lib/customer-session';
 import { normalizeMobile } from '@/utils/mobile';
+import { composeOrderItemName } from '@/utils/orderItemName';
+import { variantLabel } from '@/utils/variant';
 
 export async function POST(req: NextRequest) {
   const started = Date.now();
@@ -75,7 +77,16 @@ export async function POST(req: NextRequest) {
 
     // Minimal parallel pre-work. Friendly stock check before creating the order;
     // atomic reserve inside the transaction still guards races.
-    const [config, resolvedDiscount, verification] = await Promise.all([
+    const productIds = [...new Set(items.map((item: { productId: string }) => item.productId))];
+    const variantIds = [
+      ...new Set(
+        items
+          .map((item: { variantId?: string | null }) => item.variantId)
+          .filter((id: string | null | undefined): id is string => Boolean(id)),
+      ),
+    ];
+
+    const [config, resolvedDiscount, verification, products, variants] = await Promise.all([
       SettingsService.getStoreConfig(),
       DiscountEngine.resolveForCheckout({
         type: discountTypeRaw,
@@ -88,8 +99,47 @@ export async function POST(req: NextRequest) {
           typeof discountRequest?.memberId === 'string' ? discountRequest.memberId : null,
       }),
       WhatsAppVerificationService.getCheckoutVerificationState(mobileE164),
-      InventoryService.validateCheckoutItems(stockItems),
+      InventoryService.validateCheckoutItems(stockItems).then(() =>
+        prisma.product.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, name: true },
+        }),
+      ),
+      variantIds.length
+        ? prisma.productVariant.findMany({
+            where: { id: { in: variantIds } },
+            select: { id: true, brand: true, variantName: true, weight: true, unit: true },
+          })
+        : Promise.resolve(
+            [] as Array<{
+              id: string;
+              brand: string;
+              variantName: string;
+              weight: string;
+              unit: string;
+            }>,
+          ),
     ]);
+
+    const productNameById = new Map(products.map((p) => [p.id, p.name]));
+    const variantLabelById = new Map(variants.map((v) => [v.id, variantLabel(v)]));
+    const namedItems = items.map(
+      (item: {
+        productId: string;
+        variantId?: string | null;
+        name: string;
+        quantity: number;
+        price: number;
+        unit: string;
+      }) => ({
+        ...item,
+        name: composeOrderItemName({
+          productName: productNameById.get(item.productId),
+          variantLabel: item.variantId ? variantLabelById.get(item.variantId) ?? null : null,
+          clientName: item.name,
+        }),
+      }),
+    );
 
     if (!resolvedDiscount.ok) {
       return NextResponse.json({ error: resolvedDiscount.error }, { status: 400 });
@@ -190,24 +240,15 @@ export async function POST(req: NextRequest) {
             customerLat: typeof customerLat === 'number' ? customerLat : null,
             customerLng: typeof customerLng === 'number' ? customerLng : null,
             items: {
-              create: items.map(
-                (item: {
-                  productId: string;
-                  variantId?: string | null;
-                  name: string;
-                  quantity: number;
-                  price: number;
-                  unit: string;
-                }) => ({
-                  productId: item.productId,
-                  variantId: item.variantId ?? null,
-                  productName: item.name,
-                  quantity: item.quantity,
-                  unitPrice: item.price,
-                  unit: item.unit,
-                  totalPrice: item.price * item.quantity,
-                }),
-              ),
+              create: namedItems.map((item) => ({
+                productId: item.productId,
+                variantId: item.variantId ?? null,
+                productName: item.name,
+                quantity: item.quantity,
+                unitPrice: item.price,
+                unit: item.unit,
+                totalPrice: item.price * item.quantity,
+              })),
             },
           },
           select: {
@@ -283,6 +324,7 @@ export async function POST(req: NextRequest) {
             grandTotal: orderSnapshot.grandTotal,
             paymentMethod: orderSnapshot.paymentMethod,
             orderSource: source,
+            items: namedItems.map((item) => ({ name: item.name, quantity: item.quantity })),
             customer: {
               firstName: orderSnapshot.customer.firstName,
               lastName: orderSnapshot.customer.lastName,

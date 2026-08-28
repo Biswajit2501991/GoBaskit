@@ -435,6 +435,15 @@ function OrderCard({
             ))}
           </select>
           <p className="text-[10px] text-gray-400">{formatDateTime(order.createdAt)}</p>
+          {order.items.length > 0 && (
+            <ul className="text-[11px] text-gray-700 space-y-0.5 pt-0.5">
+              {order.items.map((item) => (
+                <li key={item.id} className="leading-snug break-words">
+                  {item.productName} × {item.quantity}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
@@ -474,9 +483,11 @@ function OrderCard({
 
           <div>
             <p className="text-xs font-semibold text-gray-500 mb-2">Items</p>
-            <div className="text-sm text-gray-600 space-y-1">
+            <div className="text-sm text-gray-700 space-y-1">
               {order.items.map((item) => (
-                <p key={item.id}>{item.productName} × {item.quantity} = {formatCurrency(item.totalPrice)}</p>
+                <p key={item.id} className="break-words leading-snug">
+                  {item.productName} × {item.quantity} = {formatCurrency(item.totalPrice)}
+                </p>
               ))}
             </div>
             <p className="text-xs text-gray-500 mt-2">Payment: {paymentLabel}</p>

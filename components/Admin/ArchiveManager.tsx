@@ -113,7 +113,13 @@ export default function ArchiveManager() {
                 <p>Auto-delete at: {order.purgeAt ? formatDateTime(order.purgeAt) : '—'}</p>
                 <p>SMS sent: {order.smsSentAt ? formatDateTime(order.smsSentAt) : 'Not sent / not configured'}</p>
               </div>
-              <p className="text-xs text-gray-400 mt-2">{order.items.length} item{order.items.length === 1 ? '' : 's'}</p>
+              <div className="text-xs text-gray-700 space-y-0.5 mt-2">
+                {order.items.map((item, index) => (
+                  <p key={`${order.id}-${index}`} className="break-words leading-snug">
+                    {item.productName} × {item.quantity}
+                  </p>
+                ))}
+              </div>
             </div>
           ))}
         </div>

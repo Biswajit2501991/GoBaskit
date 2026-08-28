@@ -56,4 +56,25 @@ describe('WhatsApp Message Generation', () => {
     expect(url).toContain('phone=917899813212');
     expect(url).toContain('text=');
   });
+
+  it('includes the full product and option name on each item line', () => {
+    const message = buildWhatsAppMessage({
+      items: [
+        {
+          productId: '1',
+          name: 'Sunflower Oil',
+          variantLabel: 'Fortune 1L',
+          price: 180,
+          unit: '1L',
+          quantity: 1,
+          stock: 10,
+        },
+      ],
+      customer,
+      subtotal: 180,
+      deliveryCharge: 30,
+      grandTotal: 210,
+    });
+    expect(message).toContain('Sunflower Oil — Fortune 1L x1');
+  });
 });
