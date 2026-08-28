@@ -22,6 +22,15 @@ import { normalizeMobile } from '@/utils/mobile';
 import { composeOrderItemName } from '@/utils/orderItemName';
 import { variantLabel } from '@/utils/variant';
 
+type CheckoutLineItem = {
+  productId: string;
+  variantId?: string | null;
+  name: string;
+  quantity: number;
+  price: number;
+  unit: string;
+};
+
 export async function POST(req: NextRequest) {
   const started = Date.now();
   try {
@@ -51,22 +60,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!items?.length) {
+    if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 });
     }
 
-    const subtotal = items.reduce(
-      (sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity,
-      0,
-    );
+    const checkoutItems = items as CheckoutLineItem[];
 
-    const stockItems = items.map(
-      (item: { productId: string; variantId?: string | null; quantity: number }) => ({
-        productId: item.productId,
-        variantId: item.variantId ?? null,
-        quantity: item.quantity,
-      }),
-    );
+    const subtotal = checkoutItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    const stockItems = checkoutItems.map((item) => ({
+      productId: item.productId,
+      variantId: item.variantId ?? null,
+      quantity: item.quantity,
+    }));
 
     const mobileE164 = toE164('91', parsed.data.mobile) ?? `+91${parsed.data.mobile}`;
     const discountRequest = discount && typeof discount === 'object' ? discount : null;
@@ -77,12 +83,12 @@ export async function POST(req: NextRequest) {
 
     // Minimal parallel pre-work. Friendly stock check before creating the order;
     // atomic reserve inside the transaction still guards races.
-    const productIds = [...new Set(items.map((item: { productId: string }) => item.productId))];
+    const productIds = [...new Set(checkoutItems.map((item) => item.productId))];
     const variantIds = [
       ...new Set(
-        items
-          .map((item: { variantId?: string | null }) => item.variantId)
-          .filter((id: string | null | undefined): id is string => Boolean(id)),
+        checkoutItems
+          .map((item) => item.variantId)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0),
       ),
     ];
 
@@ -123,23 +129,14 @@ export async function POST(req: NextRequest) {
 
     const productNameById = new Map(products.map((p) => [p.id, p.name]));
     const variantLabelById = new Map(variants.map((v) => [v.id, variantLabel(v)]));
-    const namedItems = items.map(
-      (item: {
-        productId: string;
-        variantId?: string | null;
-        name: string;
-        quantity: number;
-        price: number;
-        unit: string;
-      }) => ({
-        ...item,
-        name: composeOrderItemName({
-          productName: productNameById.get(item.productId),
-          variantLabel: item.variantId ? variantLabelById.get(item.variantId) ?? null : null,
-          clientName: item.name,
-        }),
+    const namedItems: CheckoutLineItem[] = checkoutItems.map((item) => ({
+      ...item,
+      name: composeOrderItemName({
+        productName: productNameById.get(item.productId),
+        variantLabel: item.variantId ? variantLabelById.get(item.variantId) ?? null : null,
+        clientName: item.name,
       }),
-    );
+    }));
 
     if (!resolvedDiscount.ok) {
       return NextResponse.json({ error: resolvedDiscount.error }, { status: 400 });
