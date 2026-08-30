@@ -65,14 +65,28 @@ function emitOrderUpdated(order: {
   orderNumber: string;
   status: OrderStatus;
   grandTotal: number;
+  subtotal?: number;
+  discountAmount?: number;
+  discountType?: string;
+  couponCode?: string | null;
+  deliveryNotes?: string | null;
   priority: 'NORMAL' | 'HIGH' | 'URGENT';
   assignedStaffId: string | null;
   lockedAt: Date | null;
   adminNotes: string | null;
   createdAt: Date;
   updatedAt: Date;
-  customer: { firstName: string; lastName: string; mobile: string };
+  customer: Record<string, unknown>;
   assignedStaff?: { id: string; name: string } | null;
+  items?: Array<{
+    id: string;
+    productId: string;
+    variantId: string | null;
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }>;
 }) {
   DashboardService.invalidateCache();
   AnalyticsService.invalidateCache();
@@ -83,6 +97,11 @@ function emitOrderUpdated(order: {
       orderNumber: order.orderNumber,
       status: order.status,
       grandTotal: order.grandTotal,
+      ...(order.subtotal != null ? { subtotal: order.subtotal } : {}),
+      ...(order.discountAmount != null ? { discountAmount: order.discountAmount } : {}),
+      ...(order.discountType ? { discountType: order.discountType } : {}),
+      ...(order.couponCode !== undefined ? { couponCode: order.couponCode } : {}),
+      ...(order.deliveryNotes !== undefined ? { deliveryNotes: order.deliveryNotes } : {}),
       priority: order.priority,
       assignedStaffId: order.assignedStaffId,
       assignedStaff: order.assignedStaff ?? null,
@@ -91,6 +110,19 @@ function emitOrderUpdated(order: {
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       customer: order.customer,
+      ...(order.items
+        ? {
+            items: order.items.map((item) => ({
+              id: item.id,
+              productId: item.productId,
+              variantId: item.variantId,
+              productName: item.productName,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              totalPrice: item.totalPrice,
+            })),
+          }
+        : {}),
     },
   });
 }

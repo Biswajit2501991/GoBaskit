@@ -172,11 +172,20 @@ function isPendingUnverifiedLock(order: OrderRow): boolean {
 function patchOrderFromEvent(order: OrderRow, payload: Record<string, unknown>): OrderRow {
   const assignedStaff = payload.assignedStaff as { id: string; name: string; mobile?: string } | null | undefined;
   const customer = payload.customer as CustomerDetails | undefined;
+  const items = Array.isArray(payload.items) ? (payload.items as OrderItem[]) : undefined;
   return {
     ...order,
     ...(payload.status ? { status: String(payload.status) } : {}),
     ...(payload.priority ? { priority: String(payload.priority) } : {}),
     ...(payload.grandTotal != null ? { grandTotal: Number(payload.grandTotal) } : {}),
+    ...(payload.discountAmount != null ? { discountAmount: Number(payload.discountAmount) } : {}),
+    ...(payload.discountType != null ? { discountType: String(payload.discountType) } : {}),
+    ...(payload.couponCode !== undefined
+      ? { couponCode: payload.couponCode ? String(payload.couponCode) : null }
+      : {}),
+    ...(payload.deliveryNotes !== undefined
+      ? { deliveryNotes: payload.deliveryNotes ? String(payload.deliveryNotes) : null }
+      : {}),
     ...(payload.assignedStaffId !== undefined
       ? { assignedStaffId: payload.assignedStaffId ? String(payload.assignedStaffId) : null }
       : {}),
@@ -188,6 +197,7 @@ function patchOrderFromEvent(order: OrderRow, payload: Record<string, unknown>):
       ? { adminNotes: payload.adminNotes ? String(payload.adminNotes) : null }
       : {}),
     ...(customer ? { customer: { ...order.customer, ...customer } } : {}),
+    ...(items ? { items } : {}),
   };
 }
 
@@ -896,6 +906,11 @@ export default function OrdersManager({
             }
             return prev.map((o) => (o.id === id ? patchOrderFromEvent(o, payload) : o));
           });
+          // Customer item/address edits include `items`; refetch so the card matches DB
+          // even if this admin tab missed a field on the live event.
+          if (Array.isArray(payload.items)) {
+            scheduleSilentReload();
+          }
           scheduleOpsRefresh();
         }
         return;
