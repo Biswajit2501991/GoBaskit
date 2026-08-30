@@ -499,6 +499,23 @@ html[data-theme='raksha-bandhan'] footer {
   border-top-color: rgba(232, 137, 34, 0.16);
 }
 
+/* ── Normal day-to-day promo skin (presentation only) ──
+   Keep default yellow/green brand tokens. Only ribbon + promo strip. */
+html[data-theme='normal'] .seasonal-ribbon {
+  background: linear-gradient(90deg, #f7c948 0%, #eef8ee 48%, #318616 100%);
+  color: #1a1a1a;
+}
+
+html[data-theme='normal'] .seasonal-promo-banner {
+  background: linear-gradient(135deg, #fffdf5 0%, #ffffff 48%, #e8f3ec 100%);
+  border: 1px solid rgba(49, 134, 22, 0.16);
+  box-shadow: 0 1px 0 rgba(247, 201, 72, 0.2);
+}
+
+html[data-theme='normal'] .seasonal-promo-eyebrow {
+  color: #2f6b16;
+}
+
 /* ── Admin color mode (light / dark / system) ──
    Scoped via html[data-admin-theme]. Cleared when leaving AdminShell.
    Presentation only — remaps common admin utility surfaces. */

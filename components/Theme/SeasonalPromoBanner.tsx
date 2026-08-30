@@ -22,7 +22,7 @@ export default function SeasonalPromoBanner() {
   if (!show) return null;
 
   const themeCopy = SEASONAL_THEME_COPY[parseSeasonalThemeId(homepageConfig.seasonalThemeId)];
-  const code = (homepageConfig.seasonalPromoCode || 'FREEDOM10').trim().toUpperCase();
+  const code = (homepageConfig.seasonalPromoCode || themeCopy.promoCode).trim().toUpperCase();
   const title = homepageConfig.seasonalPromoTitle || themeCopy.promoTitle;
   const subtitle = homepageConfig.seasonalPromoSubtitle || themeCopy.promoSubtitle;
   const cta = homepageConfig.seasonalPromoCtaLabel || 'Copy code';

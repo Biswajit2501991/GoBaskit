@@ -21,6 +21,17 @@ describe('storefront presentation snapshot', () => {
     expect(window.localStorage.getItem(STOREFRONT_PRESENTATION_KEY)).toContain('raksha-bandhan');
   });
 
+  it('round-trips the Normal everyday skin', () => {
+    persistStorefrontPresentation({
+      seasonalThemeEnabled: true,
+      seasonalThemeId: 'normal',
+    });
+    expect(readStorefrontPresentation()).toEqual({
+      seasonalThemeEnabled: true,
+      seasonalThemeId: 'normal',
+    });
+  });
+
   it('rejects unknown theme ids without throwing', () => {
     window.localStorage.setItem(
       STOREFRONT_PRESENTATION_KEY,

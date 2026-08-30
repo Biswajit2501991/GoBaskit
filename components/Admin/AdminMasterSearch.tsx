@@ -109,7 +109,7 @@ const SETTINGS_DESTINATIONS: Omit<SearchDestination, 'group'>[] = [
     id: 'settings-seasonal',
     label: 'Seasonal theme',
     href: '/admin/settings#seasonal',
-    keywords: ['independence', 'raksha', 'rakhi', 'theme', 'freedom', 'promo', 'festival'],
+    keywords: ['independence', 'raksha', 'rakhi', 'theme', 'freedom', 'promo', 'festival', 'normal', 'gobaskit10', 'welcome'],
   },
   {
     id: 'settings-promo',

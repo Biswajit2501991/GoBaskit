@@ -13,7 +13,11 @@ import {
   type HealthStarBadgePosition,
   type HealthStarDisplayMode,
 } from '@/constants/healthStarDisplay';
-import { parseSeasonalThemeId, type SeasonalThemeId } from '@/constants/seasonalThemes';
+import {
+  EVERYDAY_WELCOME_COUPON_CODE,
+  parseSeasonalThemeId,
+  type SeasonalThemeId,
+} from '@/constants/seasonalThemes';
 
 export type {
   HealthStarDisplay,
@@ -93,7 +97,7 @@ export interface StoreConfig {
     /** One product rail per category on home. */
     showCategoryRails: boolean;
     categoryRailLimit: number;
-    /** Seasonal storefront skin (Independence Day / Raksha Bandhan) — presentation only. */
+    /** Seasonal storefront skin (Normal / Independence Day / Raksha Bandhan) — presentation only. */
     seasonalThemeEnabled: boolean;
     seasonalThemeId: SeasonalThemeId;
     seasonalPromoEnabled: boolean;
@@ -992,6 +996,13 @@ export const SettingsService = {
 
     await Promise.all(writes);
     cache = null; // invalidate so the next read reflects the change
+    if (partial.homepageConfig) {
+      const saved = await this.getStoreConfig();
+      if (saved.homepageConfig.seasonalThemeId === 'normal') {
+        await ensureEverydayWelcomeCoupon();
+      }
+      return saved;
+    }
     return this.getStoreConfig();
   },
 
@@ -1005,5 +1016,26 @@ function upsert(key: string, value: string) {
     where: { key },
     update: { value },
     create: { key, value },
+  });
+}
+
+/** Insert GOBASKIT10 once. Never updates an existing row (custom limits/dates stay). */
+async function ensureEverydayWelcomeCoupon() {
+  const existing = await prisma.coupon.findUnique({
+    where: { couponCode: EVERYDAY_WELCOME_COUPON_CODE },
+    select: { id: true },
+  });
+  if (existing) return;
+  await prisma.coupon.create({
+    data: {
+      couponCode: EVERYDAY_WELCOME_COUPON_CODE,
+      discountType: 'PERCENTAGE',
+      discountValue: 10,
+      maxDiscount: null,
+      minimumOrder: 0,
+      status: 'ACTIVE',
+      usageLimitPerMobile: 1,
+      description: 'New customers: 10% off. Once per mobile.',
+    },
   });
 }

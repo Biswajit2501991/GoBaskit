@@ -1201,8 +1201,10 @@ export default function SettingsManager({
           <h2 className="font-bold text-sm">Seasonal theme</h2>
           <p className="text-xs text-gray-400 mt-1">
             Presentation-only storefront skin (header wash, ribbon, home promo strip). Turning this
-            off restores the normal yellow/green storefront. Discounts still require a real coupon
-            in Discounts &amp; Coupons — this only displays the code.
+            off restores the default yellow/green storefront. Choose <strong>Normal</strong> for
+            day-to-day codes (welcome offer, Rakhi, etc.). Discounts still require a real coupon
+            in Discounts &amp; Coupons — this only displays the code. Saving Normal with
+            GOBASKIT10 creates that 10% welcome coupon if it does not already exist.
           </p>
         </div>
 
@@ -1226,7 +1228,7 @@ export default function SettingsManager({
         {homepageConfig.seasonalThemeEnabled === true && (
           <div className="space-y-4 border-t border-gray-50 pt-4">
             <div>
-              <Label className="text-xs text-gray-500">Festival skin</Label>
+              <Label className="text-xs text-gray-500">Seasonal theme</Label>
               <select
                 value={parseSeasonalThemeId(homepageConfig.seasonalThemeId)}
                 onChange={(e) => {
@@ -1238,6 +1240,7 @@ export default function SettingsManager({
                     const ribbon = (prev.seasonalRibbonText ?? '').trim();
                     const title = (prev.seasonalPromoTitle ?? '').trim();
                     const subtitle = (prev.seasonalPromoSubtitle ?? '').trim();
+                    const code = (prev.seasonalPromoCode ?? '').trim().toUpperCase();
                     return {
                       ...prev,
                       seasonalThemeId: nextId,
@@ -1251,6 +1254,10 @@ export default function SettingsManager({
                         !subtitle || subtitle === previousCopy.promoSubtitle
                           ? nextCopy.promoSubtitle
                           : prev.seasonalPromoSubtitle,
+                      seasonalPromoCode:
+                        !code || code === previousCopy.promoCode
+                          ? nextCopy.promoCode
+                          : prev.seasonalPromoCode,
                     };
                   });
                 }}
@@ -1301,7 +1308,7 @@ export default function SettingsManager({
                 disabled={!canEdit}
                 className="accent-blinkit-green"
               />
-              Show festive promo banner on home
+              Show promo banner on home
             </label>
 
             {homepageConfig.seasonalPromoEnabled === true && (
@@ -1350,7 +1357,9 @@ export default function SettingsManager({
                     disabled={!canEdit}
                     className="mt-1 font-mono tracking-wide"
                     maxLength={32}
-                    placeholder="FREEDOM10"
+                    placeholder={
+                      SEASONAL_THEME_COPY[parseSeasonalThemeId(homepageConfig.seasonalThemeId)].promoCode
+                    }
                   />
                 </div>
                 <div>

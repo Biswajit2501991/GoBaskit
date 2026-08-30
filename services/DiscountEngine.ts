@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { normalizeMobile, isValidIndianMobile } from '@/utils/mobile';
 import { SettingsService, type DiscountConfig } from '@/services/SettingsService';
 import { ActionPlusMembershipClient } from '@/services/ActionPlusMembershipClient';
+import { EVERYDAY_WELCOME_COUPON_CODE } from '@/constants/seasonalThemes';
 
 export type DiscountApplyType = 'COUPON' | 'MEMBERSHIP';
 
@@ -115,6 +116,30 @@ export class DiscountEngine {
     }
 
     const mobile = params.mobile ? normalizeMobile(params.mobile) : '';
+    if (coupon.couponCode === EVERYDAY_WELCOME_COUPON_CODE) {
+      if (!mobile || !isValidIndianMobile(mobile)) {
+        return {
+          ok: false,
+          code: 'LOGIN_REQUIRED',
+          error: 'Login to apply this new-customer coupon',
+        };
+      }
+      const priorOrders = await prisma.order.count({
+        where: {
+          status: { not: 'CANCELLED' },
+          customer: {
+            OR: [{ mobile }, { mobile: { endsWith: mobile } }],
+          },
+        },
+      });
+      if (priorOrders > 0) {
+        return {
+          ok: false,
+          code: 'NEW_CUSTOMER',
+          error: 'This coupon is for new customers only',
+        };
+      }
+    }
     if (coupon.totalUsageLimit != null || (mobile && isValidIndianMobile(mobile))) {
       const [totalUsed, usedByMobile] = await Promise.all([
         coupon.totalUsageLimit != null

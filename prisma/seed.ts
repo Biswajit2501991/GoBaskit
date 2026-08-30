@@ -126,6 +126,26 @@ async function main() {
     });
   }
 
+  const welcomeCode = 'GOBASKIT10';
+  const welcomeExists = await prisma.coupon.findUnique({
+    where: { couponCode: welcomeCode },
+    select: { id: true },
+  });
+  if (!welcomeExists) {
+    await prisma.coupon.create({
+      data: {
+        couponCode: welcomeCode,
+        discountType: 'PERCENTAGE',
+        discountValue: 10,
+        maxDiscount: null,
+        minimumOrder: 0,
+        status: 'ACTIVE',
+        usageLimitPerMobile: 1,
+        description: 'New customers: 10% off. Once per mobile.',
+      },
+    });
+  }
+
   console.log('Seed completed!');
   console.log(`Admin: ${adminEmail} / ${adminPassword}`);
   console.log(`Staff Super Admin mobile: ${process.env.STAFF_SUPER_MOBILE || '9046370119'} / ${adminPassword}`);

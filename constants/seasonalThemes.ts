@@ -1,14 +1,22 @@
-export const SEASONAL_THEME_IDS = ['independence-day', 'raksha-bandhan'] as const;
+export const SEASONAL_THEME_IDS = ['normal', 'independence-day', 'raksha-bandhan'] as const;
 
 export type SeasonalThemeId = (typeof SEASONAL_THEME_IDS)[number];
 
 export const DEFAULT_SEASONAL_THEME_ID: SeasonalThemeId = 'independence-day';
+
+/** Everyday welcome coupon shown by the Normal theme. Created once if missing; never overwritten. */
+export const EVERYDAY_WELCOME_COUPON_CODE = 'GOBASKIT10';
 
 export const SEASONAL_THEME_OPTIONS: Array<{
   id: SeasonalThemeId;
   label: string;
   description: string;
 }> = [
+  {
+    id: 'normal',
+    label: 'Normal (day-to-day)',
+    description: 'Brand yellow/green storefront for everyday codes (welcome offer, Rakhi, etc.)',
+  },
   {
     id: 'independence-day',
     label: 'Independence Day (15 August)',
@@ -24,17 +32,25 @@ export const SEASONAL_THEME_OPTIONS: Array<{
 /** Suggested storefront copy — admin can override; never auto-overwrite custom text on save. */
 export const SEASONAL_THEME_COPY: Record<
   SeasonalThemeId,
-  { ribbon: string; promoTitle: string; promoSubtitle: string }
+  { ribbon: string; promoTitle: string; promoSubtitle: string; promoCode: string }
 > = {
+  normal: {
+    ribbon: 'New customers · 10% off with code GOBASKIT10',
+    promoTitle: 'Welcome offer',
+    promoSubtitle: 'New customers get 10% OFF. Apply GOBASKIT10 in cart after login.',
+    promoCode: EVERYDAY_WELCOME_COUPON_CODE,
+  },
   'independence-day': {
     ribbon: 'Celebrating 15 August · Order fresh essentials today',
     promoTitle: 'Freedom Day Offer',
     promoSubtitle: 'Apply this code in cart after login for 10% off',
+    promoCode: 'FREEDOM10',
   },
   'raksha-bandhan': {
     ribbon: 'Happy Raksha Bandhan · Bhai-Behen Ki Celebration, Snacks & Essentials Ke Saath!',
     promoTitle: 'Raksha Bandhan Special',
     promoSubtitle: 'Flat 10% OFF on orders above ₹499 · Apply code in cart',
+    promoCode: 'FREEDOM10',
   },
 };
 
