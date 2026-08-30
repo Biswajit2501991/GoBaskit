@@ -148,7 +148,7 @@ export default function WhatsAppVerificationManager({ canManage }: { canManage: 
         <div>
           <h1 className="text-2xl font-bold">WhatsApp Verification</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Approve customer WhatsApp verifications after they send the code message.
+            Approve customer WhatsApp verifications. Customers can also finish verification themselves after they send the code.
           </p>
         </div>
         {pendingCount > 0 && (

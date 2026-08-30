@@ -22,12 +22,16 @@ export async function POST(req: NextRequest) {
   }
 
   const meta = getRequestMeta(req);
-  const status = await WhatsAppVerificationService.logSentAck({
-    mobileE164: mobile,
-    verificationId: parsed.data.verificationId,
-    ip: meta.ip,
-    userAgent: meta.userAgent,
-  });
-
-  return NextResponse.json({ ok: true, ...status });
+  try {
+    const status = await WhatsAppVerificationService.logSentAck({
+      mobileE164: mobile,
+      verificationId: parsed.data.verificationId,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+    });
+    return NextResponse.json({ ok: true, verified: true, ...status });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Could not confirm message sent';
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 }

@@ -185,8 +185,15 @@ export default function WhatsAppVerificationModal({
         setError(typeof data.error === 'string' ? data.error : 'Could not confirm message sent');
         return;
       }
-      setPending(true);
+      setVerified(true);
+      setPending(false);
       setSentContinue(true);
+      try {
+        sessionStorage.setItem('gobaskit_account_verified_toast', '1');
+      } catch {
+        /* ignore */
+      }
+      setTimeout(() => onVerified(mobileE164), 800);
     } finally {
       setLoading(false);
     }
@@ -201,7 +208,7 @@ export default function WhatsAppVerificationModal({
           <div>
             <h2 className="text-lg font-bold">Verify Your WhatsApp Number</h2>
             <p className="text-sm text-gray-500 mt-1">
-              Send the code on WhatsApp, then you can place your order.
+              Send the code on WhatsApp, then tap continue — no waiting for admin.
             </p>
           </div>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Close">
@@ -285,7 +292,7 @@ export default function WhatsAppVerificationModal({
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
                 <p className="text-sm font-medium text-amber-900">Send the message on WhatsApp</p>
                 <p className="text-xs text-amber-700 mt-1">
-                  After sending, tap below to continue and place your order. Admin will finish verification.
+                  After sending, tap below. Your number is verified even if the code timer has already run out.
                 </p>
               </div>
 
@@ -305,7 +312,7 @@ export default function WhatsAppVerificationModal({
                   Open WhatsApp Again
                 </Button>
                 <Button type="button" variant="outline" className="w-full" disabled={loading} onClick={acknowledgeSent}>
-                  I&apos;ve Sent the Message — Continue to Order
+                  I&apos;ve Sent the Message — Verify &amp; Continue
                 </Button>
                 <Button
                   type="button"

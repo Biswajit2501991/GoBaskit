@@ -178,8 +178,9 @@ export class WhatsAppVerificationService {
     return {
       needsVerification: true,
       isVerified: false,
-      // A sent acknowledgement is only progress feedback. Checkout remains
-      // locked until the backend verification row is actually VERIFIED.
+      // A sent acknowledgement used to be only progress feedback. Checkout
+      // now auto-verifies on that tap (see logSentAck); this helper still
+      // requires the backend VERIFIED flag / customer mobile flag.
       canCheckout: false,
       messageSent,
     };
@@ -436,52 +437,67 @@ export class WhatsAppVerificationService {
     });
   }
 
+  /**
+   * Customer tapped “I’ve sent the message”. Without a WhatsApp API we cannot
+   * prove delivery, so this is the confirmation that verifies the number.
+   * Works for PENDING and expired codes so late continue still succeeds.
+   */
   static async logSentAck(params: {
     mobileE164: string;
     verificationId?: string;
     ip?: string;
     userAgent?: string;
   }) {
-    const now = new Date();
     const variants = mobileVariantsFromE164(params.mobileE164);
 
-    if (params.verificationId) {
-      await prisma.whatsAppVerification.updateMany({
-        where: {
-          id: params.verificationId,
-          mobile: { in: variants },
-          status: 'PENDING',
-        },
-        data: { sentAcknowledgedAt: now },
-      });
-    } else {
-      const pending = await prisma.whatsAppVerification.findFirst({
-        where: {
-          mobile: { in: variants },
-          status: 'PENDING',
-          expiresAt: { gt: now },
-        },
-        orderBy: { createdAt: 'desc' },
-        select: { id: true },
-      });
-      if (pending) {
-        await prisma.whatsAppVerification.update({
-          where: { id: pending.id },
-          data: { sentAcknowledgedAt: now },
-        });
-      }
+    if (await this.isMobileVerified(params.mobileE164)) {
+      return this.getStatus(params.mobileE164);
     }
+
+    const row = params.verificationId
+      ? await prisma.whatsAppVerification.findFirst({
+          where: {
+            id: params.verificationId,
+            mobile: { in: variants },
+            status: { in: ['PENDING', 'EXPIRED'] },
+          },
+        })
+      : await prisma.whatsAppVerification.findFirst({
+          where: {
+            mobile: { in: variants },
+            status: { in: ['PENDING', 'EXPIRED'] },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+    if (!row) {
+      throw new Error('No verification request found. Generate a code and send it on WhatsApp first.');
+    }
+
+    const now = new Date();
+    await prisma.whatsAppVerification.update({
+      where: { id: row.id },
+      data: {
+        status: 'PENDING',
+        expiresAt: addMinutes(now, VERIFICATION_CODE_TTL_MINUTES),
+        sentAcknowledgedAt: now,
+      },
+    });
 
     await VerificationAuditService.log({
       action: VERIFICATION_AUDIT_ACTIONS.SENT_ACK,
       mobile: params.mobileE164,
-      verificationId: params.verificationId,
+      verificationId: row.id,
       actorType: 'customer',
       ip: params.ip,
       userAgent: params.userAgent,
     });
 
-    return this.getStatus(params.mobileE164);
+    return this.finalizeApproval(row.id, {
+      actorType: 'system',
+      ip: params.ip,
+      meta: { source: 'customer_sent_ack' },
+    });
   }
 
   /** Extract GB-###### from inbound WhatsApp text. */
