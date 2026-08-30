@@ -36,7 +36,7 @@ export default function CartPanelContent({
 }: CartPanelContentProps) {
   const router = useRouter();
   const { items, updateQuantity, removeItem, clearCart, getSubtotal } = useCartStore();
-  const { deliverySlabs, minOrderValue, homepageConfig, fetchConfig } = useConfigStore();
+  const { deliverySlabs, minOrderValue, homepageConfig, refreshConfig } = useConfigStore();
   const appliedDiscount = useDiscountStore((s) => s.applied);
   const clearDiscount = useDiscountStore((s) => s.clear);
   const customerMobile = useStaffPortalStore((s) => s.customerMobile);
@@ -46,8 +46,8 @@ export default function CartPanelContent({
   const imageFetchAttempted = useRef(new Set<string>());
 
   useEffect(() => {
-    fetchConfig();
-  }, [fetchConfig]);
+    void refreshConfig();
+  }, [refreshConfig]);
 
   useEffect(() => {
     if (!items.length) return;

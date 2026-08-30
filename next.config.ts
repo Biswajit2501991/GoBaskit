@@ -28,6 +28,7 @@ const nextConfig: NextConfig = {
       { source: '/success', headers: [{ key: 'Cache-Control', value: noStore }] },
       { source: '/admin', headers: [{ key: 'Cache-Control', value: noStore }] },
       { source: '/admin/:path*', headers: [{ key: 'Cache-Control', value: noStore }] },
+      { source: '/api/config', headers: [{ key: 'Cache-Control', value: noStore }] },
     ];
   },
 };

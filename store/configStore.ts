@@ -146,7 +146,7 @@ async function loadConfig(
   get: () => ConfigState,
 ) {
   try {
-    const res = await fetch('/api/config');
+    const res = await fetch('/api/config', { cache: 'no-store' });
     if (res.ok) {
       const c = await res.json();
       set({
@@ -160,7 +160,9 @@ async function loadConfig(
           typeof c.cityDefaultPins === 'object' && c.cityDefaultPins
             ? c.cityDefaultPins
             : get().cityDefaultPins,
-        deliverySlabs: Array.isArray(c.deliverySlabs) ? c.deliverySlabs : get().deliverySlabs,
+        deliverySlabs: Array.isArray(c.deliverySlabs) && c.deliverySlabs.length
+          ? c.deliverySlabs
+          : get().deliverySlabs,
         minOrderValue: typeof c.minOrderValue === 'number' ? c.minOrderValue : get().minOrderValue,
         checkoutMode:
           c.checkoutMode === 'website' || c.checkoutMode === 'whatsapp' || c.checkoutMode === 'both'

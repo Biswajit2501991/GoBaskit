@@ -62,7 +62,7 @@ export default function CheckoutPage() {
   const clearDiscount = useDiscountStore((s) => s.clear);
 
   useEffect(() => {
-    refreshConfig();
+    void refreshConfig();
   }, [refreshConfig]);
 
   const subtotal = getSubtotal();
