@@ -1,7 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import type { OrderStatus } from '@prisma/client';
 import Link from 'next/link';
+import { canStaffMutateItems } from '@/utils/orderEditPolicy';
+import OrderContentsEditor, { type EditableLine } from '@/components/Orders/OrderContentsEditor';
 import { formatCustomerAddress, formatCustomerName } from '@/utils/customer';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { Button } from '@/components/ui/button';
@@ -19,8 +22,11 @@ import OrdersLiveOpsStrip, {
 
 interface OrderItem {
   id: string;
+  productId?: string;
+  variantId?: string | null;
   productName: string;
   quantity: number;
+  unitPrice?: number;
   totalPrice: number;
 }
 
@@ -211,6 +217,7 @@ function OrderCard({
   onRelease,
   onWhatsApp,
   onStaffWhatsApp,
+  onReplaceOrder,
 }: {
   order: OrderRow;
   expanded: boolean;
@@ -234,9 +241,26 @@ function OrderCard({
   onRelease: (id: string) => void;
   onWhatsApp: (order: OrderRow) => void;
   onStaffWhatsApp: (order: OrderRow) => void;
+  onReplaceOrder: (order: OrderRow) => void;
 }) {
   const [history, setHistory] = useState<StatusHistoryEntry[] | null>(order.statusHistory ?? null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [editingContents, setEditingContents] = useState(false);
+  const [savingContents, setSavingContents] = useState(false);
+  const [contentsError, setContentsError] = useState('');
+  const [editLines, setEditLines] = useState<EditableLine[]>([]);
+  const [editAddress, setEditAddress] = useState({
+    firstName: order.customer.firstName,
+    lastName: order.customer.lastName,
+    houseNumber: order.customer.houseNumber,
+    street: order.customer.street,
+    area: order.customer.area,
+    landmark: order.customer.landmark ?? '',
+    city: order.customer.city,
+    state: order.customer.state,
+    pincode: order.customer.pincode,
+    deliveryNotes: order.deliveryNotes ?? '',
+  });
 
   useEffect(() => {
     if (!expanded) return;
@@ -265,6 +289,13 @@ function OrderCard({
   const lockedByOther = isLocked && !isMine && !canOverrideLock;
   const pendingVerifyLock = isPendingUnverifiedLock(order);
   const canDrag = canEdit && !lockedByOther && !pendingVerifyLock;
+  const canEditContents =
+    canEdit &&
+    !lockedByOther &&
+    canStaffMutateItems({
+      status: order.status as OrderStatus,
+      createdAt: new Date(order.createdAt),
+    });
   const address = formatCustomerAddress(order.customer);
   const paymentLabel =
     PAYMENT_METHODS[order.paymentMethod as keyof typeof PAYMENT_METHODS] ?? order.paymentMethod;
@@ -483,13 +514,117 @@ function OrderCard({
 
           <div>
             <p className="text-xs font-semibold text-gray-500 mb-2">Items</p>
-            <div className="text-sm text-gray-700 space-y-1">
-              {order.items.map((item) => (
-                <p key={item.id} className="break-words leading-snug">
-                  {item.productName} × {item.quantity} = {formatCurrency(item.totalPrice)}
-                </p>
-              ))}
-            </div>
+            {editingContents ? (
+              <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+                <OrderContentsEditor lines={editLines} onChange={setEditLines} disabled={savingContents} />
+                <div className="grid sm:grid-cols-2 gap-2 text-xs">
+                  <Input value={editAddress.houseNumber} onChange={(e) => setEditAddress((a) => ({ ...a, houseNumber: e.target.value }))} placeholder="House" />
+                  <Input value={editAddress.street} onChange={(e) => setEditAddress((a) => ({ ...a, street: e.target.value }))} placeholder="Street" />
+                  <Input value={editAddress.area} onChange={(e) => setEditAddress((a) => ({ ...a, area: e.target.value }))} placeholder="Area" />
+                  <Input value={editAddress.pincode} onChange={(e) => setEditAddress((a) => ({ ...a, pincode: e.target.value }))} placeholder="PIN" />
+                  <Input value={editAddress.city} onChange={(e) => setEditAddress((a) => ({ ...a, city: e.target.value }))} placeholder="City" />
+                  <Input value={editAddress.state} onChange={(e) => setEditAddress((a) => ({ ...a, state: e.target.value }))} placeholder="State" />
+                </div>
+                {contentsError && <p className="text-xs text-red-600">{contentsError}</p>}
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={savingContents}
+                    onClick={async () => {
+                      setSavingContents(true);
+                      setContentsError('');
+                      try {
+                        const itemsRes = await fetch(`/api/admin/orders/${order.id}/items`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            items: editLines.map((l) => ({
+                              productId: l.productId,
+                              variantId: l.variantId,
+                              quantity: l.quantity,
+                            })),
+                          }),
+                        });
+                        const itemsData = await itemsRes.json().catch(() => ({}));
+                        if (!itemsRes.ok) {
+                          setContentsError(typeof itemsData.error === 'string' ? itemsData.error : 'Could not save items');
+                          return;
+                        }
+                        const delivRes = await fetch(`/api/admin/orders/${order.id}/delivery`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ delivery: editAddress }),
+                        });
+                        const delivData = await delivRes.json().catch(() => ({}));
+                        if (!delivRes.ok) {
+                          setContentsError(typeof delivData.error === 'string' ? delivData.error : 'Could not save address');
+                          onReplaceOrder(itemsData);
+                          return;
+                        }
+                        onReplaceOrder(delivData);
+                        setEditingContents(false);
+                      } finally {
+                        setSavingContents(false);
+                      }
+                    }}
+                  >
+                    {savingContents ? 'Saving…' : 'Save items & address'}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" disabled={savingContents} onClick={() => setEditingContents(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="text-sm text-gray-700 space-y-1">
+                  {order.items.map((item) => (
+                    <p key={item.id} className="break-words leading-snug">
+                      {item.productName} × {item.quantity} = {formatCurrency(item.totalPrice)}
+                    </p>
+                  ))}
+                </div>
+                {canEditContents && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 h-7 text-xs"
+                    onClick={() => {
+                      setEditLines(
+                        order.items
+                          .filter((item) => item.productId)
+                          .map((item) => ({
+                            productId: item.productId as string,
+                            variantId: item.variantId ?? null,
+                            productName: item.productName,
+                            quantity: item.quantity,
+                            unit: 'pcs',
+                            unitPrice: item.unitPrice ?? item.totalPrice / Math.max(1, item.quantity),
+                          })),
+                      );
+                      setEditAddress({
+                        firstName: order.customer.firstName,
+                        lastName: order.customer.lastName,
+                        houseNumber: order.customer.houseNumber,
+                        street: order.customer.street,
+                        area: order.customer.area,
+                        landmark: order.customer.landmark ?? '',
+                        city: order.customer.city,
+                        state: order.customer.state,
+                        pincode: order.customer.pincode,
+                        deliveryNotes: order.deliveryNotes ?? '',
+                      });
+                      setContentsError('');
+                      setEditingContents(true);
+                    }}
+                  >
+                    Edit items & address
+                  </Button>
+                )}
+              </>
+            )}
             <p className="text-xs text-gray-500 mt-2">Payment: {paymentLabel}</p>
           </div>
 
@@ -1186,6 +1321,10 @@ export default function OrdersManager({
                           onRelease={releaseOrder}
                           onWhatsApp={sendWhatsAppUpdate}
                           onStaffWhatsApp={sendStaffDeliveryWhatsApp}
+                          onReplaceOrder={(updated) => {
+                            setOrders((prev) => prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)));
+                            scheduleOpsRefresh();
+                          }}
                         />
                       ))
                     )}

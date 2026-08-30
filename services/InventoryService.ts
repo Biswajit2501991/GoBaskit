@@ -199,6 +199,45 @@ export class InventoryService {
     };
   }
 
+  /** Return reserved qty to stock inside an interactive transaction (edit-order path). */
+  static async restoreReservationInTx(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+    items: Array<{ productId: string; variantId: string | null; quantity: number }>,
+    stockReserved: boolean,
+  ): Promise<void> {
+    if (!stockReserved || !items.length) return;
+
+    const byProduct = new Map<string, number>();
+    const byVariant = new Map<string, number>();
+    for (const item of items) {
+      if (item.variantId) {
+        byVariant.set(item.variantId, (byVariant.get(item.variantId) ?? 0) + item.quantity);
+      } else {
+        byProduct.set(item.productId, (byProduct.get(item.productId) ?? 0) + item.quantity);
+      }
+    }
+
+    await Promise.all([
+      ...[...byProduct.entries()].map(([productId, qty]) =>
+        tx.product.updateMany({
+          where: { id: productId },
+          data: { stock: { increment: qty } },
+        }),
+      ),
+      ...[...byVariant.entries()].map(([variantId, qty]) =>
+        tx.productVariant.updateMany({
+          where: { id: variantId },
+          data: { stock: { increment: qty } },
+        }),
+      ),
+      tx.order.update({
+        where: { id: orderId },
+        data: { stockReserved: false },
+      }),
+    ]);
+  }
+
   static async afterOrderReserved(
     productIds: string[],
     qtyByProduct: Map<string, number>,

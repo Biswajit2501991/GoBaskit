@@ -2,6 +2,7 @@ import type { OrderStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { normalizeMobile } from '@/utils/mobile';
 import { isActiveOrderStatus } from '@/utils/orderTracking';
+import { canCustomerMutate, customerEditExpiresAt } from '@/utils/orderEditPolicy';
 import { CustomerProfileService } from '@/services/CustomerProfileService';
 import { OrderArchiveService } from '@/services/OrderArchiveService';
 import type { SavedCheckoutProfile } from '@/utils/customerProfile';
@@ -22,20 +23,33 @@ export interface CustomerOrderDetail extends CustomerOrderSummary {
   discountType: 'NONE' | 'COUPON' | 'MEMBERSHIP';
   couponCode: string | null;
   paymentMethod: string;
+  deliveryNotes: string | null;
   cancelNotice?: string | null;
   customerVisibleUntil?: string | null;
+  editableUntil: string | null;
+  canEdit: boolean;
+  canCancel: boolean;
   items: Array<{
     id: string;
+    productId: string;
+    variantId: string | null;
     productName: string;
     quantity: number;
     unit: string;
+    unitPrice: number;
     totalPrice: number;
   }>;
   customer: {
     firstName: string;
     lastName: string;
     mobile: string;
+    alternateMobile: string | null;
+    houseNumber: string;
+    street: string;
+    area: string;
+    landmark: string | null;
     city: string;
+    state: string;
     pincode: string;
   };
 }
@@ -115,16 +129,25 @@ export class CustomerOrderService {
             firstName: true,
             lastName: true,
             mobile: true,
+            alternateMobile: true,
+            houseNumber: true,
+            street: true,
+            area: true,
+            landmark: true,
             city: true,
+            state: true,
             pincode: true,
           },
         },
         items: {
           select: {
             id: true,
+            productId: true,
+            variantId: true,
             productName: true,
             quantity: true,
             unit: true,
+            unitPrice: true,
             totalPrice: true,
           },
         },
@@ -132,6 +155,9 @@ export class CustomerOrderService {
     });
 
     if (!order) return null;
+
+    const canMutate = canCustomerMutate(order);
+    const expires = customerEditExpiresAt(order.createdAt);
 
     return {
       id: order.id,
@@ -144,10 +170,14 @@ export class CustomerOrderService {
       discountType: order.discountType,
       couponCode: order.couponCode,
       paymentMethod: order.paymentMethod,
+      deliveryNotes: order.deliveryNotes,
       cancelNotice: order.cancelNotice,
       customerVisibleUntil: order.customerVisibleUntil?.toISOString() ?? null,
       createdAt: order.createdAt.toISOString(),
       itemCount: order.items.length,
+      editableUntil: expires.toISOString(),
+      canEdit: canMutate,
+      canCancel: canMutate,
       items: order.items,
       customer: order.customer,
     };

@@ -324,6 +324,56 @@ export class DiscountEngine {
     return { ok: false, error: 'Invalid discount type' };
   }
 
+  /**
+   * Recalculate an already-applied checkout discount for a new subtotal.
+   * Does not create a second coupon/membership usage row.
+   */
+  static async quoteExistingOrderDiscount(params: {
+    discountType: OrderDiscountType;
+    couponCode: string | null;
+    subtotal: number;
+    membershipMemberId?: string | null;
+  }): Promise<{
+    discountType: OrderDiscountType;
+    discountAmount: number;
+    couponCode: string | null;
+    membershipMemberId: string | null;
+  }> {
+    const subtotal = params.subtotal;
+    if (params.discountType === 'COUPON' && params.couponCode) {
+      const code = normalizeCouponCode(params.couponCode);
+      const coupon = await prisma.coupon.findUnique({ where: { couponCode: code } });
+      if (!coupon || coupon.status !== 'ACTIVE') {
+        return { discountType: 'NONE', discountAmount: 0, couponCode: null, membershipMemberId: null };
+      }
+      if (coupon.minimumOrder > 0 && subtotal < coupon.minimumOrder) {
+        return { discountType: 'NONE', discountAmount: 0, couponCode: null, membershipMemberId: null };
+      }
+      return {
+        discountType: 'COUPON',
+        discountAmount: computeCouponAmount(coupon, subtotal),
+        couponCode: coupon.couponCode,
+        membershipMemberId: null,
+      };
+    }
+
+    if (params.discountType === 'MEMBERSHIP') {
+      const config = await SettingsService.getStoreConfig();
+      const mem = config.discountConfig.membership;
+      if (!config.discountConfig.membershipEnabled || !mem.enabled) {
+        return { discountType: 'NONE', discountAmount: 0, couponCode: null, membershipMemberId: null };
+      }
+      return {
+        discountType: 'MEMBERSHIP',
+        discountAmount: computeMembershipAmount(mem, subtotal),
+        couponCode: null,
+        membershipMemberId: params.membershipMemberId ?? null,
+      };
+    }
+
+    return { discountType: 'NONE', discountAmount: 0, couponCode: null, membershipMemberId: null };
+  }
+
   static async recordCheckoutDiscount(
     tx: Prisma.TransactionClient,
     params: {
