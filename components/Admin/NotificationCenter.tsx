@@ -6,9 +6,13 @@ import { Bell, Volume2, X } from 'lucide-react';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 import {
   canUseWebPush,
+  clearAndroidAlertsPrompt,
   enableAdminPushAlerts,
+  hasAdminPushSubscription,
+  isAndroidBrowser,
   isAppleMobileBrowser,
   isStandaloneDisplay,
+  peekAndroidAlertsPrompt,
   registerAdminServiceWorker,
 } from '@/lib/admin-push-client';
 
@@ -40,6 +44,7 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
   const [isStandalone, setIsStandalone] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [showAndroidLoginPrompt, setShowAndroidLoginPrompt] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const lastSoundAtRef = useRef(0);
 
@@ -97,6 +102,46 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
         window.cancelIdleCallback(idleId);
       }
       if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, []);
+
+  // After Android staff login: resubscribe if permission is already granted, otherwise prompt.
+  useEffect(() => {
+    if (!isAndroidBrowser() || !canUseWebPush()) return;
+    let cancelled = false;
+
+    const run = async () => {
+      await registerAdminServiceWorker();
+      const fromLogin = peekAndroidAlertsPrompt();
+      const permission = Notification.permission;
+      const subscribed = await hasAdminPushSubscription();
+      if (cancelled) return;
+
+      if (permission === 'granted' && subscribed) {
+        setPushStatus('on');
+        clearAndroidAlertsPrompt();
+        return;
+      }
+
+      if (permission === 'granted') {
+        const result = await enableAdminPushAlerts();
+        if (cancelled) return;
+        if (result.ok) {
+          setPushStatus('on');
+          clearAndroidAlertsPrompt();
+          return;
+        }
+      }
+
+      if (fromLogin) {
+        setShowAndroidLoginPrompt(true);
+        setShowSoundHint(false);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -214,6 +259,8 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
         setPushStatus('on');
         setStatusMessage('Background alerts enabled. You can minimize and still get new-order popups with sound.');
         setShowSoundHint(false);
+        setShowAndroidLoginPrompt(false);
+        clearAndroidAlertsPrompt();
       } else {
         setPushStatus('off');
         setStatusMessage(result.error || 'Could not enable background alerts. Sound may still work with the tab open.');
@@ -498,7 +545,41 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
         )}
       </div>
 
-      {showSoundHint && soundEnabled && !soundUnlocked && (
+      {showAndroidLoginPrompt && (
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-5">
+            <p className="font-semibold text-base">Turn on order alerts</p>
+            <p className="text-sm text-gray-600 mt-2 leading-snug">
+              {typeof Notification !== 'undefined' && Notification.permission === 'denied'
+                ? 'Chrome blocked notifications. Open Chrome settings → Site settings → Notifications, allow GoBaskit, then tap Enable Alerts.'
+                : 'Tap Enable Alerts so this phone gets a sound and popup when a new order arrives — even if Chrome is in the background.'}
+            </p>
+            <div className="flex gap-2 mt-4">
+              <button
+                type="button"
+                disabled={pushBusy}
+                onClick={() => void enableBackgroundAlerts()}
+                className="flex-1 text-sm font-semibold text-white bg-blinkit-green px-3 py-2.5 rounded-lg disabled:opacity-60"
+              >
+                {pushBusy ? 'Enabling…' : 'Enable Alerts'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAndroidLoginPrompt(false);
+                  clearAndroidAlertsPrompt();
+                }}
+                className="shrink-0 text-sm text-gray-600 px-3 py-2.5"
+              >
+                Not now
+              </button>
+            </div>
+            {statusMessage && <p className="text-xs text-gray-600 mt-3">{statusMessage}</p>}
+          </div>
+        </div>
+      )}
+
+      {showSoundHint && soundEnabled && !soundUnlocked && !showAndroidLoginPrompt && (
         <div className="fixed bottom-20 left-4 right-4 z-[60] sm:left-auto sm:right-4 sm:max-w-sm bg-white border shadow-lg rounded-xl p-3 flex gap-3 items-center">
           <Volume2 className="w-5 h-5 text-blinkit-green shrink-0" />
           <div className="flex-1 min-w-0">

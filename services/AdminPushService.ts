@@ -1,6 +1,9 @@
 import webpush from 'web-push';
 import { prisma } from '@/lib/prisma';
 
+/** Seconds FCM may retain the message. 60s drops Android deliveries delayed by Doze. */
+export const ADMIN_PUSH_TTL_SECONDS = 24 * 60 * 60;
+
 let configured = false;
 
 function ensureConfigured(): boolean {
@@ -83,7 +86,7 @@ export class AdminPushService {
               keys: { p256dh: sub.p256dh, auth: sub.auth },
             },
             body,
-            { urgency: 'high', TTL: 60 },
+            { urgency: 'high', TTL: ADMIN_PUSH_TTL_SECONDS },
           );
         } catch (err) {
           const status = (err as { statusCode?: number })?.statusCode;

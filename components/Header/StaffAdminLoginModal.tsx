@@ -6,6 +6,7 @@ import { X, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { markAndroidAlertsPromptAfterLogin } from '@/lib/admin-push-client';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
 import { toE164 } from '@/utils/phone';
 
@@ -49,6 +50,7 @@ export default function StaffAdminLoginModal() {
       setAdminSessionActive(true, {
         mobile: checkedMobile,
       });
+      markAndroidAlertsPromptAfterLogin();
       router.push('/admin/dashboard');
       router.refresh();
     } catch {

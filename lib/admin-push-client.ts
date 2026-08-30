@@ -2,6 +2,8 @@
 
 /** Helpers for admin Web Push (background new-order alerts). */
 
+export const ANDROID_ALERTS_PROMPT_KEY = 'gobaskit_prompt_android_alerts';
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -12,11 +14,55 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 /** iPhone/iPad Safari only supports Web Push after Add to Home Screen (standalone). */
-export function isAppleMobileBrowser(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent || '';
-  const iOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  return iOS;
+export function isAppleMobileBrowser(ua?: string): boolean {
+  const agent = ua ?? (typeof navigator === 'undefined' ? '' : navigator.userAgent || '');
+  if (/iPad|iPhone|iPod/.test(agent)) return true;
+  if (ua != null) return false;
+  return typeof navigator !== 'undefined' && navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+}
+
+export function isAndroidBrowser(ua?: string): boolean {
+  const agent = ua ?? (typeof navigator === 'undefined' ? '' : navigator.userAgent || '');
+  return /Android/i.test(agent);
+}
+
+/** Set after a successful staff login so Android Chrome can prompt Enable Alerts. */
+export function markAndroidAlertsPromptAfterLogin(): void {
+  if (typeof window === 'undefined' || !isAndroidBrowser()) return;
+  try {
+    sessionStorage.setItem(ANDROID_ALERTS_PROMPT_KEY, '1');
+  } catch {
+    /* private mode */
+  }
+}
+
+export function peekAndroidAlertsPrompt(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(ANDROID_ALERTS_PROMPT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function clearAndroidAlertsPrompt(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(ANDROID_ALERTS_PROMPT_KEY);
+  } catch {
+    /* private mode */
+  }
+}
+
+export async function hasAdminPushSubscription(): Promise<boolean> {
+  if (!canUseWebPush()) return false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    return Boolean(sub);
+  } catch {
+    return false;
+  }
 }
 
 export function isStandaloneDisplay(): boolean {
