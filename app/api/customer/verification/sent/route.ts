@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       ip: meta.ip,
       userAgent: meta.userAgent,
     });
-    return NextResponse.json({ ok: true, verified: true, ...status });
+    return NextResponse.json({ ok: true, ...status });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Could not confirm message sent';
     return NextResponse.json({ error: message }, { status: 400 });
