@@ -36,6 +36,7 @@ import {
   setSessionVerifiedMobile,
 } from '@/utils/whatsappVerificationSession';
 import WhatsAppVerificationModal from '@/components/Checkout/WhatsAppVerificationModal';
+import { prepareCheckoutVerification, clearPreparedCheckoutVerification } from '@/utils/prepareCheckoutVerification';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -260,6 +261,38 @@ export default function CheckoutPage() {
   const enteredMobile = (formValues.mobile ?? '').trim();
   const isWhatsAppPatternValid = /^\d{10}$/.test(enteredMobile);
   const mobileE164 = isWhatsAppPatternValid ? (toE164('91', enteredMobile) ?? '') : '';
+  const checkoutCustomerName = formValues.firstName
+    ? `${formValues.firstName} ${formValues.lastName ?? ''}`.trim()
+    : undefined;
+
+  useEffect(() => {
+    if (!verificationResolved || whatsappVerified) return;
+    if (!needsWhatsappVerification) return;
+    if (!mobileE164 || !isWhatsAppPatternValid) return;
+
+    const timer = window.setTimeout(() => {
+      void prepareCheckoutVerification(mobileE164, { customerName: checkoutCustomerName })
+        .then((result) => {
+          if (!result.verified) return;
+          setWhatsappVerified(true);
+          setNeedsWhatsappVerification(false);
+          setVerifiedMobileE164(mobileE164);
+          setSessionVerifiedMobile(mobileE164);
+          setVerificationResolved(true);
+          clearPreparedCheckoutVerification(mobileE164);
+        })
+        .catch(() => {});
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    mobileE164,
+    isWhatsAppPatternValid,
+    verificationResolved,
+    whatsappVerified,
+    needsWhatsappVerification,
+    checkoutCustomerName,
+  ]);
 
   // Keep PIN ↔ city in sync: valid PIN fills matching city; serviceable city fills default PIN.
   const pinCitySyncLock = useRef<'pin' | 'city' | null>(null);
@@ -628,6 +661,7 @@ export default function CheckoutPage() {
     setSessionVerifiedMobile(mobile);
     setVerificationResolved(true);
     setShowVerificationModal(false);
+    clearPreparedCheckoutVerification(mobile);
     const checkoutMobile = e164ToCheckoutMobile(mobile);
     if (checkoutMobile && isValidIndianMobile(checkoutMobile) && checkoutMobile !== getValues('mobile')) {
       setValue('mobile', checkoutMobile, { shouldValidate: true });

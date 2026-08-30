@@ -14,6 +14,7 @@ import {
 } from '@/utils/phone';
 import { isValidIndianMobile, normalizeMobile } from '@/utils/mobile';
 import { openWhatsAppUrl } from '@/utils/whatsapp';
+import { prepareCheckoutVerification } from '@/utils/prepareCheckoutVerification';
 
 interface VerificationData {
   id: string;
@@ -71,8 +72,13 @@ export default function WhatsAppVerificationModal({
   onVerifiedRef.current = onVerified;
   verifiedRef.current = verified;
 
+  const autoStartedRef = useRef(false);
+
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      autoStartedRef.current = false;
+      return;
+    }
     setError('');
     setVerified(false);
     setPending(false);
@@ -156,55 +162,85 @@ export default function WhatsAppVerificationModal({
     };
   }, [open, pending, verified, acknowledgeSent]);
 
-  async function generateCode(forceNew = false) {
-    if (!mobileE164 || !nationalValid) {
-      setError(
-        countryDial === '91'
-          ? 'Enter a valid 10-digit Indian mobile number'
-          : 'Enter a valid mobile number with country code',
-      );
-      return;
-    }
+  const generateCode = useCallback(
+    async (forceNew = false) => {
+      if (!mobileE164 || !nationalValid) {
+        setError(
+          countryDial === '91'
+            ? 'Enter a valid 10-digit Indian mobile number'
+            : 'Enter a valid mobile number with country code',
+        );
+        return;
+      }
 
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch('/api/customer/verification/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mobile: mobileE164,
+      setLoading(true);
+      setError('');
+      try {
+        const data = await prepareCheckoutVerification(mobileE164, {
           customerName,
           forceNew,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(typeof data.error === 'string' ? data.error : 'Failed to generate code');
-        return;
-      }
-      if (data.verified) {
-        finishVerified(mobileE164);
-        return;
-      }
-      setVerification(data.verification);
-      setWhatsappUrl(data.whatsappUrl ?? null);
-      setPending(true);
-      if (data.whatsappUrl) {
+        });
+        if (data.verified) {
+          finishVerified(mobileE164);
+          return;
+        }
+        setVerification(data.verification);
+        setWhatsappUrl(data.whatsappUrl);
+        setPending(true);
         void fetch('/api/customer/verification/opened', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             mobile: mobileE164,
-            verificationId: data.verification?.id,
+            verificationId: data.verification.id,
           }),
         }).catch(() => {});
         openWhatsAppUrl(data.whatsappUrl);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to generate code');
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  }
+    },
+    [mobileE164, nationalValid, countryDial, customerName, finishVerified],
+  );
+
+  useEffect(() => {
+    if (!open || verified) return;
+    if (autoStartedRef.current) return;
+    const seed = initialNationalNumber.replace(/\D/g, '').slice(-10);
+    const dial = initialCountryDial || defaultCountry.dial;
+    const seedE164 = toE164(dial, seed);
+    const seedValid = dial === '91' ? isValidIndianMobile(normalizeMobile(seed)) : Boolean(seedE164);
+    if (!seedValid || !seedE164) return;
+    autoStartedRef.current = true;
+    setLoading(true);
+    setError('');
+    void prepareCheckoutVerification(seedE164, { customerName })
+      .then((data) => {
+        if (data.verified) {
+          finishVerified(seedE164);
+          return;
+        }
+        setVerification(data.verification);
+        setWhatsappUrl(data.whatsappUrl);
+        setPending(true);
+        void fetch('/api/customer/verification/opened', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mobile: seedE164,
+            verificationId: data.verification.id,
+          }),
+        }).catch(() => {});
+        openWhatsAppUrl(data.whatsappUrl);
+      })
+      .catch((err) => {
+        autoStartedRef.current = false;
+        setError(err instanceof Error ? err.message : 'Failed to generate code');
+      })
+      .finally(() => setLoading(false));
+  }, [open, verified, initialNationalNumber, initialCountryDial, defaultCountry.dial, customerName, finishVerified]);
 
   function openWhatsApp() {
     if (!whatsappUrl || !mobileE164) return;
