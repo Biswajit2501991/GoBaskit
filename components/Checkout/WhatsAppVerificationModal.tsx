@@ -72,22 +72,30 @@ export default function WhatsAppVerificationModal({
   onVerifiedRef.current = onVerified;
   verifiedRef.current = verified;
 
+  const verificationIdRef = useRef<string | null>(null);
   const autoStartedRef = useRef(false);
+  const wasOpenRef = useRef(false);
 
   useEffect(() => {
     if (!open) {
       autoStartedRef.current = false;
+      wasOpenRef.current = false;
       return;
     }
-    setError('');
-    setVerified(false);
-    setPending(false);
-    setVerification(null);
-    setWhatsappUrl(null);
-    leftForWhatsAppRef.current = false;
-    sentInFlightRef.current = false;
-    verifiedRef.current = false;
-    hiddenAtRef.current = 0;
+    const justOpened = !wasOpenRef.current;
+    wasOpenRef.current = true;
+    if (justOpened) {
+      setError('');
+      setVerified(false);
+      setPending(false);
+      setVerification(null);
+      setWhatsappUrl(null);
+      leftForWhatsAppRef.current = false;
+      sentInFlightRef.current = false;
+      verifiedRef.current = false;
+      hiddenAtRef.current = 0;
+      verificationIdRef.current = null;
+    }
     const seed = initialNationalNumber.replace(/\D/g, '').slice(-10);
     setNationalNumber(seed);
     setCountryDial(initialCountryDial || defaultCountry.dial);
@@ -107,7 +115,7 @@ export default function WhatsAppVerificationModal({
 
   const acknowledgeSent = useCallback(async () => {
     const mobile = mobileRef.current;
-    const current = verificationRef.current;
+    const verificationId = verificationIdRef.current ?? verificationRef.current?.id;
     if (!mobile || verifiedRef.current || sentInFlightRef.current) return;
     sentInFlightRef.current = true;
     setLoading(true);
@@ -118,7 +126,7 @@ export default function WhatsAppVerificationModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mobile,
-          verificationId: current?.id,
+          ...(verificationId ? { verificationId } : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -133,8 +141,28 @@ export default function WhatsAppVerificationModal({
     }
   }, [finishVerified]);
 
+  const markOpenedWhatsApp = useCallback((mobile: string, verification: VerificationData, url: string) => {
+    mobileRef.current = mobile;
+    verificationRef.current = verification;
+    verificationIdRef.current = verification.id;
+    leftForWhatsAppRef.current = true;
+    hiddenAtRef.current = Date.now();
+    setVerification(verification);
+    setWhatsappUrl(url);
+    setPending(true);
+    void fetch('/api/customer/verification/opened', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mobile,
+        verificationId: verification.id,
+      }),
+    }).catch(() => {});
+    openWhatsAppUrl(url);
+  }, []);
+
   useEffect(() => {
-    if (!open || !pending || verified) return;
+    if (!open || verified) return;
 
     const onHidden = () => {
       leftForWhatsAppRef.current = true;
@@ -160,7 +188,7 @@ export default function WhatsAppVerificationModal({
       window.removeEventListener('focus', onReturn);
       window.removeEventListener('pageshow', onReturn);
     };
-  }, [open, pending, verified, acknowledgeSent]);
+  }, [open, verified, acknowledgeSent]);
 
   const generateCode = useCallback(
     async (forceNew = false) => {
@@ -184,25 +212,14 @@ export default function WhatsAppVerificationModal({
           finishVerified(mobileE164);
           return;
         }
-        setVerification(data.verification);
-        setWhatsappUrl(data.whatsappUrl);
-        setPending(true);
-        void fetch('/api/customer/verification/opened', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mobile: mobileE164,
-            verificationId: data.verification.id,
-          }),
-        }).catch(() => {});
-        openWhatsAppUrl(data.whatsappUrl);
+        markOpenedWhatsApp(mobileE164, data.verification, data.whatsappUrl);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to generate code');
       } finally {
         setLoading(false);
       }
     },
-    [mobileE164, nationalValid, countryDial, customerName, finishVerified],
+    [mobileE164, nationalValid, countryDial, customerName, finishVerified, markOpenedWhatsApp],
   );
 
   useEffect(() => {
@@ -222,37 +239,18 @@ export default function WhatsAppVerificationModal({
           finishVerified(seedE164);
           return;
         }
-        setVerification(data.verification);
-        setWhatsappUrl(data.whatsappUrl);
-        setPending(true);
-        void fetch('/api/customer/verification/opened', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mobile: seedE164,
-            verificationId: data.verification.id,
-          }),
-        }).catch(() => {});
-        openWhatsAppUrl(data.whatsappUrl);
+        markOpenedWhatsApp(seedE164, data.verification, data.whatsappUrl);
       })
       .catch((err) => {
         autoStartedRef.current = false;
         setError(err instanceof Error ? err.message : 'Failed to generate code');
       })
       .finally(() => setLoading(false));
-  }, [open, verified, initialNationalNumber, initialCountryDial, defaultCountry.dial, customerName, finishVerified]);
+  }, [open, verified, initialNationalNumber, initialCountryDial, defaultCountry.dial, customerName, finishVerified, markOpenedWhatsApp]);
 
   function openWhatsApp() {
-    if (!whatsappUrl || !mobileE164) return;
-    void fetch('/api/customer/verification/opened', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mobile: mobileE164,
-        verificationId: verification?.id,
-      }),
-    }).catch(() => {});
-    openWhatsAppUrl(whatsappUrl);
+    if (!whatsappUrl || !mobileE164 || !verification) return;
+    markOpenedWhatsApp(mobileE164, verification, whatsappUrl);
   }
 
   if (!open) return null;

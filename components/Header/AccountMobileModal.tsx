@@ -47,6 +47,9 @@ export default function AccountMobileModal() {
   const existingPasswordRef = useRef(false);
   const leftForWhatsAppRef = useRef(false);
   const sentInFlightRef = useRef(false);
+  const hiddenAtRef = useRef(0);
+  const verificationIdRef = useRef<string | null>(null);
+  const waitingMobileRef = useRef<string | null>(null);
 
   const mobileE164 = toE164('91', mobile);
 
@@ -69,6 +72,9 @@ export default function AccountMobileModal() {
     existingPasswordRef.current = false;
     leftForWhatsAppRef.current = false;
     sentInFlightRef.current = false;
+    hiddenAtRef.current = 0;
+    verificationIdRef.current = null;
+    waitingMobileRef.current = null;
   }
 
   function handleClose() {
@@ -112,20 +118,24 @@ export default function AccountMobileModal() {
     }
   }
 
-  // Return from WhatsApp verifies immediately; light poll is only a webhook backup.
+  // Listeners stay on while the modal is open so opening WhatsApp before the
+  // waiting screen paints still counts as "left for WhatsApp" on return.
   useEffect(() => {
-    if (phase !== 'waiting' || !verification || !mobileE164) return;
+    if (!showAccountModal) return;
+    if (phase === 'verified' || phase === 'password' || phase === 'create-password') return;
 
     let active = true;
     let inFlight = false;
 
     const poll = async () => {
-      if (!active || inFlight) return;
+      const mobile = waitingMobileRef.current;
+      const verificationId = verificationIdRef.current;
+      if (!active || inFlight || !mobile || !verificationId) return;
       inFlight = true;
       try {
         const params = new URLSearchParams({
-          mobile: mobileE164,
-          verificationId: verification.id,
+          mobile,
+          verificationId,
         });
         const res = await fetch(`/api/customer/verification/status?${params.toString()}`);
         if (!res.ok || !active) return;
@@ -133,7 +143,7 @@ export default function AccountMobileModal() {
         const approved =
           data.verified === true || data.verification?.status === 'VERIFIED';
         if (approved) {
-          setSessionVerifiedMobile(mobileE164);
+          setSessionVerifiedMobile(mobile);
           setPhase(existingPasswordRef.current ? 'password' : 'create-password');
           setError('');
         }
@@ -145,15 +155,17 @@ export default function AccountMobileModal() {
     };
 
     const confirmOnReturn = async () => {
-      if (!active || sentInFlightRef.current) return;
+      const mobile = waitingMobileRef.current;
+      const verificationId = verificationIdRef.current;
+      if (!active || sentInFlightRef.current || !mobile || !verificationId) return;
       sentInFlightRef.current = true;
       try {
         const res = await fetch('/api/customer/verification/sent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            mobile: mobileE164,
-            verificationId: verification.id,
+            mobile,
+            verificationId,
           }),
         });
         const data = await res.json().catch(() => ({}));
@@ -162,7 +174,7 @@ export default function AccountMobileModal() {
           return;
         }
         if (data.verified === true || data.ok) {
-          setSessionVerifiedMobile(mobileE164);
+          setSessionVerifiedMobile(mobile);
           setPhase(existingPasswordRef.current ? 'password' : 'create-password');
           setError('');
         } else {
@@ -173,35 +185,44 @@ export default function AccountMobileModal() {
       }
     };
 
-    void poll();
-    const timer = setInterval(() => {
-      void poll();
-    }, VERIFICATION_POLL_INTERVAL_MS);
+    const timer =
+      phase === 'waiting'
+        ? setInterval(() => {
+            void poll();
+          }, VERIFICATION_POLL_INTERVAL_MS)
+        : null;
+    if (phase === 'waiting') void poll();
 
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') {
-        leftForWhatsAppRef.current = true;
+    const onHidden = () => {
+      leftForWhatsAppRef.current = true;
+      if (!hiddenAtRef.current) hiddenAtRef.current = Date.now();
+    };
+    const onReturn = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      if (!leftForWhatsAppRef.current) {
+        if (phase === 'waiting') void poll();
         return;
       }
-      if (leftForWhatsAppRef.current) void confirmOnReturn();
-      else void poll();
+      if (hiddenAtRef.current && Date.now() - hiddenAtRef.current < 700) return;
+      void confirmOnReturn();
     };
-    const onFocus = () => {
-      if (leftForWhatsAppRef.current) void confirmOnReturn();
-      else void poll();
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') onHidden();
+      else onReturn();
     };
+
     document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('focus', onFocus);
-    window.addEventListener('pageshow', onFocus);
+    window.addEventListener('focus', onReturn);
+    window.addEventListener('pageshow', onReturn);
 
     return () => {
       active = false;
-      clearInterval(timer);
+      if (timer) clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('focus', onFocus);
-      window.removeEventListener('pageshow', onFocus);
+      window.removeEventListener('focus', onReturn);
+      window.removeEventListener('pageshow', onReturn);
     };
-  }, [phase, verification, mobileE164]);
+  }, [showAccountModal, phase]);
 
   if (!showAccountModal) return null;
 
@@ -240,13 +261,17 @@ export default function AccountMobileModal() {
       setWhatsappUrl(data.whatsappUrl ?? null);
       setPhase('waiting');
       if (data.whatsappUrl && data.verification?.id) {
+        verificationIdRef.current = data.verification.id;
+        waitingMobileRef.current = mobileE164;
+        leftForWhatsAppRef.current = true;
+        hiddenAtRef.current = Date.now();
         // Open WhatsApp immediately; track "opened" in the background.
-        openWhatsAppUrl(data.whatsappUrl);
         void fetch('/api/customer/verification/opened', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ mobile: mobileE164, verificationId: data.verification.id }),
         }).catch(() => {});
+        openWhatsAppUrl(data.whatsappUrl);
       }
     } catch {
       setError('Network error. Please try again.');
@@ -585,7 +610,13 @@ export default function AccountMobileModal() {
                 <Button
                   type="button"
                   className="w-full h-11 rounded-xl bg-[#25D366] hover:bg-[#1ebe57] text-white gap-2 font-semibold"
-                  onClick={() => openWhatsAppUrl(whatsappUrl)}
+                  onClick={() => {
+                    leftForWhatsAppRef.current = true;
+                    hiddenAtRef.current = Date.now();
+                    if (verification?.id) verificationIdRef.current = verification.id;
+                    if (mobileE164) waitingMobileRef.current = mobileE164;
+                    openWhatsAppUrl(whatsappUrl);
+                  }}
                 >
                   <MessageCircle className="w-5 h-5" />
                   Open WhatsApp Again
