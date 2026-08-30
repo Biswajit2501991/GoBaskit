@@ -13,14 +13,17 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
-  if (!Array.isArray(body.items)) {
-    return NextResponse.json({ error: 'Items are required' }, { status: 400 });
+  const items = Array.isArray(body.items) ? body.items : undefined;
+  const delivery = body.delivery && typeof body.delivery === 'object' ? body.delivery : undefined;
+  if (!items && !delivery) {
+    return NextResponse.json({ error: 'Items or delivery details required' }, { status: 400 });
   }
 
   try {
-    const order = await OrderMutationService.replaceItems({
+    const order = await OrderMutationService.saveContents({
       orderId: id,
-      items: body.items,
+      items,
+      delivery,
       actor: {
         type: 'staff',
         staff: { id: auth.staff!.id, role: auth.staff!.role, permissions: auth.staff!.permissions },

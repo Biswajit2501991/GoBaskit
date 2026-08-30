@@ -1,4 +1,5 @@
 import type { OrderStatus } from '@prisma/client';
+import { after } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { deliveryChargeFrom } from '@/constants';
 import { deliveryIsServiceable } from '@/utils/delivery';
@@ -9,7 +10,6 @@ import {
   canCustomerMutate,
   canStaffMutateItems,
   customerEditDenialMessage,
-  customerEditExpiresAt,
   staffItemEditDenialMessage,
 } from '@/utils/orderEditPolicy';
 import { SettingsService } from '@/services/SettingsService';
@@ -52,6 +52,17 @@ export type DeliveryPatch = {
 };
 
 type StaffActor = { id: string; role: string; permissions: unknown };
+type MutationActor = { type: 'customer'; mobile: string } | { type: 'staff'; staff: StaffActor };
+
+function deferAfterResponse(work: () => Promise<void>) {
+  try {
+    after(() => {
+      void work();
+    });
+  } catch {
+    void work();
+  }
+}
 
 const customerMobileWhere = (mobile: string) => {
   const normalized = normalizeMobile(mobile);
@@ -106,9 +117,9 @@ function emitOrderUpdated(order: {
       assignedStaffId: order.assignedStaffId,
       assignedStaff: order.assignedStaff ?? null,
       lockedAt: order.lockedAt?.toISOString() ?? null,
-      adminNotes: order.adminNotes,
+      adminNotes: order.adminNotes ?? null,
       createdAt: order.createdAt.toISOString(),
-      updatedAt: order.updatedAt.toISOString(),
+      updatedAt: (order.updatedAt ?? order.createdAt).toISOString(),
       customer: order.customer,
       ...(order.items
         ? {
@@ -159,11 +170,29 @@ export class OrderMutationService {
   static async replaceItems(params: {
     orderId: string;
     items: OrderLineInput[];
-    actor: { type: 'customer'; mobile: string } | { type: 'staff'; staff: StaffActor };
+    actor: MutationActor;
   }) {
-    const lines = normalizeLines(params.items);
-    if (!lines.length) {
-      throw new OrderEditError('Add at least one item', 400);
+    return this.saveContents({ ...params, delivery: undefined });
+  }
+
+  static async updateDelivery(params: {
+    orderId: string;
+    delivery: DeliveryPatch;
+    actor: MutationActor;
+  }) {
+    return this.saveContents({ ...params, items: undefined });
+  }
+
+  static async saveContents(params: {
+    orderId: string;
+    items?: OrderLineInput[];
+    delivery?: DeliveryPatch;
+    actor: MutationActor;
+  }) {
+    const hasItems = Array.isArray(params.items);
+    const hasDelivery = Boolean(params.delivery && typeof params.delivery === 'object');
+    if (!hasItems && !hasDelivery) {
+      throw new OrderEditError('Nothing to update', 400);
     }
 
     const order = await this.loadMutableOrder(params.orderId, params.actor);
@@ -173,182 +202,216 @@ export class OrderMutationService {
       this.assertStaffCanMutateItems(order, params.actor.staff);
     }
 
-    const named = await this.resolveCatalogLines(lines);
-    const subtotal = named.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-
-    const config = await SettingsService.getStoreConfig();
-    if (config.minOrderValue > 0 && subtotal < config.minOrderValue) {
-      throw new OrderEditError(`Minimum order value is ₹${config.minOrderValue}.`, 400);
+    const lines = hasItems ? normalizeLines(params.items!) : null;
+    if (lines && !lines.length) {
+      throw new OrderEditError('Add at least one item', 400);
     }
 
-    const quoted = await DiscountEngine.quoteExistingOrderDiscount({
+    const [named, config] = await Promise.all([
+      lines ? this.resolveCatalogLines(lines) : Promise.resolve(null),
+      SettingsService.getStoreConfig(),
+    ]);
+
+    let subtotal = order.subtotal;
+    let deliveryCharge = order.deliveryCharge;
+    let quoted = {
+      discountAmount: order.discountAmount,
       discountType: order.discountType,
       couponCode: order.couponCode,
-      subtotal,
       membershipMemberId: order.membershipMemberId,
-    });
-    const deliveryCharge = deliveryChargeFrom(config.deliverySlabs, subtotal);
-    const grandTotal = Math.max(0, subtotal - quoted.discountAmount + deliveryCharge);
+    };
 
-    const stockItems = named.map((item) => ({
-      productId: item.productId,
-      variantId: item.variantId,
-      quantity: item.quantity,
-    }));
+    if (named) {
+      subtotal = named.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+      if (config.minOrderValue > 0 && subtotal < config.minOrderValue) {
+        throw new OrderEditError(`Minimum order value is ₹${config.minOrderValue}.`, 400);
+      }
+      quoted = await DiscountEngine.quoteExistingOrderDiscount({
+        discountType: order.discountType,
+        couponCode: order.couponCode,
+        subtotal,
+        membershipMemberId: order.membershipMemberId,
+      });
+      deliveryCharge = deliveryChargeFrom(config.deliverySlabs, subtotal);
+    }
+
+    const grandTotal = named
+      ? Math.max(0, subtotal - quoted.discountAmount + deliveryCharge)
+      : order.grandTotal;
+
+    const deliveryNext = hasDelivery
+      ? mergeDelivery(order.customer, order.deliveryNotes, params.delivery!)
+      : null;
+    if (deliveryNext) {
+      const serviceable = deliveryIsServiceable({
+        serviceablePins: config.serviceablePins,
+        serviceableCities: config.serviceableCities,
+        city: deliveryNext.city,
+        pincode: deliveryNext.pincode,
+        cityAliases: config.cityAliases,
+      });
+      if (!serviceable) {
+        throw new OrderEditError('Sorry, delivery is currently unavailable in your area.', 400);
+      }
+    }
+
+    const stockItems = named
+      ? named.map((item) => ({
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity,
+        }))
+      : null;
 
     let inventoryUpdates: {
       productIds: string[];
       qtyByProduct: Map<string, number>;
       variantIds: string[];
       qtyByVariant: Map<string, number>;
-    };
+    } | null = null;
+    let createdItems = order.items;
 
     try {
       await prisma.$transaction(
         async (tx) => {
-          await InventoryService.restoreReservationInTx(
-            tx,
-            order.id,
-            order.items,
-            order.stockReserved,
-          );
-          await tx.orderItem.deleteMany({ where: { orderId: order.id } });
-          await tx.orderItem.createMany({
-            data: named.map((item) => ({
-              orderId: order.id,
-              productId: item.productId,
-              variantId: item.variantId,
-              productName: item.productName,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              unit: item.unit,
-              totalPrice: item.unitPrice * item.quantity,
-            })),
-          });
+          if (named && stockItems) {
+            await InventoryService.restoreReservationInTx(
+              tx,
+              order.id,
+              order.items,
+              order.stockReserved,
+            );
+            await tx.orderItem.deleteMany({ where: { orderId: order.id } });
+            createdItems = await tx.orderItem.createManyAndReturn({
+              data: named.map((item) => ({
+                orderId: order.id,
+                productId: item.productId,
+                variantId: item.variantId,
+                productName: item.productName,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                unit: item.unit,
+                totalPrice: item.unitPrice * item.quantity,
+              })),
+            });
+            inventoryUpdates = await InventoryService.reserveForOrder(tx, order.id, stockItems);
+          }
+
+          if (deliveryNext) {
+            await tx.customer.update({
+              where: { id: order.customerId },
+              data: {
+                firstName: deliveryNext.firstName,
+                lastName: deliveryNext.lastName,
+                alternateMobile: deliveryNext.alternateMobile,
+                houseNumber: deliveryNext.houseNumber,
+                street: deliveryNext.street,
+                area: deliveryNext.area,
+                landmark: deliveryNext.landmark,
+                city: deliveryNext.city,
+                state: deliveryNext.state,
+                pincode: deliveryNext.pincode,
+              },
+            });
+          }
+
           await tx.order.update({
             where: { id: order.id },
             data: {
-              subtotal,
-              deliveryCharge,
-              discountAmount: quoted.discountAmount,
-              discountType: quoted.discountType,
-              couponCode: quoted.couponCode,
-              membershipMemberId: quoted.membershipMemberId,
-              grandTotal,
+              ...(named
+                ? {
+                    subtotal,
+                    deliveryCharge,
+                    discountAmount: quoted.discountAmount,
+                    discountType: quoted.discountType,
+                    couponCode: quoted.couponCode,
+                    membershipMemberId: quoted.membershipMemberId,
+                    grandTotal,
+                  }
+                : {}),
+              ...(deliveryNext ? { deliveryNotes: deliveryNext.deliveryNotes } : {}),
             },
           });
-          inventoryUpdates = await InventoryService.reserveForOrder(tx, order.id, stockItems);
         },
         { maxWait: 3000, timeout: 8000 },
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not update items';
+      const message = err instanceof Error ? err.message : 'Could not update order';
       if (/stock/i.test(message) || /unavailable/i.test(message)) {
         throw new OrderEditError(message, 400);
       }
       throw err;
     }
 
-    const note =
-      params.actor.type === 'customer'
-        ? 'Customer updated order items'
-        : 'Staff updated order items';
-    await OrderService.recordStatusChange(
-      order.id,
-      order.status,
-      params.actor.type === 'staff' ? params.actor.staff.id : undefined,
-      note,
-    );
+    const customer = deliveryNext
+      ? {
+          ...order.customer,
+          firstName: deliveryNext.firstName,
+          lastName: deliveryNext.lastName,
+          alternateMobile: deliveryNext.alternateMobile,
+          houseNumber: deliveryNext.houseNumber,
+          street: deliveryNext.street,
+          area: deliveryNext.area,
+          landmark: deliveryNext.landmark,
+          city: deliveryNext.city,
+          state: deliveryNext.state,
+          pincode: deliveryNext.pincode,
+        }
+      : order.customer;
 
-    if (inventoryUpdates!) {
-      await InventoryService.afterOrderReserved(
-        inventoryUpdates.productIds,
-        inventoryUpdates.qtyByProduct,
-        inventoryUpdates.variantIds,
-        inventoryUpdates.qtyByVariant,
+    const updated = {
+      ...order,
+      subtotal,
+      deliveryCharge,
+      discountAmount: quoted.discountAmount,
+      discountType: quoted.discountType,
+      couponCode: quoted.couponCode,
+      membershipMemberId: quoted.membershipMemberId,
+      grandTotal,
+      deliveryNotes: deliveryNext ? deliveryNext.deliveryNotes : order.deliveryNotes,
+      stockReserved: named ? true : order.stockReserved,
+      items: createdItems,
+      customer,
+    };
+
+    emitOrderUpdated(updated);
+
+    const staffId = params.actor.type === 'staff' ? params.actor.staff.id : undefined;
+    const notes: string[] = [];
+    if (named) {
+      notes.push(params.actor.type === 'customer' ? 'Customer updated order items' : 'Staff updated order items');
+    }
+    if (deliveryNext) {
+      notes.push(
+        params.actor.type === 'customer'
+          ? 'Customer updated delivery details'
+          : 'Staff updated delivery details',
       );
     }
 
-    if (params.actor.type === 'staff') {
-      await AuditService.log({
-        staffId: params.actor.staff.id,
-        action: 'order_items_updated',
-        entity: 'orders',
-        entityId: order.id,
-      });
-    }
-
-    return this.reloadAndEmit(order.id);
-  }
-
-  static async updateDelivery(params: {
-    orderId: string;
-    delivery: DeliveryPatch;
-    actor: { type: 'customer'; mobile: string } | { type: 'staff'; staff: StaffActor };
-  }) {
-    const order = await this.loadMutableOrder(params.orderId, params.actor);
-    if (params.actor.type === 'customer') {
-      this.assertCustomerCanMutate(order);
-    } else {
-      this.assertStaffCanMutateItems(order, params.actor.staff);
-    }
-
-    const next = mergeDelivery(order.customer, order.deliveryNotes, params.delivery);
-    const config = await SettingsService.getStoreConfig();
-    const serviceable = deliveryIsServiceable({
-      serviceablePins: config.serviceablePins,
-      serviceableCities: config.serviceableCities,
-      city: next.city,
-      pincode: next.pincode,
-      cityAliases: config.cityAliases,
+    deferAfterResponse(async () => {
+      await Promise.allSettled([
+        inventoryUpdates
+          ? InventoryService.afterOrderReserved(
+              inventoryUpdates.productIds,
+              inventoryUpdates.qtyByProduct,
+              inventoryUpdates.variantIds,
+              inventoryUpdates.qtyByVariant,
+            )
+          : Promise.resolve(),
+        ...notes.map((note) => OrderService.recordStatusChange(order.id, order.status, staffId, note)),
+        params.actor.type === 'staff'
+          ? AuditService.log({
+              staffId: params.actor.staff.id,
+              action: named && deliveryNext ? 'order_contents_updated' : named ? 'order_items_updated' : 'order_delivery_updated',
+              entity: 'orders',
+              entityId: order.id,
+            })
+          : Promise.resolve(),
+      ]);
     });
-    if (!serviceable) {
-      throw new OrderEditError('Sorry, delivery is currently unavailable in your area.', 400);
-    }
 
-    await prisma.$transaction([
-      prisma.customer.update({
-        where: { id: order.customerId },
-        data: {
-          firstName: next.firstName,
-          lastName: next.lastName,
-          alternateMobile: next.alternateMobile,
-          houseNumber: next.houseNumber,
-          street: next.street,
-          area: next.area,
-          landmark: next.landmark,
-          city: next.city,
-          state: next.state,
-          pincode: next.pincode,
-        },
-      }),
-      prisma.order.update({
-        where: { id: order.id },
-        data: { deliveryNotes: next.deliveryNotes },
-      }),
-    ]);
-
-    const note =
-      params.actor.type === 'customer'
-        ? 'Customer updated delivery details'
-        : 'Staff updated delivery details';
-    await OrderService.recordStatusChange(
-      order.id,
-      order.status,
-      params.actor.type === 'staff' ? params.actor.staff.id : undefined,
-      note,
-    );
-
-    if (params.actor.type === 'staff') {
-      await AuditService.log({
-        staffId: params.actor.staff.id,
-        action: 'order_delivery_updated',
-        entity: 'orders',
-        entityId: order.id,
-      });
-    }
-
-    return this.reloadAndEmit(order.id);
+    return updated;
   }
 
   static async cancelForCustomer(orderId: string, mobile: string) {
@@ -363,9 +426,16 @@ export class OrderMutationService {
       },
     });
     await InventoryService.restoreForOrder(order.id);
-    await OrderService.recordStatusChange(order.id, 'CANCELLED', undefined, 'Cancelled by customer');
-
-    return this.reloadAndEmit(order.id);
+    const updated = {
+      ...order,
+      status: 'CANCELLED' as const,
+      cancelNotice: 'Cancelled by customer within the edit window.',
+    };
+    emitOrderUpdated(updated);
+    deferAfterResponse(async () => {
+      await OrderService.recordStatusChange(order.id, 'CANCELLED', undefined, 'Cancelled by customer');
+    });
+    return updated;
   }
 
   private static async loadMutableOrder(
@@ -379,9 +449,7 @@ export class OrderMutationService {
           : { id: orderId, archivedAt: null },
       include: {
         customer: true,
-        items: {
-          select: { productId: true, variantId: true, quantity: true },
-        },
+        items: true,
         assignedStaff: { select: { id: true, name: true } },
       },
     });
@@ -451,33 +519,6 @@ export class OrderMutationService {
         }),
       };
     });
-  }
-
-  private static async reloadAndEmit(orderId: string) {
-    const updated = await prisma.order.findUniqueOrThrow({
-      where: { id: orderId },
-      include: {
-        customer: {
-          select: {
-            firstName: true,
-            lastName: true,
-            mobile: true,
-            alternateMobile: true,
-            houseNumber: true,
-            street: true,
-            area: true,
-            landmark: true,
-            city: true,
-            state: true,
-            pincode: true,
-          },
-        },
-        items: true,
-        assignedStaff: { select: { id: true, name: true } },
-      },
-    });
-    emitOrderUpdated(updated);
-    return updated;
   }
 }
 

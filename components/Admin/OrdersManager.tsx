@@ -545,7 +545,7 @@ function OrderCard({
                       setSavingContents(true);
                       setContentsError('');
                       try {
-                        const itemsRes = await fetch(`/api/admin/orders/${order.id}/items`, {
+                        const res = await fetch(`/api/admin/orders/${order.id}/items`, {
                           method: 'PATCH',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
@@ -554,25 +554,15 @@ function OrderCard({
                               variantId: l.variantId,
                               quantity: l.quantity,
                             })),
+                            delivery: editAddress,
                           }),
                         });
-                        const itemsData = await itemsRes.json().catch(() => ({}));
-                        if (!itemsRes.ok) {
-                          setContentsError(typeof itemsData.error === 'string' ? itemsData.error : 'Could not save items');
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                          setContentsError(typeof data.error === 'string' ? data.error : 'Could not save order');
                           return;
                         }
-                        const delivRes = await fetch(`/api/admin/orders/${order.id}/delivery`, {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ delivery: editAddress }),
-                        });
-                        const delivData = await delivRes.json().catch(() => ({}));
-                        if (!delivRes.ok) {
-                          setContentsError(typeof delivData.error === 'string' ? delivData.error : 'Could not save address');
-                          onReplaceOrder(itemsData);
-                          return;
-                        }
-                        onReplaceOrder(delivData);
+                        onReplaceOrder(data);
                         setEditingContents(false);
                       } finally {
                         setSavingContents(false);

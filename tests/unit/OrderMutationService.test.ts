@@ -41,6 +41,12 @@ jest.mock('@/lib/realtime/eventBus', () => ({
   adminEventBus: { emit: jest.fn() },
 }));
 
+jest.mock('next/server', () => ({
+  after: (fn: () => void) => {
+    void fn();
+  },
+}));
+
 import { OrderEditError, OrderMutationService } from '@/services/OrderMutationService';
 import { InventoryService } from '@/services/InventoryService';
 
@@ -52,6 +58,7 @@ function pendingOrder(overrides: Record<string, unknown> = {}) {
     customerId: 'c1',
     status: 'PENDING',
     createdAt: recent,
+    updatedAt: recent,
     archivedAt: null,
     stockReserved: true,
     discountType: 'NONE',
@@ -60,6 +67,7 @@ function pendingOrder(overrides: Record<string, unknown> = {}) {
     deliveryNotes: null,
     assignedStaffId: null,
     lockedAt: null,
+    adminNotes: null,
     items: [{ productId: 'p1', variantId: null, quantity: 1 }],
     customer: {
       firstName: 'Bis',
@@ -121,16 +129,6 @@ describe('OrderMutationService guards', () => {
   it('cancels for the customer and restores stock', async () => {
     prismaMock.order.findFirst.mockResolvedValue(pendingOrder());
     prismaMock.order.update.mockResolvedValue({});
-    prismaMock.order.findUniqueOrThrow.mockResolvedValue({
-      ...pendingOrder(),
-      status: 'CANCELLED',
-      grandTotal: 10,
-      priority: 'NORMAL',
-      adminNotes: null,
-      createdAt: recent,
-      updatedAt: recent,
-      items: [],
-    });
 
     await OrderMutationService.cancelForCustomer('ord1', '7899813212');
 

@@ -155,10 +155,30 @@ export class CustomerOrderService {
     });
 
     if (!order) return null;
+    return this.toDetail(order);
+  }
 
+  static toDetail(order: {
+    id: string;
+    orderNumber: string;
+    status: OrderStatus;
+    grandTotal: number;
+    subtotal: number;
+    deliveryCharge: number;
+    discountAmount: number;
+    discountType: CustomerOrderDetail['discountType'];
+    couponCode: string | null;
+    paymentMethod: string;
+    deliveryNotes: string | null;
+    cancelNotice: string | null;
+    customerVisibleUntil: Date | null;
+    createdAt: Date;
+    archivedAt?: Date | null;
+    items: CustomerOrderDetail['items'];
+    customer: CustomerOrderDetail['customer'];
+  }): CustomerOrderDetail {
     const canMutate = canCustomerMutate(order);
     const expires = customerEditExpiresAt(order.createdAt);
-
     return {
       id: order.id,
       orderNumber: order.orderNumber,

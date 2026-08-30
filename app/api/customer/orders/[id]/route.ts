@@ -32,28 +32,20 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
+  const items = Array.isArray(body.items) ? body.items : undefined;
+  const delivery = body.delivery && typeof body.delivery === 'object' ? body.delivery : undefined;
+  if (!items && !delivery) {
+    return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+  }
 
   try {
-    if (Array.isArray(body.items)) {
-      await OrderMutationService.replaceItems({
-        orderId: id,
-        items: body.items,
-        actor: { type: 'customer', mobile },
-      });
-    }
-    if (body.delivery && typeof body.delivery === 'object') {
-      await OrderMutationService.updateDelivery({
-        orderId: id,
-        delivery: body.delivery,
-        actor: { type: 'customer', mobile },
-      });
-    }
-    if (!Array.isArray(body.items) && !(body.delivery && typeof body.delivery === 'object')) {
-      return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
-    }
-
-    const order = await CustomerOrderService.getByIdForMobile(id, mobile);
-    return NextResponse.json({ order });
+    const updated = await OrderMutationService.saveContents({
+      orderId: id,
+      items,
+      delivery,
+      actor: { type: 'customer', mobile },
+    });
+    return NextResponse.json({ order: CustomerOrderService.toDetail(updated) });
   } catch (err) {
     if (err instanceof OrderEditError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
