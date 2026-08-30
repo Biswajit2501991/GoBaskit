@@ -22,12 +22,16 @@ export async function POST(req: NextRequest) {
   }
 
   const meta = getRequestMeta(req);
-  await WhatsAppVerificationService.logWhatsAppOpened({
-    mobileE164: mobile,
-    verificationId: parsed.data.verificationId,
-    ip: meta.ip,
-    userAgent: meta.userAgent,
-  });
-
-  return NextResponse.json({ ok: true });
+  try {
+    const status = await WhatsAppVerificationService.logWhatsAppOpened({
+      mobileE164: mobile,
+      verificationId: parsed.data.verificationId,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+    });
+    return NextResponse.json({ ok: true, ...status });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Could not confirm WhatsApp opened';
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 }

@@ -435,6 +435,9 @@ export class WhatsAppVerificationService {
       ip: params.ip,
       userAgent: params.userAgent,
     });
+    // Opening WhatsApp is the customer action we can observe. Return-from-app
+    // is often missed (new tab, admin opened in another tab), so verify here.
+    return this.logSentAck(params);
   }
 
   /**

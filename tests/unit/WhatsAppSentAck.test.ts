@@ -70,6 +70,23 @@ describe('customer sent-ack auto-verify', () => {
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
+  it('verifies when WhatsApp is opened, same as sent-ack', async () => {
+    prismaMock.whatsAppVerification.findFirst.mockResolvedValue({
+      id: 'v-open',
+      mobile: '+919876543210',
+      status: 'PENDING',
+      customerMobileId: 'cm1',
+    });
+
+    const result = await WhatsAppVerificationService.logWhatsAppOpened({
+      mobileE164: '+919876543210',
+      verificationId: 'v-open',
+    });
+
+    expect(result.verified).toBe(true);
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+  });
+
   it('verifies an expired code in one transaction without a status re-read', async () => {
     prismaMock.whatsAppVerification.findFirst.mockResolvedValue({
       id: 'v-expired',

@@ -150,6 +150,7 @@ export default function WhatsAppVerificationModal({
     setVerification(verification);
     setWhatsappUrl(url);
     setPending(true);
+    openWhatsAppUrl(url);
     void fetch('/api/customer/verification/opened', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -157,9 +158,15 @@ export default function WhatsAppVerificationModal({
         mobile,
         verificationId: verification.id,
       }),
-    }).catch(() => {});
-    openWhatsAppUrl(url);
-  }, []);
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && (data.verified === true || data.ok)) {
+          finishVerified(mobile);
+        }
+      })
+      .catch(() => {});
+  }, [finishVerified]);
 
   useEffect(() => {
     if (!open || verified) return;

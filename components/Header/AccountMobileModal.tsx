@@ -226,6 +226,22 @@ export default function AccountMobileModal() {
 
   if (!showAccountModal) return null;
 
+  async function completeAfterWhatsAppOpened(mobile: string, verificationId: string) {
+    const openedRes = await fetch('/api/customer/verification/opened', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile, verificationId }),
+    });
+    const openedData = await openedRes.json().catch(() => ({}));
+    if (openedRes.ok && (openedData.verified === true || openedData.ok)) {
+      setSessionVerifiedMobile(mobile);
+      setPhase(existingPasswordRef.current ? 'password' : 'create-password');
+      setError('');
+      return true;
+    }
+    return false;
+  }
+
   async function startVerification(forceNew: boolean) {
     if (!mobileE164) {
       setError('Enter a valid 10-digit mobile number');
@@ -265,13 +281,8 @@ export default function AccountMobileModal() {
         waitingMobileRef.current = mobileE164;
         leftForWhatsAppRef.current = true;
         hiddenAtRef.current = Date.now();
-        // Open WhatsApp immediately; track "opened" in the background.
-        void fetch('/api/customer/verification/opened', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mobile: mobileE164, verificationId: data.verification.id }),
-        }).catch(() => {});
         openWhatsAppUrl(data.whatsappUrl);
+        await completeAfterWhatsAppOpened(mobileE164, data.verification.id);
       }
     } catch {
       setError('Network error. Please try again.');
@@ -616,6 +627,9 @@ export default function AccountMobileModal() {
                     if (verification?.id) verificationIdRef.current = verification.id;
                     if (mobileE164) waitingMobileRef.current = mobileE164;
                     openWhatsAppUrl(whatsappUrl);
+                    if (mobileE164 && verification?.id) {
+                      void completeAfterWhatsAppOpened(mobileE164, verification.id);
+                    }
                   }}
                 >
                   <MessageCircle className="w-5 h-5" />
