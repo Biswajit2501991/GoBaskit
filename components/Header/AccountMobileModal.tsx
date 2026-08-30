@@ -14,7 +14,7 @@ import { openWhatsAppUrl } from '@/utils/whatsapp';
 import { setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
 import LoginBrandSeal from '@/components/Header/LoginBrandSeal';
 import { useConfigStore } from '@/store/configStore';
-import { LOGIN_VERIFICATION_POLL_INTERVAL_MS } from '@/constants/whatsappVerification';
+import { VERIFICATION_POLL_INTERVAL_MS } from '@/constants/whatsappVerification';
 
 interface PendingVerification {
   id: string;
@@ -45,6 +45,8 @@ export default function AccountMobileModal() {
   const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null);
   const staffNameRef = useRef<string>('');
   const existingPasswordRef = useRef(false);
+  const leftForWhatsAppRef = useRef(false);
+  const sentInFlightRef = useRef(false);
 
   const mobileE164 = toE164('91', mobile);
 
@@ -65,6 +67,8 @@ export default function AccountMobileModal() {
     setAttemptsRemaining(null);
     staffNameRef.current = '';
     existingPasswordRef.current = false;
+    leftForWhatsAppRef.current = false;
+    sentInFlightRef.current = false;
   }
 
   function handleClose() {
@@ -108,7 +112,7 @@ export default function AccountMobileModal() {
     }
   }
 
-  // Poll for admin / webhook WhatsApp approval → then prompt to create / reset password.
+  // Return from WhatsApp verifies immediately; light poll is only a webhook backup.
   useEffect(() => {
     if (phase !== 'waiting' || !verification || !mobileE164) return;
 
@@ -140,25 +144,62 @@ export default function AccountMobileModal() {
       }
     };
 
+    const confirmOnReturn = async () => {
+      if (!active || sentInFlightRef.current) return;
+      sentInFlightRef.current = true;
+      try {
+        const res = await fetch('/api/customer/verification/sent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mobile: mobileE164,
+            verificationId: verification.id,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !active) {
+          sentInFlightRef.current = false;
+          return;
+        }
+        if (data.verified === true || data.ok) {
+          setSessionVerifiedMobile(mobileE164);
+          setPhase(existingPasswordRef.current ? 'password' : 'create-password');
+          setError('');
+        } else {
+          sentInFlightRef.current = false;
+        }
+      } catch {
+        sentInFlightRef.current = false;
+      }
+    };
+
     void poll();
     const timer = setInterval(() => {
       void poll();
-    }, LOGIN_VERIFICATION_POLL_INTERVAL_MS);
+    }, VERIFICATION_POLL_INTERVAL_MS);
 
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') void poll();
+      if (document.visibilityState === 'hidden') {
+        leftForWhatsAppRef.current = true;
+        return;
+      }
+      if (leftForWhatsAppRef.current) void confirmOnReturn();
+      else void poll();
     };
     const onFocus = () => {
-      void poll();
+      if (leftForWhatsAppRef.current) void confirmOnReturn();
+      else void poll();
     };
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('focus', onFocus);
+    window.addEventListener('pageshow', onFocus);
 
     return () => {
       active = false;
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('focus', onFocus);
+      window.removeEventListener('pageshow', onFocus);
     };
   }, [phase, verification, mobileE164]);
 
@@ -215,7 +256,8 @@ export default function AccountMobileModal() {
   }
 
   async function confirmSentAndVerify() {
-    if (!mobileE164 || !verification) return;
+    if (!mobileE164 || !verification || sentInFlightRef.current) return;
+    sentInFlightRef.current = true;
     setLoading(true);
     setError('');
     try {
@@ -229,11 +271,15 @@ export default function AccountMobileModal() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        sentInFlightRef.current = false;
         setError(typeof data.error === 'string' ? data.error : 'Could not confirm message sent');
         return;
       }
       setSessionVerifiedMobile(mobileE164);
       setPhase(existingPasswordRef.current ? 'password' : 'create-password');
+    } catch {
+      sentInFlightRef.current = false;
+      setError('Network error. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -524,7 +570,7 @@ export default function AccountMobileModal() {
           <div className="text-center">
             <h2 className="text-xl font-bold text-gray-900 tracking-tight">Verify your WhatsApp</h2>
             <p className="text-sm text-gray-500 mt-1.5 mb-5 leading-relaxed">
-              Send this code on WhatsApp, then tap continue. You don&apos;t have to wait for admin, even if the code timer expired.
+              Send this code on WhatsApp, then return here. You don&apos;t have to wait for admin.
             </p>
             <div className="bg-gray-50 rounded-2xl p-4 space-y-1 mb-4 border border-gray-100">
               <p className="text-[11px] text-gray-500 uppercase tracking-wide">Verification Code</p>
@@ -532,7 +578,7 @@ export default function AccountMobileModal() {
               <p className="text-sm text-gray-600">{formatE164Display(verification.mobile)}</p>
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-4">
-              <p className="text-sm font-medium text-amber-900">Send the WhatsApp message, then continue</p>
+              <p className="text-sm font-medium text-amber-900">Send the message, then come back — we verify automatically</p>
             </div>
             <div className="space-y-2">
               {whatsappUrl && (

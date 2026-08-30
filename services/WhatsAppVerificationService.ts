@@ -438,9 +438,8 @@ export class WhatsAppVerificationService {
   }
 
   /**
-   * Customer tapped “I’ve sent the message”. Without a WhatsApp API we cannot
-   * prove delivery, so this is the confirmation that verifies the number.
-   * Works for PENDING and expired codes so late continue still succeeds.
+   * Customer tapped “I’ve sent the message” or returned from WhatsApp.
+   * One write transaction — no expire sweep and no extra status round-trip.
    */
   static async logSentAck(params: {
     mobileE164: string;
@@ -450,53 +449,116 @@ export class WhatsAppVerificationService {
   }) {
     const variants = mobileVariantsFromE164(params.mobileE164);
 
-    if (await this.isMobileVerified(params.mobileE164)) {
-      return this.getStatus(params.mobileE164);
-    }
-
     const row = params.verificationId
       ? await prisma.whatsAppVerification.findFirst({
           where: {
             id: params.verificationId,
             mobile: { in: variants },
-            status: { in: ['PENDING', 'EXPIRED'] },
+            status: { in: ['PENDING', 'EXPIRED', 'VERIFIED'] },
           },
+          select: { id: true, status: true, customerMobileId: true, mobile: true },
         })
       : await prisma.whatsAppVerification.findFirst({
           where: {
             mobile: { in: variants },
-            status: { in: ['PENDING', 'EXPIRED'] },
+            status: { in: ['PENDING', 'EXPIRED', 'VERIFIED'] },
           },
           orderBy: { createdAt: 'desc' },
+          select: { id: true, status: true, customerMobileId: true, mobile: true },
         });
+
+    if (row?.status === 'VERIFIED') {
+      return this.customerVerifiedPayload(params.mobileE164);
+    }
 
     if (!row) {
       throw new Error('No verification request found. Generate a code and send it on WhatsApp first.');
     }
 
     const now = new Date();
-    await prisma.whatsAppVerification.update({
-      where: { id: row.id },
-      data: {
-        status: 'PENDING',
-        expiresAt: addMinutes(now, VERIFICATION_CODE_TTL_MINUTES),
-        sentAcknowledgedAt: now,
-      },
-    });
+    const verifiedFlags = {
+      isWhatsappVerified: true,
+      verifiedAt: now,
+      verifiedById: null,
+    };
 
-    await VerificationAuditService.log({
-      action: VERIFICATION_AUDIT_ACTIONS.SENT_ACK,
-      mobile: params.mobileE164,
+    await prisma.$transaction([
+      prisma.whatsAppVerification.update({
+        where: { id: row.id },
+        data: {
+          status: 'VERIFIED',
+          verifiedAt: now,
+          verifiedById: null,
+          sentAcknowledgedAt: now,
+        },
+      }),
+      prisma.customerMobile.update({
+        where: { id: row.customerMobileId },
+        data: verifiedFlags,
+      }),
+      prisma.customerMobile.updateMany({
+        where: { mobile: { in: variants } },
+        data: verifiedFlags,
+      }),
+      prisma.customer.updateMany({
+        where: { mobile: { in: variants } },
+        data: verifiedFlags,
+      }),
+      prisma.whatsAppVerification.updateMany({
+        where: {
+          id: { not: row.id },
+          mobile: { in: variants },
+          status: { in: ['PENDING', 'VERIFIED'] },
+        },
+        data: { status: 'EXPIRED' },
+      }),
+    ]);
+
+    void this.recordCustomerSentAckSideEffects({
+      mobileE164: params.mobileE164,
       verificationId: row.id,
-      actorType: 'customer',
       ip: params.ip,
       userAgent: params.userAgent,
     });
 
-    return this.finalizeApproval(row.id, {
-      actorType: 'system',
+    return this.customerVerifiedPayload(params.mobileE164);
+  }
+
+  private static customerVerifiedPayload(mobileE164: string) {
+    return {
+      mobile: mobileE164,
+      verified: true as const,
+      needsVerification: false,
+      canCheckout: true,
+      messageSent: true,
+      verification: null,
+    };
+  }
+
+  private static async recordCustomerSentAckSideEffects(params: {
+    mobileE164: string;
+    verificationId: string;
+    ip?: string;
+    userAgent?: string;
+  }) {
+    await VerificationAuditService.log({
+      action: VERIFICATION_AUDIT_ACTIONS.SENT_ACK,
+      mobile: params.mobileE164,
+      verificationId: params.verificationId,
+      actorType: 'customer',
       ip: params.ip,
+      userAgent: params.userAgent,
+    });
+    await VerificationAuditService.log({
+      action: VERIFICATION_AUDIT_ACTIONS.APPROVED,
+      mobile: params.mobileE164,
+      verificationId: params.verificationId,
+      actorType: 'system',
       meta: { source: 'customer_sent_ack' },
+    });
+    adminEventBus.emit({
+      type: 'whatsapp_verification_updated',
+      payload: { id: params.verificationId, status: 'VERIFIED', mobile: params.mobileE164 },
     });
   }
 

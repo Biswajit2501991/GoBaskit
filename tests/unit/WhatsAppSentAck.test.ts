@@ -34,10 +34,6 @@ import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationServ
 describe('customer sent-ack auto-verify', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    prismaMock.customerMobile.findFirst.mockResolvedValue({ isWhatsappVerified: false });
-    prismaMock.whatsAppVerification.findMany.mockResolvedValue([]);
-    prismaMock.customerMobile.updateMany.mockResolvedValue({ count: 0 });
-    prismaMock.customer.updateMany.mockResolvedValue({ count: 0 });
     prismaMock.$transaction.mockResolvedValue([]);
   });
 
@@ -47,29 +43,39 @@ describe('customer sent-ack auto-verify', () => {
     await expect(
       WhatsAppVerificationService.logSentAck({ mobileE164: '+919876543210' }),
     ).rejects.toThrow(/Generate a code/);
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
-  it('revives an expired code and verifies the number without WhatsApp API', async () => {
-    const expired = {
+  it('returns immediately when the number is already verified', async () => {
+    prismaMock.whatsAppVerification.findFirst.mockResolvedValue({
+      id: 'v1',
+      status: 'VERIFIED',
+      customerMobileId: 'cm1',
+      mobile: '+919876543210',
+    });
+
+    const result = await WhatsAppVerificationService.logSentAck({
+      mobileE164: '+919876543210',
+      verificationId: 'v1',
+    });
+
+    expect(result).toEqual({
+      mobile: '+919876543210',
+      verified: true,
+      needsVerification: false,
+      canCheckout: true,
+      messageSent: true,
+      verification: null,
+    });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('verifies an expired code in one transaction without a status re-read', async () => {
+    prismaMock.whatsAppVerification.findFirst.mockResolvedValue({
       id: 'v-expired',
       mobile: '+919876543210',
       status: 'EXPIRED',
       customerMobileId: 'cm1',
-      expiresAt: new Date(Date.now() - 60_000),
-      customerMobile: { id: 'cm1' },
-    };
-    prismaMock.customerMobile.findFirst
-      .mockResolvedValueOnce({ isWhatsappVerified: false })
-      .mockResolvedValue({ isWhatsappVerified: true });
-    prismaMock.whatsAppVerification.findFirst
-      .mockResolvedValueOnce(expired)
-      .mockResolvedValue(null);
-    prismaMock.whatsAppVerification.update.mockResolvedValue({ ...expired, status: 'PENDING' });
-    prismaMock.whatsAppVerification.findUnique.mockResolvedValue({
-      ...expired,
-      status: 'PENDING',
-      expiresAt: new Date(Date.now() + 10 * 60_000),
-      customerMobile: { id: 'cm1' },
     });
 
     const result = await WhatsAppVerificationService.logSentAck({
@@ -77,16 +83,11 @@ describe('customer sent-ack auto-verify', () => {
       verificationId: 'v-expired',
     });
 
-    expect(prismaMock.whatsAppVerification.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'v-expired' },
-        data: expect.objectContaining({
-          status: 'PENDING',
-          sentAcknowledgedAt: expect.any(Date),
-        }),
-      }),
-    );
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    const ops = prismaMock.$transaction.mock.calls[0][0] as unknown[];
+    expect(ops).toHaveLength(5);
     expect(result.verified).toBe(true);
     expect(result.canCheckout).toBe(true);
+    expect(result.needsVerification).toBe(false);
   });
 });

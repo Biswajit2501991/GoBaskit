@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MessageCircle, X, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DEFAULT_COUNTRY_OPTIONS, VERIFICATION_POLL_INTERVAL_MS } from '@/constants/whatsappVerification';
+import { DEFAULT_COUNTRY_OPTIONS } from '@/constants/whatsappVerification';
 import {
   detectCountryFromBrowser,
   formatE164Display,
@@ -30,7 +30,7 @@ interface WhatsAppVerificationModalProps {
   initialNationalNumber?: string;
   initialCountryDial?: string;
   customerName?: string;
-  /** Called when admin/webhook fully verifies the number. */
+  /** Called as soon as the number is verified so checkout can resume. */
   onVerified: (mobileE164: string) => void;
   onClose: () => void;
 }
@@ -52,7 +52,6 @@ export default function WhatsAppVerificationModal({
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
   const [pending, setPending] = useState(false);
-  const [sentContinue, setSentContinue] = useState(false);
 
   const mobileE164 = useMemo(() => toE164(countryDial, nationalNumber), [countryDial, nationalNumber]);
   const nationalValid =
@@ -60,48 +59,102 @@ export default function WhatsAppVerificationModal({
       ? isValidIndianMobile(normalizeMobile(nationalNumber))
       : Boolean(mobileE164);
 
+  const leftForWhatsAppRef = useRef(false);
+  const sentInFlightRef = useRef(false);
+  const verifiedRef = useRef(false);
+  const hiddenAtRef = useRef(0);
+  const verificationRef = useRef(verification);
+  const mobileRef = useRef(mobileE164);
+  const onVerifiedRef = useRef(onVerified);
+  verificationRef.current = verification;
+  mobileRef.current = mobileE164;
+  onVerifiedRef.current = onVerified;
+  verifiedRef.current = verified;
+
   useEffect(() => {
     if (!open) return;
     setError('');
     setVerified(false);
     setPending(false);
-    setSentContinue(false);
     setVerification(null);
     setWhatsappUrl(null);
+    leftForWhatsAppRef.current = false;
+    sentInFlightRef.current = false;
+    verifiedRef.current = false;
+    hiddenAtRef.current = 0;
     const seed = initialNationalNumber.replace(/\D/g, '').slice(-10);
     setNationalNumber(seed);
     setCountryDial(initialCountryDial || defaultCountry.dial);
   }, [open, initialNationalNumber, initialCountryDial, defaultCountry.dial]);
 
-  useEffect(() => {
-    if (!open || !pending || !mobileE164 || verified) return;
+  const finishVerified = useCallback((mobile: string) => {
+    verifiedRef.current = true;
+    setVerified(true);
+    setPending(false);
+    try {
+      sessionStorage.setItem('gobaskit_account_verified_toast', '1');
+    } catch {
+      /* ignore */
+    }
+    onVerifiedRef.current(mobile);
+  }, []);
 
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/customer/verification/status?mobile=${encodeURIComponent(mobileE164)}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.verified) {
-          setVerified(true);
-          setPending(false);
-          try {
-            sessionStorage.setItem('gobaskit_account_verified_toast', '1');
-          } catch {
-            /* ignore */
-          }
-          setTimeout(() => onVerified(mobileE164), 1200);
-        } else if (data.verification) {
-          setVerification(data.verification);
-        }
-      } catch {
-        /* ignore */
+  const acknowledgeSent = useCallback(async () => {
+    const mobile = mobileRef.current;
+    const current = verificationRef.current;
+    if (!mobile || verifiedRef.current || sentInFlightRef.current) return;
+    sentInFlightRef.current = true;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/customer/verification/sent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mobile,
+          verificationId: current?.id,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        sentInFlightRef.current = false;
+        setError(typeof data.error === 'string' ? data.error : 'Could not confirm message sent');
+        return;
       }
+      finishVerified(mobile);
+    } finally {
+      setLoading(false);
+    }
+  }, [finishVerified]);
+
+  useEffect(() => {
+    if (!open || !pending || verified) return;
+
+    const onHidden = () => {
+      leftForWhatsAppRef.current = true;
+      if (!hiddenAtRef.current) hiddenAtRef.current = Date.now();
+    };
+    const onReturn = () => {
+      if (!leftForWhatsAppRef.current || verifiedRef.current) return;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      if (hiddenAtRef.current && Date.now() - hiddenAtRef.current < 700) return;
+      void acknowledgeSent();
     };
 
-    poll();
-    const timer = setInterval(poll, VERIFICATION_POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [open, pending, mobileE164, verified, onVerified]);
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') onHidden();
+      else onReturn();
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onReturn);
+    window.addEventListener('pageshow', onReturn);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onReturn);
+      window.removeEventListener('pageshow', onReturn);
+    };
+  }, [open, pending, verified, acknowledgeSent]);
 
   async function generateCode(forceNew = false) {
     if (!mobileE164 || !nationalValid) {
@@ -131,15 +184,14 @@ export default function WhatsAppVerificationModal({
         return;
       }
       if (data.verified) {
-        setVerified(true);
-        setTimeout(() => onVerified(mobileE164), 800);
+        finishVerified(mobileE164);
         return;
       }
       setVerification(data.verification);
       setWhatsappUrl(data.whatsappUrl ?? null);
       setPending(true);
       if (data.whatsappUrl) {
-        await fetch('/api/customer/verification/opened', {
+        void fetch('/api/customer/verification/opened', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -154,9 +206,9 @@ export default function WhatsAppVerificationModal({
     }
   }
 
-  async function openWhatsApp() {
+  function openWhatsApp() {
     if (!whatsappUrl || !mobileE164) return;
-    await fetch('/api/customer/verification/opened', {
+    void fetch('/api/customer/verification/opened', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -165,38 +217,6 @@ export default function WhatsAppVerificationModal({
       }),
     }).catch(() => {});
     openWhatsAppUrl(whatsappUrl);
-  }
-
-  async function acknowledgeSent() {
-    if (!mobileE164) return;
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch('/api/customer/verification/sent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mobile: mobileE164,
-          verificationId: verification?.id,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(typeof data.error === 'string' ? data.error : 'Could not confirm message sent');
-        return;
-      }
-      setVerified(true);
-      setPending(false);
-      setSentContinue(true);
-      try {
-        sessionStorage.setItem('gobaskit_account_verified_toast', '1');
-      } catch {
-        /* ignore */
-      }
-      setTimeout(() => onVerified(mobileE164), 800);
-    } finally {
-      setLoading(false);
-    }
   }
 
   if (!open) return null;
@@ -208,7 +228,7 @@ export default function WhatsAppVerificationModal({
           <div>
             <h2 className="text-lg font-bold">Verify Your WhatsApp Number</h2>
             <p className="text-sm text-gray-500 mt-1">
-              Send the code on WhatsApp, then tap continue — no waiting for admin.
+              Send the WhatsApp message, then return here — your order continues automatically.
             </p>
           </div>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Close">
@@ -221,20 +241,12 @@ export default function WhatsAppVerificationModal({
             <div className="text-center py-6 space-y-3">
               <CheckCircle2 className="w-14 h-14 text-green-600 mx-auto" />
               <p className="font-semibold text-green-700">WhatsApp Verified Successfully</p>
-              <p className="text-sm text-gray-500">Continuing…</p>
-            </div>
-          ) : sentContinue ? (
-            <div className="text-center py-6 space-y-3">
-              <CheckCircle2 className="w-14 h-14 text-blinkit-green mx-auto" />
-              <p className="font-semibold text-gray-900">Message sent — waiting for verification</p>
-              <p className="text-sm text-gray-500">
-                Keep this window open. You can place the order after your number is verified.
-              </p>
+              <p className="text-sm text-gray-500">Placing your order…</p>
             </div>
           ) : !pending || !verification ? (
             <>
               <p className="text-sm text-gray-600">
-                Send a one-time WhatsApp code so we can confirm your number. After you send it, you can place your order right away.
+                Send a one-time WhatsApp code so we can confirm your number. After you send it, come back and your order continues.
               </p>
 
               <div>
@@ -284,15 +296,15 @@ export default function WhatsAppVerificationModal({
                 onClick={() => generateCode(false)}
               >
                 <MessageCircle className="w-5 h-5" />
-                {loading ? 'Generating...' : 'Open WhatsApp to Verify'}
+                {loading ? 'Opening…' : 'Open WhatsApp to Verify'}
               </Button>
             </>
           ) : (
             <>
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
-                <p className="text-sm font-medium text-amber-900">Send the message on WhatsApp</p>
+                <p className="text-sm font-medium text-amber-900">Send the message, then return here</p>
                 <p className="text-xs text-amber-700 mt-1">
-                  After sending, tap below. Your number is verified even if the code timer has already run out.
+                  We verify as soon as you come back. If WhatsApp stayed open beside this page, tap continue.
                 </p>
               </div>
 
@@ -311,8 +323,8 @@ export default function WhatsAppVerificationModal({
                   <MessageCircle className="w-5 h-5" />
                   Open WhatsApp Again
                 </Button>
-                <Button type="button" variant="outline" className="w-full" disabled={loading} onClick={acknowledgeSent}>
-                  I&apos;ve Sent the Message — Verify &amp; Continue
+                <Button type="button" variant="outline" className="w-full" disabled={loading} onClick={() => void acknowledgeSent()}>
+                  I&apos;ve Sent the Message — Continue
                 </Button>
                 <Button
                   type="button"
