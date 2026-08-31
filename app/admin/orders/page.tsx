@@ -1,10 +1,10 @@
-import { getStaffFromSession } from '@/lib/auth';
+import { getAdminPageStaff } from '@/lib/auth';
 import OrdersManager from '@/components/Admin/OrdersManager';
 import { staffHasPermission } from '@/types/staff';
 import { requireAdminPage } from '@/lib/admin-page';
 
 export default async function AdminOrdersPage() {
-  const staff = await getStaffFromSession();
+  const staff = await getAdminPageStaff();
   const { perms } = requireAdminPage(staff, 'orders:view');
 
   return (

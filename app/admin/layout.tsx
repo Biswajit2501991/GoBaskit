@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { getStaffFromSession } from '@/lib/auth';
+import { getAdminPageStaff } from '@/lib/auth';
 import { AdminShell } from '@/components/Admin/AdminShell';
 import { parsePermissions, staffHasPermission, type Permission } from '@/types/staff';
 
@@ -33,9 +33,9 @@ const nav: { href: string; label: string; permission: Permission }[] = [
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  let staff: Awaited<ReturnType<typeof getStaffFromSession>> = null;
+  let staff: Awaited<ReturnType<typeof getAdminPageStaff>> = null;
   try {
-    staff = await getStaffFromSession();
+    staff = await getAdminPageStaff();
   } catch (err) {
     // Let Next.js dynamic rendering proceed; only swallow unexpected failures.
     const digest = err && typeof err === 'object' && 'digest' in err ? String((err as { digest?: string }).digest) : '';

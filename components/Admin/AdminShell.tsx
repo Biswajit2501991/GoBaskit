@@ -32,10 +32,14 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
   // Warm Products/Categories cache while browsing other admin pages so the
   // Products menu feels instant when staff navigate back.
   useEffect(() => {
+    const skipWarm =
+      pathname.startsWith('/admin/settings') ||
+      pathname.startsWith('/admin/staff') ||
+      pathname.startsWith('/admin/learning');
     const hasProducts = visibleNav.some(
       (item) => item.href === '/admin/products' || item.href === '/admin/inventory',
     );
-    if (!hasProducts) return;
+    if (skipWarm || !hasProducts) return;
 
     let cancelled = false;
     const warm = () => {
@@ -62,7 +66,7 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
       }
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [visibleNav]);
+  }, [pathname, visibleNav]);
 
   useEffect(() => {
     window.localStorage.setItem(SIDEBAR_PREF_KEY, collapsed ? '1' : '0');

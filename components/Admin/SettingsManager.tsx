@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -57,6 +56,55 @@ const SETTINGS_GROUPS = SETTINGS_SECTIONS.reduce<
 
 function isSettingsSectionId(value: string): value is SettingsSectionId {
   return SETTINGS_SECTION_IDS.has(value);
+}
+
+function sameJson(a: unknown, b: unknown) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function homepageChangedFields(
+  prev: StoreConfig['homepageConfig'],
+  next: StoreConfig['homepageConfig'],
+) {
+  const keys = [
+    'showHeroBanner',
+    'showCategories',
+    'showBestSellers',
+    'showOffers',
+    'showHealthStarRating',
+    'healthStarDisplay',
+    'announcementBarText',
+    'deliveryTimeText',
+    'deliveryDisclaimer',
+    'themeColor',
+    'cancellationPolicy',
+    'showPoweredByBanner',
+    'poweredByText',
+    'showLoginLogo',
+    'loginLogoUrl',
+    'showTopDiscounted',
+    'topDiscountedTitle',
+    'topDiscountedLimit',
+    'showMostLoved',
+    'mostLovedTitle',
+    'mostLovedLimit',
+    'showCategoryRails',
+    'categoryRailLimit',
+    'seasonalThemeEnabled',
+    'seasonalThemeId',
+    'seasonalPromoEnabled',
+    'seasonalPromoTitle',
+    'seasonalPromoSubtitle',
+    'seasonalPromoCode',
+    'seasonalPromoCtaLabel',
+    'seasonalRibbonText',
+    'promoSections',
+  ] as const;
+  const patch: Record<string, unknown> = {};
+  for (const key of keys) {
+    if (!sameJson(prev[key], next[key])) patch[key] = next[key];
+  }
+  return Object.keys(patch).length ? patch : null;
 }
 
 interface StoreConfig {
@@ -151,7 +199,6 @@ export default function SettingsManager({
   initialConfig: StoreConfig;
   canEdit: boolean;
 }) {
-  const router = useRouter();
   const [minOrderValue, setMinOrderValue] = useState<number>(initialConfig.minOrderValue);
   const [pins, setPins] = useState<string[]>(initialConfig.serviceablePins);
   const [newPin, setNewPin] = useState('');
@@ -227,10 +274,36 @@ export default function SettingsManager({
     initialConfig.staffIdleTimeoutMinutes ?? 15,
   );
   const [saving, setSaving] = useState(false);
+  const lastSavedRef = useRef(initialConfig);
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [newBadgeLabel, setNewBadgeLabel] = useState('');
   const [newBadgeUrl, setNewBadgeUrl] = useState('');
   const [activeSection, setActiveSection] = useState<SettingsSectionId>('min-order');
+
+  useEffect(() => {
+    lastSavedRef.current = {
+      ...initialConfig,
+      serviceablePins: pins,
+      serviceableCities: cities,
+      deliverySlabs: slabs,
+      minOrderValue,
+      storeTiming,
+      storeStatus,
+      holidayMode,
+      paymentMethods,
+      upiId,
+      upiQrImageUrl,
+      whatsappTemplates,
+      whatsappNumber,
+      checkoutMode,
+      notificationSoundEnabled,
+      staffIdleTimeoutEnabled,
+      staffIdleTimeoutMinutes,
+      homepageConfig: homepageConfig as StoreConfig['homepageConfig'],
+    };
+    // Capture hydrated defaults once so the first save only writes real edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const applyHash = () => {
@@ -385,28 +458,50 @@ export default function SettingsManager({
     setSaving(true);
     setMessage(null);
     try {
+      const prev = lastSavedRef.current;
+      const nextSlabs = slabs.map((s) => ({
+        min: Number(s.min),
+        max: Number(s.max),
+        charge: Number(s.charge),
+      }));
+      const body: Record<string, unknown> = {};
+      if (!sameJson(prev.serviceablePins, pins)) body.serviceablePins = pins;
+      if (!sameJson(prev.serviceableCities, cities)) body.serviceableCities = cities;
+      if (!sameJson(prev.deliverySlabs, nextSlabs)) body.deliverySlabs = nextSlabs;
+      if (Number(prev.minOrderValue) !== Number(minOrderValue)) body.minOrderValue = Number(minOrderValue);
+      if (prev.storeTiming !== storeTiming) body.storeTiming = storeTiming;
+      if (prev.storeStatus !== storeStatus) body.storeStatus = storeStatus;
+      if (Boolean(prev.holidayMode) !== Boolean(holidayMode)) body.holidayMode = holidayMode;
+      if (!sameJson(prev.paymentMethods, paymentMethods)) body.paymentMethods = paymentMethods;
+      if ((prev.upiId ?? '') !== upiId) body.upiId = upiId;
+      if ((prev.upiQrImageUrl ?? '') !== upiQrImageUrl) body.upiQrImageUrl = upiQrImageUrl;
+      if (!sameJson(prev.whatsappTemplates, whatsappTemplates)) body.whatsappTemplates = whatsappTemplates;
+      if ((prev.whatsappNumber ?? '') !== whatsappNumber) body.whatsappNumber = whatsappNumber;
+      if ((prev.checkoutMode ?? 'both') !== checkoutMode) body.checkoutMode = checkoutMode;
+      if (Boolean(prev.notificationSoundEnabled) !== Boolean(notificationSoundEnabled)) {
+        body.notificationSoundEnabled = notificationSoundEnabled;
+      }
+      if (Boolean(prev.staffIdleTimeoutEnabled) !== Boolean(staffIdleTimeoutEnabled)) {
+        body.staffIdleTimeoutEnabled = staffIdleTimeoutEnabled;
+      }
+      if (Number(prev.staffIdleTimeoutMinutes) !== Number(staffIdleTimeoutMinutes)) {
+        body.staffIdleTimeoutMinutes = Number(staffIdleTimeoutMinutes);
+      }
+      const homepagePatch = homepageChangedFields(prev.homepageConfig, {
+        ...prev.homepageConfig,
+        ...homepageConfig,
+      });
+      if (homepagePatch) body.homepageConfig = homepagePatch;
+
+      if (Object.keys(body).length === 0) {
+        setMessage({ type: 'ok', text: 'No changes to save.' });
+        return;
+      }
+
       const res = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          serviceablePins: pins,
-          serviceableCities: cities,
-          deliverySlabs: slabs.map((s) => ({ min: Number(s.min), max: Number(s.max), charge: Number(s.charge) })),
-          minOrderValue: Number(minOrderValue),
-          storeTiming,
-          storeStatus,
-          holidayMode,
-          paymentMethods,
-          upiId,
-          upiQrImageUrl,
-          whatsappTemplates,
-          whatsappNumber,
-          checkoutMode,
-          notificationSoundEnabled,
-          staffIdleTimeoutEnabled,
-          staffIdleTimeoutMinutes: Number(staffIdleTimeoutMinutes),
-          homepageConfig,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const data: SettingsErrorResponse = await res.json().catch(() => ({}));
@@ -464,8 +559,8 @@ export default function SettingsManager({
               : DEFAULT_HEALTH_STAR_DISPLAY.badges,
         },
       });
+      lastSavedRef.current = updated;
       setMessage({ type: 'ok', text: 'Settings saved.' });
-      router.refresh();
     } catch (e) {
       setMessage({ type: 'err', text: e instanceof Error ? e.message : 'Failed to save settings' });
     } finally {
@@ -478,7 +573,7 @@ export default function SettingsManager({
       <div>
         <h1 className="text-xl font-bold">Store Settings</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Open one section at a time. Save still applies to the whole store config — nothing else changes.
+          Open one section at a time. Save writes only what you changed, including unsaved edits in other sections.
         </p>
       </div>
 

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import { requireStaffPermission } from '@/lib/staff-auth';
 import { SettingsService } from '@/services/SettingsService';
@@ -25,6 +25,7 @@ const settingsSchema = z.object({
   upiId: z.string().max(80).optional(),
   upiQrImageUrl: z.string().max(500).optional(),
   whatsappTemplates: z.record(z.string(), z.string().max(500)).optional(),
+  whatsappNumber: z.string().max(20).optional(),
   checkoutMode: z.enum(['website', 'whatsapp', 'both']).optional(),
   notificationSoundEnabled: z.boolean().optional(),
   staffIdleTimeoutEnabled: z.boolean().optional(),
@@ -146,11 +147,15 @@ export async function PUT(req: NextRequest) {
 
   try {
     const updated = await SettingsService.updateStoreConfig(parsed.data);
-    await AuditService.log({
-      staffId: auth.staff?.id,
-      action: 'settings_updated',
-      entity: 'settings',
-      meta: { changedKeys: Object.keys(parsed.data) },
+    const staffId = auth.staff?.id;
+    const changedKeys = Object.keys(parsed.data);
+    after(() => {
+      AuditService.log({
+        staffId,
+        action: 'settings_updated',
+        entity: 'settings',
+        meta: { changedKeys },
+      }).catch((err) => console.error('[admin/settings] audit log failed', err));
     });
     return NextResponse.json(updated);
   } catch (error) {

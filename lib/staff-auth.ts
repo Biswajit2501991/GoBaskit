@@ -19,7 +19,7 @@ function staffFromJwt(session: NonNullable<Awaited<ReturnType<typeof getSession>
     id: session.sub,
     role: session.role,
     permissions: session.permissions,
-    name: '',
+    name: session.name?.trim() || '',
     mobile: session.mobile,
   };
 }

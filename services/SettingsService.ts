@@ -817,15 +817,21 @@ export const SettingsService = {
             ? String(hc.announcementBarText ?? '').trim()
             : current.homepageConfig.announcementBarText,
         deliveryTimeText:
-          String(hc.deliveryTimeText ?? '').trim() || current.homepageConfig.deliveryTimeText,
+          hc.deliveryTimeText !== undefined
+            ? String(hc.deliveryTimeText).trim() || current.homepageConfig.deliveryTimeText
+            : current.homepageConfig.deliveryTimeText,
         deliveryDisclaimer:
-          String(hc.deliveryDisclaimer ?? current.homepageConfig.deliveryDisclaimer ?? '').trim() ||
-          DEFAULTS.homepageConfig.deliveryDisclaimer,
+          hc.deliveryDisclaimer !== undefined
+            ? String(hc.deliveryDisclaimer).trim() || DEFAULTS.homepageConfig.deliveryDisclaimer
+            : current.homepageConfig.deliveryDisclaimer,
         themeColor:
-          String(hc.themeColor ?? '').trim() || current.homepageConfig.themeColor,
+          hc.themeColor !== undefined
+            ? String(hc.themeColor).trim() || current.homepageConfig.themeColor
+            : current.homepageConfig.themeColor,
         cancellationPolicy:
-          String(hc.cancellationPolicy ?? current.homepageConfig.cancellationPolicy ?? '').trim() ||
-          DEFAULTS.homepageConfig.cancellationPolicy,
+          hc.cancellationPolicy !== undefined
+            ? String(hc.cancellationPolicy).trim() || DEFAULTS.homepageConfig.cancellationPolicy
+            : current.homepageConfig.cancellationPolicy,
         showPoweredByBanner:
           hc.showPoweredByBanner !== undefined
             ? Boolean(hc.showPoweredByBanner)
@@ -996,14 +1002,14 @@ export const SettingsService = {
 
     await Promise.all(writes);
     cache = null; // invalidate so the next read reflects the change
-    if (partial.homepageConfig) {
-      const saved = await this.getStoreConfig();
-      if (saved.homepageConfig.seasonalThemeId === 'normal') {
-        await ensureEverydayWelcomeCoupon();
-      }
-      return saved;
+    const saved = await this.getStoreConfig();
+    // Do not block settings save on coupon insert; create-if-missing is safe to retry.
+    if (partial.homepageConfig && saved.homepageConfig.seasonalThemeId === 'normal') {
+      void ensureEverydayWelcomeCoupon().catch((err) =>
+        console.error('[settings] ensureEverydayWelcomeCoupon failed', err),
+      );
     }
-    return this.getStoreConfig();
+    return saved;
   },
 
   invalidate() {

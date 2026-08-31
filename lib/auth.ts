@@ -43,6 +43,7 @@ export function signStaffAccessToken(staff: {
   mobile: string;
   role: StaffRole;
   permissions: unknown;
+  name?: string | null;
 }) {
   const payload: StaffSessionPayload = {
     sub: staff.id,
@@ -50,6 +51,7 @@ export function signStaffAccessToken(staff: {
     role: staff.role,
     permissions: parsePermissions(staff.permissions),
     type: 'staff',
+    name: staff.name?.trim() || undefined,
   };
   return jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TTL });
 }
@@ -114,6 +116,24 @@ export const getStaffFromSession = cache(async () => {
     if ('type' in session && session.type === 'staff') {
       const staff = await prisma.staffAccount.findFirst({
         where: { id: session.sub, active: true, deletedAt: null },
+        select: {
+          id: true,
+          mobile: true,
+          email: true,
+          name: true,
+          role: true,
+          permissions: true,
+          assignedCity: true,
+          assignedAreas: true,
+          latitude: true,
+          longitude: true,
+          deliveryRadius: true,
+          active: true,
+          deletedAt: true,
+          lastLogin: true,
+          createdAt: true,
+          updatedAt: true,
+        },
       });
       return staff;
     }
@@ -127,7 +147,6 @@ export const getStaffFromSession = cache(async () => {
       email: admin.email,
       name: admin.name,
       role: 'SUPER_ADMIN' as StaffRole,
-      passwordHash: '',
       permissions: [],
       assignedCity: null,
       assignedAreas: [],
@@ -146,6 +165,38 @@ export const getStaffFromSession = cache(async () => {
     console.error('[auth] getStaffFromSession failed', err);
     return null;
   }
+});
+
+/**
+ * Staff chrome + page gates from JWT (no DB). Mutations still use
+ * `getStaffFromSession` / `{ live: true }`. Legacy email admin still hits the DB.
+ */
+export const getAdminPageStaff = cache(async () => {
+  const session = await getSession();
+  if (!session) return null;
+
+  if ('type' in session && session.type === 'staff') {
+    return {
+      id: session.sub,
+      mobile: session.mobile,
+      email: null as string | null,
+      name: session.name?.trim() || 'Staff',
+      role: session.role,
+      permissions: session.permissions,
+      assignedCity: null,
+      assignedAreas: [] as unknown[],
+      latitude: null,
+      longitude: null,
+      deliveryRadius: null,
+      active: true,
+      deletedAt: null,
+      lastLogin: null,
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+    };
+  }
+
+  return getStaffFromSession();
 });
 
 export function sessionHasPermission(

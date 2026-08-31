@@ -121,6 +121,8 @@ export interface StaffSessionPayload {
   role: StaffRole;
   permissions: string[];
   type: 'staff';
+  /** Display name; older tokens omit this until the next login/heartbeat. */
+  name?: string;
 }
 
 export interface LegacyAdminSessionPayload {
