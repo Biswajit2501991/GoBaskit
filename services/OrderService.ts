@@ -57,7 +57,18 @@ function orderListInclude(includeHistory: boolean) {
   return {
     customer: { select: customerListSelect },
     assignedStaff: { select: { id: true, name: true, mobile: true } },
-    items: true,
+    items: {
+      select: {
+        id: true,
+        productId: true,
+        variantId: true,
+        productName: true,
+        quantity: true,
+        unitPrice: true,
+        unit: true,
+        totalPrice: true,
+      },
+    },
     ...(includeHistory
       ? {
           statusHistory: {

@@ -46,7 +46,24 @@ export class ProductService {
     const [items, total] = await Promise.all([
       prisma.product.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          details: true,
+          price: true,
+          actualPrice: true,
+          unit: true,
+          stock: true,
+          stockBaseline: true,
+          status: true,
+          imageUrl: true,
+          discount: true,
+          isFeatured: true,
+          isVisible: true,
+          hasVariants: true,
+          healthStarRating: true,
+          categoryId: true,
           category: { select: { id: true, name: true, slug: true } },
           _count: { select: { variants: true } },
         },
@@ -137,9 +154,7 @@ export class ProductService {
 }
 
 export class CategoryService {
-  static async listAdmin(params?: { search?: string; page?: number; pageSize?: number }) {
-    const page = Math.max(params?.page ?? 1, 1);
-    const pageSize = Math.min(params?.pageSize ?? ADMIN_LIST_PAGE_SIZE, 100);
+  static async listAdmin(params?: { search?: string; page?: number; pageSize?: number; all?: boolean }) {
     const where: Record<string, unknown> = {};
 
     if (params?.search?.trim()) {
@@ -149,6 +164,18 @@ export class CategoryService {
         { slug: { contains: q, mode: 'insensitive' } },
       ];
     }
+
+    if (params?.all) {
+      const items = await prisma.category.findMany({
+        where,
+        orderBy: { sortOrder: 'asc' },
+        include: { _count: { select: { products: true } } },
+      });
+      return { items, total: items.length, page: 1, pageSize: items.length };
+    }
+
+    const page = Math.max(params?.page ?? 1, 1);
+    const pageSize = Math.min(params?.pageSize ?? ADMIN_LIST_PAGE_SIZE, 100);
 
     const [items, total] = await Promise.all([
       prisma.category.findMany({

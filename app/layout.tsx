@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { DM_Sans } from 'next/font/google';
 import './globals.css';
 import { STORE_NAME, SITE_URL } from '@/constants';
@@ -63,6 +64,8 @@ export const metadata: Metadata = {
 
 async function resolveSeasonalHtmlTheme(): Promise<string | undefined> {
   try {
+    const pathname = (await headers()).get('x-pathname') ?? '';
+    if (pathname.startsWith('/admin')) return undefined;
     const config = await SettingsService.getStoreConfig();
     if (config.homepageConfig.seasonalThemeEnabled === true) {
       return parseSeasonalThemeId(config.homepageConfig.seasonalThemeId);

@@ -45,6 +45,8 @@ function buildVerificationMessage(code: string, mobile: string): string {
 export class WhatsAppVerificationService {
   private static lastExpireAt = 0;
   private static readonly EXPIRE_THROTTLE_MS = 5 * 60 * 1000;
+  private static lastHealAt = 0;
+  private static readonly HEAL_THROTTLE_MS = 5 * 60 * 1000;
 
   static async expireStalePending(force = false) {
     // PENDING codes become EXPIRED when expiresAt passes (default TTL: 10 minutes).
@@ -79,6 +81,24 @@ export class WhatsAppVerificationService {
           actorType: 'system',
         }),
       ),
+    );
+  }
+
+  /** Dedupes duplicate VERIFIED rows. Throttled; never blocks the admin list. */
+  static async healDuplicateVerified(force = false) {
+    const nowMs = Date.now();
+    if (!force && nowMs - this.lastHealAt < this.HEAL_THROTTLE_MS) return;
+    this.lastHealAt = nowMs;
+
+    const verifiedGroups = await prisma.whatsAppVerification.groupBy({
+      by: ['mobile'],
+      where: { status: 'VERIFIED' },
+      _count: { id: true },
+    });
+    await Promise.all(
+      verifiedGroups
+        .filter((g) => g._count.id > 1 && isValidE164(g.mobile))
+        .map((g) => this.syncVerifiedFlagsForMobile(g.mobile)),
     );
   }
 
@@ -839,18 +859,6 @@ export class WhatsAppVerificationService {
     pageSize?: number;
   }) {
     await this.expireStalePending();
-
-    // Heal exact-mobile duplicate VERIFIED rows (keeps newest; no deletes).
-    const verifiedGroups = await prisma.whatsAppVerification.groupBy({
-      by: ['mobile'],
-      where: { status: 'VERIFIED' },
-      _count: { id: true },
-    });
-    await Promise.all(
-      verifiedGroups
-        .filter((g) => g._count.id > 1 && isValidE164(g.mobile))
-        .map((g) => this.syncVerifiedFlagsForMobile(g.mobile)),
-    );
 
     const page = Math.max(1, params.page ?? 1);
     const pageSize = Math.min(50, Math.max(1, params.pageSize ?? 20));

@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
       search: searchParams.get('search') || undefined,
       page: Number(searchParams.get('page') || 1),
       pageSize: Number(searchParams.get('pageSize') || ADMIN_LIST_PAGE_SIZE),
+      all: searchParams.get('all') === '1',
     });
 
     return NextResponse.json(data);

@@ -189,27 +189,11 @@ async function loadCategories(
   _showLoading: boolean,
 ) {
   try {
-    const collected: AdminCategory[] = [];
-    let pageNum = 1;
-    let total = 0;
-    const pageSize = 100;
-
-    do {
-      const params = new URLSearchParams({
-        page: String(pageNum),
-        pageSize: String(pageSize),
-      });
-      const res = await fetch(`/api/admin/categories?${params}`);
-      if (!res.ok) break;
-      const data = await res.json();
-      const items: AdminCategory[] = Array.isArray(data.items) ? data.items : [];
-      total = typeof data.total === 'number' ? data.total : items.length;
-      collected.push(...items);
-      if (items.length < pageSize || collected.length >= total) break;
-      pageNum += 1;
-    } while (pageNum <= 20);
-
-    set({ categories: collected, categoriesFetchedAt: Date.now() });
+    const res = await fetch('/api/admin/categories?all=1');
+    if (!res.ok) return;
+    const data = await res.json();
+    const items: AdminCategory[] = Array.isArray(data.items) ? data.items : [];
+    set({ categories: items, categoriesFetchedAt: Date.now() });
   } catch {
     /* keep previous */
   } finally {

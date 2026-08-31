@@ -82,7 +82,7 @@ export default function BulkPriceAdjustClient({ canEdit }: { canEdit: boolean })
   }, []);
 
   useEffect(() => {
-    void fetch('/api/admin/categories?pageSize=100', { credentials: 'include' })
+    void fetch('/api/admin/categories?all=1', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         const list = Array.isArray(data) ? data : data?.items ?? data?.categories ?? [];

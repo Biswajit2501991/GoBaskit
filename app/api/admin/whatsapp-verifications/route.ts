@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { requireStaffPermission } from '@/lib/staff-auth';
 import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationService';
 import type { WhatsAppVerificationStatus } from '@prisma/client';
@@ -15,6 +15,12 @@ export async function GET(req: NextRequest) {
     status: status && validStatuses.includes(status) ? status : undefined,
     page: Number(searchParams.get('page') || 1),
     pageSize: Number(searchParams.get('pageSize') || 20),
+  });
+
+  after(() => {
+    WhatsAppVerificationService.healDuplicateVerified().catch((err) =>
+      console.error('[whatsapp-verifications] heal failed', err),
+    );
   });
 
   return NextResponse.json(data);

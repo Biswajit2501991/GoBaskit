@@ -862,6 +862,7 @@ export default function OrdersManager({
   }, [showLiveOps, loadOpsSummary]);
 
   useEffect(() => {
+    if (!canAssign) return;
     let cancelled = false;
     fetch('/api/admin/staff?pageSize=100')
       .then((r) => r.json())
@@ -873,7 +874,7 @@ export default function OrdersManager({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [canAssign]);
 
   useEffect(() => {
     function scheduleSilentReload() {

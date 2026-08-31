@@ -22,25 +22,33 @@ export async function POST(req: NextRequest) {
   let accessToken: string | null = null;
   let refresh: { raw: string; maxAge: number } | undefined;
 
-  if (refreshRaw) {
+  const accessSession = accessRaw ? verifyToken(accessRaw) : null;
+  const accessStaff =
+    accessSession && 'type' in accessSession && accessSession.type === 'staff' ? accessSession : null;
+
+  if (accessStaff) {
+    const stillActive = await prisma.staffAccount.findFirst({
+      where: { id: accessStaff.sub, active: true, deletedAt: null },
+      select: { id: true },
+    });
+    if (!stillActive) {
+      const response = NextResponse.json({ error: 'Session expired' }, { status: 401 });
+      clearAuthCookies(response);
+      return response;
+    }
+    // Access JWT still valid — renew it from claims (no refresh-token rotate).
+    accessToken = signStaffAccessToken({
+      id: accessStaff.sub,
+      mobile: accessStaff.mobile,
+      role: accessStaff.role,
+      permissions: accessStaff.permissions,
+      name: accessStaff.name,
+    });
+  } else if (refreshRaw) {
     const rotated = await rotateStaffRefreshToken(refreshRaw);
     if (rotated) {
       accessToken = rotated.access;
       refresh = rotated.refresh;
-    }
-  }
-
-  // Refresh missing/expired but access JWT still valid → renew access only
-  // (leave existing refresh cookie untouched).
-  if (!accessToken && accessRaw) {
-    const session = verifyToken(accessRaw);
-    if (session && 'type' in session && session.type === 'staff') {
-      const staff = await prisma.staffAccount.findFirst({
-        where: { id: session.sub, active: true, deletedAt: null },
-      });
-      if (staff) {
-        accessToken = signStaffAccessToken(staff);
-      }
     }
   }
 

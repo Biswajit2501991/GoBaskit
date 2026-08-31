@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { STAFF_ROLE_LABELS, assignableStaffRoles } from '@/types/staff';
 import type { StaffRole } from '@prisma/client';
@@ -82,6 +82,7 @@ export default function StaffManager({
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const initialLoadDone = useRef(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -114,9 +115,14 @@ export default function StaffManager({
       setTotal(typeof data.total === 'number' ? data.total : 0);
     }
     setLoading(false);
+    initialLoadDone.current = true;
   }, [page, search]);
 
   useEffect(() => {
+    if (!initialLoadDone.current || !search) {
+      void load();
+      return;
+    }
     const t = setTimeout(load, 300);
     return () => clearTimeout(t);
   }, [load]);

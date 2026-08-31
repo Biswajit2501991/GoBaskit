@@ -29,13 +29,24 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
   });
   const [pendingVerifications, setPendingVerifications] = useState(0);
 
-  // Warm Products/Categories cache while browsing other admin pages so the
-  // Products menu feels instant when staff navigate back.
+  // Warm Products/Categories only after staff have been idle on a light page.
+  // Heavy desks (orders, dashboard, products, …) load their own APIs first.
   useEffect(() => {
     const skipWarm =
       pathname.startsWith('/admin/settings') ||
       pathname.startsWith('/admin/staff') ||
-      pathname.startsWith('/admin/learning');
+      pathname.startsWith('/admin/learning') ||
+      pathname.startsWith('/admin/dashboard') ||
+      pathname.startsWith('/admin/analytics') ||
+      pathname.startsWith('/admin/finance') ||
+      pathname.startsWith('/admin/orders') ||
+      pathname.startsWith('/admin/delivery') ||
+      pathname.startsWith('/admin/whatsapp-verification') ||
+      pathname.startsWith('/admin/bulk-upload') ||
+      pathname.startsWith('/admin/price-adjust') ||
+      pathname.startsWith('/admin/products') ||
+      pathname.startsWith('/admin/inventory') ||
+      pathname.startsWith('/admin/categories');
     const hasProducts = visibleNav.some(
       (item) => item.href === '/admin/products' || item.href === '/admin/inventory',
     );
