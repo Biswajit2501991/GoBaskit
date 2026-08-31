@@ -3,8 +3,8 @@ import { after } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { deliveryChargeFrom } from '@/constants';
 import { deliveryIsServiceable } from '@/utils/delivery';
-import { composeOrderItemName } from '@/utils/orderItemName';
-import { variantLabel } from '@/utils/variant';
+import { appendPackSize, composeOrderItemName } from '@/utils/orderItemName';
+import { variantLabel, variantSizeLabel } from '@/utils/variant';
 import { normalizeMobile } from '@/utils/mobile';
 import {
   canCustomerMutate,
@@ -505,18 +505,23 @@ export class OrderMutationService {
       }
 
       const unitPrice = variant ? variant.price : product.price;
-      const unit = (variant?.unit || product.unit || 'pcs').trim() || 'pcs';
+      const unit = variant
+        ? (variantSizeLabel(variant) || product.unit || 'pcs').trim() || 'pcs'
+        : (product.unit || 'pcs').trim() || 'pcs';
       return {
         productId: line.productId,
         variantId: line.variantId ?? null,
         quantity: line.quantity,
         unitPrice,
         unit,
-        productName: composeOrderItemName({
-          productName: product.name,
-          variantLabel: variant ? variantLabel(variant) : null,
-          clientName: product.name,
-        }),
+        productName: appendPackSize(
+          composeOrderItemName({
+            productName: product.name,
+            variantLabel: variant ? variantLabel(variant) : null,
+            clientName: product.name,
+          }),
+          unit,
+        ),
       };
     });
   }

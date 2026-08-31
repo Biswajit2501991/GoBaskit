@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { formatOrderLineLabel } from '@/utils/orderItemName';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { formatCustomerName } from '@/utils/customer';
 import { Input } from '@/components/ui/input';
@@ -26,7 +27,7 @@ interface ArchivedOrderRow {
     city: string;
     pincode: string;
   };
-  items: Array<{ productName: string; quantity: number; totalPrice: number }>;
+  items: Array<{ productName: string; quantity: number; totalPrice: number; unit?: string }>;
 }
 
 export default function ArchiveManager() {
@@ -116,7 +117,7 @@ export default function ArchiveManager() {
               <div className="text-xs text-gray-700 space-y-0.5 mt-2">
                 {order.items.map((item, index) => (
                   <p key={`${order.id}-${index}`} className="break-words leading-snug">
-                    {item.productName} × {item.quantity}
+                    {formatOrderLineLabel(item)}
                   </p>
                 ))}
               </div>

@@ -1,4 +1,4 @@
-import { composeOrderItemName, formatCartLineName, formatOrderItemsSummary } from '@/utils/orderItemName';
+import { appendPackSize, composeOrderItemName, formatCartLineName, formatOrderItemsSummary, formatOrderLineLabel } from '@/utils/orderItemName';
 
 describe('composeOrderItemName', () => {
   it('keeps the full product name instead of the first word', () => {
@@ -64,5 +64,13 @@ describe('formatOrderItemsSummary', () => {
         { name: 'Amul Gold Full Cream Milk 1L', quantity: 1 },
       ]),
     ).toBe('Amul Taaza Homogenised Milk 1L × 2\nAmul Gold Full Cream Milk 1L × 1');
+  });
+
+  it('adds pack size for drinks when the name is only the brand', () => {
+    expect(
+      formatOrderLineLabel({ productName: 'Maaza', quantity: 1, unit: '600 ml' }),
+    ).toBe('Maaza × 1 · 600 ml');
+    expect(appendPackSize('Maaza', '600 ml')).toBe('Maaza (600 ml)');
+    expect(appendPackSize('Maaza (600 ml)', '600 ml')).toBe('Maaza (600 ml)');
   });
 });

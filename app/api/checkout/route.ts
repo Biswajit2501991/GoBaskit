@@ -19,8 +19,8 @@ import {
   getCustomerMobileFromRequest,
 } from '@/lib/customer-session';
 import { normalizeMobile } from '@/utils/mobile';
-import { composeOrderItemName } from '@/utils/orderItemName';
-import { variantLabel } from '@/utils/variant';
+import { appendPackSize, composeOrderItemName } from '@/utils/orderItemName';
+import { variantLabel, variantSizeLabel } from '@/utils/variant';
 
 type CheckoutLineItem = {
   productId: string;
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
       InventoryService.validateCheckoutItems(stockItems).then(() =>
         prisma.product.findMany({
           where: { id: { in: productIds } },
-          select: { id: true, name: true },
+          select: { id: true, name: true, unit: true },
         }),
       ),
       variantIds.length
@@ -128,15 +128,26 @@ export async function POST(req: NextRequest) {
     ]);
 
     const productNameById = new Map(products.map((p) => [p.id, p.name]));
+    const productUnitById = new Map(products.map((p) => [p.id, (p.unit ?? '').trim()]));
     const variantLabelById = new Map(variants.map((v) => [v.id, variantLabel(v)]));
-    const namedItems: CheckoutLineItem[] = checkoutItems.map((item) => ({
-      ...item,
-      name: composeOrderItemName({
-        productName: productNameById.get(item.productId),
-        variantLabel: item.variantId ? variantLabelById.get(item.variantId) ?? null : null,
-        clientName: item.name,
-      }),
-    }));
+    const variantSizeById = new Map(variants.map((v) => [v.id, variantSizeLabel(v)]));
+    const namedItems: CheckoutLineItem[] = checkoutItems.map((item) => {
+      const packSize = item.variantId
+        ? variantSizeById.get(item.variantId) || item.unit
+        : productUnitById.get(item.productId) || item.unit;
+      return {
+        ...item,
+        unit: (packSize || item.unit || 'pcs').trim() || 'pcs',
+        name: appendPackSize(
+          composeOrderItemName({
+            productName: productNameById.get(item.productId),
+            variantLabel: item.variantId ? variantLabelById.get(item.variantId) ?? null : null,
+            clientName: item.name,
+          }),
+          packSize,
+        ),
+      };
+    });
 
     if (!resolvedDiscount.ok) {
       return NextResponse.json({ error: resolvedDiscount.error }, { status: 400 });
@@ -321,7 +332,11 @@ export async function POST(req: NextRequest) {
             grandTotal: orderSnapshot.grandTotal,
             paymentMethod: orderSnapshot.paymentMethod,
             orderSource: source,
-            items: namedItems.map((item) => ({ name: item.name, quantity: item.quantity })),
+            items: namedItems.map((item) => ({
+              name: item.name,
+              quantity: item.quantity,
+              unit: item.unit,
+            })),
             customer: {
               firstName: orderSnapshot.customer.firstName,
               lastName: orderSnapshot.customer.lastName,

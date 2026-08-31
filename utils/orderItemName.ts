@@ -42,10 +42,42 @@ export function formatCartLineName(item: {
 }
 
 export function formatOrderItemsSummary(
-  items: Array<{ name: string; quantity: number }>,
+  items: Array<{ name?: string; productName?: string; quantity: number; unit?: string | null }>,
 ): string {
   return items
-    .map((item) => `${item.name} × ${item.quantity}`)
+    .map((item) =>
+      formatOrderLineLabel({
+        productName: item.productName ?? item.name ?? 'Item',
+        quantity: item.quantity,
+        unit: item.unit,
+      }),
+    )
     .filter((line) => line.trim().length > 0)
     .join('\n');
+}
+
+/** Append pack size when it is not already in the name (e.g. Maaza + 600 ml). */
+export function appendPackSize(name: string, unit?: string | null): string {
+  const n = name.trim();
+  const u = (unit ?? '').trim();
+  if (!n) return u || 'Item';
+  if (!u) return n;
+  const nameCompact = n.toLowerCase().replace(/\s+/g, '');
+  const unitCompact = u.toLowerCase().replace(/\s+/g, '');
+  if (unitCompact && nameCompact.includes(unitCompact)) return n;
+  return `${n} (${u})`;
+}
+
+/** Staff / track line: "Maaza × 1 · 600 ml" without duplicating size already in the name. */
+export function formatOrderLineLabel(item: {
+  productName: string;
+  quantity: number;
+  unit?: string | null;
+}): string {
+  const name = (item.productName ?? '').trim() || 'Item';
+  const unit = (item.unit ?? '').trim();
+  const nameCompact = name.toLowerCase().replace(/\s+/g, '');
+  const unitCompact = unit.toLowerCase().replace(/\s+/g, '');
+  const sizePart = unit && unitCompact && !nameCompact.includes(unitCompact) ? ` · ${unit}` : '';
+  return `${name} × ${item.quantity}${sizePart}`;
 }

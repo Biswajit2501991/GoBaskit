@@ -7,6 +7,7 @@ import type { OrderStatus } from '@prisma/client';
 import Header from '@/components/Header/Header';
 import OrderProgressTracker from '@/components/Account/OrderProgressTracker';
 import OrderContentsEditor, { type EditableLine } from '@/components/Orders/OrderContentsEditor';
+import { formatOrderLineLabel } from '@/utils/orderItemName';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { ChevronLeft, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -279,7 +280,7 @@ export default function OrderTrackDetailClient({ orderId }: { orderId: string })
                   {order.items.map((item, i) => (
                     <li key={item.id ?? i} className="flex justify-between text-sm">
                       <span className="text-gray-700">
-                        {item.productName} × {item.quantity} {item.unit}
+                        {formatOrderLineLabel(item)}
                       </span>
                       <span className="font-medium">{formatCurrency(item.totalPrice)}</span>
                     </li>

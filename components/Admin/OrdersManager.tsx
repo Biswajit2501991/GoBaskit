@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { canStaffMutateItems } from '@/utils/orderEditPolicy';
 import OrderContentsEditor, { type EditableLine } from '@/components/Orders/OrderContentsEditor';
 import { formatCustomerAddress, formatCustomerName } from '@/utils/customer';
+import { formatOrderLineLabel } from '@/utils/orderItemName';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,7 @@ interface OrderItem {
   variantId?: string | null;
   productName: string;
   quantity: number;
+  unit?: string;
   unitPrice?: number;
   totalPrice: number;
 }
@@ -148,7 +150,7 @@ function getStaffDeliveryWhatsAppMessage(order: OrderRow): string {
   }
   lines.push('', 'Items');
   order.items.forEach((item, index) => {
-    lines.push(`${index + 1}. ${item.productName} × ${item.quantity}`);
+    lines.push(`${index + 1}. ${formatOrderLineLabel(item)}`);
   });
   return lines.join('\n');
 }
@@ -480,7 +482,7 @@ function OrderCard({
             <ul className="text-[11px] text-gray-700 space-y-0.5 pt-0.5">
               {order.items.map((item) => (
                 <li key={item.id} className="leading-snug break-words">
-                  {item.productName} × {item.quantity}
+                  {formatOrderLineLabel(item)}
                 </li>
               ))}
             </ul>
@@ -581,7 +583,7 @@ function OrderCard({
                 <div className="text-sm text-gray-700 space-y-1">
                   {order.items.map((item) => (
                     <p key={item.id} className="break-words leading-snug">
-                      {item.productName} × {item.quantity} = {formatCurrency(item.totalPrice)}
+                      {formatOrderLineLabel(item)} = {formatCurrency(item.totalPrice)}
                     </p>
                   ))}
                 </div>
@@ -600,7 +602,7 @@ function OrderCard({
                             variantId: item.variantId ?? null,
                             productName: item.productName,
                             quantity: item.quantity,
-                            unit: 'pcs',
+                            unit: item.unit || 'pcs',
                             unitPrice: item.unitPrice ?? item.totalPrice / Math.max(1, item.quantity),
                           })),
                       );

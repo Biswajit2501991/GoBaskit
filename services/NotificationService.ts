@@ -29,7 +29,7 @@ export interface NewOrderNotificationInput {
   };
   customerLat?: number | null;
   customerLng?: number | null;
-  items?: Array<{ name: string; quantity: number }>;
+  items?: Array<{ name: string; quantity: number; unit?: string | null }>;
 }
 
 function formatAddress(customer: NewOrderNotificationInput['customer']): string {
