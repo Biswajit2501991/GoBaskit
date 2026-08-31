@@ -1,6 +1,7 @@
 import type { StaffRole } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { cityIsServiceable, distanceKm, normalizeLocationToken } from '@/utils/delivery';
+import { parsePermissions, staffHasPermission } from '@/types/staff';
 
 /** Roles that always receive every order notification (Owner / Admin). */
 export const ADMIN_NOTIFICATION_ROLES: StaffRole[] = [
@@ -17,6 +18,14 @@ export interface OrderLocationContext {
   longitude?: number | null;
   cityAliases?: Record<string, string[]>;
   serviceableCities?: string[];
+}
+
+export function orderCapableStaffIds(
+  staff: Array<{ id: string; role: StaffRole; permissions: unknown }>,
+): string[] {
+  return staff
+    .filter((member) => staffHasPermission(member.role, parsePermissions(member.permissions), 'orders:view'))
+    .map((member) => member.id);
 }
 
 export class StaffAssignmentService {
@@ -79,24 +88,17 @@ export class StaffAssignmentService {
     });
   }
 
-  /** Staff IDs that should receive a notification for this order. */
-  static async getNotificationRecipients(ctx: OrderLocationContext): Promise<string[]> {
-    const allStaff = await prisma.staffAccount.findMany({
+  /** Staff IDs that should receive a new-order notification (any orders:view role). */
+  static async getOrderCapableStaffIds(): Promise<string[]> {
+    const staff = await prisma.staffAccount.findMany({
       where: { active: true, deletedAt: null },
-      select: { id: true, role: true },
+      select: { id: true, role: true, permissions: true },
     });
+    return orderCapableStaffIds(staff);
+  }
 
-    const adminIds = allStaff
-      .filter((s) => ADMIN_NOTIFICATION_ROLES.includes(s.role))
-      .map((s) => s.id);
-
-    const matched = await this.findMatchingStaff(ctx);
-    const matchedIds = matched.map((s) => s.id);
-
-    if (matchedIds.length === 0) {
-      return [...new Set(adminIds)];
-    }
-
-    return [...new Set([...adminIds, ...matchedIds])];
+  /** @deprecated use getOrderCapableStaffIds — kept so callers keep compiling. */
+  static async getNotificationRecipients(_ctx?: OrderLocationContext): Promise<string[]> {
+    return this.getOrderCapableStaffIds();
   }
 }

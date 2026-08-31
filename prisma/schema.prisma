@@ -305,6 +305,9 @@ model Order {
   purgeAt              DateTime?     @map("purge_at")
   cancelNotice         String?       @map("cancel_notice")
   smsSentAt            DateTime?     @map("sms_sent_at")
+  /** Cron unassigned-order push reminders (not the initial checkout push). */
+  unassignedPushReminders Int        @default(0) @map("unassigned_push_reminders")
+  lastUnassignedPushAt    DateTime?  @map("last_unassigned_push_at")
   items           OrderItem[]
   statusHistory   OrderStatusHistory[]
   createdAt       DateTime      @default(now()) @map("created_at")
@@ -314,6 +317,7 @@ model Order {
   @@index([assignedStaffId])
   @@index([priority, createdAt])
   @@index([archivedAt, purgeAt])
+  @@index([assignedStaffId, status, archivedAt])
   @@map("orders")
 }
 

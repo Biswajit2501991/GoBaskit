@@ -40,6 +40,26 @@ if ! $public_ok; then
   # App may be fine but tunnel dead — only restart app if local also failed above
 fi
 
+if $local_ok; then
+  REMIND_STAMP="$ROOT/logs/.last-unassigned-push"
+  if [[ ! -f "$REMIND_STAMP" ]] || [[ -n "$(find "$REMIND_STAMP" -mmin +9 2>/dev/null)" ]]; then
+    if [[ -f "$ROOT/.env" ]]; then
+      set -a
+      # shellcheck disable=SC1091
+      source "$ROOT/.env"
+      set +a
+    fi
+    if [[ -n "${CRON_SECRET:-}" ]]; then
+      curl -sf -X POST -H "x-cron-secret: $CRON_SECRET" http://127.0.0.1:3000/api/cron/unassigned-order-reminders >> "$LOG" 2>&1 \
+        || (cd "$ROOT" && npx tsx scripts/unassigned-order-reminders.ts >> "$LOG" 2>&1) \
+        || true
+    else
+      (cd "$ROOT" && npx tsx scripts/unassigned-order-reminders.ts >> "$LOG" 2>&1) || true
+    fi
+    touch "$REMIND_STAMP"
+  fi
+fi
+
 if $local_ok && $public_ok; then
   log "OK (local + public)"
   PURGE_STAMP="$ROOT/logs/.last-purge"

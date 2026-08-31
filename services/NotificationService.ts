@@ -1,7 +1,6 @@
 import type { PaymentMethod } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { adminEventBus } from '@/lib/realtime/eventBus';
-import { SettingsService } from '@/services/SettingsService';
 import { StaffAssignmentService } from '@/services/StaffAssignmentService';
 import { formatCustomerName } from '@/utils/customer';
 import { PAYMENT_METHODS } from '@/constants';
@@ -81,18 +80,11 @@ async function emitNotification(notification: {
 
 export class NotificationService {
   static async notifyNewOrder(order: NewOrderNotificationInput) {
-    const config = await SettingsService.getStoreConfig();
     const message = buildOrderMessage(order);
     const title = `New Order · ${order.orderNumber}`;
 
-    const recipientIds = await StaffAssignmentService.getNotificationRecipients({
-      city: order.customer.city,
-      pincode: order.customer.pincode,
-      latitude: order.customerLat,
-      longitude: order.customerLng,
-      cityAliases: config.cityAliases,
-      serviceableCities: config.serviceableCities,
-    });
+    const recipientIds = await StaffAssignmentService.getOrderCapableStaffIds();
+    if (!recipientIds.length) return [];
 
     const notifications = await Promise.all(
       recipientIds.map((staffId) =>
@@ -123,6 +115,11 @@ export class NotificationService {
         : `${name} · ₹${order.grandTotal} · ${order.customer.city}`,
       url: '/admin/orders',
       tag: `order-${order.id}`,
+    });
+
+    await prisma.order.updateMany({
+      where: { id: order.id, assignedStaffId: null },
+      data: { lastUnassignedPushAt: new Date() },
     });
 
     return notifications;
