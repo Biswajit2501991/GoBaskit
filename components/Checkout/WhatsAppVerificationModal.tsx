@@ -5,7 +5,7 @@ import { MessageCircle, X, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DEFAULT_COUNTRY_OPTIONS } from '@/constants/whatsappVerification';
+import { DEFAULT_COUNTRY_OPTIONS, LOGIN_VERIFICATION_POLL_INTERVAL_MS } from '@/constants/whatsappVerification';
 import {
   detectCountryFromBrowser,
   formatE164Display,
@@ -135,7 +135,14 @@ export default function WhatsAppVerificationModal({
         setError(typeof data.error === 'string' ? data.error : 'Could not confirm message sent');
         return;
       }
-      finishVerified(mobile);
+      if (data.verified === true) {
+        finishVerified(mobile);
+        return;
+      }
+      sentInFlightRef.current = false;
+      setError(
+        'Waiting for WhatsApp from this same number. Send the code from the WhatsApp logged in with the number you entered.',
+      );
     } finally {
       setLoading(false);
     }
@@ -161,7 +168,7 @@ export default function WhatsAppVerificationModal({
     })
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
-        if (res.ok && (data.verified === true || data.ok)) {
+        if (res.ok && data.verified === true) {
           finishVerified(mobile);
         }
       })
@@ -196,6 +203,35 @@ export default function WhatsAppVerificationModal({
       window.removeEventListener('pageshow', onReturn);
     };
   }, [open, verified, acknowledgeSent]);
+
+  useEffect(() => {
+    if (!open || verified || !pending) return;
+    const mobile = mobileE164;
+    const verificationId = verification?.id;
+    if (!mobile || !verificationId) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const params = new URLSearchParams({ mobile, verificationId });
+        const res = await fetch(`/api/customer/verification/status?${params.toString()}`);
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (data.verified === true || data.verification?.status === 'VERIFIED') {
+          finishVerified(mobile);
+        }
+      } catch {
+        /* keep polling */
+      }
+    };
+    void poll();
+    const timer = setInterval(() => {
+      void poll();
+    }, LOGIN_VERIFICATION_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [open, verified, pending, mobileE164, verification?.id, finishVerified]);
 
   const generateCode = useCallback(
     async (forceNew = false) => {
@@ -269,7 +305,7 @@ export default function WhatsAppVerificationModal({
           <div>
             <h2 className="text-lg font-bold">Verify Your WhatsApp Number</h2>
             <p className="text-sm text-gray-500 mt-1">
-              Send the WhatsApp message, then return here — your order continues automatically.
+              Send the WhatsApp message from the same number you entered. We confirm when that message arrives.
             </p>
           </div>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Close">
@@ -343,9 +379,9 @@ export default function WhatsAppVerificationModal({
           ) : (
             <>
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
-                <p className="text-sm font-medium text-amber-900">Send the message, then return here</p>
+                <p className="text-sm font-medium text-amber-900">Send from this number, then wait here</p>
                 <p className="text-xs text-amber-700 mt-1">
-                  We verify as soon as you come back. If WhatsApp stayed open beside this page, tap continue.
+                  A different WhatsApp account cannot verify this number. Keep this page open after you send the code.
                 </p>
               </div>
 

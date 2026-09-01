@@ -20,6 +20,7 @@ interface VerificationRow {
   expiresAt: string;
   verifiedAt: string | null;
   verifiedBy?: { id: string; name: string } | null;
+  lastInboundSender?: string | null;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -82,10 +83,17 @@ export default function WhatsAppVerificationManager({ canManage }: { canManage: 
     return unsubscribe;
   }, [load]);
 
-  async function verifyRow(id: string, mobile: string) {
+  async function verifyRow(id: string, mobile: string, lastInboundSender?: string | null) {
     if (!canManage) return;
-    const confirmed = window.confirm(`Mark ${formatE164Display(mobile)} as verified?`);
-    if (!confirmed) return;
+    if (lastInboundSender) {
+      const ok = window.confirm(
+        `This code was also received from ${formatE164Display(lastInboundSender)}, which is not ${formatE164Display(mobile)}.\n\nOnly approve if you are sure the chat is from the claimed number.`,
+      );
+      if (!ok) return;
+    } else {
+      const confirmed = window.confirm(`Mark ${formatE164Display(mobile)} as verified?`);
+      if (!confirmed) return;
+    }
 
     setActingId(id);
     try {
@@ -148,7 +156,7 @@ export default function WhatsAppVerificationManager({ canManage }: { canManage: 
         <div>
           <h1 className="text-2xl font-bold">WhatsApp Verification</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Approve customer WhatsApp verifications. Customers can also finish verification themselves after they send the code.
+            Approve only when the WhatsApp chat is from the same number the customer entered. Opening WhatsApp in the app is not enough.
           </p>
         </div>
         {pendingCount > 0 && (
@@ -200,7 +208,14 @@ export default function WhatsAppVerificationManager({ canManage }: { canManage: 
                 <tr key={row.id} className="border-t border-gray-100">
                   <td className="px-4 py-3 font-mono font-semibold">{row.verificationCode}</td>
                   <td className="px-4 py-3">{row.customerName || '—'}</td>
-                  <td className="px-4 py-3">{formatE164Display(row.mobile)}</td>
+                  <td className="px-4 py-3">
+                    <div>{formatE164Display(row.mobile)}</div>
+                    {row.lastInboundSender && (
+                      <p className="text-xs text-amber-700 mt-1">
+                        Code also sent from {formatE164Display(row.lastInboundSender)}
+                      </p>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded ${STATUS_STYLES[row.status] ?? 'bg-gray-100'}`}>
                       {row.status}
@@ -215,7 +230,7 @@ export default function WhatsAppVerificationManager({ canManage }: { canManage: 
                             type="button"
                             size="sm"
                             disabled={actingId === row.id}
-                            onClick={() => verifyRow(row.id, row.mobile)}
+                            onClick={() => verifyRow(row.id, row.mobile, row.lastInboundSender)}
                           >
                             Verify
                           </Button>

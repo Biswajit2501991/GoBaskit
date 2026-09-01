@@ -173,7 +173,7 @@ export default function AccountMobileModal() {
           sentInFlightRef.current = false;
           return;
         }
-        if (data.verified === true || data.ok) {
+        if (data.verified === true) {
           setSessionVerifiedMobile(mobile);
           setPhase(existingPasswordRef.current ? 'password' : 'create-password');
           setError('');
@@ -233,7 +233,7 @@ export default function AccountMobileModal() {
       body: JSON.stringify({ mobile, verificationId }),
     });
     const openedData = await openedRes.json().catch(() => ({}));
-    if (openedRes.ok && (openedData.verified === true || openedData.ok)) {
+    if (openedRes.ok && openedData.verified === true) {
       setSessionVerifiedMobile(mobile);
       setPhase(existingPasswordRef.current ? 'password' : 'create-password');
       setError('');
@@ -311,8 +311,15 @@ export default function AccountMobileModal() {
         setError(typeof data.error === 'string' ? data.error : 'Could not confirm message sent');
         return;
       }
-      setSessionVerifiedMobile(mobileE164);
-      setPhase(existingPasswordRef.current ? 'password' : 'create-password');
+      if (data.verified === true) {
+        setSessionVerifiedMobile(mobileE164);
+        setPhase(existingPasswordRef.current ? 'password' : 'create-password');
+        return;
+      }
+      sentInFlightRef.current = false;
+      setError(
+        'Waiting for WhatsApp from this same number. Send the code from the WhatsApp logged in with the number you entered.',
+      );
     } catch {
       sentInFlightRef.current = false;
       setError('Network error. Please try again.');
@@ -606,7 +613,7 @@ export default function AccountMobileModal() {
           <div className="text-center">
             <h2 className="text-xl font-bold text-gray-900 tracking-tight">Verify your WhatsApp</h2>
             <p className="text-sm text-gray-500 mt-1.5 mb-5 leading-relaxed">
-              Send this code on WhatsApp, then return here. You don&apos;t have to wait for admin.
+              Send this code from the same WhatsApp number you entered. We confirm when that message arrives.
             </p>
             <div className="bg-gray-50 rounded-2xl p-4 space-y-1 mb-4 border border-gray-100">
               <p className="text-[11px] text-gray-500 uppercase tracking-wide">Verification Code</p>
@@ -614,7 +621,7 @@ export default function AccountMobileModal() {
               <p className="text-sm text-gray-600">{formatE164Display(verification.mobile)}</p>
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-4">
-              <p className="text-sm font-medium text-amber-900">Send the message, then come back — we verify automatically</p>
+              <p className="text-sm font-medium text-amber-900">Send from this number, then wait here — a different WhatsApp will not verify</p>
             </div>
             <div className="space-y-2">
               {whatsappUrl && (

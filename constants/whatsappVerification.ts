@@ -12,6 +12,7 @@ export const VERIFICATION_AUDIT_ACTIONS = {
   REJECTED: 'verification_rejected',
   EXPIRED: 'verification_expired',
   SENT_ACK: 'verification_sent_ack',
+  SENDER_MISMATCH: 'verification_sender_mismatch',
   DELETED: 'verification_deleted',
 } as const;
 
