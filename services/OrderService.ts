@@ -10,6 +10,8 @@ import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationServ
 import { toE164 } from '@/utils/phone';
 import { normalizeMobile } from '@/utils/mobile';
 import { ACTIVE_ORDER_STATUSES } from '@/constants/orders';
+import { shouldClaimUnassignedPending, shouldUnlockStaffLock } from '@/lib/orderClaim';
+import { NotificationService } from '@/services/NotificationService';
 
 export interface OrderListParams {
   /** Exact live-board order id (notification deep link). */
@@ -340,14 +342,51 @@ export class OrderService {
       }
     }
 
-    await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        ...(data.status ? { status: data.status } : {}),
-        ...(data.priority ? { priority: data.priority } : {}),
-        ...(data.adminNotes !== undefined ? { adminNotes: data.adminNotes } : {}),
-      },
+    const nextStatus = data.status;
+    const claim = shouldClaimUnassignedPending({
+      currentStatus: order.status,
+      nextStatus,
+      assignedStaffId: order.assignedStaffId,
     });
+    const unlock = shouldUnlockStaffLock(nextStatus);
+
+    if (claim && nextStatus) {
+      const claimed = await prisma.order.updateMany({
+        where: {
+          id: orderId,
+          status: 'PENDING',
+          assignedStaffId: null,
+          archivedAt: null,
+        },
+        data: {
+          status: nextStatus,
+          assignedStaffId: actor.id,
+          lockedAt: unlock ? null : new Date(),
+          ...(data.priority ? { priority: data.priority } : {}),
+          ...(data.adminNotes !== undefined ? { adminNotes: data.adminNotes } : {}),
+        },
+      });
+      if (claimed.count !== 1) {
+        const latest = await prisma.order.findUnique({
+          where: { id: orderId },
+          select: { assignedStaffId: true },
+        });
+        if (latest?.assignedStaffId && latest.assignedStaffId !== actor.id) {
+          throw new Error('This order was already accepted by another staff member.');
+        }
+        throw new Error('This order is no longer pending.');
+      }
+    } else {
+      await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          ...(data.status ? { status: data.status } : {}),
+          ...(data.priority ? { priority: data.priority } : {}),
+          ...(data.adminNotes !== undefined ? { adminNotes: data.adminNotes } : {}),
+          ...(unlock ? { lockedAt: null } : {}),
+        },
+      });
+    }
 
     if (data.status && data.status !== order.status) {
       await this.recordStatusChange(orderId, data.status, actor.id);
@@ -366,13 +405,23 @@ export class OrderService {
       action: 'order_updated',
       entity: 'orders',
       entityId: orderId,
-      meta: data,
+      meta: { ...data, claimed: claim || undefined },
     });
 
     const payload = orderPayload(updated);
     DashboardService.invalidateCache();
     AnalyticsService.invalidateCache();
     adminEventBus.emit({ type: 'order_updated', payload });
+
+    if (claim) {
+      const staffName = updated.assignedStaff?.name || 'Staff';
+      void NotificationService.notifyOrderClaimed({
+        orderId: updated.id,
+        orderNumber: updated.orderNumber,
+        staffName,
+      }).catch((err) => console.error('[orders] claim notify failed', err));
+    }
+
     return updated;
   }
 

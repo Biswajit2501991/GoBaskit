@@ -126,6 +126,47 @@ export class NotificationService {
     return notifications;
   }
 
+  static async notifyOrderClaimed(params: {
+    orderId: string;
+    orderNumber: string;
+    staffName: string;
+  }) {
+    const staffName = params.staffName.trim() || 'Staff';
+    const title = `Accepted · ${params.orderNumber}`;
+    const message = `Order ${params.orderNumber} has been accepted by ${staffName} for delivery.`;
+
+    const recipientIds = await StaffAssignmentService.getOrderCapableStaffIds();
+    if (!recipientIds.length) return [];
+
+    const notifications = await Promise.all(
+      recipientIds.map((staffId) =>
+        prisma.adminNotification.create({
+          data: {
+            staffId,
+            type: 'order_claimed',
+            title,
+            message,
+            entityType: 'orders',
+            entityId: params.orderId,
+          },
+        }),
+      ),
+    );
+
+    for (const notification of notifications) {
+      await emitNotification(notification);
+    }
+
+    void AdminPushService.notifyStaffIds(recipientIds, {
+      title,
+      body: message,
+      url: staffOrderDeepLink(params.orderId),
+      tag: `order-${params.orderId}`,
+    });
+
+    return notifications;
+  }
+
   static async getInventoryNotificationRecipients(): Promise<string[]> {
     const staff = await prisma.staffAccount.findMany({
       where: { active: true, deletedAt: null },

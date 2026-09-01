@@ -496,6 +496,7 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
                 >
                   <option value="">All types</option>
                   <option value="new_order">New Order</option>
+                  <option value="order_claimed">Accepted</option>
                   <option value="low_stock">Low Stock</option>
                   <option value="out_of_stock">Out of Stock</option>
                   <option value="system">System</option>
