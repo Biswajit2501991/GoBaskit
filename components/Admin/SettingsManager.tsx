@@ -18,6 +18,12 @@ import {
 import DiscountManager from '@/components/Admin/DiscountManager';
 import ProductImageUpload from '@/components/Admin/ProductImageUpload';
 import { upiQrDisplayUrl } from '@/utils/image';
+import {
+  DEFAULT_WEATHER_DISCLAIMER_MESSAGE,
+  parseWeatherDisclaimer,
+  parseWeatherDisclaimerMode,
+  type WeatherDisclaimerPublic,
+} from '@/lib/weatherDisclaimer';
 
 const SETTINGS_SECTIONS = [
   { id: 'min-order', label: 'Min Order', group: 'Delivery' },
@@ -29,6 +35,7 @@ const SETTINGS_SECTIONS = [
   { id: 'notifications', label: 'Notifications', group: 'Orders' },
   { id: 'session', label: 'Staff Session', group: 'Orders' },
   { id: 'store-status', label: 'Store Status', group: 'Orders' },
+  { id: 'weather', label: 'Weather Notice', group: 'Orders' },
   { id: 'payments', label: 'Payments', group: 'Orders' },
   { id: 'wa-templates', label: 'WA Templates', group: 'Orders' },
   { id: 'cancellation', label: 'Cancellation Policy', group: 'Orders' },
@@ -167,6 +174,7 @@ interface StoreConfig {
       enabled: boolean;
     }>;
   };
+  weatherDisclaimer?: WeatherDisclaimerPublic;
   discountConfig: DiscountConfig;
 }
 
@@ -273,6 +281,10 @@ export default function SettingsManager({
   const [staffIdleTimeoutMinutes, setStaffIdleTimeoutMinutes] = useState(
     initialConfig.staffIdleTimeoutMinutes ?? 15,
   );
+  const [weatherDisclaimer, setWeatherDisclaimer] = useState(() =>
+    parseWeatherDisclaimer(initialConfig.weatherDisclaimer),
+  );
+  const [weatherRefreshing, setWeatherRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const lastSavedRef = useRef(initialConfig);
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
@@ -300,6 +312,7 @@ export default function SettingsManager({
       staffIdleTimeoutEnabled,
       staffIdleTimeoutMinutes,
       homepageConfig: homepageConfig as StoreConfig['homepageConfig'],
+      weatherDisclaimer,
     };
     // Capture hydrated defaults once so the first save only writes real edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -492,6 +505,18 @@ export default function SettingsManager({
         ...homepageConfig,
       });
       if (homepagePatch) body.homepageConfig = homepagePatch;
+      const prevWeather = parseWeatherDisclaimer(prev.weatherDisclaimer);
+      if (
+        prevWeather.mode !== weatherDisclaimer.mode ||
+        prevWeather.pin !== weatherDisclaimer.pin ||
+        prevWeather.message !== weatherDisclaimer.message
+      ) {
+        body.weatherDisclaimer = {
+          mode: weatherDisclaimer.mode,
+          pin: weatherDisclaimer.pin,
+          message: weatherDisclaimer.message,
+        };
+      }
 
       if (Object.keys(body).length === 0) {
         setMessage({ type: 'ok', text: 'No changes to save.' });
@@ -524,6 +549,7 @@ export default function SettingsManager({
       setNotificationSoundEnabled(updated.notificationSoundEnabled ?? true);
       setStaffIdleTimeoutEnabled(updated.staffIdleTimeoutEnabled ?? true);
       setStaffIdleTimeoutMinutes(updated.staffIdleTimeoutMinutes ?? 15);
+      setWeatherDisclaimer(parseWeatherDisclaimer(updated.weatherDisclaimer));
       setHomepageConfig({
         ...updated.homepageConfig,
         showTopDiscounted: updated.homepageConfig.showTopDiscounted !== false,
@@ -565,6 +591,34 @@ export default function SettingsManager({
       setMessage({ type: 'err', text: e instanceof Error ? e.message : 'Failed to save settings' });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function refreshWeatherNow() {
+    if (!canEdit) return;
+    setWeatherRefreshing(true);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/admin/weather-disclaimer/refresh', { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(typeof data.error === 'string' ? data.error : 'Could not refresh weather');
+      }
+      const next = parseWeatherDisclaimer(await res.json());
+      setWeatherDisclaimer(next);
+      lastSavedRef.current = { ...lastSavedRef.current, weatherDisclaimer: next };
+      setMessage({
+        type: 'ok',
+        text: next.lastFetchOk
+          ? next.visible
+            ? 'Weather updated — rain notice is currently shown.'
+            : 'Weather updated — rain notice is currently hidden.'
+          : 'Weather lookup failed; previous rain state was kept.',
+      });
+    } catch (e) {
+      setMessage({ type: 'err', text: e instanceof Error ? e.message : 'Could not refresh weather' });
+    } finally {
+      setWeatherRefreshing(false);
     }
   }
 
@@ -899,6 +953,85 @@ export default function SettingsManager({
             Holiday mode
           </label>
         </div>
+      </section>
+          )}
+
+          {activeSection === 'weather' && (
+      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+        <div>
+          <h2 className="font-bold text-sm">Weather delivery notice</h2>
+          <p className="text-xs text-gray-400 mt-1">
+            Shown on the shop, cart, and checkout. Auto uses rain forecast for PIN {weatherDisclaimer.pin}{' '}
+            (Adra). This does not change orders or checkout.
+          </p>
+        </div>
+        <div className="grid md:grid-cols-2 gap-3">
+          <div>
+            <Label>When to show</Label>
+            <select
+              value={weatherDisclaimer.mode}
+              onChange={(e) =>
+                setWeatherDisclaimer((prev) => ({
+                  ...prev,
+                  mode: parseWeatherDisclaimerMode(e.target.value),
+                }))
+              }
+              className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm"
+              disabled={!canEdit}
+            >
+              <option value="auto">Auto — show when rain is predicted</option>
+              <option value="force_on">Always on — staff override</option>
+              <option value="force_off">Always off — hide even if raining</option>
+            </select>
+          </div>
+          <div>
+            <Label>PIN used for forecast</Label>
+            <Input
+              value={weatherDisclaimer.pin}
+              onChange={(e) =>
+                setWeatherDisclaimer((prev) => ({
+                  ...prev,
+                  pin: e.target.value.replace(/\D/g, '').slice(0, 6),
+                }))
+              }
+              maxLength={6}
+              disabled={!canEdit}
+            />
+          </div>
+        </div>
+        <div>
+          <Label>Customer message</Label>
+          <textarea
+            value={weatherDisclaimer.message}
+            onChange={(e) =>
+              setWeatherDisclaimer((prev) => ({ ...prev, message: e.target.value.slice(0, 500) }))
+            }
+            disabled={!canEdit}
+            rows={4}
+            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            placeholder={DEFAULT_WEATHER_DISCLAIMER_MESSAGE}
+          />
+        </div>
+        <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 space-y-1">
+          <p>
+            Currently {weatherDisclaimer.visible ? 'visible' : 'hidden'} on the website.
+            {weatherDisclaimer.rainDetected ? ' Rain detected.' : ' No rain detected.'}
+            {weatherDisclaimer.lastCheckedAt
+              ? ` Last check ${new Date(weatherDisclaimer.lastCheckedAt).toLocaleString('en-IN')}.`
+              : ' Not checked yet.'}
+            {weatherDisclaimer.lastFetchOk ? '' : ' Last forecast lookup failed.'}
+          </p>
+        </div>
+        {canEdit && (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => void refreshWeatherNow()}
+            disabled={weatherRefreshing}
+          >
+            {weatherRefreshing ? 'Checking weather…' : 'Check weather now'}
+          </Button>
+        )}
       </section>
           )}
 

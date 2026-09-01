@@ -9,6 +9,7 @@ import AllCategoriesModal from '@/components/CategoryCard/AllCategoriesModal';
 import ProductRail from '@/components/ProductCard/ProductRail';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import SeasonalPromoBanner from '@/components/Theme/SeasonalPromoBanner';
+import WeatherDisclaimerBanner from '@/components/Storefront/WeatherDisclaimerBanner';
 import { useConfigStore } from '@/store/configStore';
 import { useCatalogStore } from '@/store/catalogStore';
 import { calculateDiscountPercentage } from '@/utils/pricing';
@@ -110,6 +111,7 @@ export default function HomePage() {
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-4 pb-24">
         <SeasonalPromoBanner />
+        <WeatherDisclaimerBanner className="mb-3" />
 
         {homepageConfig.announcementBarText && (
           <div className="mb-3 rounded-xl px-3 py-2 text-sm font-medium bg-blinkit-green-light text-blinkit-green">

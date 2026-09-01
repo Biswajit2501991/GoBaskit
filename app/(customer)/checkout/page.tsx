@@ -25,6 +25,7 @@ import {
 import { prefetchCheckoutProfile } from '@/utils/prefetchCheckoutProfile';
 import { refreshCartStockFromServer } from '@/utils/refreshCartStock';
 import StockRemovalNotice from '@/components/Cart/StockRemovalNotice';
+import WeatherDisclaimerBanner from '@/components/Storefront/WeatherDisclaimerBanner';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { checkoutSchema, type CheckoutSchema } from '@/lib/validations';
 import { buildWhatsAppMessage, buildWhatsAppUrl, openWhatsAppUrl } from '@/utils/whatsapp';
@@ -761,6 +762,7 @@ export default function CheckoutPage() {
         </div>
 
         <StockRemovalNotice />
+        <WeatherDisclaimerBanner />
 
         {belowMinimum && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">

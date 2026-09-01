@@ -114,6 +114,13 @@ const settingsSchema = z.object({
         .optional(),
     })
     .optional(),
+  weatherDisclaimer: z
+    .object({
+      mode: z.enum(['auto', 'force_on', 'force_off']).optional(),
+      pin: z.string().regex(/^\d{6}$/).optional(),
+      message: z.string().max(500).optional(),
+    })
+    .optional(),
 });
 
 export async function GET() {

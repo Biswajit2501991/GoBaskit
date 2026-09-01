@@ -41,6 +41,24 @@ if ! $public_ok; then
 fi
 
 if $local_ok; then
+  WEATHER_STAMP="$ROOT/logs/.last-weather-disclaimer"
+  if [[ ! -f "$WEATHER_STAMP" ]] || [[ -n "$(find "$WEATHER_STAMP" -mmin +19 2>/dev/null)" ]]; then
+    if [[ -f "$ROOT/.env" ]]; then
+      set -a
+      # shellcheck disable=SC1091
+      source "$ROOT/.env"
+      set +a
+    fi
+    if [[ -n "${CRON_SECRET:-}" ]]; then
+      curl -sf -X POST -H "x-cron-secret: $CRON_SECRET" http://127.0.0.1:3000/api/cron/weather-disclaimer >> "$LOG" 2>&1 \
+        || (cd "$ROOT" && npx tsx scripts/weather-disclaimer.ts >> "$LOG" 2>&1) \
+        || true
+    else
+      (cd "$ROOT" && npx tsx scripts/weather-disclaimer.ts >> "$LOG" 2>&1) || true
+    fi
+    touch "$WEATHER_STAMP"
+  fi
+
   REMIND_STAMP="$ROOT/logs/.last-unassigned-push"
   if [[ ! -f "$REMIND_STAMP" ]] || [[ -n "$(find "$REMIND_STAMP" -mmin +9 2>/dev/null)" ]]; then
     if [[ -f "$ROOT/.env" ]]; then

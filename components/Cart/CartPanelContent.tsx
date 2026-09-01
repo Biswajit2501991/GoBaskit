@@ -16,6 +16,7 @@ import { getListPrice } from '@/utils/pricing';
 import { resolvePublicImageUrl } from '@/utils/image';
 import { refreshCartStockFromServer } from '@/utils/refreshCartStock';
 import StockRemovalNotice from '@/components/Cart/StockRemovalNotice';
+import WeatherDisclaimerBanner from '@/components/Storefront/WeatherDisclaimerBanner';
 import { Button } from '@/components/ui/button';
 
 type CartPanelContentProps = {
@@ -141,6 +142,7 @@ export default function CartPanelContent({
     <div className={`flex flex-col h-full min-h-0 ${className}`}>
       <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-3 bg-[#f4f6fb]">
         <StockRemovalNotice />
+        <WeatherDisclaimerBanner />
         <div className="space-y-1">
           <DeliveryEtaButton variant="card" />
           <p className="text-[11px] text-gray-500 px-1">

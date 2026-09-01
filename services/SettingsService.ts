@@ -18,6 +18,14 @@ import {
   parseSeasonalThemeId,
   type SeasonalThemeId,
 } from '@/constants/seasonalThemes';
+import {
+  applyWeatherObservation,
+  DEFAULT_WEATHER_DISCLAIMER,
+  parseWeatherDisclaimer,
+  persistWeatherDisclaimer,
+  type WeatherDisclaimerPublic,
+  type WeatherDisclaimerState,
+} from '@/lib/weatherDisclaimer';
 
 export type {
   HealthStarDisplay,
@@ -117,9 +125,13 @@ export interface StoreConfig {
     }>;
   };
   discountConfig: DiscountConfig;
+  /** Rain notice for PIN 723121. Separate from homepage JSON so cron cannot clobber layout. */
+  weatherDisclaimer: WeatherDisclaimerPublic;
 }
 
-type StoreConfigUpdate = Partial<Omit<StoreConfig, 'homepageConfig' | 'discountConfig'>> & {
+type StoreConfigUpdate = Partial<
+  Omit<StoreConfig, 'homepageConfig' | 'discountConfig' | 'weatherDisclaimer'>
+> & {
   homepageConfig?: Partial<Omit<StoreConfig['homepageConfig'], 'promoSections' | 'healthStarDisplay'>> & {
     promoSections?: Array<Partial<StoreConfig['homepageConfig']['promoSections'][number]>>;
     healthStarDisplay?: Partial<HealthStarDisplay> & {
@@ -128,6 +140,11 @@ type StoreConfigUpdate = Partial<Omit<StoreConfig, 'homepageConfig' | 'discountC
   };
   discountConfig?: Partial<Omit<DiscountConfig, 'membership'>> & {
     membership?: Partial<DiscountConfig['membership']>;
+  };
+  weatherDisclaimer?: {
+    mode?: WeatherDisclaimerState['mode'];
+    pin?: string;
+    message?: string;
   };
 };
 
@@ -192,6 +209,7 @@ const KEY_STAFF_IDLE_TIMEOUT_ENABLED = 'staff_idle_timeout_enabled';
 const KEY_STAFF_IDLE_TIMEOUT_MINUTES = 'staff_idle_timeout_minutes';
 const KEY_HOMEPAGE_CONFIG = 'homepage_config';
 const KEY_DISCOUNT_CONFIG = 'discount_config';
+const KEY_WEATHER_DISCLAIMER = 'weather_disclaimer';
 
 const DEFAULT_STAFF_IDLE_TIMEOUT_MINUTES = 15;
 
@@ -307,6 +325,7 @@ const DEFAULTS: StoreConfig = {
     ],
   },
   discountConfig: DEFAULT_DISCOUNT_CONFIG,
+  weatherDisclaimer: parseWeatherDisclaimer(DEFAULT_WEATHER_DISCLAIMER),
 };
 
 // In-memory cache. The app runs as a single long-lived Node server, so this
@@ -616,6 +635,16 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     }
   }
 
+  let weatherDisclaimer = parseWeatherDisclaimer(DEFAULT_WEATHER_DISCLAIMER);
+  const rawWeatherDisclaimer = map.get(KEY_WEATHER_DISCLAIMER);
+  if (rawWeatherDisclaimer) {
+    try {
+      weatherDisclaimer = parseWeatherDisclaimer(JSON.parse(rawWeatherDisclaimer));
+    } catch {
+      weatherDisclaimer = parseWeatherDisclaimer(DEFAULT_WEATHER_DISCLAIMER);
+    }
+  }
+
   return {
     serviceablePins: pins,
     serviceableCities: cities,
@@ -638,6 +667,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     staffIdleTimeoutMinutes,
     homepageConfig,
     discountConfig,
+    weatherDisclaimer,
   };
 }
 
@@ -671,6 +701,7 @@ export const SettingsService = {
               KEY_STAFF_IDLE_TIMEOUT_MINUTES,
               KEY_HOMEPAGE_CONFIG,
               KEY_DISCOUNT_CONFIG,
+              KEY_WEATHER_DISCLAIMER,
             ],
           },
         },
@@ -999,6 +1030,28 @@ export const SettingsService = {
       };
       writes.push(upsert(KEY_DISCOUNT_CONFIG, JSON.stringify(merged)));
     }
+    if (partial.weatherDisclaimer) {
+      const current = await this.getStoreConfig();
+      const patch = partial.weatherDisclaimer;
+      const next: WeatherDisclaimerState = {
+        mode: patch.mode ?? current.weatherDisclaimer.mode,
+        pin:
+          patch.pin !== undefined
+            ? parseWeatherDisclaimer({ ...current.weatherDisclaimer, pin: patch.pin }).pin
+            : current.weatherDisclaimer.pin,
+        message:
+          patch.message !== undefined
+            ? parseWeatherDisclaimer({ ...current.weatherDisclaimer, message: patch.message })
+                .message
+            : current.weatherDisclaimer.message,
+        rainDetected: current.weatherDisclaimer.rainDetected,
+        rainHoldUntil: current.weatherDisclaimer.rainHoldUntil,
+        lastCheckedAt: current.weatherDisclaimer.lastCheckedAt,
+        lastCondition: current.weatherDisclaimer.lastCondition,
+        lastFetchOk: current.weatherDisclaimer.lastFetchOk,
+      };
+      writes.push(upsert(KEY_WEATHER_DISCLAIMER, persistWeatherDisclaimer(next)));
+    }
 
     await Promise.all(writes);
     cache = null; // invalidate so the next read reflects the change
@@ -1014,6 +1067,19 @@ export const SettingsService = {
 
   invalidate() {
     cache = null;
+  },
+
+  /** Cron / staff refresh: update rain flags only. Never rewrites homepage or checkout settings. */
+  async applyWeatherObservation(obs: {
+    ok: boolean;
+    raining: boolean;
+    condition: string | null;
+  }): Promise<StoreConfig> {
+    const current = await this.getStoreConfig();
+    const next = applyWeatherObservation(current.weatherDisclaimer, obs);
+    await upsert(KEY_WEATHER_DISCLAIMER, persistWeatherDisclaimer(next));
+    cache = null;
+    return this.getStoreConfig();
   },
 };
 

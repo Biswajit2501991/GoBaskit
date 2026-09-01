@@ -13,6 +13,10 @@ import {
 } from '@/constants/healthStarDisplay';
 import { parseSeasonalThemeId, type SeasonalThemeId } from '@/constants/seasonalThemes';
 import { persistStorefrontPresentation } from '@/utils/storefrontPresentation';
+import {
+  DEFAULT_WEATHER_DISCLAIMER_MESSAGE,
+  type WeatherDisclaimerPublic,
+} from '@/lib/weatherDisclaimer';
 
 interface ConfigState {
   serviceablePins: string[];
@@ -68,6 +72,7 @@ interface ConfigState {
       enabled: boolean;
     }>;
   };
+  weatherDisclaimer: WeatherDisclaimerPublic;
   loaded: boolean;
   fetchConfig: () => Promise<void>;
   refreshConfig: () => Promise<void>;
@@ -124,6 +129,17 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     seasonalPromoCtaLabel: 'Copy code',
     seasonalRibbonText: 'Celebrating 15 August · Order fresh essentials today',
     promoSections: [],
+  },
+  weatherDisclaimer: {
+    mode: 'auto',
+    pin: '723121',
+    message: DEFAULT_WEATHER_DISCLAIMER_MESSAGE,
+    rainDetected: false,
+    rainHoldUntil: null,
+    lastCheckedAt: null,
+    lastCondition: null,
+    lastFetchOk: true,
+    visible: false,
   },
   loaded: false,
 
@@ -195,6 +211,19 @@ async function loadConfig(
                     : c.homepageConfig.showBestSellers !== false,
               }
             : get().homepageConfig,
+        weatherDisclaimer:
+          typeof c.weatherDisclaimer === 'object' && c.weatherDisclaimer
+            ? {
+                ...get().weatherDisclaimer,
+                ...c.weatherDisclaimer,
+                visible: c.weatherDisclaimer.visible === true,
+                message:
+                  typeof c.weatherDisclaimer.message === 'string' &&
+                  c.weatherDisclaimer.message.trim()
+                    ? c.weatherDisclaimer.message
+                    : get().weatherDisclaimer.message,
+              }
+            : get().weatherDisclaimer,
         loaded: true,
       });
       const hc = get().homepageConfig;
