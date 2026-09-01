@@ -14,7 +14,7 @@ import { openWhatsAppUrl } from '@/utils/whatsapp';
 import { setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
 import LoginBrandSeal from '@/components/Header/LoginBrandSeal';
 import { useConfigStore } from '@/store/configStore';
-import { SENT_ACK_WAIT_MS, VERIFICATION_POLL_INTERVAL_MS } from '@/constants/whatsappVerification';
+import { LOGIN_VERIFICATION_POLL_INTERVAL_MS, SENT_ACK_WAIT_MS } from '@/constants/whatsappVerification';
 import { remainingSentAckWaitSeconds } from '@/lib/sentAckWait';
 
 interface PendingVerification {
@@ -54,6 +54,7 @@ export default function AccountMobileModal() {
   const verificationIdRef = useRef<string | null>(null);
   const waitingMobileRef = useRef<string | null>(null);
   const sentWaitUntilRef = useRef(0);
+  const confirmSentRef = useRef<(opts?: { silent?: boolean }) => Promise<void>>(async () => {});
 
   const mobileE164 = toE164('91', mobile);
 
@@ -137,12 +138,15 @@ export default function AccountMobileModal() {
       setSentWaitSeconds(0);
       return;
     }
+    let completed = false;
     const tick = () => {
       const left = remainingSentAckWaitSeconds(sentWaitUntil);
       setSentWaitSeconds(left);
-      if (left <= 0) {
+      if (left <= 0 && !completed) {
+        completed = true;
         sentWaitUntilRef.current = 0;
         setSentWaitUntil(0);
+        void confirmSentRef.current({ silent: true });
       }
     };
     tick();
@@ -222,7 +226,7 @@ export default function AccountMobileModal() {
       phase === 'waiting'
         ? setInterval(() => {
             void poll();
-          }, VERIFICATION_POLL_INTERVAL_MS)
+          }, LOGIN_VERIFICATION_POLL_INTERVAL_MS)
         : null;
     if (phase === 'waiting') void poll();
 
@@ -329,12 +333,15 @@ export default function AccountMobileModal() {
     }
   }
 
-  async function confirmSentAndVerify() {
+  async function confirmSentAndVerify(opts?: { silent?: boolean }) {
     if (!mobileE164 || !verification || sentInFlightRef.current) return;
     if (Date.now() < sentWaitUntilRef.current) return;
+    const silent = opts?.silent === true;
     sentInFlightRef.current = true;
-    setLoading(true);
-    setError('');
+    if (!silent) {
+      setLoading(true);
+      setError('');
+    }
     try {
       const res = await fetch('/api/customer/verification/sent', {
         method: 'POST',
@@ -347,7 +354,9 @@ export default function AccountMobileModal() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         sentInFlightRef.current = false;
-        setError(typeof data.error === 'string' ? data.error : 'Could not confirm message sent');
+        if (!silent) {
+          setError(typeof data.error === 'string' ? data.error : 'Could not confirm message sent');
+        }
         return;
       }
       if (data.verified === true) {
@@ -356,16 +365,19 @@ export default function AccountMobileModal() {
         return;
       }
       sentInFlightRef.current = false;
-      setError(
-        'Waiting for WhatsApp from this same number. Send the code from the WhatsApp logged in with the number you entered.',
-      );
+      if (!silent) {
+        setError(
+          'Waiting for WhatsApp from this same number. Send the code from the WhatsApp logged in with the number you entered.',
+        );
+      }
     } catch {
       sentInFlightRef.current = false;
-      setError('Network error. Please try again.');
+      if (!silent) setError('Network error. Please try again.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
+  confirmSentRef.current = confirmSentAndVerify;
 
   async function handleContinue() {
     setError('');
@@ -652,7 +664,7 @@ export default function AccountMobileModal() {
           <div className="text-center">
             <h2 className="text-xl font-bold text-gray-900 tracking-tight">Verify your WhatsApp</h2>
             <p className="text-sm text-gray-500 mt-1.5 mb-5 leading-relaxed">
-              Send this code from the same WhatsApp number you entered. We confirm when that message arrives.
+              Send this code from the same WhatsApp number you entered. We verify automatically when that message arrives.
             </p>
             <div className="bg-gray-50 rounded-2xl p-4 space-y-1 mb-4 border border-gray-100">
               <p className="text-[11px] text-gray-500 uppercase tracking-wide">Verification Code</p>
@@ -660,7 +672,12 @@ export default function AccountMobileModal() {
               <p className="text-sm text-gray-600">{formatE164Display(verification.mobile)}</p>
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-4">
-              <p className="text-sm font-medium text-amber-900">Send from this number, then wait here — a different WhatsApp will not verify</p>
+              <p className="text-sm font-medium text-amber-900">
+                {sentWaitSeconds > 0
+                  ? `Send the message — we continue automatically in ${sentWaitSeconds}s`
+                  : 'Checking WhatsApp from this number…'}
+              </p>
+              <p className="text-xs text-amber-800 mt-1">You do not need to tap continue. A different WhatsApp will not verify.</p>
             </div>
             <div className="space-y-2">
               {whatsappUrl && (
@@ -691,8 +708,10 @@ export default function AccountMobileModal() {
                 onClick={() => void confirmSentAndVerify()}
               >
                 {sentWaitSeconds > 0
-                  ? `Wait ${sentWaitSeconds}s to continue`
-                  : "I've sent the message"}
+                  ? `Wait ${sentWaitSeconds}s`
+                  : loading
+                    ? 'Checking…'
+                    : 'Still waiting? Tap to check'}
               </Button>
               {error && <p className="text-red-500 text-xs text-center">{error}</p>}
               <Button

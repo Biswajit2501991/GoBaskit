@@ -131,32 +131,17 @@ export default function WhatsAppVerificationModal({
     setSentWaitSeconds(remainingSentAckWaitSeconds(until));
   }, []);
 
-  useEffect(() => {
-    if (!sentWaitUntil) {
-      setSentWaitSeconds(0);
-      return;
-    }
-    const tick = () => {
-      const left = remainingSentAckWaitSeconds(sentWaitUntil);
-      setSentWaitSeconds(left);
-      if (left <= 0) {
-        sentWaitUntilRef.current = 0;
-        setSentWaitUntil(0);
-      }
-    };
-    tick();
-    const timer = setInterval(tick, 250);
-    return () => clearInterval(timer);
-  }, [sentWaitUntil]);
-
-  const acknowledgeSent = useCallback(async () => {
+  const acknowledgeSent = useCallback(async (opts?: { silent?: boolean }) => {
     const mobile = mobileRef.current;
     const verificationId = verificationIdRef.current ?? verificationRef.current?.id;
     if (!mobile || verifiedRef.current || sentInFlightRef.current) return;
     if (Date.now() < sentWaitUntilRef.current) return;
+    const silent = opts?.silent === true;
     sentInFlightRef.current = true;
-    setLoading(true);
-    setError('');
+    if (!silent) {
+      setLoading(true);
+      setError('');
+    }
     try {
       const res = await fetch('/api/customer/verification/sent', {
         method: 'POST',
@@ -169,7 +154,9 @@ export default function WhatsAppVerificationModal({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         sentInFlightRef.current = false;
-        setError(typeof data.error === 'string' ? data.error : 'Could not confirm message sent');
+        if (!silent) {
+          setError(typeof data.error === 'string' ? data.error : 'Could not confirm message sent');
+        }
         return;
       }
       if (data.verified === true) {
@@ -177,13 +164,39 @@ export default function WhatsAppVerificationModal({
         return;
       }
       sentInFlightRef.current = false;
-      setError(
-        'Waiting for WhatsApp from this same number. Send the code from the WhatsApp logged in with the number you entered.',
-      );
+      if (!silent) {
+        setError(
+          'Waiting for WhatsApp from this same number. Send the code from the WhatsApp logged in with the number you entered.',
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [finishVerified]);
+
+  const acknowledgeSentRef = useRef(acknowledgeSent);
+  acknowledgeSentRef.current = acknowledgeSent;
+
+  useEffect(() => {
+    if (!sentWaitUntil) {
+      setSentWaitSeconds(0);
+      return;
+    }
+    let completed = false;
+    const tick = () => {
+      const left = remainingSentAckWaitSeconds(sentWaitUntil);
+      setSentWaitSeconds(left);
+      if (left <= 0 && !completed) {
+        completed = true;
+        sentWaitUntilRef.current = 0;
+        setSentWaitUntil(0);
+        void acknowledgeSentRef.current({ silent: true });
+      }
+    };
+    tick();
+    const timer = setInterval(tick, 250);
+    return () => clearInterval(timer);
+  }, [sentWaitUntil]);
 
   const markOpenedWhatsApp = useCallback((mobile: string, verification: VerificationData, url: string) => {
     mobileRef.current = mobile;
@@ -225,7 +238,7 @@ export default function WhatsAppVerificationModal({
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       if (hiddenAtRef.current && Date.now() - hiddenAtRef.current < 700) return;
       if (Date.now() < sentWaitUntilRef.current) return;
-      void acknowledgeSent();
+      void acknowledgeSent({ silent: true });
     };
 
     const onVisibility = () => {
@@ -344,7 +357,7 @@ export default function WhatsAppVerificationModal({
           <div>
             <h2 className="text-lg font-bold">Verify Your WhatsApp Number</h2>
             <p className="text-sm text-gray-500 mt-1">
-              Send the WhatsApp message from the same number you entered. We confirm when that message arrives.
+              Send the WhatsApp message from the same number you entered. We verify automatically when that message arrives.
             </p>
           </div>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Close">
@@ -418,9 +431,13 @@ export default function WhatsAppVerificationModal({
           ) : (
             <>
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
-                <p className="text-sm font-medium text-amber-900">Send from this number, then wait here</p>
+                <p className="text-sm font-medium text-amber-900">
+                  {sentWaitSeconds > 0
+                    ? `Send the message — we continue automatically in ${sentWaitSeconds}s`
+                    : 'Checking WhatsApp from this number…'}
+                </p>
                 <p className="text-xs text-amber-700 mt-1">
-                  A different WhatsApp account cannot verify this number. Keep this page open after you send the code.
+                  You do not need to tap continue. A different WhatsApp account cannot verify this number.
                 </p>
               </div>
 
@@ -447,8 +464,10 @@ export default function WhatsAppVerificationModal({
                   onClick={() => void acknowledgeSent()}
                 >
                   {sentWaitSeconds > 0
-                    ? `Wait ${sentWaitSeconds}s to continue`
-                    : 'I\'ve sent the message'}
+                    ? `Wait ${sentWaitSeconds}s`
+                    : loading
+                      ? 'Checking…'
+                      : 'Still waiting? Tap to check'}
                 </Button>
                 <Button
                   type="button"
