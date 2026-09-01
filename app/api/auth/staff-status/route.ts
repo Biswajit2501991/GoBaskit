@@ -1,33 +1,53 @@
+import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { getSession, getStaffFromSession } from '@/lib/auth';
+import {
+  getSession,
+  getStaffFromSession,
+  REFRESH_COOKIE_NAME,
+  rotateStaffRefreshToken,
+  setAuthCookies,
+} from '@/lib/auth';
 import { normalizeMobile } from '@/utils/mobile';
 
 /**
  * Read-only check: is the admin/staff cookie still valid?
- * Used by the storefront header to keep "Open Admin" visible while the session lives.
+ * If the 1h access JWT expired, rotate the refresh cookie (same as heartbeat)
+ * so a saved home-screen app still shows Open Admin without logging in again.
  */
 export async function GET() {
   try {
     const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ authenticated: false });
+    if (session) {
+      const staff = await getStaffFromSession();
+      if (staff) {
+        const rawMobile =
+          ('type' in session && session.type === 'staff' ? session.mobile : '') || staff.mobile || '';
+        return NextResponse.json({
+          authenticated: true,
+          mobile: normalizeMobile(rawMobile) || null,
+          name: staff.name || null,
+          role: staff.role || null,
+        });
+      }
     }
 
-    const staff = await getStaffFromSession();
-    if (!staff) {
-      return NextResponse.json({ authenticated: false });
+    const cookieStore = await cookies();
+    const refreshRaw = cookieStore.get(REFRESH_COOKIE_NAME)?.value;
+    if (refreshRaw) {
+      const rotated = await rotateStaffRefreshToken(refreshRaw);
+      if (rotated) {
+        const response = NextResponse.json({
+          authenticated: true,
+          mobile: normalizeMobile(rotated.staff.mobile) || null,
+          name: rotated.staff.name || null,
+          role: rotated.staff.role || null,
+        });
+        setAuthCookies(response, rotated.access, rotated.refresh);
+        return response;
+      }
     }
 
-    const rawMobile =
-      ('type' in session && session.type === 'staff' ? session.mobile : '') || staff.mobile || '';
-    const mobile = normalizeMobile(rawMobile);
-
-    return NextResponse.json({
-      authenticated: true,
-      mobile: mobile || null,
-      name: staff.name || null,
-      role: staff.role || null,
-    });
+    return NextResponse.json({ authenticated: false });
   } catch (err) {
     console.error('[auth/staff-status]', err);
     return NextResponse.json({ authenticated: false });

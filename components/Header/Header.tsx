@@ -48,6 +48,7 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
   const checkedMobile = useStaffPortalStore((s) => s.checkedMobile);
   const customerMobile = useStaffPortalStore((s) => s.customerMobile);
   const staffName = useStaffPortalStore((s) => s.staffName);
+  const setStaffEligible = useStaffPortalStore((s) => s.setStaffEligible);
   const setCustomerMobile = useStaffPortalStore((s) => s.setCustomerMobile);
   const setAdminSessionActive = useStaffPortalStore((s) => s.setAdminSessionActive);
   const clearAccount = useStaffPortalStore((s) => s.clearAccount);
@@ -89,33 +90,70 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
     void fetchConfig();
   }, [fetchConfig]);
 
-  // Rehydrate Super Admin / Open Admin from live staff cookie after refresh.
+  // Rehydrate Super Admin / Open Admin from live staff cookie (or refresh cookie).
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/auth/staff-status', { credentials: 'include' })
+
+    async function rehydrateStaffSession() {
+      try {
+        const res = await fetch('/api/auth/staff-status', { credentials: 'include' });
+        const data = res.ok
+          ? ((await res.json()) as {
+              authenticated?: boolean;
+              mobile?: string | null;
+              name?: string | null;
+            })
+          : null;
+        if (cancelled) return;
+        if (data?.authenticated) {
+          setAdminSessionActive(true, {
+            mobile: data.mobile || undefined,
+            name: data.name || undefined,
+          });
+          return;
+        }
+        setAdminSessionActive(false);
+      } catch {
+        /* keep current UI */
+      }
+    }
+
+    void rehydrateStaffSession();
+    function onVisible() {
+      if (document.visibilityState === 'visible') void rehydrateStaffSession();
+    }
+    function onPageShow(e: PageTransitionEvent) {
+      if (e.persisted) void rehydrateStaffSession();
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('pageshow', onPageShow);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('pageshow', onPageShow);
+    };
+  }, [setAdminSessionActive, pathname]);
+
+  // Customer cookie can outlive the 1h staff JWT. If this number is staff, keep
+  // "Login as Admin" visible even when the refresh cookie is already gone.
+  useEffect(() => {
+    if (adminSessionActive || staffEligible || !customerMobile) return;
+    let cancelled = false;
+    fetch('/api/staff/check-mobile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile: customerMobile }),
+    })
       .then((res) => (res.ok ? res.json() : null))
-      .then(
-        (data: {
-          authenticated?: boolean;
-          mobile?: string | null;
-          name?: string | null;
-        } | null) => {
-          if (cancelled || !data) return;
-          if (data.authenticated) {
-            setAdminSessionActive(true, {
-              mobile: data.mobile || undefined,
-              name: data.name || undefined,
-            });
-          } else {
-            setAdminSessionActive(false);
-          }
-        },
-      )
+      .then((data: { isStaff?: boolean; staffName?: string | null } | null) => {
+        if (cancelled || !data?.isStaff) return;
+        setStaffEligible(customerMobile, data.staffName || undefined);
+      })
       .catch(() => null);
     return () => {
       cancelled = true;
     };
-  }, [setAdminSessionActive, pathname]);
+  }, [adminSessionActive, staffEligible, customerMobile, setStaffEligible]);
 
   function handleAdminEntryClick() {
     if (adminSessionActive) {
