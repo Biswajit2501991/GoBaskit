@@ -14,7 +14,8 @@ import { openWhatsAppUrl } from '@/utils/whatsapp';
 import { setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
 import LoginBrandSeal from '@/components/Header/LoginBrandSeal';
 import { useConfigStore } from '@/store/configStore';
-import { VERIFICATION_POLL_INTERVAL_MS } from '@/constants/whatsappVerification';
+import { SENT_ACK_WAIT_MS, VERIFICATION_POLL_INTERVAL_MS } from '@/constants/whatsappVerification';
+import { remainingSentAckWaitSeconds } from '@/lib/sentAckWait';
 
 interface PendingVerification {
   id: string;
@@ -42,6 +43,8 @@ export default function AccountMobileModal() {
   const [phase, setPhase] = useState<Phase>('enter');
   const [verification, setVerification] = useState<PendingVerification | null>(null);
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
+  const [sentWaitUntil, setSentWaitUntil] = useState(0);
+  const [sentWaitSeconds, setSentWaitSeconds] = useState(0);
   const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null);
   const staffNameRef = useRef<string>('');
   const existingPasswordRef = useRef(false);
@@ -50,6 +53,7 @@ export default function AccountMobileModal() {
   const hiddenAtRef = useRef(0);
   const verificationIdRef = useRef<string | null>(null);
   const waitingMobileRef = useRef<string | null>(null);
+  const sentWaitUntilRef = useRef(0);
 
   const mobileE164 = toE164('91', mobile);
 
@@ -75,6 +79,9 @@ export default function AccountMobileModal() {
     hiddenAtRef.current = 0;
     verificationIdRef.current = null;
     waitingMobileRef.current = null;
+    sentWaitUntilRef.current = 0;
+    setSentWaitUntil(0);
+    setSentWaitSeconds(0);
   }
 
   function handleClose() {
@@ -118,6 +125,31 @@ export default function AccountMobileModal() {
     }
   }
 
+  function beginSentAckWait() {
+    const until = Date.now() + SENT_ACK_WAIT_MS;
+    sentWaitUntilRef.current = until;
+    setSentWaitUntil(until);
+    setSentWaitSeconds(remainingSentAckWaitSeconds(until));
+  }
+
+  useEffect(() => {
+    if (!sentWaitUntil) {
+      setSentWaitSeconds(0);
+      return;
+    }
+    const tick = () => {
+      const left = remainingSentAckWaitSeconds(sentWaitUntil);
+      setSentWaitSeconds(left);
+      if (left <= 0) {
+        sentWaitUntilRef.current = 0;
+        setSentWaitUntil(0);
+      }
+    };
+    tick();
+    const timer = setInterval(tick, 250);
+    return () => clearInterval(timer);
+  }, [sentWaitUntil]);
+
   // Listeners stay on while the modal is open so opening WhatsApp before the
   // waiting screen paints still counts as "left for WhatsApp" on return.
   useEffect(() => {
@@ -158,6 +190,7 @@ export default function AccountMobileModal() {
       const mobile = waitingMobileRef.current;
       const verificationId = verificationIdRef.current;
       if (!active || sentInFlightRef.current || !mobile || !verificationId) return;
+      if (Date.now() < sentWaitUntilRef.current) return;
       sentInFlightRef.current = true;
       try {
         const res = await fetch('/api/customer/verification/sent', {
@@ -204,6 +237,10 @@ export default function AccountMobileModal() {
         return;
       }
       if (hiddenAtRef.current && Date.now() - hiddenAtRef.current < 700) return;
+      if (Date.now() < sentWaitUntilRef.current) {
+        if (phase === 'waiting') void poll();
+        return;
+      }
       void confirmOnReturn();
     };
     const onVisibility = () => {
@@ -281,6 +318,7 @@ export default function AccountMobileModal() {
         waitingMobileRef.current = mobileE164;
         leftForWhatsAppRef.current = true;
         hiddenAtRef.current = Date.now();
+        beginSentAckWait();
         openWhatsAppUrl(data.whatsappUrl);
         await completeAfterWhatsAppOpened(mobileE164, data.verification.id);
       }
@@ -293,6 +331,7 @@ export default function AccountMobileModal() {
 
   async function confirmSentAndVerify() {
     if (!mobileE164 || !verification || sentInFlightRef.current) return;
+    if (Date.now() < sentWaitUntilRef.current) return;
     sentInFlightRef.current = true;
     setLoading(true);
     setError('');
@@ -633,6 +672,7 @@ export default function AccountMobileModal() {
                     hiddenAtRef.current = Date.now();
                     if (verification?.id) verificationIdRef.current = verification.id;
                     if (mobileE164) waitingMobileRef.current = mobileE164;
+                    beginSentAckWait();
                     openWhatsAppUrl(whatsappUrl);
                     if (mobileE164 && verification?.id) {
                       void completeAfterWhatsAppOpened(mobileE164, verification.id);
@@ -647,10 +687,12 @@ export default function AccountMobileModal() {
                 type="button"
                 variant="outline"
                 className="w-full h-11 rounded-xl font-semibold"
-                disabled={loading}
+                disabled={loading || sentWaitSeconds > 0}
                 onClick={() => void confirmSentAndVerify()}
               >
-                I&apos;ve Sent the Message — Continue
+                {sentWaitSeconds > 0
+                  ? `Wait ${sentWaitSeconds}s to continue`
+                  : "I've sent the message"}
               </Button>
               {error && <p className="text-red-500 text-xs text-center">{error}</p>}
               <Button

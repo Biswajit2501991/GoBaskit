@@ -3,6 +3,8 @@ export const VERIFICATION_CODE_TTL_MINUTES = 10;
 export const VERIFICATION_POLL_INTERVAL_MS = 10_000;
 /** Login modal waits on WhatsApp approval — poll quickly with the light verificationId path. */
 export const LOGIN_VERIFICATION_POLL_INTERVAL_MS = 1_000;
+/** Delay before “I’ve sent” is tappable after opening WhatsApp (covers the Business app chooser). */
+export const SENT_ACK_WAIT_MS = 15_000;
 export const VERIFICATION_MAX_ATTEMPTS_PER_DAY = 5;
 
 export const VERIFICATION_AUDIT_ACTIONS = {

@@ -5,7 +5,12 @@ import { MessageCircle, X, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DEFAULT_COUNTRY_OPTIONS, LOGIN_VERIFICATION_POLL_INTERVAL_MS } from '@/constants/whatsappVerification';
+import {
+  DEFAULT_COUNTRY_OPTIONS,
+  LOGIN_VERIFICATION_POLL_INTERVAL_MS,
+  SENT_ACK_WAIT_MS,
+} from '@/constants/whatsappVerification';
+import { remainingSentAckWaitSeconds } from '@/lib/sentAckWait';
 import {
   detectCountryFromBrowser,
   formatE164Display,
@@ -53,6 +58,8 @@ export default function WhatsAppVerificationModal({
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
   const [pending, setPending] = useState(false);
+  const [sentWaitUntil, setSentWaitUntil] = useState(0);
+  const [sentWaitSeconds, setSentWaitSeconds] = useState(0);
 
   const mobileE164 = useMemo(() => toE164(countryDial, nationalNumber), [countryDial, nationalNumber]);
   const nationalValid =
@@ -73,6 +80,7 @@ export default function WhatsAppVerificationModal({
   verifiedRef.current = verified;
 
   const verificationIdRef = useRef<string | null>(null);
+  const sentWaitUntilRef = useRef(0);
   const autoStartedRef = useRef(false);
   const wasOpenRef = useRef(false);
 
@@ -90,11 +98,14 @@ export default function WhatsAppVerificationModal({
       setPending(false);
       setVerification(null);
       setWhatsappUrl(null);
+      setSentWaitUntil(0);
+      setSentWaitSeconds(0);
       leftForWhatsAppRef.current = false;
       sentInFlightRef.current = false;
       verifiedRef.current = false;
       hiddenAtRef.current = 0;
       verificationIdRef.current = null;
+      sentWaitUntilRef.current = 0;
     }
     const seed = initialNationalNumber.replace(/\D/g, '').slice(-10);
     setNationalNumber(seed);
@@ -113,10 +124,36 @@ export default function WhatsAppVerificationModal({
     onVerifiedRef.current(mobile);
   }, []);
 
+  const beginSentAckWait = useCallback(() => {
+    const until = Date.now() + SENT_ACK_WAIT_MS;
+    sentWaitUntilRef.current = until;
+    setSentWaitUntil(until);
+    setSentWaitSeconds(remainingSentAckWaitSeconds(until));
+  }, []);
+
+  useEffect(() => {
+    if (!sentWaitUntil) {
+      setSentWaitSeconds(0);
+      return;
+    }
+    const tick = () => {
+      const left = remainingSentAckWaitSeconds(sentWaitUntil);
+      setSentWaitSeconds(left);
+      if (left <= 0) {
+        sentWaitUntilRef.current = 0;
+        setSentWaitUntil(0);
+      }
+    };
+    tick();
+    const timer = setInterval(tick, 250);
+    return () => clearInterval(timer);
+  }, [sentWaitUntil]);
+
   const acknowledgeSent = useCallback(async () => {
     const mobile = mobileRef.current;
     const verificationId = verificationIdRef.current ?? verificationRef.current?.id;
     if (!mobile || verifiedRef.current || sentInFlightRef.current) return;
+    if (Date.now() < sentWaitUntilRef.current) return;
     sentInFlightRef.current = true;
     setLoading(true);
     setError('');
@@ -154,6 +191,7 @@ export default function WhatsAppVerificationModal({
     verificationIdRef.current = verification.id;
     leftForWhatsAppRef.current = true;
     hiddenAtRef.current = Date.now();
+    beginSentAckWait();
     setVerification(verification);
     setWhatsappUrl(url);
     setPending(true);
@@ -173,7 +211,7 @@ export default function WhatsAppVerificationModal({
         }
       })
       .catch(() => {});
-  }, [finishVerified]);
+  }, [beginSentAckWait, finishVerified]);
 
   useEffect(() => {
     if (!open || verified) return;
@@ -186,6 +224,7 @@ export default function WhatsAppVerificationModal({
       if (!leftForWhatsAppRef.current || verifiedRef.current) return;
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       if (hiddenAtRef.current && Date.now() - hiddenAtRef.current < 700) return;
+      if (Date.now() < sentWaitUntilRef.current) return;
       void acknowledgeSent();
     };
 
@@ -400,8 +439,16 @@ export default function WhatsAppVerificationModal({
                   <MessageCircle className="w-5 h-5" />
                   Open WhatsApp Again
                 </Button>
-                <Button type="button" variant="outline" className="w-full" disabled={loading} onClick={() => void acknowledgeSent()}>
-                  I&apos;ve Sent the Message — Continue
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={loading || sentWaitSeconds > 0}
+                  onClick={() => void acknowledgeSent()}
+                >
+                  {sentWaitSeconds > 0
+                    ? `Wait ${sentWaitSeconds}s to continue`
+                    : 'I\'ve sent the message'}
                 </Button>
                 <Button
                   type="button"
