@@ -4,6 +4,6 @@ import BulkUploadPageClient from '@/components/Admin/BulkUploadPageClient';
 
 export default async function BulkUploadPage() {
   const staff = await getAdminPageStaff();
-  requireAdminPage(staff, 'bulk_upload:use');
+  await requireAdminPage(staff, 'bulk_upload:use');
   return <BulkUploadPageClient />;
 }

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { markAndroidAlertsPromptAfterLogin } from '@/lib/admin-push-client';
+import { sanitizeAdminNextPath } from '@/lib/adminDeepLink';
 import { normalizeMobile } from '@/utils/mobile';
 import { toE164 } from '@/utils/phone';
 
@@ -43,7 +44,10 @@ export default function AdminLoginPage() {
         }).catch(() => null);
       }
       markAndroidAlertsPromptAfterLogin();
-      router.push('/admin/dashboard');
+      const next =
+        sanitizeAdminNextPath(new URLSearchParams(window.location.search).get('next')) ||
+        '/admin/dashboard';
+      router.push(next);
       router.refresh();
     } catch {
       setError('Network error. Please try again.');

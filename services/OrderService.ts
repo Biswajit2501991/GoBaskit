@@ -12,6 +12,8 @@ import { normalizeMobile } from '@/utils/mobile';
 import { ACTIVE_ORDER_STATUSES } from '@/constants/orders';
 
 export interface OrderListParams {
+  /** Exact live-board order id (notification deep link). */
+  id?: string;
   search?: string;
   status?: OrderStatus;
   /** Staff id, or `unassigned` for orders with no assignee. */
@@ -115,29 +117,31 @@ export class OrderService {
   static async list(params: OrderListParams) {
     const page = params.page ?? 1;
     const pageSize = Math.min(params.pageSize ?? 20, 100);
-    const where: Prisma.OrderWhereInput = {
-      archivedAt: null,
-      ...(params.status
-        ? { status: params.status }
-        : params.activeOnly
-          ? { status: { in: ACTIVE_ORDER_STATUSES } }
-          : {}),
-      ...(params.assignedStaffId === 'unassigned'
-        ? { assignedStaffId: null }
-        : params.assignedStaffId
-          ? { assignedStaffId: params.assignedStaffId }
-          : {}),
-      ...(params.search
-        ? {
-            OR: [
-              { orderNumber: { contains: params.search, mode: 'insensitive' } },
-              { customer: { firstName: { contains: params.search, mode: 'insensitive' } } },
-              { customer: { lastName: { contains: params.search, mode: 'insensitive' } } },
-              { customer: { mobile: { contains: params.search } } },
-            ],
-          }
-        : {}),
-    };
+    const where: Prisma.OrderWhereInput = params.id
+      ? { archivedAt: null, id: params.id }
+      : {
+          archivedAt: null,
+          ...(params.status
+            ? { status: params.status }
+            : params.activeOnly
+              ? { status: { in: ACTIVE_ORDER_STATUSES } }
+              : {}),
+          ...(params.assignedStaffId === 'unassigned'
+            ? { assignedStaffId: null }
+            : params.assignedStaffId
+              ? { assignedStaffId: params.assignedStaffId }
+              : {}),
+          ...(params.search
+            ? {
+                OR: [
+                  { orderNumber: { contains: params.search, mode: 'insensitive' } },
+                  { customer: { firstName: { contains: params.search, mode: 'insensitive' } } },
+                  { customer: { lastName: { contains: params.search, mode: 'insensitive' } } },
+                  { customer: { mobile: { contains: params.search } } },
+                ],
+              }
+            : {}),
+        };
 
     const [items, total] = await Promise.all([
       prisma.order.findMany({

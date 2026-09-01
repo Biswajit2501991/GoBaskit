@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { staffOrderDeepLink } from '@/lib/adminDeepLink';
 import { formatCustomerName } from '@/utils/customer';
 import { AdminPushService } from '@/services/AdminPushService';
 import { StaffAssignmentService } from '@/services/StaffAssignmentService';
@@ -96,7 +97,7 @@ export class UnassignedOrderReminderService {
       await AdminPushService.notifyStaffIds(recipientIds, {
         title: `Unassigned · ${order.orderNumber}`,
         body: `${name} · ₹${order.grandTotal} · ${order.customer.city} — still waiting for staff`,
-        url: '/admin/orders',
+        url: staffOrderDeepLink(order.id),
         tag: `order-${order.id}`,
       });
       reminded += 1;

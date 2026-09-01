@@ -9,7 +9,11 @@ export async function GET(req: NextRequest) {
   if (auth.error) return auth.error;
 
   const { searchParams } = new URL(req.url);
+  const idRaw = (searchParams.get('id') || '').trim();
+  const id = /^[a-z0-9_-]{8,40}$/i.test(idRaw) ? idRaw : undefined;
+
   const data = await OrderService.list({
+    id,
     search: searchParams.get('search') || undefined,
     status: (searchParams.get('status') as OrderStatus) || undefined,
     assignedStaffId: searchParams.get('assignedStaffId') || undefined,

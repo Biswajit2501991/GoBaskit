@@ -5,6 +5,6 @@ import AnalyticsClient from '@/components/Admin/AnalyticsClient';
 
 export default async function AdminAnalyticsPage() {
   const staff = await getAdminPageStaff();
-  requireAdminPage(staff, 'analytics:view');
+  await requireAdminPage(staff, 'analytics:view');
   return <AnalyticsClient />;
 }

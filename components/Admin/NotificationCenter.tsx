@@ -15,6 +15,7 @@ import {
   peekAndroidAlertsPrompt,
   registerAdminServiceWorker,
 } from '@/lib/admin-push-client';
+import { staffOrderDeepLink } from '@/lib/adminDeepLink';
 
 interface NotificationItem {
   id: string;
@@ -330,11 +331,21 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
           Notification.permission === 'granted'
         ) {
           try {
-            new Notification(n.title, {
+            const url =
+              n.entityType === 'orders' && n.entityId
+                ? staffOrderDeepLink(n.entityId)
+                : '/admin/orders';
+            const popup = new Notification(n.title, {
               body: n.message,
               tag: `order-${n.entityId || n.id}`,
               requireInteraction: true,
+              data: { url },
             });
+            popup.onclick = () => {
+              popup.close();
+              window.focus();
+              window.location.assign(url);
+            };
           } catch {
             /* ignore */
           }
@@ -528,7 +539,7 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
                     <p className="text-sm font-medium">{n.title}</p>
                     <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-line">{n.message}</p>
                     {n.entityType === 'orders' && n.entityId && (
-                      <Link href="/admin/orders" className="text-xs text-blinkit-green mt-1 inline-block" onClick={() => setOpen(false)}>
+                      <Link href={staffOrderDeepLink(n.entityId)} className="text-xs text-blinkit-green mt-1 inline-block" onClick={() => setOpen(false)}>
                         View orders →
                       </Link>
                     )}
@@ -607,10 +618,19 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
       {toast && (
         <div className="fixed bottom-4 right-4 z-[60] bg-white border shadow-lg rounded-xl p-4 max-w-sm flex gap-3">
           <Bell className="w-5 h-5 text-blinkit-green shrink-0 mt-0.5" />
-          <div className="flex-1">
+          <button
+            type="button"
+            className="flex-1 text-left"
+            onClick={() => {
+              if (toast.entityType === 'orders' && toast.entityId) {
+                window.location.assign(staffOrderDeepLink(toast.entityId));
+              }
+              setToast(null);
+            }}
+          >
             <p className="font-semibold text-sm">{toast.title}</p>
             <p className="text-xs text-gray-600 mt-0.5 whitespace-pre-line">{toast.message}</p>
-          </div>
+          </button>
           <button type="button" onClick={() => setToast(null)}><X className="w-4 h-4 text-gray-400" /></button>
         </div>
       )}

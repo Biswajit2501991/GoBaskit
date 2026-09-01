@@ -5,7 +5,7 @@ import { requireAdminPage } from '@/lib/admin-page';
 
 export default async function AdminCategoriesPage() {
   const staff = await getAdminPageStaff();
-  const { perms } = requireAdminPage(staff, 'categories:view');
+  const { perms } = await requireAdminPage(staff, 'categories:view');
 
   return (
     <CategoryManager

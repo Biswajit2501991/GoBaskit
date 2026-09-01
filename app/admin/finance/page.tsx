@@ -4,6 +4,6 @@ import AnalyticsClient from '@/components/Admin/AnalyticsClient';
 
 export default async function FinanceDeskPage() {
   const staff = await getAdminPageStaff();
-  requireAdminPage(staff, 'finance:view');
+  await requireAdminPage(staff, 'finance:view');
   return <AnalyticsClient />;
 }

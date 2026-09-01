@@ -9,6 +9,7 @@ import type { StaffRole } from '@prisma/client';
 import { InventoryService } from '@/services/InventoryService';
 import { AdminPushService } from '@/services/AdminPushService';
 import { formatOrderItemsSummary } from '@/utils/orderItemName';
+import { staffOrderDeepLink } from '@/lib/adminDeepLink';
 
 export interface NewOrderNotificationInput {
   id: string;
@@ -113,7 +114,7 @@ export class NotificationService {
       body: itemSummary
         ? `${name} · ₹${order.grandTotal} · ${order.customer.city}\n${itemSummary}`
         : `${name} · ₹${order.grandTotal} · ${order.customer.city}`,
-      url: '/admin/orders',
+      url: staffOrderDeepLink(order.id),
       tag: `order-${order.id}`,
     });
 

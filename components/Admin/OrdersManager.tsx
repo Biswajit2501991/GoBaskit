@@ -230,6 +230,7 @@ function OrderCard({
   onWhatsApp,
   onStaffWhatsApp,
   onReplaceOrder,
+  highlight,
 }: {
   order: OrderRow;
   expanded: boolean;
@@ -254,6 +255,7 @@ function OrderCard({
   onWhatsApp: (order: OrderRow) => void;
   onStaffWhatsApp: (order: OrderRow) => void;
   onReplaceOrder: (order: OrderRow) => void;
+  highlight?: boolean;
 }) {
   const [history, setHistory] = useState<StatusHistoryEntry[] | null>(order.statusHistory ?? null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -314,6 +316,7 @@ function OrderCard({
 
   return (
     <div
+      data-order-id={order.id}
       draggable={canDrag}
       onDragStart={(e) => {
         if (!canDrag || isInteractiveDragTarget(e.target)) {
@@ -330,7 +333,7 @@ function OrderCard({
         isDragging ? 'opacity-40 border-dashed border-blinkit-green scale-[0.98]' : 'border-gray-100'
       } ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''} ${
         pendingVerifyLock ? 'opacity-75 ring-1 ring-amber-300' : ''
-      }`}
+      } ${highlight ? 'ring-2 ring-blinkit-green' : ''}`}
     >
       <div
         role="button"
@@ -769,8 +772,11 @@ export default function OrdersManager({
   const [opsSummary, setOpsSummary] = useState<OpsSummary | null>(null);
   const [opsLoading, setOpsLoading] = useState(false);
   const [opsFilter, setOpsFilter] = useState<OpsFilter>(null);
+  const [deepLinkNotice, setDeepLinkNotice] = useState<string | null>(null);
+  const [highlightOrderId, setHighlightOrderId] = useState<string | null>(null);
 
   const initialLoadDone = useRef(false);
+  const deepLinkAppliedFor = useRef<string | null>(null);
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const opsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadRef = useRef<(options?: { silent?: boolean }) => Promise<void>>(async () => {});
@@ -803,6 +809,61 @@ export default function OrdersManager({
     }, SSE_RELOAD_DEBOUNCE_MS);
   }
 
+  const mergeNotificationFocus = useCallback(
+    async (items: OrderRow[], opts: { announce: boolean }) => {
+      if (typeof window === 'undefined') return items;
+      const raw = (new URLSearchParams(window.location.search).get('order') || '').trim();
+      if (!/^[a-z0-9_-]{8,40}$/i.test(raw)) return items;
+
+      let row = items.find((o) => o.id === raw);
+      if (!row) {
+        try {
+          const one = await fetch(`/api/admin/orders?id=${encodeURIComponent(raw)}&pageSize=1`);
+          const data = one.ok ? await one.json() : null;
+          row = Array.isArray(data?.items) ? (data.items[0] as OrderRow | undefined) : undefined;
+        } catch {
+          row = undefined;
+        }
+      }
+
+      if (!row) {
+        if (opts.announce) {
+          setDeepLinkNotice('This order is not on the live board. It may already be archived.');
+        }
+        return items;
+      }
+
+      if (forceAssignedToMe && row.assignedStaffId !== currentStaffId) {
+        if (opts.announce) {
+          setDeepLinkNotice(
+            row.assignedStaffId
+              ? 'This order is assigned to another staff member.'
+              : 'This order is not assigned to you yet.',
+          );
+        }
+        return items;
+      }
+
+      if (!items.some((o) => o.id === row.id)) {
+        items = [row, ...items];
+      }
+
+      if (opts.announce || deepLinkAppliedFor.current !== raw) {
+        setDeepLinkNotice(null);
+        setExpandedOrderId(row.id);
+        setHighlightOrderId(row.id);
+        deepLinkAppliedFor.current = raw;
+        requestAnimationFrame(() => {
+          document
+            .querySelector(`[data-order-id="${CSS.escape(row.id)}"]`)
+            ?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+        });
+      }
+      return items;
+    },
+    [forceAssignedToMe, currentStaffId],
+  );
+
   const load = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? initialLoadDone.current;
     if (silent) {
@@ -829,11 +890,14 @@ export default function OrdersManager({
 
     try {
       const res = await fetch(`/api/admin/orders?${params}`);
+      let nextItems: OrderRow[] = [];
       if (res.ok) {
         const data = await res.json();
-        setOrders(Array.isArray(data.items) ? data.items : []);
+        nextItems = Array.isArray(data.items) ? data.items : [];
         setTotal(typeof data.total === 'number' ? data.total : 0);
       }
+      nextItems = await mergeNotificationFocus(nextItems, { announce: !silent });
+      setOrders(nextItems);
     } finally {
       if (silent) {
         setRefreshing(false);
@@ -842,7 +906,7 @@ export default function OrdersManager({
       }
       initialLoadDone.current = true;
     }
-  }, [page, search, forceAssignedToMe, currentStaffId, opsFilter]);
+  }, [page, search, forceAssignedToMe, currentStaffId, opsFilter, mergeNotificationFocus]);
 
   loadRef.current = load;
 
@@ -1181,6 +1245,11 @@ export default function OrdersManager({
       <p className="text-sm text-gray-500 mb-4">
         Kanban board by status — drag cards between columns or use the status dropdown. Status updates automatically when dropped.
       </p>
+      {deepLinkNotice && (
+        <p className="mb-4 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          {deepLinkNotice}
+        </p>
+      )}
 
       {showLiveOps && (
         <OrdersLiveOpsStrip
@@ -1333,6 +1402,7 @@ export default function OrdersManager({
                             setOrders((prev) => prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)));
                             scheduleOpsRefresh();
                           }}
+                          highlight={highlightOrderId === order.id}
                         />
                       ))
                     )}

@@ -5,7 +5,7 @@ import { requireAdminPage } from '@/lib/admin-page';
 
 export default async function AdminLearningPage() {
   const staff = await getAdminPageStaff();
-  const { perms } = requireAdminPage(staff, 'learning:view');
+  const { perms } = await requireAdminPage(staff, 'learning:view');
 
   return (
     <LearningManager

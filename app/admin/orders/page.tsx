@@ -5,7 +5,7 @@ import { requireAdminPage } from '@/lib/admin-page';
 
 export default async function AdminOrdersPage() {
   const staff = await getAdminPageStaff();
-  const { perms } = requireAdminPage(staff, 'orders:view');
+  const { perms } = await requireAdminPage(staff, 'orders:view');
 
   return (
     <OrdersManager

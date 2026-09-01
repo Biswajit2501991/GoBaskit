@@ -5,7 +5,7 @@ import { requireAdminPage } from '@/lib/admin-page';
 
 export default async function InventoryDeskPage() {
   const staff = await getAdminPageStaff();
-  const { perms } = requireAdminPage(staff, 'products:view');
+  const { perms } = await requireAdminPage(staff, 'products:view');
 
   return (
     <ProductManager

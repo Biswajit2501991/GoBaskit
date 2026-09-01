@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function AdminSettingsPage() {
   const staff = await getAdminPageStaff();
-  const { perms } = requireAdminPage(staff, 'settings:view');
+  const { perms } = await requireAdminPage(staff, 'settings:view');
 
   const config = await SettingsService.getStoreConfig();
   return (

@@ -5,7 +5,7 @@ import OrdersManager from '@/components/Admin/OrdersManager';
 
 export default async function DeliveryDeskPage() {
   const staff = await getAdminPageStaff();
-  const { perms } = requireAdminPage(staff, 'delivery:view');
+  const { perms } = await requireAdminPage(staff, 'delivery:view');
 
   return (
     <OrdersManager

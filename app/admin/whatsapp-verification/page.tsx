@@ -5,7 +5,7 @@ import WhatsAppVerificationManager from '@/components/Admin/WhatsAppVerification
 
 export default async function WhatsAppVerificationPage() {
   const staff = await getAdminPageStaff();
-  requireAdminPage(staff, 'verification:view');
+  await requireAdminPage(staff, 'verification:view');
   const perms = parsePermissions(staff!.permissions);
   const canManage = staffHasPermission(staff!.role, perms, 'verification:manage');
 

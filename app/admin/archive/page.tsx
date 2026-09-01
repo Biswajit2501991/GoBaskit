@@ -4,7 +4,7 @@ import { requireAdminPage } from '@/lib/admin-page';
 
 export default async function AdminArchivePage() {
   const staff = await getAdminPageStaff();
-  requireAdminPage(staff, 'orders:view');
+  await requireAdminPage(staff, 'orders:view');
 
   return <ArchiveManager />;
 }

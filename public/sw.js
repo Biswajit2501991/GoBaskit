@@ -43,20 +43,36 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || '/admin/orders';
+  const raw = (event.notification.data && event.notification.data.url) || '/admin/orders';
+  let dest;
+  try {
+    dest = new URL(raw, self.location.origin);
+    if (dest.origin !== self.location.origin) {
+      dest = new URL('/admin/orders', self.location.origin);
+    }
+    if (!dest.pathname.startsWith('/admin')) {
+      dest = new URL('/admin/orders', self.location.origin);
+    }
+  } catch {
+    dest = new URL('/admin/orders', self.location.origin);
+  }
+
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if ('focus' in client) {
-          if (client.url.includes('/admin')) {
-            client.focus();
-            if ('navigate' in client) client.navigate(targetUrl);
+        try {
+          const clientUrl = new URL(client.url);
+          if (clientUrl.origin === self.location.origin && clientUrl.pathname.startsWith('/admin')) {
+            if ('focus' in client) client.focus();
+            if ('navigate' in client) return client.navigate(dest.href);
             return;
           }
+        } catch {
+          /* skip bad client url */
         }
       }
       if (self.clients.openWindow) {
-        return self.clients.openWindow(targetUrl);
+        return self.clients.openWindow(dest.href);
       }
     }),
   );
