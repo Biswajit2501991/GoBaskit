@@ -156,7 +156,7 @@ export default function WhatsAppVerificationManager({ canManage }: { canManage: 
         <div>
           <h1 className="text-2xl font-bold">WhatsApp Verification</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Approve only when the WhatsApp chat is from the same number the customer entered. Opening WhatsApp in the app is not enough.
+            New numbers verify in the app when the customer opens WhatsApp. Staff approval is only needed if a request stays pending.
           </p>
         </div>
         {pendingCount > 0 && (

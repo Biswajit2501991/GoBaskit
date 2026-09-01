@@ -457,9 +457,9 @@ export class WhatsAppVerificationService {
   }
 
   /**
-   * Customer tapped “I’ve sent the message” or returned from WhatsApp.
-   * Records progress only — does not mark verified. Ownership is proven by the
-   * Cloud API sender (`from`) matching the typed number, or by staff approve.
+   * Customer opened WhatsApp or confirmed they sent the code.
+   * Auto-verifies this number so staff do not need to approve — same as before.
+   * Already-VERIFIED rows are returned as-is (no rewrite).
    */
   static async logSentAck(params: {
     mobileE164: string;
@@ -495,23 +495,53 @@ export class WhatsAppVerificationService {
       throw new Error('No verification request found. Generate a code and send it on WhatsApp first.');
     }
 
-    if (row.status === 'PENDING') {
-      await prisma.whatsAppVerification.update({
-        where: { id: row.id },
-        data: { sentAcknowledgedAt: new Date() },
-      });
-    }
+    const now = new Date();
+    const verifiedFlags = {
+      isWhatsappVerified: true,
+      verifiedAt: now,
+      verifiedById: null,
+    };
 
-    await VerificationAuditService.log({
-      action: VERIFICATION_AUDIT_ACTIONS.SENT_ACK,
-      mobile: params.mobileE164,
+    await prisma.$transaction([
+      prisma.whatsAppVerification.update({
+        where: { id: row.id },
+        data: {
+          status: 'VERIFIED',
+          verifiedAt: now,
+          verifiedById: null,
+          sentAcknowledgedAt: now,
+        },
+      }),
+      prisma.customerMobile.update({
+        where: { id: row.customerMobileId },
+        data: verifiedFlags,
+      }),
+      prisma.customerMobile.updateMany({
+        where: { mobile: { in: variants } },
+        data: verifiedFlags,
+      }),
+      prisma.customer.updateMany({
+        where: { mobile: { in: variants } },
+        data: verifiedFlags,
+      }),
+      prisma.whatsAppVerification.updateMany({
+        where: {
+          id: { not: row.id },
+          mobile: { in: variants },
+          status: { in: ['PENDING', 'VERIFIED'] },
+        },
+        data: { status: 'EXPIRED' },
+      }),
+    ]);
+
+    void this.recordCustomerSentAckSideEffects({
+      mobileE164: params.mobileE164,
       verificationId: row.id,
-      actorType: 'customer',
       ip: params.ip,
       userAgent: params.userAgent,
     });
 
-    return this.getStatus(params.mobileE164, row.id);
+    return this.customerVerifiedPayload(params.mobileE164);
   }
 
   private static customerVerifiedPayload(mobileE164: string) {
@@ -523,6 +553,33 @@ export class WhatsAppVerificationService {
       messageSent: true,
       verification: null,
     };
+  }
+
+  private static async recordCustomerSentAckSideEffects(params: {
+    mobileE164: string;
+    verificationId: string;
+    ip?: string;
+    userAgent?: string;
+  }) {
+    await VerificationAuditService.log({
+      action: VERIFICATION_AUDIT_ACTIONS.SENT_ACK,
+      mobile: params.mobileE164,
+      verificationId: params.verificationId,
+      actorType: 'customer',
+      ip: params.ip,
+      userAgent: params.userAgent,
+    });
+    await VerificationAuditService.log({
+      action: VERIFICATION_AUDIT_ACTIONS.APPROVED,
+      mobile: params.mobileE164,
+      verificationId: params.verificationId,
+      actorType: 'system',
+      meta: { source: 'customer_sent_ack' },
+    });
+    adminEventBus.emit({
+      type: 'whatsapp_verification_updated',
+      payload: { id: params.verificationId, status: 'VERIFIED', mobile: params.mobileE164 },
+    });
   }
 
   /** Extract GB-###### from inbound WhatsApp text. */
