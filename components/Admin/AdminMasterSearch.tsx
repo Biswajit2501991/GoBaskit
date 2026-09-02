@@ -141,6 +141,7 @@ const NAV_KEYWORDS: Record<string, string[]> = {
   '/admin/price-adjust': ['bulk price', 'percent', 'markup', 'increase', 'decrease'],
   '/admin/categories': ['category', 'aisle'],
   '/admin/orders': ['order', 'pending', 'delivery'],
+  '/admin/feedback': ['rating', 'stars', 'review', 'customer feedback'],
   '/admin/whatsapp-verification': ['verify', 'wa verify', 'otp'],
   '/admin/bulk-upload': ['import', 'excel', 'csv', 'spreadsheet'],
   '/admin/staff': ['team', 'users', 'roles', 'admin'],

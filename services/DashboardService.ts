@@ -23,6 +23,8 @@ export interface DashboardStats {
   staffOnline: number;
   unreadNotifications: number;
   pendingWhatsappVerifications: number;
+  customerRatingAverage: number | null;
+  customerRatingCount: number;
   topProducts: Array<{ name: string; quantity: number; revenue: number }>;
   dailyTrend: Array<{ day: string; orders: number; revenue: number }>;
   recentOrders: Array<{
@@ -79,6 +81,7 @@ export class DashboardService {
       topProductsRaw,
       trendRows,
       pendingWhatsappVerifications,
+      customerRatingAgg,
     ] = await Promise.all([
       prisma.order.aggregate({
         where: { createdAt: { gte: todayStart }, archivedAt: null },
@@ -151,6 +154,11 @@ export class DashboardService {
       prisma.whatsAppVerification.count({
         where: { status: 'PENDING', expiresAt: { gt: new Date() } },
       }),
+      prisma.orderFeedback.aggregate({
+        where: { skipped: false, stars: { not: null } },
+        _avg: { stars: true },
+        _count: { id: true },
+      }),
     ]);
 
     const statusMap = new Map(statusCounts.map((s) => [s.status, s._count._all]));
@@ -188,6 +196,10 @@ export class DashboardService {
       staffOnline,
       unreadNotifications,
       pendingWhatsappVerifications,
+      customerRatingAverage: customerRatingAgg._avg.stars
+        ? Math.round(customerRatingAgg._avg.stars * 10) / 10
+        : null,
+      customerRatingCount: customerRatingAgg._count.id,
       topProducts: topProductsRaw.map((p) => ({
         name: p.name,
         quantity: Number(p.quantity),

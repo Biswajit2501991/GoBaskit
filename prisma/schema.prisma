@@ -326,6 +326,7 @@ model Order {
   lastUnassignedPushAt    DateTime?  @map("last_unassigned_push_at")
   items           OrderItem[]
   statusHistory   OrderStatusHistory[]
+  feedback        OrderFeedback?
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
@@ -335,6 +336,21 @@ model Order {
   @@index([archivedAt, purgeAt])
   @@index([assignedStaffId, status, archivedAt])
   @@map("orders")
+}
+
+model OrderFeedback {
+  id             String   @id @default(cuid())
+  orderId        String   @unique @map("order_id")
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customerMobile String   @map("customer_mobile")
+  stars          Int?
+  skipped        Boolean  @default(false)
+  note           String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([skipped, stars])
+  @@map("order_feedback")
 }
 
 model CustomerNotice {

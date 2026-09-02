@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ShoppingCart, User, Shield, Heart } from 'lucide-react';
@@ -17,6 +17,7 @@ import StaffAdminLoginModal from '@/components/Header/StaffAdminLoginModal';
 import RestockToastHost from '@/components/Header/RestockToastHost';
 import AccountVerifiedToast from '@/components/Header/AccountVerifiedToast';
 import CustomerPushPrompt from '@/components/Header/CustomerPushPrompt';
+import CustomerFeedbackPrompt from '@/components/Header/CustomerFeedbackPrompt';
 import PoweredByBanner from '@/components/Header/PoweredByBanner';
 import CartDrawer from '@/components/Cart/CartDrawer';
 import OrderCelebration from '@/components/Cart/OrderCelebration';
@@ -86,6 +87,12 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
       : 'My Account';
   const hasAccountIdentity = staffEligible || Boolean(customerMobile);
   const showAdminEntry = staffEligible || adminSessionActive;
+  const [feedbackSettled, setFeedbackSettled] = useState(!customerMobile);
+  const markFeedbackSettled = useCallback(() => setFeedbackSettled(true), []);
+
+  useEffect(() => {
+    setFeedbackSettled(!customerMobile);
+  }, [customerMobile]);
 
   useEffect(() => {
     void fetchConfig();
@@ -264,7 +271,8 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
       <OrderCelebration />
       <RestockToastHost enabled={Boolean(customerMobile) && !staffEligible} />
       <AccountVerifiedToast enabled={Boolean(customerMobile) && !staffEligible} mobile10={customerMobile} />
-      <CustomerPushPrompt enabled={Boolean(customerMobile)} />
+      <CustomerFeedbackPrompt enabled={Boolean(customerMobile)} onSettled={markFeedbackSettled} />
+      <CustomerPushPrompt enabled={Boolean(customerMobile) && feedbackSettled} />
       <div className="bg-blinkit-yellow">
         <div
           className={`max-w-7xl mx-auto px-3 sm:px-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 transition-[padding] ${

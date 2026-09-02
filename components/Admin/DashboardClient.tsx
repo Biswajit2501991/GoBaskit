@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { formatCurrency } from '@/utils/formatter';
 
 interface DashboardStats {
@@ -21,6 +22,8 @@ interface DashboardStats {
   staffOnline: number;
   unreadNotifications: number;
   pendingWhatsappVerifications: number;
+  customerRatingAverage: number | null;
+  customerRatingCount: number;
   topProducts: Array<{ name: string; quantity: number; revenue: number }>;
   dailyTrend: Array<{ day: string; orders: number; revenue: number }>;
   recentOrders: Array<{
@@ -94,6 +97,17 @@ export default function DashboardClient() {
             {stats.pendingWhatsappVerifications}
           </p>
         </div>
+        <Link href="/admin/feedback" className={`${cardClass} block hover:border-gray-200`}>
+          <p className="text-xs text-gray-500">Customer rating</p>
+          <p className="text-2xl font-bold mt-1">
+            {stats.customerRatingAverage == null ? '—' : `${stats.customerRatingAverage} ★`}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            {stats.customerRatingCount === 0
+              ? 'No reviews yet'
+              : `${stats.customerRatingCount} review${stats.customerRatingCount === 1 ? '' : 's'}`}
+          </p>
+        </Link>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">
