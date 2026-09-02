@@ -1,6 +1,6 @@
 /**
- * Admin Web Push service worker.
- * Shows system notifications (with sound) even when the browser tab is minimized.
+ * Web Push service worker (staff new-order alerts + customer out-for-delivery).
+ * Shows system notifications even when the browser tab is minimized.
  */
 /* eslint-disable no-restricted-globals */
 
@@ -15,9 +15,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
   let data = {
     title: 'GoBaskit',
-    body: 'New order received',
-    url: '/admin/orders',
-    tag: 'gobaskit-order',
+    body: 'GoBaskit update',
+    url: '/',
+    tag: 'gobaskit',
   };
   try {
     if (event.data) {
@@ -29,44 +29,48 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     self.registration.showNotification(data.title || 'GoBaskit', {
-      body: data.body || 'New order received',
+      body: data.body || 'GoBaskit update',
       icon: '/icon-192.png',
       badge: '/icon-192.png',
-      tag: data.tag || 'gobaskit-order',
+      tag: data.tag || 'gobaskit',
       renotify: true,
       requireInteraction: true,
-      data: { url: data.url || '/admin/orders' },
+      data: { url: data.url || '/' },
       vibrate: [160, 80, 160],
     }),
   );
 });
 
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  const raw = (event.notification.data && event.notification.data.url) || '/admin/orders';
+function safeNotificationUrl(raw) {
+  const origin = self.location.origin;
   let dest;
   try {
-    dest = new URL(raw, self.location.origin);
-    if (dest.origin !== self.location.origin) {
-      dest = new URL('/admin/orders', self.location.origin);
-    }
-    if (!dest.pathname.startsWith('/admin')) {
-      dest = new URL('/admin/orders', self.location.origin);
-    }
+    dest = new URL(raw || '/', origin);
   } catch {
-    dest = new URL('/admin/orders', self.location.origin);
+    return new URL('/', origin);
   }
+  if (dest.origin !== origin) return new URL('/', origin);
+  if (dest.pathname.startsWith('/admin')) return dest;
+  if (dest.pathname.startsWith('/account')) return dest;
+  return new URL('/', origin);
+}
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const dest = safeNotificationUrl(event.notification.data && event.notification.data.url);
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      const wantAdmin = dest.pathname.startsWith('/admin');
       for (const client of clientList) {
         try {
           const clientUrl = new URL(client.url);
-          if (clientUrl.origin === self.location.origin && clientUrl.pathname.startsWith('/admin')) {
-            if ('focus' in client) client.focus();
-            if ('navigate' in client) return client.navigate(dest.href);
-            return;
-          }
+          if (clientUrl.origin !== self.location.origin) continue;
+          const isAdminClient = clientUrl.pathname.startsWith('/admin');
+          if (wantAdmin !== isAdminClient) continue;
+          if ('focus' in client) client.focus();
+          if ('navigate' in client) return client.navigate(dest.href);
+          return;
         } catch {
           /* skip bad client url */
         }

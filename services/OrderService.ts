@@ -12,6 +12,8 @@ import { normalizeMobile } from '@/utils/mobile';
 import { ACTIVE_ORDER_STATUSES } from '@/constants/orders';
 import { shouldClaimUnassignedPending, shouldUnlockStaffLock } from '@/lib/orderClaim';
 import { NotificationService } from '@/services/NotificationService';
+import { CustomerPushService } from '@/services/CustomerPushService';
+import { shouldNotifyOutForDelivery } from '@/lib/customerOutForDeliveryPush';
 
 export interface OrderListParams {
   /** Exact live-board order id (notification deep link). */
@@ -412,6 +414,14 @@ export class OrderService {
     DashboardService.invalidateCache();
     AnalyticsService.invalidateCache();
     adminEventBus.emit({ type: 'order_updated', payload });
+
+    if (shouldNotifyOutForDelivery(order.status, data.status)) {
+      void CustomerPushService.notifyOutForDelivery({
+        orderId: updated.id,
+        orderNumber: updated.orderNumber,
+        customerMobile: updated.customer.mobile,
+      }).catch((err) => console.error('[orders] customer OFD push failed', err));
+    }
 
     if (claim) {
       const staffName = updated.assignedStaff?.name || 'Staff';

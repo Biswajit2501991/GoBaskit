@@ -198,10 +198,26 @@ model CustomerMobile {
   failedLoginAttempts Int     @default(0) @map("failed_login_attempts")
   lockedAt           DateTime? @map("locked_at")
   verifications      WhatsAppVerification[]
+  pushSubscriptions  CustomerPushSubscription[]
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   @@map("customer_mobiles")
+}
+
+model CustomerPushSubscription {
+  id                String         @id @default(cuid())
+  customerMobileId  String         @map("customer_mobile_id")
+  customerMobile    CustomerMobile @relation(fields: [customerMobileId], references: [id], onDelete: Cascade)
+  endpoint          String         @unique
+  p256dh            String
+  auth              String
+  userAgent         String?        @map("user_agent")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  @@index([customerMobileId])
+  @@map("customer_push_subscriptions")
 }
 
 model CustomerWishlistItem {

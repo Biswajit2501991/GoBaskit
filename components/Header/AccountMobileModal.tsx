@@ -16,6 +16,7 @@ import LoginBrandSeal from '@/components/Header/LoginBrandSeal';
 import { useConfigStore } from '@/store/configStore';
 import { LOGIN_VERIFICATION_POLL_INTERVAL_MS, SENT_ACK_WAIT_MS } from '@/constants/whatsappVerification';
 import { remainingSentAckWaitSeconds } from '@/lib/sentAckWait';
+import { clearCustomerPushPromptSkip } from '@/lib/customer-push-client';
 
 interface PendingVerification {
   id: string;
@@ -108,6 +109,7 @@ export default function AccountMobileModal() {
     });
     resetState();
     closeAccountModal();
+    clearCustomerPushPromptSkip();
     router.refresh();
   }
 
