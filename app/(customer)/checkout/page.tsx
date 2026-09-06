@@ -29,6 +29,7 @@ import WeatherDisclaimerBanner from '@/components/Storefront/WeatherDisclaimerBa
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { checkoutSchema, type CheckoutSchema } from '@/lib/validations';
 import { buildWhatsAppMessage, buildWhatsAppUrl, openWhatsAppUrl } from '@/utils/whatsapp';
+import { getOrCreateCheckoutIdempotencyKey, clearCheckoutIdempotencyKey } from '@/utils/checkoutAttempt';
 import { formatCurrency } from '@/utils/formatter';
 import { WHATSAPP_NUMBER, STORE_NAME } from '@/constants';
 import { isValidIndianMobile, normalizeMobile } from '@/utils/mobile';
@@ -41,12 +42,12 @@ import { prepareCheckoutVerification, clearPreparedCheckoutVerification } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Copy } from 'lucide-react';
 
 export default function CheckoutPage() {
   const router = useRouter();
   const hydrated = useCartHydrated();
-  const { items, getSubtotal, clearCart } = useCartStore();
+  const { items, getSubtotal, clearCart, applyServerPrices } = useCartStore();
   const {
     serviceablePins,
     serviceableCities,
@@ -61,6 +62,7 @@ export default function CheckoutPage() {
   } = useConfigStore();
   const appliedDiscount = useDiscountStore((s) => s.applied);
   const clearDiscount = useDiscountStore((s) => s.clear);
+  const setAppliedDiscount = useDiscountStore((s) => s.setApplied);
 
   useEffect(() => {
     void refreshConfig();
@@ -113,6 +115,12 @@ export default function CheckoutPage() {
   const [pendingSubmitSource, setPendingSubmitSource] = useState<'website' | 'whatsapp' | null>(null);
   const [highlightSection, setHighlightSection] = useState<'customer' | 'address' | 'summary' | null>(null);
   const [orderError, setOrderError] = useState('');
+  const [placedSuccess, setPlacedSuccess] = useState<{
+    orderNumber: string;
+    orderId?: string;
+    whatsappMessage?: string;
+    whatsappUrl?: string;
+  } | null>(null);
   const customerSectionRef = useRef<HTMLDivElement | null>(null);
   const addressSectionRef = useRef<HTMLDivElement | null>(null);
   const summarySectionRef = useRef<HTMLDivElement | null>(null);
@@ -439,8 +447,9 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!hydrated) return;
     if (orderCompletedRef.current) return;
+    if (placedSuccess) return;
     if (items.length === 0) router.replace('/cart');
-  }, [items, router, hydrated]);
+  }, [items, router, hydrated, placedSuccess]);
 
   const whatsappMessage = useMemo(() => {
     if (!formValues.firstName || !formValues.mobile) return '';
@@ -550,6 +559,7 @@ export default function CheckoutPage() {
       return;
     }
 
+    const idempotencyKey = getOrCreateCheckoutIdempotencyKey(items);
     const payload = {
       customer: data,
       items: items.map((i) => ({
@@ -562,6 +572,8 @@ export default function CheckoutPage() {
       })),
       paymentMethod: data.paymentMethod,
       orderSource: source,
+      clientGrandTotal: grandTotal,
+      idempotencyKey,
       ...(discountAmount > 0 && appliedDiscount
         ? {
             discount: {
@@ -574,55 +586,49 @@ export default function CheckoutPage() {
         : {}),
     };
 
-    if (source === 'whatsapp') {
-      const message = buildWhatsAppMessage({
-        items,
-        customer: data,
-        subtotal,
-        deliveryCharge,
-        discountAmount,
-        discountLabel:
-          appliedDiscount?.type === 'COUPON' && appliedDiscount.couponCode
-            ? `Coupon (${appliedDiscount.couponCode})`
-            : appliedDiscount?.type === 'MEMBERSHIP'
-              ? 'Membership'
-              : undefined,
-        grandTotal,
-        storeName: STORE_NAME,
+    type CheckoutResult = {
+      ok?: boolean;
+      error?: unknown;
+      code?: string;
+      orderNumber?: string;
+      orderId?: string;
+      quote?: {
+        items: Array<{ productId: string; variantId?: string | null; price: number }>;
+        subtotal: number;
+        discountAmount: number;
+        grandTotal: number;
+      };
+    };
+
+    async function lookupPlaced(): Promise<CheckoutResult | null> {
+      const res = await fetch(`/api/checkout/status?key=${encodeURIComponent(idempotencyKey)}`, {
+        credentials: 'include',
+        cache: 'no-store',
       });
-      const url = buildWhatsAppUrl(WHATSAPP_NUMBER, message);
-      openWhatsAppUrl(url);
+      const data = (await res.json().catch(() => ({}))) as CheckoutResult;
+      if (data.ok && typeof data.orderNumber === 'string') return data;
+      return null;
     }
 
-    let orderPlaced = false;
-    let placedOrderNumber: string | undefined;
-    try {
+    async function postCheckout(): Promise<{ res: Response; result: CheckoutResult }> {
       const res = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
         body: JSON.stringify(payload),
       });
-      const result = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setOrderError(typeof result.error === 'string' ? result.error : 'Failed to place order');
-        if (result.code === 'LOGIN_REQUIRED') {
-          openAccountModal();
-        } else if (result.code === 'VERIFICATION_REQUIRED') {
-          setNeedsWhatsappVerification(true);
-          setShowVerificationModal(true);
-        }
-        return;
-      }
-      orderPlaced = true;
-      if (typeof result.orderNumber === 'string') placedOrderNumber = result.orderNumber;
-    } catch {
-      setOrderError('Network error. Please try again.');
-      return;
+      const result = (await res.json().catch(() => ({}))) as CheckoutResult;
+      return { res, result };
     }
 
-    // Soft-navigate home with celebration — never hard-refresh, never land on empty /cart.
-    if (orderPlaced) {
+    function finishSuccess(result: CheckoutResult) {
+      const placedOrderNumber = typeof result.orderNumber === 'string' ? result.orderNumber : undefined;
+      const placedOrderId = typeof result.orderId === 'string' ? result.orderId : undefined;
       orderCompletedRef.current = true;
+      clearCheckoutIdempotencyKey();
       const normalized = normalizeMobile(data.mobile);
       setCustomerMobile(normalized);
       void persistProfile(data);
@@ -638,13 +644,129 @@ export default function CheckoutPage() {
         /* ignore */
       }
       markOrderCelebration(placedOrderNumber);
+
+      let whatsappMessage: string | undefined;
+      let whatsappUrl: string | undefined;
+      if (source === 'whatsapp' && placedOrderNumber) {
+        whatsappMessage = buildWhatsAppMessage({
+          items,
+          customer: data,
+          subtotal,
+          deliveryCharge,
+          discountAmount,
+          discountLabel:
+            appliedDiscount?.type === 'COUPON' && appliedDiscount.couponCode
+              ? `Coupon (${appliedDiscount.couponCode})`
+              : appliedDiscount?.type === 'MEMBERSHIP'
+                ? 'Membership'
+                : undefined,
+          grandTotal,
+          storeName: STORE_NAME,
+          orderNumber: placedOrderNumber,
+        });
+        whatsappUrl = buildWhatsAppUrl(WHATSAPP_NUMBER, whatsappMessage);
+        const opened = openWhatsAppUrl(whatsappUrl, { allowSameWindow: false });
+        if (!opened) {
+          setPlacedSuccess({
+            orderNumber: placedOrderNumber,
+            orderId: placedOrderId,
+            whatsappMessage,
+            whatsappUrl,
+          });
+          queueMicrotask(() => {
+            clearCart();
+            clearDiscount();
+          });
+          return;
+        }
+      }
+
       router.replace('/');
-      // Clear cart after navigation starts so the empty-cart guard cannot win the race.
       queueMicrotask(() => {
         clearCart();
         clearDiscount();
       });
     }
+
+    function handleFailure(result: CheckoutResult) {
+      const message = typeof result.error === 'string' ? result.error : 'Failed to place order';
+      setOrderError(message);
+      if (result.code === 'LOGIN_REQUIRED') {
+        openAccountModal();
+        return;
+      }
+      if (result.code === 'VERIFICATION_REQUIRED') {
+        setNeedsWhatsappVerification(true);
+        setShowVerificationModal(true);
+        return;
+      }
+      if (result.code === 'UNAVAILABLE') {
+        focusSection('address');
+        return;
+      }
+      if (result.code === 'STOCK' || result.code === 'PRICE_CHANGED') {
+        focusSection('summary');
+      }
+      if (result.code === 'PRICE_CHANGED' && result.quote) {
+        applyServerPrices(result.quote.items);
+        if (appliedDiscount) {
+          setAppliedDiscount({
+            ...appliedDiscount,
+            discountAmount: result.quote.discountAmount,
+            quotedSubtotal: result.quote.subtotal,
+            youSavedLabel: `You saved ₹${Math.round(result.quote.discountAmount)}`,
+          });
+        }
+      }
+    }
+
+    let res: Response;
+    let result: CheckoutResult;
+    try {
+      ({ res, result } = await postCheckout());
+    } catch {
+      const existing = await lookupPlaced().catch(() => null);
+      if (existing) {
+        finishSuccess(existing);
+        return;
+      }
+      try {
+        ({ res, result } = await postCheckout());
+      } catch {
+        const existingRetry = await lookupPlaced().catch(() => null);
+        if (existingRetry) {
+          finishSuccess(existingRetry);
+          return;
+        }
+        setOrderError('Network error. Checking whether your order went through… Please try Place Order again if nothing appears in Track order.');
+        return;
+      }
+    }
+
+    if (res.status === 503 || result.code === 'RETRY') {
+      const existing = await lookupPlaced().catch(() => null);
+      if (existing) {
+        finishSuccess(existing);
+        return;
+      }
+      try {
+        ({ res, result } = await postCheckout());
+      } catch {
+        const existingRetry = await lookupPlaced().catch(() => null);
+        if (existingRetry) {
+          finishSuccess(existingRetry);
+          return;
+        }
+        setOrderError('Checkout is taking longer than usual. Please try Place Order again.');
+        return;
+      }
+    }
+
+    if (!res.ok) {
+      handleFailure(result);
+      return;
+    }
+    finishSuccess(result);
   }
 
   async function onSubmitWebsite(data: CheckoutSchema) {
@@ -750,6 +872,67 @@ export default function CheckoutPage() {
     );
   }
 
+  if (placedSuccess) {
+    const trackHref = placedSuccess.orderId
+      ? `/account/track/${placedSuccess.orderId}`
+      : '/account';
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        <Header showSearch={false} />
+        <main className="flex-1 max-w-lg mx-auto w-full px-4 py-10">
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center space-y-4">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blinkit-green-light text-blinkit-green">
+              <CheckCircle2 className="h-7 w-7" />
+            </div>
+            <h2 className="text-lg font-bold text-gray-900">Order {placedSuccess.orderNumber} is in</h2>
+            <p className="text-sm text-gray-500">
+              You can track it from your account. WhatsApp didn&apos;t open in this browser — copy the message
+              below and send it, or continue shopping.
+            </p>
+            {placedSuccess.whatsappMessage && (
+              <pre className="text-left text-[11px] font-mono whitespace-pre-wrap bg-gray-50 border border-gray-100 rounded-xl p-3 max-h-48 overflow-y-auto">
+                {placedSuccess.whatsappMessage}
+              </pre>
+            )}
+            <div className="flex flex-col gap-2">
+              {placedSuccess.whatsappMessage && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(placedSuccess.whatsappMessage || '');
+                  }}
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy WhatsApp message
+                </Button>
+              )}
+              {placedSuccess.whatsappUrl && (
+                <Button type="button" variant="outline" asChild>
+                  <a href={placedSuccess.whatsappUrl} target="_blank" rel="noopener noreferrer">
+                    Open WhatsApp
+                  </a>
+                </Button>
+              )}
+              <Button type="button" asChild>
+                <Link href={trackHref}>Track my order</Link>
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  router.replace('/');
+                }}
+              >
+                Continue shopping
+              </Button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (items.length === 0) return null;
 
   return (
@@ -777,7 +960,15 @@ export default function CheckoutPage() {
         )}
 
         {orderError && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{orderError}</div>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700 space-y-2">
+            <p>{orderError}</p>
+            <p className="text-xs text-red-600/80">
+              If you already placed this order, open Track order instead of tapping Place Order again.
+            </p>
+            <Link href="/account" className="text-xs font-semibold text-blinkit-green underline">
+              Track my order
+            </Link>
+          </div>
         )}
 
         <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
@@ -989,7 +1180,7 @@ export default function CheckoutPage() {
                 disabled={!canSubmit}
                 onClick={handleSubmit(onSubmitWhatsApp, onInvalid)}
               >
-                {isSubmitting ? 'Opening WhatsApp...' : 'Order via WhatsApp'}
+                {isSubmitting ? 'Placing order…' : 'Order via WhatsApp'}
               </Button>
             )}
           </div>

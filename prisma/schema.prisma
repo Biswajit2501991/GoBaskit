@@ -316,6 +316,8 @@ model Order {
   priority        OrderPriority @default(NORMAL)
   adminNotes      String?       @map("admin_notes")
   stockReserved   Boolean       @default(false) @map("stock_reserved")
+  /** Client checkout attempt id — same key always returns the same order. */
+  idempotencyKey  String?       @unique @map("idempotency_key")
   archivedAt           DateTime?     @map("archived_at")
   customerVisibleUntil DateTime?     @map("customer_visible_until")
   purgeAt              DateTime?     @map("purge_at")

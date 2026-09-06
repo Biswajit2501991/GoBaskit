@@ -13,6 +13,7 @@ interface WhatsAppOrderParams {
   discountAmount?: number;
   discountLabel?: string;
   storeName?: string;
+  orderNumber?: string;
 }
 
 export function buildWhatsAppMessage({
@@ -24,11 +25,13 @@ export function buildWhatsAppMessage({
   discountAmount = 0,
   discountLabel,
   storeName = 'GoBaskit',
+  orderNumber,
 }: WhatsAppOrderParams): string {
   const lines: string[] = [
     `Hello ${storeName},`,
     '',
     'I would like to place the following order.',
+    ...(orderNumber ? ['', `Order number: ${orderNumber}`] : []),
     '',
     'Customer',
     '',
@@ -99,9 +102,9 @@ export function buildWhatsAppUrl(phoneNumber: string, message: string): string {
   return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encoded}`;
 }
 
-/** Opens WhatsApp in a new tab while the click gesture is still valid. */
-export function openWhatsAppUrl(url: string): void {
-  if (typeof window === 'undefined') return;
+/** Opens WhatsApp in a new tab. Returns false if the popup was blocked and same-window is disallowed. */
+export function openWhatsAppUrl(url: string, options?: { allowSameWindow?: boolean }): boolean {
+  if (typeof window === 'undefined') return false;
 
   try {
     sessionStorage.setItem('gobaskit_last_whatsapp_url', url);
@@ -111,6 +114,8 @@ export function openWhatsAppUrl(url: string): void {
 
   const opened = window.open(url, '_blank', 'noopener,noreferrer');
   if (!opened) {
+    if (options?.allowSameWindow === false) return false;
     window.location.href = url;
   }
+  return true;
 }

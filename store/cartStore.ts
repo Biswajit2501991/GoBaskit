@@ -28,6 +28,10 @@ interface CartState {
   syncLiveStock: (
     updates: Array<{ productId: string; variantId?: string | null; stock: number }>,
   ) => void;
+  /** Apply server checkout prices without changing quantities. */
+  applyServerPrices: (
+    updates: Array<{ productId: string; variantId?: string | null; price: number }>,
+  ) => void;
   clearCart: () => void;
   getSubtotal: () => number;
   getItemCount: () => number;
@@ -101,6 +105,22 @@ export const useCartStore = create<CartState>()(
             if (stock === item.stock && quantity === item.quantity) return item;
             changed = true;
             return { ...item, stock, quantity };
+          });
+          return changed ? { items } : state;
+        }),
+
+      applyServerPrices: (updates) =>
+        set((state) => {
+          if (!updates.length) return state;
+          const byKey = new Map(
+            updates.map((u) => [cartLineKey(u.productId, u.variantId), u.price]),
+          );
+          let changed = false;
+          const items = state.items.map((item) => {
+            const nextPrice = byKey.get(itemLineKey(item));
+            if (nextPrice == null || nextPrice === item.price) return item;
+            changed = true;
+            return { ...item, price: nextPrice };
           });
           return changed ? { items } : state;
         }),

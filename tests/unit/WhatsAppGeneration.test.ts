@@ -77,4 +77,16 @@ describe('WhatsApp Message Generation', () => {
     });
     expect(message).toContain('Sunflower Oil — Fortune 1L x1');
   });
+
+  it('includes the confirmed order number after checkout succeeds', () => {
+    const message = buildWhatsAppMessage({
+      items,
+      customer,
+      subtotal: 330,
+      deliveryCharge: 30,
+      grandTotal: 360,
+      orderNumber: 'GBABCDEF12',
+    });
+    expect(message).toContain('Order number: GBABCDEF12');
+  });
 });

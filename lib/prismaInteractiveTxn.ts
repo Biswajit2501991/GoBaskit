@@ -16,7 +16,9 @@ export function isRetryableInteractiveTxnError(err: unknown): boolean {
 
 export function checkoutPlaceOrderUserMessage(err: unknown): string {
   const message = err instanceof Error ? err.message : '';
-  if (/stock/i.test(message) || /unavailable/i.test(message)) return message;
+  if (/stock/i.test(message) || /unavailable/i.test(message) || /no longer available/i.test(message)) {
+    return message;
+  }
   if (isRetryableInteractiveTxnError(err)) {
     return 'Checkout is taking longer than usual. Please try Place Order again.';
   }

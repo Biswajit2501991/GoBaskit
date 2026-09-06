@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse, after } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import {
   checkoutPlaceOrderUserMessage,
   isRetryableInteractiveTxnError,
   runInteractiveTxn,
 } from '@/lib/prismaInteractiveTxn';
-import { checkoutSchema } from '@/lib/validations';
+import { checkoutSchema, formatZodFlattenError } from '@/lib/validations';
 import { deliveryChargeFrom } from '@/constants';
 import { deliveryIsServiceable } from '@/utils/delivery';
 import { SettingsService } from '@/services/SettingsService';
@@ -14,6 +15,7 @@ import { NotificationService } from '@/services/NotificationService';
 import { CustomerProfileService } from '@/services/CustomerProfileService';
 import { InventoryService } from '@/services/InventoryService';
 import { DiscountEngine } from '@/services/DiscountEngine';
+import { CheckoutQuoteService } from '@/services/CheckoutQuoteService';
 import { profileFromCheckout } from '@/utils/customerProfile';
 import { toE164 } from '@/utils/phone';
 import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationService';
@@ -24,8 +26,15 @@ import {
   getCustomerMobileFromRequest,
 } from '@/lib/customer-session';
 import { normalizeMobile } from '@/utils/mobile';
-import { appendPackSize, composeOrderItemName } from '@/utils/orderItemName';
-import { variantLabel, variantSizeLabel } from '@/utils/variant';
+import {
+  amountsClose,
+  CHECKOUT_CODES,
+  generateOrderNumber,
+  isIdempotencyKeyConflict,
+  isOrderNumberConflict,
+  parseIdempotencyKey,
+  stockOrUnavailableCode,
+} from '@/lib/checkoutOrder';
 
 type CheckoutLineItem = {
   productId: string;
@@ -36,46 +45,110 @@ type CheckoutLineItem = {
   unit: string;
 };
 
+function jsonError(error: string, code: string, status: number, extra?: Record<string, unknown>) {
+  return NextResponse.json({ error, code, ...extra }, { status });
+}
+
+function orderOwnedBySession(
+  orderMobile: string,
+  sessionMobile: string,
+): boolean {
+  return normalizeMobile(orderMobile) === sessionMobile;
+}
+
+async function findOrderByIdempotencyKey(key: string, sessionMobile: string) {
+  const order = await prisma.order.findUnique({
+    where: { idempotencyKey: key },
+    select: {
+      id: true,
+      orderNumber: true,
+      grandTotal: true,
+      status: true,
+      paymentMethod: true,
+      customerLat: true,
+      customerLng: true,
+      customer: {
+        select: {
+          firstName: true,
+          lastName: true,
+          mobile: true,
+          city: true,
+          houseNumber: true,
+          street: true,
+          area: true,
+          pincode: true,
+        },
+      },
+    },
+  });
+  if (!order) return null;
+  if (!orderOwnedBySession(order.customer.mobile, sessionMobile)) return 'foreign' as const;
+  return order;
+}
+
+function successPayload(
+  order: { id: string; orderNumber: string; grandTotal: number },
+  started: number,
+  replay = false,
+) {
+  return {
+    ok: true as const,
+    orderNumber: order.orderNumber,
+    orderId: order.id,
+    grandTotal: order.grandTotal,
+    replay,
+    ms: Date.now() - started,
+    order: { id: order.id, orderNumber: order.orderNumber },
+  };
+}
+
 export async function POST(req: NextRequest) {
   const started = Date.now();
   try {
     const sessionMobile = getCustomerMobileFromRequest(req);
     if (!sessionMobile) {
-      return NextResponse.json(
-        { error: 'Please log in to place your order.', code: 'LOGIN_REQUIRED' },
-        { status: 401 },
-      );
+      return jsonError('Please log in to place your order.', CHECKOUT_CODES.LOGIN_REQUIRED, 401);
     }
 
     const body = await req.json();
     const { customer, items, paymentMethod, orderSource, customerLat, customerLng, discount } = body;
+    const idempotencyKey = parseIdempotencyKey(
+      req.headers.get('idempotency-key') || body?.idempotencyKey,
+    );
+
+    if (idempotencyKey) {
+      const existing = await findOrderByIdempotencyKey(idempotencyKey, sessionMobile);
+      if (existing === 'foreign') {
+        return jsonError('Could not place this order. Please try again.', CHECKOUT_CODES.FAILED, 409);
+      }
+      if (existing) {
+        return NextResponse.json(successPayload(existing, started, true));
+      }
+    }
 
     const parsed = checkoutSchema.safeParse({ ...customer, paymentMethod });
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+      return jsonError(formatZodFlattenError(parsed.error.flatten()), CHECKOUT_CODES.INVALID, 400);
     }
 
     if (normalizeMobile(parsed.data.mobile) !== sessionMobile) {
-      return NextResponse.json(
-        {
-          error: 'Checkout mobile must match your logged-in account. Please use your account mobile number.',
-          code: 'MOBILE_MISMATCH',
-        },
-        { status: 403 },
+      return jsonError(
+        'Checkout mobile must match your logged-in account. Please use your account mobile number.',
+        CHECKOUT_CODES.MOBILE_MISMATCH,
+        403,
       );
     }
 
     if (!Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: 'Cart is empty' }, { status: 400 });
+      return jsonError('Cart is empty', CHECKOUT_CODES.EMPTY, 400);
     }
 
     const checkoutItems = items as CheckoutLineItem[];
-
-    const subtotal = checkoutItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-    const stockItems = checkoutItems.map((item) => ({
+    const namedItems = await CheckoutQuoteService.quoteLines(checkoutItems);
+    const subtotal = namedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const stockItems = namedItems.map((item) => ({
       productId: item.productId,
-      variantId: item.variantId ?? null,
+      variantId: item.variantId,
       quantity: item.quantity,
     }));
 
@@ -86,76 +159,20 @@ export async function POST(req: NextRequest) {
         ? discountRequest.type
         : 'NONE';
 
-    // Minimal parallel pre-work. Friendly stock check before creating the order;
-    // atomic reserve inside the transaction still guards races.
-    const productIds = [...new Set(checkoutItems.map((item) => item.productId))];
-    const variantIds = [
-      ...new Set(
-        checkoutItems
-          .map((item) => item.variantId)
-          .filter((id): id is string => typeof id === 'string' && id.length > 0),
-      ),
-    ];
-
-    const [config, resolvedDiscount, verification, products, variants] = await Promise.all([
+    const [config, resolvedDiscount, verification] = await Promise.all([
       SettingsService.getStoreConfig(),
       DiscountEngine.resolveForCheckout({
         type: discountTypeRaw,
         couponCode: typeof discountRequest?.couponCode === 'string' ? discountRequest.couponCode : null,
         mobile: sessionMobile,
         subtotal,
-        clientDiscountAmount:
-          typeof discountRequest?.discountAmount === 'number' ? discountRequest.discountAmount : null,
-        clientMemberId:
-          typeof discountRequest?.memberId === 'string' ? discountRequest.memberId : null,
+        clientMemberId: typeof discountRequest?.memberId === 'string' ? discountRequest.memberId : null,
       }),
       WhatsAppVerificationService.getCheckoutVerificationState(mobileE164),
-      InventoryService.validateCheckoutItems(stockItems).then(() =>
-        prisma.product.findMany({
-          where: { id: { in: productIds } },
-          select: { id: true, name: true, unit: true },
-        }),
-      ),
-      variantIds.length
-        ? prisma.productVariant.findMany({
-            where: { id: { in: variantIds } },
-            select: { id: true, brand: true, variantName: true, weight: true, unit: true },
-          })
-        : Promise.resolve(
-            [] as Array<{
-              id: string;
-              brand: string;
-              variantName: string;
-              weight: string;
-              unit: string;
-            }>,
-          ),
     ]);
 
-    const productNameById = new Map(products.map((p) => [p.id, p.name]));
-    const productUnitById = new Map(products.map((p) => [p.id, (p.unit ?? '').trim()]));
-    const variantLabelById = new Map(variants.map((v) => [v.id, variantLabel(v)]));
-    const variantSizeById = new Map(variants.map((v) => [v.id, variantSizeLabel(v)]));
-    const namedItems: CheckoutLineItem[] = checkoutItems.map((item) => {
-      const packSize = item.variantId
-        ? variantSizeById.get(item.variantId) || item.unit
-        : productUnitById.get(item.productId) || item.unit;
-      return {
-        ...item,
-        unit: (packSize || item.unit || 'pcs').trim() || 'pcs',
-        name: appendPackSize(
-          composeOrderItemName({
-            productName: productNameById.get(item.productId),
-            variantLabel: item.variantId ? variantLabelById.get(item.variantId) ?? null : null,
-            clientName: item.name,
-          }),
-          packSize,
-        ),
-      };
-    });
-
     if (!resolvedDiscount.ok) {
-      return NextResponse.json({ error: resolvedDiscount.error }, { status: 400 });
+      return jsonError(resolvedDiscount.error, CHECKOUT_CODES.DISCOUNT, 400);
     }
 
     const serviceable = deliveryIsServiceable({
@@ -167,26 +184,22 @@ export async function POST(req: NextRequest) {
     });
 
     if (!serviceable) {
-      return NextResponse.json(
-        { error: 'Sorry, delivery is currently unavailable in your area.' },
-        { status: 400 },
+      return jsonError(
+        'Sorry, delivery is currently unavailable in your area.',
+        CHECKOUT_CODES.UNAVAILABLE,
+        400,
       );
     }
 
     if (config.minOrderValue > 0 && subtotal < config.minOrderValue) {
-      return NextResponse.json(
-        { error: `Minimum order value is ₹${config.minOrderValue}.` },
-        { status: 400 },
-      );
+      return jsonError(`Minimum order value is ₹${config.minOrderValue}.`, CHECKOUT_CODES.INVALID, 400);
     }
 
     if (!verification.isVerified) {
-      return NextResponse.json(
-        {
-          error: 'Please complete WhatsApp verification before placing your order.',
-          code: 'VERIFICATION_REQUIRED',
-        },
-        { status: 403 },
+      return jsonError(
+        'Please complete WhatsApp verification before placing your order.',
+        CHECKOUT_CODES.VERIFICATION_REQUIRED,
+        403,
       );
     }
 
@@ -194,7 +207,35 @@ export async function POST(req: NextRequest) {
     const deliveryCharge = deliveryChargeFrom(config.deliverySlabs, subtotal);
     const discountAmount = resolvedDiscount.discountAmount;
     const grandTotal = Math.max(0, subtotal - discountAmount + deliveryCharge);
-    const orderNumber = `GB${Date.now().toString().slice(-8)}`;
+    const clientGrandTotal =
+      typeof body?.clientGrandTotal === 'number' && Number.isFinite(body.clientGrandTotal)
+        ? body.clientGrandTotal
+        : null;
+
+    if (clientGrandTotal != null && !amountsClose(clientGrandTotal, grandTotal)) {
+      return jsonError(
+        'Prices were updated. Please review the new total and tap Place Order again.',
+        CHECKOUT_CODES.PRICE_CHANGED,
+        409,
+        {
+          quote: {
+            items: namedItems.map((item) => ({
+              productId: item.productId,
+              variantId: item.variantId,
+              price: item.price,
+              name: item.name,
+              quantity: item.quantity,
+              unit: item.unit,
+            })),
+            subtotal,
+            deliveryCharge,
+            discountAmount,
+            grandTotal,
+          },
+        },
+      );
+    }
+
     const source = orderSource === 'whatsapp' ? 'whatsapp' : 'website';
 
     let inventoryUpdates: {
@@ -204,9 +245,8 @@ export async function POST(req: NextRequest) {
       qtyByVariant: Map<string, number>;
     };
 
-    // Keep the transaction lean: create + reserve only. No include of items/customer
-    // in the hot path (those are re-fetched only for background side effects).
-    const order = await runInteractiveTxn(async (tx) => {
+    const createOrder = async (orderNumber: string) =>
+      runInteractiveTxn(async (tx) => {
         const dbCustomer = await tx.customer.create({
           data: {
             firstName: parsed.data.firstName,
@@ -251,6 +291,7 @@ export async function POST(req: NextRequest) {
             orderSource: source,
             customerLat: typeof customerLat === 'number' ? customerLat : null,
             customerLng: typeof customerLng === 'number' ? customerLng : null,
+            idempotencyKey,
           },
           select: {
             id: true,
@@ -267,7 +308,7 @@ export async function POST(req: NextRequest) {
           data: namedItems.map((item) => ({
             orderId: created.id,
             productId: item.productId,
-            variantId: item.variantId ?? null,
+            variantId: item.variantId,
             productName: item.name,
             quantity: item.quantity,
             unitPrice: item.price,
@@ -290,16 +331,32 @@ export async function POST(req: NextRequest) {
 
         inventoryUpdates = await InventoryService.reserveForOrder(tx, created.id, stockItems);
         return { ...created, customer: dbCustomer };
-    });
+      });
 
-    // Slim response — client only needs orderNumber to proceed to success.
-    const res = NextResponse.json({
-      ok: true,
-      orderNumber: order.orderNumber,
-      orderId: order.id,
-      grandTotal: order.grandTotal,
-      ms: Date.now() - started,
-    });
+    let order;
+    try {
+      order = await createOrder(generateOrderNumber());
+    } catch (err) {
+      if (idempotencyKey && isIdempotencyKeyConflict(err)) {
+        const existing = await findOrderByIdempotencyKey(idempotencyKey, sessionMobile);
+        if (existing && existing !== 'foreign') {
+          return NextResponse.json(successPayload(existing, started, true));
+        }
+      }
+      if (isOrderNumberConflict(err)) {
+        order = await createOrder(generateOrderNumber());
+      } else if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002' && idempotencyKey) {
+        const existing = await findOrderByIdempotencyKey(idempotencyKey, sessionMobile);
+        if (existing && existing !== 'foreign') {
+          return NextResponse.json(successPayload(existing, started, true));
+        }
+        throw err;
+      } else {
+        throw err;
+      }
+    }
+
+    const res = NextResponse.json(successPayload(order, started, false));
     if (isWhatsappVerified) {
       res.cookies.set(
         CUSTOMER_MOBILE_COOKIE,
@@ -308,8 +365,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Use Next.js `after()` so side effects survive the response (fire-and-forget
-    // `void` promises were being cancelled — which broke live order notifications).
     const inventorySnapshot = inventoryUpdates!;
     const orderSnapshot = order;
     const profileMobile = parsed.data.mobile;
@@ -365,12 +420,11 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     const message = checkoutPlaceOrderUserMessage(error);
     console.error('Checkout error:', error);
-    const status =
-      message.includes('stock') || message.includes('unavailable')
-        ? 400
-        : isRetryableInteractiveTxnError(error)
-          ? 503
-          : 500;
-    return NextResponse.json({ error: message }, { status });
+    if (isRetryableInteractiveTxnError(error)) {
+      return jsonError(message, CHECKOUT_CODES.RETRY, 503);
+    }
+    const code = stockOrUnavailableCode(message);
+    const status = code === CHECKOUT_CODES.FAILED ? 500 : 400;
+    return jsonError(message, code, status);
   }
 }
