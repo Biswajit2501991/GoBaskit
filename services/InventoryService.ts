@@ -1,4 +1,4 @@
-import type { ProductStatus, Prisma } from '@prisma/client';
+import { Prisma, type ProductStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from '@/services/NotificationService';
 import { DashboardService } from '@/services/DashboardService';
@@ -164,32 +164,14 @@ export class InventoryService {
       }
     }
 
-    // Critical path: atomic stock decrements only (one updateMany per line).
-    // Status sync + alert rows are loaded after the response in afterOrderReserved.
-    await Promise.all([
-      ...[...byProduct.entries()].map(async ([productId, qty]) => {
-        const result = await tx.product.updateMany({
-          where: { id: productId, stock: { gte: qty } },
-          data: { stock: { decrement: qty } },
-        });
-        if (result.count !== 1) {
-          throw new Error('Insufficient stock for a product in your cart');
-        }
-      }),
-      ...[...byVariant.entries()].map(async ([variantId, qty]) => {
-        const result = await tx.productVariant.updateMany({
-          where: { id: variantId, stock: { gte: qty } },
-          data: { stock: { decrement: qty } },
-        });
-        if (result.count !== 1) {
-          throw new Error('Insufficient stock for a selected option');
-        }
-      }),
-      tx.order.update({
-        where: { id: orderId },
-        data: { stockReserved: true },
-      }),
-    ]);
+    // One UPDATE per table (not per SKU). N sequential updateMany round-trips
+    // were blowing the 8s interactive txn on pooled Postgres.
+    await this.applyStockMoves(tx, 'products', byProduct, 'reserve');
+    await this.applyStockMoves(tx, 'product_variants', byVariant, 'reserve');
+    await tx.order.update({
+      where: { id: orderId },
+      data: { stockReserved: true },
+    });
 
     return {
       productIds: [...byProduct.keys()],
@@ -218,24 +200,67 @@ export class InventoryService {
       }
     }
 
-    await Promise.all([
-      ...[...byProduct.entries()].map(([productId, qty]) =>
-        tx.product.updateMany({
-          where: { id: productId },
-          data: { stock: { increment: qty } },
-        }),
-      ),
-      ...[...byVariant.entries()].map(([variantId, qty]) =>
-        tx.productVariant.updateMany({
-          where: { id: variantId },
-          data: { stock: { increment: qty } },
-        }),
-      ),
-      tx.order.update({
-        where: { id: orderId },
-        data: { stockReserved: false },
-      }),
-    ]);
+    await this.applyStockMoves(tx, 'products', byProduct, 'restore');
+    await this.applyStockMoves(tx, 'product_variants', byVariant, 'restore');
+    await tx.order.update({
+      where: { id: orderId },
+      data: { stockReserved: false },
+    });
+  }
+
+  private static async applyStockMoves(
+    tx: Prisma.TransactionClient,
+    table: 'products' | 'product_variants',
+    qtyById: Map<string, number>,
+    mode: 'reserve' | 'restore',
+  ): Promise<void> {
+    if (qtyById.size === 0) return;
+
+    const rows = [...qtyById.entries()].sort(([a], [b]) => a.localeCompare(b));
+    const tuples = rows.map(([id, qty]) => Prisma.sql`(${id}, ${qty}::int)`);
+
+    let updated: { id: string }[];
+    if (table === 'products' && mode === 'reserve') {
+      updated = await tx.$queryRaw<{ id: string }[]>`
+        UPDATE products AS t
+        SET stock = t.stock - v.qty
+        FROM (VALUES ${Prisma.join(tuples)}) AS v(id, qty)
+        WHERE t.id = v.id AND t.stock >= v.qty
+        RETURNING t.id
+      `;
+    } else if (table === 'products') {
+      updated = await tx.$queryRaw<{ id: string }[]>`
+        UPDATE products AS t
+        SET stock = t.stock + v.qty
+        FROM (VALUES ${Prisma.join(tuples)}) AS v(id, qty)
+        WHERE t.id = v.id
+        RETURNING t.id
+      `;
+    } else if (mode === 'reserve') {
+      updated = await tx.$queryRaw<{ id: string }[]>`
+        UPDATE product_variants AS t
+        SET stock = t.stock - v.qty
+        FROM (VALUES ${Prisma.join(tuples)}) AS v(id, qty)
+        WHERE t.id = v.id AND t.stock >= v.qty
+        RETURNING t.id
+      `;
+    } else {
+      updated = await tx.$queryRaw<{ id: string }[]>`
+        UPDATE product_variants AS t
+        SET stock = t.stock + v.qty
+        FROM (VALUES ${Prisma.join(tuples)}) AS v(id, qty)
+        WHERE t.id = v.id
+        RETURNING t.id
+      `;
+    }
+
+    if (mode === 'reserve' && updated.length !== rows.length) {
+      throw new Error(
+        table === 'products'
+          ? 'Insufficient stock for a product in your cart'
+          : 'Insufficient stock for a selected option',
+      );
+    }
   }
 
   static async afterOrderReserved(

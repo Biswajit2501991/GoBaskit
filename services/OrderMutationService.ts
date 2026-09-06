@@ -1,6 +1,7 @@
 import type { OrderStatus } from '@prisma/client';
 import { after } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { runInteractiveTxn } from '@/lib/prismaInteractiveTxn';
 import { deliveryChargeFrom } from '@/constants';
 import { deliveryIsServiceable } from '@/utils/delivery';
 import { appendPackSize, composeOrderItemName } from '@/utils/orderItemName';
@@ -272,8 +273,7 @@ export class OrderMutationService {
     let createdItems = order.items;
 
     try {
-      await prisma.$transaction(
-        async (tx) => {
+      await runInteractiveTxn(async (tx) => {
           if (named && stockItems) {
             await InventoryService.restoreReservationInTx(
               tx,
@@ -332,9 +332,7 @@ export class OrderMutationService {
               ...(deliveryNext ? { deliveryNotes: deliveryNext.deliveryNotes } : {}),
             },
           });
-        },
-        { maxWait: 3000, timeout: 8000 },
-      );
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not update order';
       if (/stock/i.test(message) || /unavailable/i.test(message)) {

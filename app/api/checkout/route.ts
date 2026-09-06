@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import {
+  checkoutPlaceOrderUserMessage,
+  isRetryableInteractiveTxnError,
+  runInteractiveTxn,
+} from '@/lib/prismaInteractiveTxn';
 import { checkoutSchema } from '@/lib/validations';
 import { deliveryChargeFrom } from '@/constants';
 import { deliveryIsServiceable } from '@/utils/delivery';
@@ -201,8 +206,7 @@ export async function POST(req: NextRequest) {
 
     // Keep the transaction lean: create + reserve only. No include of items/customer
     // in the hot path (those are re-fetched only for background side effects).
-    const order = await prisma.$transaction(
-      async (tx) => {
+    const order = await runInteractiveTxn(async (tx) => {
         const dbCustomer = await tx.customer.create({
           data: {
             firstName: parsed.data.firstName,
@@ -247,17 +251,6 @@ export async function POST(req: NextRequest) {
             orderSource: source,
             customerLat: typeof customerLat === 'number' ? customerLat : null,
             customerLng: typeof customerLng === 'number' ? customerLng : null,
-            items: {
-              create: namedItems.map((item) => ({
-                productId: item.productId,
-                variantId: item.variantId ?? null,
-                productName: item.name,
-                quantity: item.quantity,
-                unitPrice: item.price,
-                unit: item.unit,
-                totalPrice: item.price * item.quantity,
-              })),
-            },
           },
           select: {
             id: true,
@@ -268,6 +261,19 @@ export async function POST(req: NextRequest) {
             customerLat: true,
             customerLng: true,
           },
+        });
+
+        await tx.orderItem.createMany({
+          data: namedItems.map((item) => ({
+            orderId: created.id,
+            productId: item.productId,
+            variantId: item.variantId ?? null,
+            productName: item.name,
+            quantity: item.quantity,
+            unitPrice: item.price,
+            unit: item.unit,
+            totalPrice: item.price * item.quantity,
+          })),
         });
 
         if (resolvedDiscount.discountType !== 'NONE' && discountAmount > 0) {
@@ -284,9 +290,7 @@ export async function POST(req: NextRequest) {
 
         inventoryUpdates = await InventoryService.reserveForOrder(tx, created.id, stockItems);
         return { ...created, customer: dbCustomer };
-      },
-      { maxWait: 3000, timeout: 8000 },
-    );
+    });
 
     // Slim response — client only needs orderNumber to proceed to success.
     const res = NextResponse.json({
@@ -359,9 +363,14 @@ export async function POST(req: NextRequest) {
 
     return res;
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to place order';
+    const message = checkoutPlaceOrderUserMessage(error);
     console.error('Checkout error:', error);
-    const status = message.includes('stock') || message.includes('unavailable') ? 400 : 500;
+    const status =
+      message.includes('stock') || message.includes('unavailable')
+        ? 400
+        : isRetryableInteractiveTxnError(error)
+          ? 503
+          : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }
