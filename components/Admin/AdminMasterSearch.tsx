@@ -55,7 +55,7 @@ const SETTINGS_DESTINATIONS: Omit<SearchDestination, 'group'>[] = [
     id: 'settings-notifications',
     label: 'Notifications',
     href: '/admin/settings#notifications',
-    keywords: ['sound', 'alert'],
+    keywords: ['sound', 'alert', 'broadcast', 'customer message', 'push'],
   },
   {
     id: 'settings-session',

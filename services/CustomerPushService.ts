@@ -2,6 +2,7 @@ import webpush from 'web-push';
 import { prisma } from '@/lib/prisma';
 import { getVapidPublicKey } from '@/services/AdminPushService';
 import { outForDeliveryPushPayload } from '@/lib/customerOutForDeliveryPush';
+import { customerBroadcastPayload } from '@/lib/customerBroadcastPush';
 import { normalizeMobile, isValidIndianMobile } from '@/utils/mobile';
 import { mobileVariantsFromE164, toE164 } from '@/utils/phone';
 
@@ -105,6 +106,77 @@ export class CustomerPushService {
         }
       }),
     );
+  }
+
+  static async countEnabled(): Promise<{ devices: number; customers: number }> {
+    const [devices, grouped] = await Promise.all([
+      prisma.customerPushSubscription.count(),
+      prisma.customerPushSubscription.groupBy({
+        by: ['customerMobileId'],
+        _count: { _all: true },
+      }),
+    ]);
+    return { devices, customers: grouped.length };
+  }
+
+  /** Push to every saved customer subscription. Does not change store settings or orders. */
+  static async broadcastToEnabled(input: { title: string; message: string }): Promise<{
+    ok: true;
+    devices: number;
+    sent: number;
+    gone: number;
+  } | { ok: false; error: string }> {
+    if (!ensureConfigured()) {
+      return { ok: false, error: 'Customer push is not configured on the server.' };
+    }
+    const payload = customerBroadcastPayload(input);
+    if (!payload.title || !payload.body) {
+      return { ok: false, error: 'Title and message are required.' };
+    }
+
+    const subs = await prisma.customerPushSubscription.findMany({
+      select: { id: true, endpoint: true, p256dh: true, auth: true },
+    });
+    if (!subs.length) {
+      return { ok: false, error: 'No customers have enabled alerts yet.' };
+    }
+
+    const body = JSON.stringify(payload);
+    let sent = 0;
+    let gone = 0;
+    const chunkSize = 25;
+    for (let i = 0; i < subs.length; i += chunkSize) {
+      const chunk = subs.slice(i, i + chunkSize);
+      const outcomes = await Promise.all(
+        chunk.map(async (sub): Promise<'sent' | 'gone' | 'fail'> => {
+          try {
+            await webpush.sendNotification(
+              {
+                endpoint: sub.endpoint,
+                keys: { p256dh: sub.p256dh, auth: sub.auth },
+              },
+              body,
+              { urgency: 'normal', TTL: CUSTOMER_PUSH_TTL_SECONDS },
+            );
+            return 'sent';
+          } catch (err) {
+            const status = (err as { statusCode?: number })?.statusCode;
+            if (status === 404 || status === 410) {
+              await prisma.customerPushSubscription.delete({ where: { id: sub.id } }).catch(() => null);
+              return 'gone';
+            }
+            console.error('[CustomerPush] broadcast failed', status, err);
+            return 'fail';
+          }
+        }),
+      );
+      for (const outcome of outcomes) {
+        if (outcome === 'sent') sent += 1;
+        if (outcome === 'gone') gone += 1;
+      }
+    }
+
+    return { ok: true, devices: subs.length, sent, gone };
   }
 
   private static async findCustomerMobile(rawMobile: string) {

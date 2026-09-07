@@ -54,6 +54,7 @@ import {
   normalizeHhMm,
   type OvernightCheckoutConfig,
 } from '@/lib/nightDelivery';
+import { BROADCAST_BODY_MAX, BROADCAST_TITLE_MAX } from '@/lib/customerBroadcastPush';
 
 const SETTINGS_SECTIONS = [
   {
@@ -96,7 +97,7 @@ const SETTINGS_SECTIONS = [
     id: 'notifications',
     label: 'Notifications',
     group: 'Orders',
-    hint: 'Controls the sound staff hear in Admin when a new order arrives. It does not change customer alerts.',
+    hint: 'Staff new-order sound, plus a one-time broadcast to customers who enabled alerts. Broadcast does not change store settings.',
   },
   {
     id: 'session',
@@ -444,6 +445,14 @@ export default function SettingsManager({
   const [overnightCheckout, setOvernightCheckout] = useState(() =>
     parseOvernightCheckout(initialConfig.overnightCheckout),
   );
+  const [broadcastTitle, setBroadcastTitle] = useState('GoBaskit');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastSending, setBroadcastSending] = useState(false);
+  const [broadcastInfo, setBroadcastInfo] = useState<{
+    configured: boolean;
+    devices: number;
+    customers: number;
+  } | null>(null);
   const [weatherRefreshing, setWeatherRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const lastSavedRef = useRef(initialConfig);
@@ -495,6 +504,25 @@ export default function SettingsManager({
     if (window.matchMedia('(min-width: 1024px)').matches) return;
     const el = document.querySelector(`[data-settings-nav="${activeSection}"]`);
     el?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  }, [activeSection]);
+
+  useEffect(() => {
+    if (activeSection !== 'notifications') return;
+    let cancelled = false;
+    void fetch('/api/admin/customer-broadcast', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        setBroadcastInfo({
+          configured: data.configured === true,
+          devices: Number(data.devices) || 0,
+          customers: Number(data.customers) || 0,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [activeSection]);
 
   function openSection(id: SettingsSectionId) {
@@ -822,6 +850,51 @@ export default function SettingsManager({
     }
   }
 
+  async function sendCustomerBroadcast() {
+    if (!canEdit) return;
+    setBroadcastSending(true);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/admin/customer-broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: broadcastTitle,
+          message: broadcastMessage,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        sent?: number;
+        devices?: number;
+        customers?: number;
+        gone?: number;
+      };
+      if (!res.ok) {
+        throw new Error(typeof data.error === 'string' ? data.error : 'Could not send broadcast');
+      }
+      setBroadcastMessage('');
+      setMessage({
+        type: 'ok',
+        text: `Broadcast sent to ${data.sent ?? 0} of ${data.devices ?? 0} enabled devices.`,
+      });
+      const counts = await fetch('/api/admin/customer-broadcast', { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+      if (counts) {
+        setBroadcastInfo({
+          configured: counts.configured === true,
+          devices: Number(counts.devices) || 0,
+          customers: Number(counts.customers) || 0,
+        });
+      }
+    } catch (e) {
+      setMessage({ type: 'err', text: e instanceof Error ? e.message : 'Could not send broadcast' });
+    } finally {
+      setBroadcastSending(false);
+    }
+  }
+
   const ActiveIcon = SETTINGS_ICONS[activeMeta.id];
 
   return (
@@ -1089,6 +1162,67 @@ export default function SettingsManager({
           />
           Play sound when a new order arrives
         </label>
+        <p className="text-[11px] text-gray-400">
+          Use Save Settings for the staff sound. Broadcast below is sent on its own and does not
+          rewrite store settings.
+        </p>
+
+        <div className="border-t border-gray-100 pt-4 space-y-3">
+          <div>
+            <h3 className="font-semibold text-sm text-gray-900">Broadcast to customers</h3>
+            <p className="text-xs text-gray-500 mt-1">
+              Sends a phone notification only to customers who enabled alerts. It does not text
+              WhatsApp, change orders, or write the catalogue.
+              {broadcastInfo
+                ? ` ${broadcastInfo.customers} customer${broadcastInfo.customers === 1 ? '' : 's'} · ${broadcastInfo.devices} device${broadcastInfo.devices === 1 ? '' : 's'}.`
+                : ''}
+            </p>
+          </div>
+          {broadcastInfo && !broadcastInfo.configured ? (
+            <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+              Customer push is not configured on the server, so Broadcast now cannot send.
+            </p>
+          ) : null}
+          <div>
+            <Label>Title</Label>
+            <Input
+              value={broadcastTitle}
+              onChange={(e) => setBroadcastTitle(e.target.value.slice(0, BROADCAST_TITLE_MAX))}
+              maxLength={BROADCAST_TITLE_MAX}
+              disabled={!canEdit || broadcastSending}
+              className="mt-1"
+              placeholder="GoBaskit"
+            />
+          </div>
+          <div>
+            <Label>Message</Label>
+            <textarea
+              value={broadcastMessage}
+              onChange={(e) => setBroadcastMessage(e.target.value.slice(0, BROADCAST_BODY_MAX))}
+              maxLength={BROADCAST_BODY_MAX}
+              disabled={!canEdit || broadcastSending}
+              rows={3}
+              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              placeholder="We have added more items to our list."
+            />
+            <p className="text-[11px] text-gray-400 mt-1">
+              {broadcastMessage.trim().length}/{BROADCAST_BODY_MAX}
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={() => void sendCustomerBroadcast()}
+            disabled={
+              !canEdit ||
+              broadcastSending ||
+              !broadcastTitle.trim() ||
+              !broadcastMessage.trim() ||
+              broadcastInfo?.configured === false
+            }
+          >
+            {broadcastSending ? 'Broadcasting…' : 'Broadcast now'}
+          </Button>
+        </div>
       </section>
           )}
 
