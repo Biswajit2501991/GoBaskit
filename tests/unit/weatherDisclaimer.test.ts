@@ -46,7 +46,7 @@ describe('Open-Meteo rain detection', () => {
     expect(isRainWeatherCode(3)).toBe(false);
   });
 
-  it('flags current rain or high probability in the next hours', () => {
+  it('flags current rain or rain inside the next 30 minutes, not later today', () => {
     expect(
       isRainingFromOpenMeteo({ current: { weather_code: 61, precipitation: 0, rain: 0 } }),
     ).toBe(true);
@@ -54,11 +54,10 @@ describe('Open-Meteo rain detection', () => {
     expect(
       isRainingFromOpenMeteo(
         {
-          hourly: {
-            time: ['2026-09-01T13:00:00+05:30', '2026-09-01T20:00:00+05:30'],
-            precipitation_probability: [75, 10],
-            precipitation: [0, 0],
-            weather_code: [1, 1],
+          minutely_15: {
+            time: ['2026-09-01T12:15:00+05:30', '2026-09-01T14:00:00+05:30'],
+            precipitation: [0.2, 5],
+            weather_code: [61, 61],
           },
         },
         now,
@@ -68,16 +67,43 @@ describe('Open-Meteo rain detection', () => {
       isRainingFromOpenMeteo(
         {
           current: { weather_code: 1, precipitation: 0, rain: 0 },
-          hourly: {
-            time: ['2026-09-01T13:00:00+05:30'],
-            precipitation_probability: [20],
-            precipitation: [0],
-            weather_code: [1],
+          minutely_15: {
+            time: ['2026-09-01T14:00:00+05:30'],
+            precipitation: [2],
+            weather_code: [61],
           },
         },
         now,
       ),
     ).toBe(false);
+    expect(
+      isRainingFromOpenMeteo(
+        {
+          current: { weather_code: 1, precipitation: 0, rain: 0 },
+          hourly: {
+            time: ['2026-09-01T14:00:00+05:30'],
+            precipitation_probability: [90],
+            precipitation: [2],
+            weather_code: [61],
+          },
+        },
+        now,
+      ),
+    ).toBe(false);
+    expect(
+      isRainingFromOpenMeteo(
+        {
+          current: { weather_code: 1, precipitation: 0, rain: 0 },
+          hourly: {
+            time: ['2026-09-01T12:00:00+05:30'],
+            precipitation_probability: [80],
+            precipitation: [0.5],
+            weather_code: [1],
+          },
+        },
+        now,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -110,7 +136,7 @@ describe('weather observation merge', () => {
     expect(next.lastFetchOk).toBe(true);
   });
 
-  it('does not clear the hold when rain stops so the banner does not flicker', () => {
+  it('turns the auto notice off when the next 30 minutes are clear', () => {
     const now = 1_000_000;
     const next = applyWeatherObservation(
       parseWeatherDisclaimer({ rainDetected: true, rainHoldUntil: now + 50_000 }),
@@ -118,6 +144,6 @@ describe('weather observation merge', () => {
       now,
     );
     expect(next.rainDetected).toBe(false);
-    expect(next.rainHoldUntil).toBe(now + 50_000);
+    expect(next.rainHoldUntil).toBeNull();
   });
 });

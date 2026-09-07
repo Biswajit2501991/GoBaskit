@@ -115,7 +115,7 @@ const SETTINGS_SECTIONS = [
     id: 'weather',
     label: 'Weather Notice',
     group: 'Orders',
-    hint: 'Optional rain notice on shop, cart, and checkout. It does not change orders, fees, or checkout rules.',
+    hint: 'Auto rain notice for the next 30 minutes on shop, cart, and checkout. It does not change orders or fees.',
   },
   {
     id: 'payments',
@@ -1378,6 +1378,11 @@ export default function SettingsManager({
       <section className={SECTION_CARD}>
         <div>
           <h2 className="font-semibold text-sm text-gray-900">Weather delivery notice</h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Auto looks at rain falling now or expected in the next 30 minutes. Rain two hours away
+            stays hidden until a later check. The store refreshes this on a timer; it turns off
+            when that window is clear. Always on / Always off still override Auto.
+          </p>
         </div>
         <div className="grid md:grid-cols-2 gap-3">
           <div>
@@ -1393,7 +1398,7 @@ export default function SettingsManager({
               className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm"
               disabled={!canEdit}
             >
-              <option value="auto">Auto — show when rain is predicted</option>
+              <option value="auto">Auto — rain now or in the next 30 minutes</option>
               <option value="force_on">Always on — staff override</option>
               <option value="force_off">Always off — hide even if raining</option>
             </select>
@@ -1429,7 +1434,9 @@ export default function SettingsManager({
         <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 space-y-1">
           <p>
             Currently {weatherDisclaimer.visible ? 'visible' : 'hidden'} on the website.
-            {weatherDisclaimer.rainDetected ? ' Rain detected.' : ' No rain detected.'}
+            {weatherDisclaimer.rainDetected
+              ? ' Rain now or in the next 30 minutes.'
+              : ' No rain in the next 30 minutes.'}
             {weatherDisclaimer.lastCheckedAt
               ? ` Last check ${new Date(weatherDisclaimer.lastCheckedAt).toLocaleString('en-IN')}.`
               : ' Not checked yet.'}

@@ -10,8 +10,9 @@ export const WeatherDisclaimerService = {
     const url =
       `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
       `&current=precipitation,rain,weather_code` +
+      `&minutely_15=precipitation,weather_code` +
       `&hourly=precipitation,precipitation_probability,weather_code` +
-      `&forecast_days=1&timezone=Asia%2FKolkata`;
+      `&forecast_minutely_15=8&forecast_days=1&timezone=Asia%2FKolkata`;
 
     try {
       const res = await fetch(url, {

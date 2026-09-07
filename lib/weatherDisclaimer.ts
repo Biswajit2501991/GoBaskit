@@ -4,9 +4,11 @@ export type WeatherDisclaimerMode = 'auto' | 'force_on' | 'force_off';
 export const WEATHER_DEFAULT_PIN = '723121';
 export const WEATHER_ADRA_COORDS = { latitude: 23.4961, longitude: 86.6753 } as const;
 export const WEATHER_HOLD_MS = 60 * 60 * 1000;
+/** Auto mode only looks this far ahead. Rain later (for example in 2 hours) stays hidden. */
+export const WEATHER_LOOKAHEAD_MS = 30 * 60 * 1000;
 
 export const DEFAULT_WEATHER_DISCLAIMER_MESSAGE =
-  'Rain is expected in our delivery area today. Your order will still be delivered as soon as we can — weather is just not in our favour. Thank you for your patience.';
+  'Rain is expected in our delivery area in the next 30 minutes. Your order will still be delivered as soon as we can — weather is just not in our favour. Thank you for your patience.';
 
 export interface WeatherDisclaimerState {
   mode: WeatherDisclaimerMode;
@@ -112,6 +114,11 @@ export function isRainWeatherCode(code: unknown): boolean {
 
 export type OpenMeteoForecast = {
   current?: { precipitation?: number; rain?: number; weather_code?: number };
+  minutely_15?: {
+    time?: string[];
+    precipitation?: number[];
+    weather_code?: number[];
+  };
   hourly?: {
     time?: string[];
     precipitation?: number[];
@@ -120,22 +127,37 @@ export type OpenMeteoForecast = {
   };
 };
 
+function timeInWindow(iso: string | undefined, nowMs: number, lookbackMs: number, aheadMs: number): boolean {
+  if (!iso) return false;
+  const t = Date.parse(iso);
+  return Number.isFinite(t) && t >= nowMs - lookbackMs && t <= nowMs + aheadMs;
+}
+
 export function isRainingFromOpenMeteo(payload: OpenMeteoForecast, now = new Date()): boolean {
+  const nowMs = now.getTime();
   const current = payload.current;
   if (current) {
     if (isRainWeatherCode(current.weather_code)) return true;
     if (Number(current.precipitation) >= 0.2 || Number(current.rain) >= 0.2) return true;
   }
 
+  const minutely = payload.minutely_15;
+  const minuteTimes = minutely?.time;
+  if (minuteTimes?.length) {
+    for (let i = 0; i < minuteTimes.length; i++) {
+      if (!timeInWindow(minuteTimes[i], nowMs, 5 * 60 * 1000, WEATHER_LOOKAHEAD_MS)) continue;
+      if (isRainWeatherCode(minutely?.weather_code?.[i])) return true;
+      if (Number(minutely?.precipitation?.[i]) >= 0.15) return true;
+    }
+    return false;
+  }
+
   const hourly = payload.hourly;
   const times = hourly?.time;
   if (!times?.length) return false;
 
-  const start = now.getTime() - 30 * 60 * 1000;
-  const end = now.getTime() + 6 * 60 * 60 * 1000;
   for (let i = 0; i < times.length; i++) {
-    const t = Date.parse(times[i]);
-    if (!Number.isFinite(t) || t < start || t > end) continue;
+    if (!timeInWindow(times[i], nowMs, 20 * 60 * 1000, WEATHER_LOOKAHEAD_MS)) continue;
     if (isRainWeatherCode(hourly?.weather_code?.[i])) return true;
     if (Number(hourly?.precipitation?.[i]) >= 0.4) return true;
     if (Number(hourly?.precipitation_probability?.[i]) >= 70) return true;
@@ -165,6 +187,7 @@ export function applyWeatherObservation(
   return {
     ...current,
     rainDetected: false,
+    rainHoldUntil: null,
     lastCondition: obs.condition,
     lastCheckedAt,
     lastFetchOk: true,
