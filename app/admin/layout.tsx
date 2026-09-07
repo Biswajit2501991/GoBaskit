@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { getAdminPageStaff } from '@/lib/auth';
 import { AdminShell } from '@/components/Admin/AdminShell';
-import { parsePermissions, staffHasPermission, type Permission } from '@/types/staff';
+import { parsePermissions, staffHasPermission } from '@/types/staff';
+import { ADMIN_NAV_ITEMS } from '@/lib/adminNav';
 
 export const metadata: Metadata = {
   // Keep staff "Add to Home Screen" opening Orders for push alerts,
@@ -14,24 +15,7 @@ export const metadata: Metadata = {
   },
 };
 
-const nav: { href: string; label: string; permission: Permission }[] = [
-  { href: '/admin/dashboard', label: 'Dashboard', permission: 'analytics:view' },
-  { href: '/admin/analytics', label: 'Analytics', permission: 'analytics:view' },
-  { href: '/admin/delivery', label: 'Delivery Desk', permission: 'delivery:view' },
-  { href: '/admin/inventory', label: 'Inventory Desk', permission: 'products:view' },
-  { href: '/admin/finance', label: 'Finance Desk', permission: 'finance:view' },
-  { href: '/admin/products', label: 'Products', permission: 'products:view' },
-  { href: '/admin/price-adjust', label: 'Price Adjust', permission: 'products:edit' },
-  { href: '/admin/categories', label: 'Categories', permission: 'categories:view' },
-  { href: '/admin/orders', label: 'Orders', permission: 'orders:view' },
-  { href: '/admin/feedback', label: 'Feedback', permission: 'orders:view' },
-  { href: '/admin/whatsapp-verification', label: 'WhatsApp Verification', permission: 'verification:view' },
-  { href: '/admin/bulk-upload', label: 'Bulk Upload', permission: 'bulk_upload:use' },
-  { href: '/admin/staff', label: 'Staff', permission: 'staff:view' },
-  { href: '/admin/settings', label: 'Settings', permission: 'settings:view' },
-  { href: '/admin/learning', label: 'Learning', permission: 'learning:view' },
-  { href: '/admin/archive', label: 'Archive', permission: 'orders:view' },
-];
+const nav = ADMIN_NAV_ITEMS;
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   let staff: Awaited<ReturnType<typeof getAdminPageStaff>> = null;
@@ -60,7 +44,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       />
       <AdminShell
         staff={{ id: staff.id, name: staff.name, role: staff.role }}
-        visibleNav={visibleNav.map((item) => ({ href: item.href, label: item.label }))}
+        visibleNav={visibleNav.map((item) => ({
+          href: item.href,
+          label: item.label,
+          group: item.group,
+          hint: item.hint,
+        }))}
       >
         {children}
       </AdminShell>
