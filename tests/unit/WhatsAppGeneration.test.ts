@@ -89,4 +89,17 @@ describe('WhatsApp Message Generation', () => {
     });
     expect(message).toContain('Order number: GBABCDEF12');
   });
+
+  it('includes overnight delivery timing when provided', () => {
+    const message = buildWhatsAppMessage({
+      items,
+      customer,
+      subtotal: 330,
+      deliveryCharge: 30,
+      grandTotal: 360,
+      orderNumber: 'GBABCDEF12',
+      deliveryNote: 'Items will be delivered after 8 AM today',
+    });
+    expect(message).toContain('Items will be delivered after 8 AM today');
+  });
 });

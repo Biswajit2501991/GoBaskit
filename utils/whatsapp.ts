@@ -14,6 +14,7 @@ interface WhatsAppOrderParams {
   discountLabel?: string;
   storeName?: string;
   orderNumber?: string;
+  deliveryNote?: string;
 }
 
 export function buildWhatsAppMessage({
@@ -26,12 +27,14 @@ export function buildWhatsAppMessage({
   discountLabel,
   storeName = 'GoBaskit',
   orderNumber,
+  deliveryNote,
 }: WhatsAppOrderParams): string {
   const lines: string[] = [
     `Hello ${storeName},`,
     '',
     'I would like to place the following order.',
     ...(orderNumber ? ['', `Order number: ${orderNumber}`] : []),
+    ...(deliveryNote ? ['', deliveryNote] : []),
     '',
     'Customer',
     '',

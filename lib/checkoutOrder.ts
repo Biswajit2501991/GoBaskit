@@ -12,6 +12,7 @@ export const CHECKOUT_CODES = {
   EMPTY: 'EMPTY',
   INVALID: 'INVALID',
   FAILED: 'FAILED',
+  NIGHT_DELIVERY_ACK: 'NIGHT_DELIVERY_ACK',
 } as const;
 
 export type CheckoutErrorCode = (typeof CHECKOUT_CODES)[keyof typeof CHECKOUT_CODES];

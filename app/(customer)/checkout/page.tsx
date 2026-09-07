@@ -30,6 +30,7 @@ import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { checkoutSchema, type CheckoutSchema } from '@/lib/validations';
 import { buildWhatsAppMessage, buildWhatsAppUrl, openWhatsAppUrl } from '@/utils/whatsapp';
 import { getOrCreateCheckoutIdempotencyKey, clearCheckoutIdempotencyKey } from '@/utils/checkoutAttempt';
+import { nightDeliveryCopy, nightDeliveryWindow } from '@/lib/nightDelivery';
 import { formatCurrency } from '@/utils/formatter';
 import { WHATSAPP_NUMBER, STORE_NAME } from '@/constants';
 import { isValidIndianMobile, normalizeMobile } from '@/utils/mobile';
@@ -121,6 +122,13 @@ export default function CheckoutPage() {
     whatsappMessage?: string;
     whatsappUrl?: string;
   } | null>(null);
+  const [nightPrompt, setNightPrompt] = useState<{
+    title: string;
+    message: string;
+    data: CheckoutSchema;
+    source: 'website' | 'whatsapp';
+  } | null>(null);
+  const [nightAckBusy, setNightAckBusy] = useState(false);
   const customerSectionRef = useRef<HTMLDivElement | null>(null);
   const addressSectionRef = useRef<HTMLDivElement | null>(null);
   const summarySectionRef = useRef<HTMLDivElement | null>(null);
@@ -552,11 +560,23 @@ export default function CheckoutPage() {
     }
   }
 
-  async function submitOrder(data: CheckoutSchema, source: 'website' | 'whatsapp') {
+  async function submitOrder(
+    data: CheckoutSchema,
+    source: 'website' | 'whatsapp',
+    options?: { nightDeliveryAck?: boolean },
+  ) {
     if (!validateBeforeSubmit(data)) return;
     if (!(await ensureWhatsAppVerified(data))) {
       setPendingSubmitSource(source);
       return;
+    }
+
+    if (!options?.nightDeliveryAck) {
+      const copy = nightDeliveryCopy(nightDeliveryWindow());
+      if (copy) {
+        setNightPrompt({ title: copy.title, message: copy.message, data, source });
+        return;
+      }
     }
 
     const idempotencyKey = getOrCreateCheckoutIdempotencyKey(items);
@@ -574,6 +594,7 @@ export default function CheckoutPage() {
       orderSource: source,
       clientGrandTotal: grandTotal,
       idempotencyKey,
+      nightDeliveryAck: options?.nightDeliveryAck === true,
       ...(discountAmount > 0 && appliedDiscount
         ? {
             discount: {
@@ -590,6 +611,8 @@ export default function CheckoutPage() {
       ok?: boolean;
       error?: unknown;
       code?: string;
+      title?: string;
+      message?: string;
       orderNumber?: string;
       orderId?: string;
       quote?: {
@@ -648,6 +671,7 @@ export default function CheckoutPage() {
       let whatsappMessage: string | undefined;
       let whatsappUrl: string | undefined;
       if (source === 'whatsapp' && placedOrderNumber) {
+        const overnightNote = nightDeliveryCopy(nightDeliveryWindow())?.title;
         whatsappMessage = buildWhatsAppMessage({
           items,
           customer: data,
@@ -663,6 +687,7 @@ export default function CheckoutPage() {
           grandTotal,
           storeName: STORE_NAME,
           orderNumber: placedOrderNumber,
+          deliveryNote: overnightNote,
         });
         whatsappUrl = buildWhatsAppUrl(WHATSAPP_NUMBER, whatsappMessage);
         const opened = openWhatsAppUrl(whatsappUrl, { allowSameWindow: false });
@@ -689,6 +714,20 @@ export default function CheckoutPage() {
     }
 
     function handleFailure(result: CheckoutResult) {
+      if (result.code === 'NIGHT_DELIVERY_ACK') {
+        setNightPrompt({
+          title: typeof result.title === 'string' ? result.title : 'Confirm delivery time',
+          message:
+            typeof result.message === 'string'
+              ? result.message
+              : typeof result.error === 'string'
+                ? result.error
+                : 'Please confirm when this order should be delivered.',
+          data,
+          source,
+        });
+        return;
+      }
       const message = typeof result.error === 'string' ? result.error : 'Failed to place order';
       setOrderError(message);
       if (result.code === 'LOGIN_REQUIRED') {
@@ -1198,6 +1237,41 @@ export default function CheckoutPage() {
           setPendingSubmitSource(null);
         }}
       />
+
+      {nightPrompt && (
+        <div className="fixed inset-0 z-[95] flex items-end sm:items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl p-5 space-y-4">
+            <h2 className="text-lg font-bold text-gray-900">{nightPrompt.title}</h2>
+            <p className="text-sm text-gray-600 leading-relaxed">{nightPrompt.message}</p>
+            <div className="space-y-2">
+              <Button
+                type="button"
+                className="w-full h-11 rounded-xl font-semibold"
+                disabled={nightAckBusy}
+                onClick={() => {
+                  const next = nightPrompt;
+                  setNightAckBusy(true);
+                  setNightPrompt(null);
+                  void submitOrder(next.data, next.source, { nightDeliveryAck: true }).finally(() => {
+                    setNightAckBusy(false);
+                  });
+                }}
+              >
+                {nightAckBusy ? 'Placing order…' : 'Accept'}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-gray-500"
+                disabled={nightAckBusy}
+                onClick={() => setNightPrompt(null)}
+              >
+                Decline
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

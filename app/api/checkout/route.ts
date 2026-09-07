@@ -35,6 +35,7 @@ import {
   parseIdempotencyKey,
   stockOrUnavailableCode,
 } from '@/lib/checkoutOrder';
+import { nightDeliveryCopy, nightDeliveryWindow } from '@/lib/nightDelivery';
 
 type CheckoutLineItem = {
   productId: string;
@@ -236,6 +237,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const overnightWindow = nightDeliveryWindow();
+    const overnight = nightDeliveryCopy(overnightWindow);
+    if (overnight && body?.nightDeliveryAck !== true) {
+      return jsonError(overnight.message, CHECKOUT_CODES.NIGHT_DELIVERY_ACK, 409, {
+        window: overnightWindow,
+        title: overnight.title,
+        message: overnight.message,
+      });
+    }
+
     const source = orderSource === 'whatsapp' ? 'whatsapp' : 'website';
 
     let inventoryUpdates: {
@@ -287,7 +298,7 @@ export async function POST(req: NextRequest) {
             membershipMemberId: resolvedDiscount.memberId,
             grandTotal,
             paymentMethod: parsed.data.paymentMethod,
-            deliveryNotes: parsed.data.deliveryNotes || null,
+            deliveryNotes: [parsed.data.deliveryNotes, overnight?.staffNote].filter(Boolean).join('\n') || null,
             orderSource: source,
             customerLat: typeof customerLat === 'number' ? customerLat : null,
             customerLng: typeof customerLng === 'number' ? customerLng : null,
