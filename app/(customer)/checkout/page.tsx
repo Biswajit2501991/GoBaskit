@@ -59,6 +59,7 @@ export default function CheckoutPage() {
     minOrderValue,
     checkoutMode,
     homepageConfig,
+    overnightCheckout,
     refreshConfig,
   } = useConfigStore();
   const appliedDiscount = useDiscountStore((s) => s.applied);
@@ -572,7 +573,7 @@ export default function CheckoutPage() {
     }
 
     if (!options?.nightDeliveryAck) {
-      const copy = nightDeliveryCopy(nightDeliveryWindow());
+      const copy = nightDeliveryCopy(nightDeliveryWindow(undefined, overnightCheckout), overnightCheckout);
       if (copy) {
         setNightPrompt({ title: copy.title, message: copy.message, data, source });
         return;
@@ -671,7 +672,10 @@ export default function CheckoutPage() {
       let whatsappMessage: string | undefined;
       let whatsappUrl: string | undefined;
       if (source === 'whatsapp' && placedOrderNumber) {
-        const overnightNote = nightDeliveryCopy(nightDeliveryWindow())?.title;
+        const overnightNote = nightDeliveryCopy(
+          nightDeliveryWindow(undefined, overnightCheckout),
+          overnightCheckout,
+        )?.title;
         whatsappMessage = buildWhatsAppMessage({
           items,
           customer: data,

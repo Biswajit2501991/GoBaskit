@@ -17,6 +17,11 @@ import {
   DEFAULT_WEATHER_DISCLAIMER_MESSAGE,
   type WeatherDisclaimerPublic,
 } from '@/lib/weatherDisclaimer';
+import {
+  DEFAULT_OVERNIGHT_CHECKOUT,
+  parseOvernightCheckout,
+  type OvernightCheckoutConfig,
+} from '@/lib/nightDelivery';
 
 interface ConfigState {
   serviceablePins: string[];
@@ -73,6 +78,7 @@ interface ConfigState {
     }>;
   };
   weatherDisclaimer: WeatherDisclaimerPublic;
+  overnightCheckout: OvernightCheckoutConfig;
   loaded: boolean;
   fetchConfig: () => Promise<void>;
   refreshConfig: () => Promise<void>;
@@ -141,6 +147,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     lastFetchOk: true,
     visible: false,
   },
+  overnightCheckout: DEFAULT_OVERNIGHT_CHECKOUT,
   loaded: false,
 
   fetchConfig: async () => {
@@ -224,6 +231,7 @@ async function loadConfig(
                     : get().weatherDisclaimer.message,
               }
             : get().weatherDisclaimer,
+        overnightCheckout: parseOvernightCheckout(c.overnightCheckout),
         loaded: true,
       });
       const hc = get().homepageConfig;

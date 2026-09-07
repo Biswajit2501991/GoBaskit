@@ -24,6 +24,12 @@ import {
   parseWeatherDisclaimerMode,
   type WeatherDisclaimerPublic,
 } from '@/lib/weatherDisclaimer';
+import {
+  parseHhMm,
+  parseOvernightCheckout,
+  normalizeHhMm,
+  type OvernightCheckoutConfig,
+} from '@/lib/nightDelivery';
 
 const SETTINGS_SECTIONS = [
   { id: 'min-order', label: 'Min Order', group: 'Delivery' },
@@ -175,6 +181,7 @@ interface StoreConfig {
     }>;
   };
   weatherDisclaimer?: WeatherDisclaimerPublic;
+  overnightCheckout?: OvernightCheckoutConfig;
   discountConfig: DiscountConfig;
 }
 
@@ -284,6 +291,9 @@ export default function SettingsManager({
   const [weatherDisclaimer, setWeatherDisclaimer] = useState(() =>
     parseWeatherDisclaimer(initialConfig.weatherDisclaimer),
   );
+  const [overnightCheckout, setOvernightCheckout] = useState(() =>
+    parseOvernightCheckout(initialConfig.overnightCheckout),
+  );
   const [weatherRefreshing, setWeatherRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const lastSavedRef = useRef(initialConfig);
@@ -313,6 +323,7 @@ export default function SettingsManager({
       staffIdleTimeoutMinutes,
       homepageConfig: homepageConfig as StoreConfig['homepageConfig'],
       weatherDisclaimer,
+      overnightCheckout,
     };
     // Capture hydrated defaults once so the first save only writes real edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -517,6 +528,38 @@ export default function SettingsManager({
           message: weatherDisclaimer.message,
         };
       }
+      const prevOvernight = parseOvernightCheckout(prev.overnightCheckout);
+      const eveningStart = normalizeHhMm(overnightCheckout.eveningStart);
+      const morningCutoff = normalizeHhMm(overnightCheckout.morningCutoff);
+      const morningDeliveryFrom = normalizeHhMm(overnightCheckout.morningDeliveryFrom);
+      const overnightDirty =
+        prevOvernight.enabled !== overnightCheckout.enabled ||
+        prevOvernight.eveningStart !== (eveningStart ?? overnightCheckout.eveningStart) ||
+        prevOvernight.morningCutoff !== (morningCutoff ?? overnightCheckout.morningCutoff) ||
+        prevOvernight.morningDeliveryFrom !==
+          (morningDeliveryFrom ?? overnightCheckout.morningDeliveryFrom);
+      if (overnightDirty) {
+        const eveningMins = parseHhMm(overnightCheckout.eveningStart);
+        const morningMins = parseHhMm(overnightCheckout.morningCutoff);
+        if (
+          eveningMins == null ||
+          morningMins == null ||
+          parseHhMm(overnightCheckout.morningDeliveryFrom) == null ||
+          eveningMins <= morningMins
+        ) {
+          setMessage({
+            type: 'err',
+            text: 'Overnight times must be valid HH:MM, and the evening start must be later in the day than the morning cutoff (for example 21:00 and 07:30).',
+          });
+          return;
+        }
+        body.overnightCheckout = parseOvernightCheckout({
+          enabled: overnightCheckout.enabled,
+          eveningStart,
+          morningCutoff,
+          morningDeliveryFrom,
+        });
+      }
 
       if (Object.keys(body).length === 0) {
         setMessage({ type: 'ok', text: 'No changes to save.' });
@@ -550,6 +593,7 @@ export default function SettingsManager({
       setStaffIdleTimeoutEnabled(updated.staffIdleTimeoutEnabled ?? true);
       setStaffIdleTimeoutMinutes(updated.staffIdleTimeoutMinutes ?? 15);
       setWeatherDisclaimer(parseWeatherDisclaimer(updated.weatherDisclaimer));
+      setOvernightCheckout(parseOvernightCheckout(updated.overnightCheckout));
       setHomepageConfig({
         ...updated.homepageConfig,
         showTopDiscounted: updated.homepageConfig.showTopDiscounted !== false,
@@ -952,6 +996,66 @@ export default function SettingsManager({
             <input type="checkbox" checked={holidayMode} onChange={(e) => setHolidayMode(e.target.checked)} disabled={!canEdit} />
             Holiday mode
           </label>
+        </div>
+        <div className="border-t border-gray-100 pt-4 space-y-3">
+          <div>
+            <h3 className="font-semibold text-sm">Overnight checkout prompt</h3>
+            <p className="text-xs text-gray-400 mt-1">
+              India time (Asia/Kolkata). Default on. From evening start until midnight, Accept places the
+              order for tomorrow. From midnight until the morning cutoff, Accept places it for after the
+              promised time today. Decline never writes an order. Saving this does not change other store
+              settings.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={overnightCheckout.enabled}
+              onChange={(e) =>
+                setOvernightCheckout((prev) => ({ ...prev, enabled: e.target.checked }))
+              }
+              disabled={!canEdit}
+            />
+            Ask Accept / Decline before placing overnight orders
+          </label>
+          <div className="grid md:grid-cols-3 gap-3">
+            <div>
+              <Label>Evening start (tomorrow delivery)</Label>
+              <Input
+                type="time"
+                value={overnightCheckout.eveningStart}
+                onChange={(e) =>
+                  setOvernightCheckout((prev) => ({ ...prev, eveningStart: e.target.value }))
+                }
+                disabled={!canEdit || !overnightCheckout.enabled}
+              />
+            </div>
+            <div>
+              <Label>Morning cutoff (prompt ends)</Label>
+              <Input
+                type="time"
+                value={overnightCheckout.morningCutoff}
+                onChange={(e) =>
+                  setOvernightCheckout((prev) => ({ ...prev, morningCutoff: e.target.value }))
+                }
+                disabled={!canEdit || !overnightCheckout.enabled}
+              />
+            </div>
+            <div>
+              <Label>Deliver after (today copy)</Label>
+              <Input
+                type="time"
+                value={overnightCheckout.morningDeliveryFrom}
+                onChange={(e) =>
+                  setOvernightCheckout((prev) => ({
+                    ...prev,
+                    morningDeliveryFrom: e.target.value,
+                  }))
+                }
+                disabled={!canEdit || !overnightCheckout.enabled}
+              />
+            </div>
+          </div>
         </div>
       </section>
           )}

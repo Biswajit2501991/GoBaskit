@@ -121,6 +121,14 @@ const settingsSchema = z.object({
       message: z.string().max(500).optional(),
     })
     .optional(),
+  overnightCheckout: z
+    .object({
+      enabled: z.boolean().optional(),
+      eveningStart: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/).optional(),
+      morningCutoff: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/).optional(),
+      morningDeliveryFrom: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/).optional(),
+    })
+    .optional(),
 });
 
 export async function GET() {

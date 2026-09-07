@@ -26,6 +26,11 @@ import {
   type WeatherDisclaimerPublic,
   type WeatherDisclaimerState,
 } from '@/lib/weatherDisclaimer';
+import {
+  DEFAULT_OVERNIGHT_CHECKOUT,
+  parseOvernightCheckout,
+  type OvernightCheckoutConfig,
+} from '@/lib/nightDelivery';
 
 export type {
   HealthStarDisplay,
@@ -127,10 +132,12 @@ export interface StoreConfig {
   discountConfig: DiscountConfig;
   /** Rain notice for PIN 723121. Separate from homepage JSON so cron cannot clobber layout. */
   weatherDisclaimer: WeatherDisclaimerPublic;
+  /** Overnight Accept/Decline at checkout. Missing DB row uses defaults (enabled). */
+  overnightCheckout: OvernightCheckoutConfig;
 }
 
 type StoreConfigUpdate = Partial<
-  Omit<StoreConfig, 'homepageConfig' | 'discountConfig' | 'weatherDisclaimer'>
+  Omit<StoreConfig, 'homepageConfig' | 'discountConfig' | 'weatherDisclaimer' | 'overnightCheckout'>
 > & {
   homepageConfig?: Partial<Omit<StoreConfig['homepageConfig'], 'promoSections' | 'healthStarDisplay'>> & {
     promoSections?: Array<Partial<StoreConfig['homepageConfig']['promoSections'][number]>>;
@@ -146,6 +153,7 @@ type StoreConfigUpdate = Partial<
     pin?: string;
     message?: string;
   };
+  overnightCheckout?: Partial<OvernightCheckoutConfig>;
 };
 
 function parseHealthStarDisplay(raw: unknown): HealthStarDisplay {
@@ -210,6 +218,7 @@ const KEY_STAFF_IDLE_TIMEOUT_MINUTES = 'staff_idle_timeout_minutes';
 const KEY_HOMEPAGE_CONFIG = 'homepage_config';
 const KEY_DISCOUNT_CONFIG = 'discount_config';
 const KEY_WEATHER_DISCLAIMER = 'weather_disclaimer';
+const KEY_OVERNIGHT_CHECKOUT = 'overnight_checkout';
 
 const DEFAULT_STAFF_IDLE_TIMEOUT_MINUTES = 15;
 
@@ -326,6 +335,7 @@ const DEFAULTS: StoreConfig = {
   },
   discountConfig: DEFAULT_DISCOUNT_CONFIG,
   weatherDisclaimer: parseWeatherDisclaimer(DEFAULT_WEATHER_DISCLAIMER),
+  overnightCheckout: DEFAULT_OVERNIGHT_CHECKOUT,
 };
 
 // In-memory cache. The app runs as a single long-lived Node server, so this
@@ -645,6 +655,16 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     }
   }
 
+  let overnightCheckout = DEFAULT_OVERNIGHT_CHECKOUT;
+  const rawOvernightCheckout = map.get(KEY_OVERNIGHT_CHECKOUT);
+  if (rawOvernightCheckout) {
+    try {
+      overnightCheckout = parseOvernightCheckout(JSON.parse(rawOvernightCheckout));
+    } catch {
+      overnightCheckout = DEFAULT_OVERNIGHT_CHECKOUT;
+    }
+  }
+
   return {
     serviceablePins: pins,
     serviceableCities: cities,
@@ -668,6 +688,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     homepageConfig,
     discountConfig,
     weatherDisclaimer,
+    overnightCheckout,
   };
 }
 
@@ -702,6 +723,7 @@ export const SettingsService = {
               KEY_HOMEPAGE_CONFIG,
               KEY_DISCOUNT_CONFIG,
               KEY_WEATHER_DISCLAIMER,
+              KEY_OVERNIGHT_CHECKOUT,
             ],
           },
         },
@@ -1029,6 +1051,14 @@ export const SettingsService = {
         },
       };
       writes.push(upsert(KEY_DISCOUNT_CONFIG, JSON.stringify(merged)));
+    }
+    if (partial.overnightCheckout) {
+      const current = await this.getStoreConfig();
+      const merged = parseOvernightCheckout({
+        ...current.overnightCheckout,
+        ...partial.overnightCheckout,
+      });
+      writes.push(upsert(KEY_OVERNIGHT_CHECKOUT, JSON.stringify(merged)));
     }
     if (partial.weatherDisclaimer) {
       const current = await this.getStoreConfig();

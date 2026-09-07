@@ -237,8 +237,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const overnightWindow = nightDeliveryWindow();
-    const overnight = nightDeliveryCopy(overnightWindow);
+    const overnightWindow = nightDeliveryWindow(undefined, config.overnightCheckout);
+    const overnight = nightDeliveryCopy(overnightWindow, config.overnightCheckout);
     if (overnight && body?.nightDeliveryAck !== true) {
       return jsonError(overnight.message, CHECKOUT_CODES.NIGHT_DELIVERY_ACK, 409, {
         window: overnightWindow,

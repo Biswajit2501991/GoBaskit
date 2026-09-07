@@ -67,7 +67,7 @@ const SETTINGS_DESTINATIONS: Omit<SearchDestination, 'group'>[] = [
     id: 'settings-store-status',
     label: 'Store Status',
     href: '/admin/settings#store-status',
-    keywords: ['open', 'closed', 'holiday'],
+    keywords: ['open', 'closed', 'holiday', 'overnight', '9pm', 'night delivery'],
   },
   {
     id: 'settings-payments',
