@@ -79,9 +79,16 @@ export async function enableCustomerPushAlerts(): Promise<{ ok: boolean; error?:
   if (cfgRes.status === 401 || cfgRes.status === 403) {
     return { ok: false, error: 'Sign in again, then enable delivery alerts.' };
   }
-  const cfg = cfgRes.ok ? await cfgRes.json() : null;
+  if (!cfgRes.ok) {
+    return { ok: false, error: 'Could not check push settings. Try again.' };
+  }
+  const cfg = await cfgRes.json().catch(() => null);
   if (!cfg?.configured || !cfg.publicKey) {
-    return { ok: false, error: 'Push is not configured on the server yet' };
+    return {
+      ok: false,
+      error:
+        'Push keys are missing on the server. Set VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, and NEXT_PUBLIC_VAPID_PUBLIC_KEY, then restart.',
+    };
   }
 
   const reg = await registerAdminServiceWorker();

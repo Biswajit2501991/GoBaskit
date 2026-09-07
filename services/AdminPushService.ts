@@ -1,5 +1,6 @@
 import webpush from 'web-push';
 import { prisma } from '@/lib/prisma';
+import { readVapidPrivateKey, readVapidPublicKey, readVapidSubject } from '@/lib/vapid';
 
 /** Seconds FCM may retain the message. 60s drops Android deliveries delayed by Doze. */
 export const ADMIN_PUSH_TTL_SECONDS = 24 * 60 * 60;
@@ -8,26 +9,25 @@ let configured = false;
 
 function ensureConfigured(): boolean {
   if (configured) return true;
-  const publicKey = process.env.VAPID_PUBLIC_KEY?.trim() || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
-  const privateKey = process.env.VAPID_PRIVATE_KEY?.trim();
-  const subject = process.env.VAPID_SUBJECT?.trim() || 'mailto:admin@gobaskitkaro.com';
+  const publicKey = readVapidPublicKey();
+  const privateKey = readVapidPrivateKey();
   if (!publicKey || !privateKey) return false;
-  webpush.setVapidDetails(subject, publicKey, privateKey);
+  try {
+    webpush.setVapidDetails(readVapidSubject(), publicKey, privateKey);
+  } catch {
+    return false;
+  }
   configured = true;
   return true;
 }
 
 export function getVapidPublicKey(): string | null {
-  return (
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() ||
-    process.env.VAPID_PUBLIC_KEY?.trim() ||
-    null
-  );
+  return readVapidPublicKey();
 }
 
 export class AdminPushService {
   static isConfigured(): boolean {
-    return Boolean(getVapidPublicKey() && process.env.VAPID_PRIVATE_KEY?.trim());
+    return Boolean(readVapidPublicKey() && readVapidPrivateKey());
   }
 
   static async saveSubscription(params: {

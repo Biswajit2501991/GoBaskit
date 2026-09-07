@@ -1,6 +1,6 @@
 import webpush from 'web-push';
 import { prisma } from '@/lib/prisma';
-import { getVapidPublicKey } from '@/services/AdminPushService';
+import { readVapidPrivateKey, readVapidPublicKey, readVapidSubject } from '@/lib/vapid';
 import { outForDeliveryPushPayload } from '@/lib/customerOutForDeliveryPush';
 import { customerBroadcastPayload } from '@/lib/customerBroadcastPush';
 import { normalizeMobile, isValidIndianMobile } from '@/utils/mobile';
@@ -12,18 +12,21 @@ let configured = false;
 
 function ensureConfigured(): boolean {
   if (configured) return true;
-  const publicKey = getVapidPublicKey();
-  const privateKey = process.env.VAPID_PRIVATE_KEY?.trim();
-  const subject = process.env.VAPID_SUBJECT?.trim() || 'mailto:admin@gobaskitkaro.com';
+  const publicKey = readVapidPublicKey();
+  const privateKey = readVapidPrivateKey();
   if (!publicKey || !privateKey) return false;
-  webpush.setVapidDetails(subject, publicKey, privateKey);
+  try {
+    webpush.setVapidDetails(readVapidSubject(), publicKey, privateKey);
+  } catch {
+    return false;
+  }
   configured = true;
   return true;
 }
 
 export class CustomerPushService {
   static isConfigured(): boolean {
-    return Boolean(getVapidPublicKey() && process.env.VAPID_PRIVATE_KEY?.trim());
+    return Boolean(readVapidPublicKey() && readVapidPrivateKey());
   }
 
   static async saveSubscription(params: {

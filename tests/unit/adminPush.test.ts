@@ -1,5 +1,6 @@
 import { ADMIN_PUSH_TTL_SECONDS } from '@/services/AdminPushService';
 import { isAndroidBrowser, isAppleMobileBrowser } from '@/lib/admin-push-client';
+import { sanitizeVapidValue } from '@/lib/vapid';
 
 describe('admin push', () => {
   it('keeps FCM messages long enough for Android Doze delay', () => {
@@ -25,5 +26,13 @@ describe('admin push', () => {
         'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
       ),
     ).toBe(false);
+  });
+
+  it('strips wrapping quotes and whitespace from VAPID secrets', () => {
+    expect(sanitizeVapidValue('"BNpublic"')).toBe('BNpublic');
+    expect(sanitizeVapidValue("'BNpublic'")).toBe('BNpublic');
+    expect(sanitizeVapidValue(' BN public \n')).toBe('BNpublic');
+    expect(sanitizeVapidValue('""')).toBeNull();
+    expect(sanitizeVapidValue(undefined)).toBeNull();
   });
 });
