@@ -453,6 +453,7 @@ export default function SettingsManager({
     devices: number;
     customers: number;
   } | null>(null);
+  const [broadcastCountLoading, setBroadcastCountLoading] = useState(false);
   const [weatherRefreshing, setWeatherRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const lastSavedRef = useRef(initialConfig);
@@ -509,6 +510,7 @@ export default function SettingsManager({
   useEffect(() => {
     if (activeSection !== 'notifications') return;
     let cancelled = false;
+    setBroadcastCountLoading(true);
     void fetch('/api/admin/customer-broadcast', { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -519,7 +521,10 @@ export default function SettingsManager({
           customers: Number(data.customers) || 0,
         });
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setBroadcastCountLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -850,6 +855,28 @@ export default function SettingsManager({
     }
   }
 
+  async function refreshBroadcastCount() {
+    setBroadcastCountLoading(true);
+    try {
+      const data = await fetch('/api/admin/customer-broadcast', { cache: 'no-store' }).then((r) =>
+        r.ok ? r.json() : null,
+      );
+      if (!data) throw new Error('Could not refresh count');
+      setBroadcastInfo({
+        configured: data.configured === true,
+        devices: Number(data.devices) || 0,
+        customers: Number(data.customers) || 0,
+      });
+    } catch (e) {
+      setMessage({
+        type: 'err',
+        text: e instanceof Error ? e.message : 'Could not refresh count',
+      });
+    } finally {
+      setBroadcastCountLoading(false);
+    }
+  }
+
   async function sendCustomerBroadcast() {
     if (!canEdit) return;
     setBroadcastSending(true);
@@ -878,16 +905,7 @@ export default function SettingsManager({
         type: 'ok',
         text: `Broadcast sent to ${data.sent ?? 0} of ${data.devices ?? 0} enabled devices.`,
       });
-      const counts = await fetch('/api/admin/customer-broadcast', { cache: 'no-store' })
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null);
-      if (counts) {
-        setBroadcastInfo({
-          configured: counts.configured === true,
-          devices: Number(counts.devices) || 0,
-          customers: Number(counts.customers) || 0,
-        });
-      }
+      await refreshBroadcastCount();
     } catch (e) {
       setMessage({ type: 'err', text: e instanceof Error ? e.message : 'Could not send broadcast' });
     } finally {
@@ -1173,10 +1191,25 @@ export default function SettingsManager({
             <p className="text-xs text-gray-500 mt-1">
               Sends a phone notification only to customers who enabled alerts. It does not text
               WhatsApp, change orders, or write the catalogue.
-              {broadcastInfo
-                ? ` ${broadcastInfo.customers} customer${broadcastInfo.customers === 1 ? '' : 's'} · ${broadcastInfo.devices} device${broadcastInfo.devices === 1 ? '' : 's'}.`
-                : ''}
             </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
+              <p className="text-sm font-medium text-gray-800 min-w-0 flex-1">
+                {broadcastCountLoading && !broadcastInfo
+                  ? 'Counting members with notifications on…'
+                  : `Will send to ${broadcastInfo?.customers ?? 0} member${
+                      (broadcastInfo?.customers ?? 0) === 1 ? '' : 's'
+                    } with notifications on`}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void refreshBroadcastCount()}
+                disabled={broadcastCountLoading || broadcastSending}
+              >
+                {broadcastCountLoading ? 'Refreshing…' : 'Refresh count'}
+              </Button>
+            </div>
           </div>
           {broadcastInfo && !broadcastInfo.configured ? (
             <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
