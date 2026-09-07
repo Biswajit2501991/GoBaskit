@@ -4,7 +4,31 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2 } from 'lucide-react';
+import {
+  Award,
+  Ban,
+  Bell,
+  Building2,
+  CloudRain,
+  CreditCard,
+  FileText,
+  LayoutDashboard,
+  LayoutGrid,
+  MapPin,
+  MessageCircle,
+  TreePalm,
+  PanelsTopLeft,
+  Plus,
+  ShoppingBag,
+  Star,
+  Store,
+  Tag,
+  Trash2,
+  Truck,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react';
 import type { DeliverySlab } from '@/constants';
 import type { DiscountConfig } from '@/services/SettingsService';
 import type { HealthStarDisplay } from '@/constants/healthStarDisplay';
@@ -32,27 +56,153 @@ import {
 } from '@/lib/nightDelivery';
 
 const SETTINGS_SECTIONS = [
-  { id: 'min-order', label: 'Min Order', group: 'Delivery' },
-  { id: 'pins', label: 'PIN Codes', group: 'Delivery' },
-  { id: 'cities', label: 'Cities', group: 'Delivery' },
-  { id: 'delivery-slabs', label: 'Delivery Fees', group: 'Delivery' },
-  { id: 'whatsapp', label: 'WhatsApp Number', group: 'Orders' },
-  { id: 'checkout', label: 'Checkout Mode', group: 'Orders' },
-  { id: 'notifications', label: 'Notifications', group: 'Orders' },
-  { id: 'session', label: 'Staff Session', group: 'Orders' },
-  { id: 'store-status', label: 'Store Status', group: 'Orders' },
-  { id: 'weather', label: 'Weather Notice', group: 'Orders' },
-  { id: 'payments', label: 'Payments', group: 'Orders' },
-  { id: 'wa-templates', label: 'WA Templates', group: 'Orders' },
-  { id: 'cancellation', label: 'Cancellation Policy', group: 'Orders' },
-  { id: 'featured', label: 'Discovery Rails', group: 'Homepage' },
-  { id: 'health-star', label: 'Health Star', group: 'Homepage' },
-  { id: 'branding', label: 'Branding', group: 'Homepage' },
-  { id: 'seasonal', label: 'Seasonal', group: 'Homepage' },
-  { id: 'promo', label: 'Promo Cards', group: 'Homepage' },
-  { id: 'homepage', label: 'Homepage Layout', group: 'Homepage' },
-  { id: 'discounts', label: 'Discounts & Coupons', group: 'Offers' },
+  {
+    id: 'min-order',
+    label: 'Min Order',
+    group: 'Delivery',
+    hint: 'Orders below this subtotal cannot be placed. Set 0 to turn the limit off.',
+  },
+  {
+    id: 'pins',
+    label: 'PIN Codes',
+    group: 'Delivery',
+    hint: 'Customers can only check out with one of these 6-digit delivery PIN codes.',
+  },
+  {
+    id: 'cities',
+    label: 'Cities',
+    group: 'Delivery',
+    hint: 'Delivery is allowed when the city or the PIN matches — either one is enough.',
+  },
+  {
+    id: 'delivery-slabs',
+    label: 'Delivery Fees',
+    group: 'Delivery',
+    hint: 'Fee by order subtotal (₹). The highest matching slab applies above its range.',
+  },
+  {
+    id: 'whatsapp',
+    label: 'WhatsApp Number',
+    group: 'Orders',
+    hint: 'Used for verification messages and order WhatsApp links. Digits only, with country code (for example 919046370119).',
+  },
+  {
+    id: 'checkout',
+    label: 'Checkout Mode',
+    group: 'Orders',
+    hint: 'Chooses which Place Order buttons customers see. The change applies on the next checkout load.',
+  },
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    group: 'Orders',
+    hint: 'Controls the sound staff hear in Admin when a new order arrives. It does not change customer alerts.',
+  },
+  {
+    id: 'session',
+    label: 'Staff Session',
+    group: 'Orders',
+    hint: 'Keeps active staff logged in, and can sign them out after a period with no interaction.',
+  },
+  {
+    id: 'store-status',
+    label: 'Store Status',
+    group: 'Orders',
+    hint: 'Opening hours, holiday mode, and the overnight Accept/Decline prompt at checkout (India time).',
+  },
+  {
+    id: 'weather',
+    label: 'Weather Notice',
+    group: 'Orders',
+    hint: 'Optional rain notice on shop, cart, and checkout. It does not change orders, fees, or checkout rules.',
+  },
+  {
+    id: 'payments',
+    label: 'Payments',
+    group: 'Orders',
+    hint: 'Checkout payment methods and the UPI details shown to signed-in customers.',
+  },
+  {
+    id: 'wa-templates',
+    label: 'WA Templates',
+    group: 'Orders',
+    hint: 'Quick-send WhatsApp wording used from order management. It does not place or change orders.',
+  },
+  {
+    id: 'cancellation',
+    label: 'Cancellation Policy',
+    group: 'Orders',
+    hint: 'Shown on the cart drawer and checkout. Leave blank to keep the default policy text.',
+  },
+  {
+    id: 'featured',
+    label: 'Discovery Rails',
+    group: 'Homepage',
+    hint: 'Top Discounted, Most Loved, and category rails on the customer home page. Most Loved uses Best Seller products.',
+  },
+  {
+    id: 'health-star',
+    label: 'Health Star',
+    group: 'Homepage',
+    hint: 'How rated products show the Health Star logo and stars on the storefront.',
+  },
+  {
+    id: 'branding',
+    label: 'Branding',
+    group: 'Homepage',
+    hint: 'Header “Powered by” ticker and the seal on the customer login screen.',
+  },
+  {
+    id: 'seasonal',
+    label: 'Seasonal',
+    group: 'Homepage',
+    hint: 'Storefront skin and promo strip only. Real discounts still need a coupon under Discounts & Coupons.',
+  },
+  {
+    id: 'promo',
+    label: 'Promo Cards',
+    group: 'Homepage',
+    hint: 'Home cards such as Pharmacy or Pet Care, with a link and a live on/off toggle.',
+  },
+  {
+    id: 'homepage',
+    label: 'Homepage Layout',
+    group: 'Homepage',
+    hint: 'Hero, categories, offers, announcement bar, delivery ETA copy, and theme colour.',
+  },
+  {
+    id: 'discounts',
+    label: 'Discounts & Coupons',
+    group: 'Offers',
+    hint: 'Coupons and membership discount. This section saves on its own, not with the main Save Settings button.',
+  },
 ] as const;
+
+const SETTINGS_ICONS: Record<(typeof SETTINGS_SECTIONS)[number]['id'], LucideIcon> = {
+  'min-order': ShoppingBag,
+  pins: MapPin,
+  cities: Building2,
+  'delivery-slabs': Truck,
+  whatsapp: MessageCircle,
+  checkout: CreditCard,
+  notifications: Bell,
+  session: Users,
+  'store-status': Store,
+  weather: CloudRain,
+  payments: Wallet,
+  'wa-templates': FileText,
+  cancellation: Ban,
+  featured: LayoutGrid,
+  'health-star': Star,
+  branding: Award,
+  seasonal: TreePalm,
+  promo: PanelsTopLeft,
+  homepage: LayoutDashboard,
+  discounts: Tag,
+};
+
+const SECTION_CARD =
+  'rounded-2xl border border-gray-200/80 bg-white p-5 sm:p-6 space-y-4 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.35)]';
 
 type SettingsSectionId = (typeof SETTINGS_SECTIONS)[number]['id'];
 
@@ -340,6 +490,12 @@ export default function SettingsManager({
     window.addEventListener('hashchange', applyHash);
     return () => window.removeEventListener('hashchange', applyHash);
   }, []);
+
+  useEffect(() => {
+    if (window.matchMedia('(min-width: 1024px)').matches) return;
+    const el = document.querySelector(`[data-settings-nav="${activeSection}"]`);
+    el?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  }, [activeSection]);
 
   function openSection(id: SettingsSectionId) {
     setActiveSection(id);
@@ -666,94 +822,130 @@ export default function SettingsManager({
     }
   }
 
+  const ActiveIcon = SETTINGS_ICONS[activeMeta.id];
+
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-xl font-bold">Store Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Open one section at a time. Save writes only what you changed, including unsaved edits in other sections.
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 space-y-6">
+      <div className="max-w-2xl">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+          Administration
+        </p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-gray-900">Store Settings</h1>
+        <p className="mt-2 text-sm leading-relaxed text-gray-500">
+          One section at a time. Save writes only what you changed, including unsaved edits in other
+          sections.
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <div className="space-y-3">
-          <label className="block lg:hidden">
-            <span className="sr-only">Jump to settings section</span>
-            <select
-              value={activeSection}
-              onChange={(e) => {
-                const next = e.target.value;
-                if (isSettingsSectionId(next)) openSection(next);
-              }}
-              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-800"
-            >
-              {SETTINGS_GROUPS.map((group) => (
-                <optgroup key={group.name} label={group.name}>
-                  {group.items.map((section) => (
-                    <option key={section.id} value={section.id}>
-                      {section.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
-
-          <nav
-            aria-label="Settings sections"
-            className="hidden lg:block lg:sticky lg:top-16 self-start rounded-xl border border-gray-200 bg-white p-3 space-y-4"
+      <div className="lg:hidden sticky top-16 z-[9] -mx-4 px-4 py-3 bg-gray-50/95 backdrop-blur-md border-b border-gray-200/80 space-y-2">
+        <label className="block">
+          <span className="sr-only">Jump to settings section</span>
+          <select
+            value={activeSection}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (isSettingsSectionId(next)) openSection(next);
+            }}
+            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-800"
           >
             {SETTINGS_GROUPS.map((group) => (
-              <div key={group.name}>
-                <p className="px-2 mb-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-400">
-                  {group.name}
-                </p>
-                <div className="space-y-1">
-                  {group.items.map((section) => {
-                    const isActive = activeSection === section.id;
-                    return (
-                      <button
-                        key={section.id}
-                        type="button"
-                        onClick={() => openSection(section.id)}
-                        className={`w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
-                          isActive
-                            ? 'bg-blinkit-green-light text-blinkit-green'
-                            : 'text-gray-700 hover:bg-gray-50'
-                        }`}
-                        aria-current={isActive ? 'page' : undefined}
-                      >
-                        {section.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <optgroup key={group.name} label={group.name}>
+                {group.items.map((section) => (
+                  <option key={section.id} value={section.id}>
+                    {section.label}
+                  </option>
+                ))}
+              </optgroup>
             ))}
-          </nav>
+          </select>
+        </label>
+        <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {SETTINGS_SECTIONS.map((section) => {
+            const isActive = activeSection === section.id;
+            return (
+              <button
+                key={section.id}
+                type="button"
+                data-settings-nav={section.id}
+                onClick={() => openSection(section.id)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'bg-blinkit-green text-white'
+                    : 'bg-white text-gray-600 border border-gray-200'
+                }`}
+              >
+                {section.label}
+              </button>
+            );
+          })}
         </div>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <nav
+          aria-label="Settings sections"
+          className="hidden lg:block lg:sticky lg:top-20 self-start rounded-2xl border border-gray-200/80 bg-white/90 p-3 space-y-5 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.35)]"
+        >
+          {SETTINGS_GROUPS.map((group) => (
+            <div key={group.name}>
+              <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-400">
+                {group.name}
+              </p>
+              <div className="space-y-0.5">
+                {group.items.map((section) => {
+                  const isActive = activeSection === section.id;
+                  const Icon = SETTINGS_ICONS[section.id];
+                  return (
+                    <button
+                      key={section.id}
+                      type="button"
+                      onClick={() => openSection(section.id)}
+                      className={`w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-colors ${
+                        isActive
+                          ? 'bg-blinkit-green-light text-blinkit-green font-semibold'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium'
+                      }`}
+                      aria-current={isActive ? 'page' : undefined}
+                    >
+                      <Icon size={16} className="shrink-0 opacity-80" />
+                      <span>{section.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
 
         <div className="space-y-4 min-w-0">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                {activeMeta.group}
-              </p>
-              <h2 className="text-lg font-bold text-gray-900">{activeMeta.label}</h2>
+          <div className="lg:sticky lg:top-20 z-[8] -mx-1 px-1 py-2 bg-gray-50/90 backdrop-blur-md">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex items-center gap-3">
+                <div className="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white border border-gray-200 text-blinkit-green">
+                  <ActiveIcon size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">
+                    {activeMeta.group}
+                  </p>
+                  <h2 className="text-xl font-semibold tracking-tight text-gray-900">{activeMeta.label}</h2>
+                </div>
+              </div>
+              {showMainSave &&
+                (canEdit ? (
+                  <Button onClick={save} disabled={saving} className="shrink-0">
+                    {saving ? 'Saving...' : 'Save Settings'}
+                  </Button>
+                ) : (
+                  <span className="text-sm text-gray-500 shrink-0">Read-only</span>
+                ))}
             </div>
-            {showMainSave &&
-              (canEdit ? (
-                <Button onClick={save} disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Settings'}
-                </Button>
-              ) : (
-                <span className="text-sm text-gray-500">Read-only</span>
-              ))}
+            <p className="mt-2 text-sm leading-relaxed text-gray-500 sm:pl-[3.25rem]">{activeMeta.hint}</p>
           </div>
 
           {message && (
             <div
-              className={`rounded-lg p-3 text-sm ${
+              className={`rounded-xl p-3 text-sm ${
                 message.type === 'ok'
                   ? 'bg-green-50 text-green-700 border border-green-200'
                   : 'bg-red-50 text-red-700 border border-red-200'
@@ -764,8 +956,8 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'min-order' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-        <h2 className="font-bold text-sm">Minimum Order Value</h2>
+      <section className={SECTION_CARD}>
+        <h2 className="font-semibold text-sm text-gray-900">Minimum Order Value</h2>
         <div className="flex items-center gap-2 max-w-xs">
           <span className="text-gray-500">₹</span>
           <Input
@@ -776,14 +968,12 @@ export default function SettingsManager({
             disabled={!canEdit}
           />
         </div>
-        <p className="text-xs text-gray-400">Orders below this subtotal are blocked. Set 0 to disable.</p>
       </section>
           )}
 
           {activeSection === 'pins' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-        <h2 className="font-bold text-sm">Serviceable PIN Codes</h2>
-        <p className="text-xs text-gray-400">Orders can only be placed for these delivery PIN codes.</p>
+      <section className={SECTION_CARD}>
+        <h2 className="font-semibold text-sm text-gray-900">Serviceable PIN Codes</h2>
         <div className="flex flex-wrap gap-2">
           {pins.length === 0 && <span className="text-sm text-gray-400">No PINs added yet.</span>}
           {pins.map((pin) => (
@@ -821,9 +1011,8 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'cities' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-        <h2 className="font-bold text-sm">Serviceable Cities</h2>
-        <p className="text-xs text-gray-400">Delivery is available when city OR pincode matches (either one is enough).</p>
+      <section className={SECTION_CARD}>
+        <h2 className="font-semibold text-sm text-gray-900">Serviceable Cities</h2>
         <div className="flex flex-wrap gap-2">
           {cities.length === 0 && <span className="text-sm text-gray-400">No cities added yet.</span>}
           {cities.map((city) => (
@@ -859,11 +1048,8 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'whatsapp' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-        <h2 className="font-bold text-sm">Business WhatsApp Number</h2>
-        <p className="text-xs text-gray-400">
-          Used for customer verification messages and order WhatsApp links. Include country code without + (e.g. 919046370119 or 61412345678).
-        </p>
+      <section className={SECTION_CARD}>
+        <h2 className="font-semibold text-sm text-gray-900">Business WhatsApp Number</h2>
         <Input
           value={whatsappNumber}
           onChange={(e) => setWhatsappNumber(e.target.value.replace(/\D/g, ''))}
@@ -875,9 +1061,8 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'checkout' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-        <h2 className="font-bold text-sm">Checkout Mode</h2>
-        <p className="text-xs text-gray-400">Control which order placement buttons customers see. Changes apply immediately.</p>
+      <section className={SECTION_CARD}>
+        <h2 className="font-semibold text-sm text-gray-900">Checkout Mode</h2>
         <select
           value={checkoutMode}
           onChange={(e) => setCheckoutMode(e.target.value as StoreConfig['checkoutMode'])}
@@ -892,8 +1077,8 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'notifications' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-        <h2 className="font-bold text-sm">Notification Sound</h2>
+      <section className={SECTION_CARD}>
+        <h2 className="font-semibold text-sm text-gray-900">Notification Sound</h2>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -908,13 +1093,9 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'session' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+      <section className={SECTION_CARD}>
         <div>
-          <h2 className="font-bold text-sm">Staff session timeout</h2>
-          <p className="text-xs text-gray-400 mt-1">
-            While staff use Admin, a live heartbeat keeps the login active. If idle timeout is on
-            and nobody interacts for the chosen time, they are logged out automatically.
-          </p>
+          <h2 className="font-semibold text-sm text-gray-900">Staff session timeout</h2>
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -944,9 +1125,8 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'delivery-slabs' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-        <h2 className="font-bold text-sm">Delivery Charge Slabs</h2>
-        <p className="text-xs text-gray-400">Delivery fee by order subtotal range (₹). The highest slab applies above its range.</p>
+      <section className={SECTION_CARD}>
+        <h2 className="font-semibold text-sm text-gray-900">Delivery Charge Slabs</h2>
         <div className="space-y-2">
           <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 text-xs font-semibold text-gray-500 px-1">
             <span>Min (₹)</span>
@@ -972,8 +1152,8 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'store-status' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-        <h2 className="font-bold text-sm">Store Status & Timing</h2>
+      <section className={SECTION_CARD}>
+        <h2 className="font-semibold text-sm text-gray-900">Store Status & Timing</h2>
         <div className="grid md:grid-cols-3 gap-3">
           <div>
             <Label>Store Timing</Label>
@@ -1061,13 +1241,9 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'weather' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+      <section className={SECTION_CARD}>
         <div>
-          <h2 className="font-bold text-sm">Weather delivery notice</h2>
-          <p className="text-xs text-gray-400 mt-1">
-            Shown on the shop, cart, and checkout. Auto uses rain forecast for PIN {weatherDisclaimer.pin}{' '}
-            (Adra). This does not change orders or checkout.
-          </p>
+          <h2 className="font-semibold text-sm text-gray-900">Weather delivery notice</h2>
         </div>
         <div className="grid md:grid-cols-2 gap-3">
           <div>
@@ -1140,12 +1316,9 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'payments' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-5">
+      <section className={SECTION_CARD}>
         <div>
-          <h2 className="font-bold text-sm">Payment Methods</h2>
-          <p className="text-xs text-gray-400 mt-1">
-            Checkout methods and the UPI details shown to signed-in customers.
-          </p>
+          <h2 className="font-semibold text-sm text-gray-900">Payment Methods</h2>
         </div>
         <div className="flex flex-wrap gap-3">
           {PAYMENT_OPTIONS.map((method) => (
@@ -1199,9 +1372,8 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'wa-templates' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-        <h2 className="font-bold text-sm">WhatsApp Templates</h2>
-        <p className="text-xs text-gray-400">Used for quick send actions in order management.</p>
+      <section className={SECTION_CARD}>
+        <h2 className="font-semibold text-sm text-gray-900">WhatsApp Templates</h2>
         <div className="grid md:grid-cols-2 gap-3">
           {Object.entries(whatsappTemplates).map(([key, value]) => (
             <div key={key}>
@@ -1219,12 +1391,8 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'featured' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
-        <h2 className="font-bold text-sm">Home discovery rails</h2>
-        <p className="text-xs text-gray-400">
-          Control Top Discounted, Most Loved, and per-category rails on the customer homepage.
-          Most Loved uses products marked Best Seller in Admin → Products.
-        </p>
+      <section className={SECTION_CARD}>
+        <h2 className="font-semibold text-sm text-gray-900">Home discovery rails</h2>
 
         <div className="space-y-3 border-b border-gray-50 pb-4">
           <label className="flex items-center gap-2 text-sm font-medium">
@@ -1355,12 +1523,9 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'health-star' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+      <section className={SECTION_CARD}>
         <div>
-          <h2 className="font-bold text-sm">Health Star Rating</h2>
-          <p className="text-xs text-gray-400 mt-1">
-            Control how 5★ (or other rated) products show the Health Star logo and yellow stars on the storefront.
-          </p>
+          <h2 className="font-semibold text-sm text-gray-900">Health Star Rating</h2>
         </div>
         <label className="flex items-center gap-2 text-sm font-medium">
           <input
@@ -1528,9 +1693,9 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'seasonal' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+      <section className={SECTION_CARD}>
         <div>
-          <h2 className="font-bold text-sm">Seasonal theme</h2>
+          <h2 className="font-semibold text-sm text-gray-900">Seasonal theme</h2>
           <p className="text-xs text-gray-400 mt-1">
             Presentation-only storefront skin (header wash, ribbon, home promo strip). Turning this
             off restores the default yellow/green storefront. Choose <strong>Normal</strong> for
@@ -1722,12 +1887,9 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'branding' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-5">
+      <section className={SECTION_CARD}>
         <div>
-          <h2 className="font-bold text-sm">Branding</h2>
-          <p className="text-xs text-gray-400 mt-1">
-            Header “Powered by” banner and the customer login logo seal.
-          </p>
+          <h2 className="font-semibold text-sm text-gray-900">Branding</h2>
         </div>
 
         <div className="space-y-3 border-b border-gray-50 pb-4">
@@ -1811,13 +1973,10 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'promo' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+      <section className={SECTION_CARD}>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-bold text-sm">Homepage Promo Sections</h2>
-            <p className="text-xs text-gray-400 mt-1">
-              Add cards like Pharmacy/Pet Care/Paan Corner, set destination link, and toggle live visibility.
-            </p>
+            <h2 className="font-semibold text-sm text-gray-900">Homepage Promo Sections</h2>
           </div>
           <Button type="button" variant="outline" onClick={addPromoSection} disabled={!canEdit}>
             <Plus size={16} /> Add Section
@@ -1909,8 +2068,8 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'homepage' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-        <h2 className="font-bold text-sm">Homepage Configuration</h2>
+      <section className={SECTION_CARD}>
+        <h2 className="font-semibold text-sm text-gray-900">Homepage Configuration</h2>
         <div className="grid md:grid-cols-2 gap-3 text-sm">
           <label className="flex items-center gap-2">
             <input
@@ -1992,11 +2151,8 @@ export default function SettingsManager({
           )}
 
           {activeSection === 'cancellation' && (
-      <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-        <h2 className="font-bold text-sm">Cancellation Policy</h2>
-        <p className="text-xs text-gray-400">
-          Shown on the cart side panel and checkout page (mobile + web). Leave blank to use the default policy text.
-        </p>
+      <section className={SECTION_CARD}>
+        <h2 className="font-semibold text-sm text-gray-900">Cancellation Policy</h2>
         <div>
           <Label>Policy text</Label>
           <textarea
