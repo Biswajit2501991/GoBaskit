@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { UnassignedOrderReminderService } from '@/services/UnassignedOrderReminderService';
 
-/** Reminds staff about still-unassigned orders. Called by health-check every ~10 min. */
+/** Reminds staff about still-unassigned Pending orders. Called by health-check every ~15 min. */
 export async function POST(req: Request) {
   const secret = process.env.CRON_SECRET?.trim();
   const header = req.headers.get('x-cron-secret');

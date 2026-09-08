@@ -1,6 +1,5 @@
 import { orderCapableStaffIds } from '@/services/StaffAssignmentService';
 import { isUnassignedReminderDue } from '@/services/UnassignedOrderReminderService';
-import { UNASSIGNED_PUSH_REMINDER_MAX } from '@/constants/orders';
 
 describe('orderCapableStaffIds', () => {
   it('includes every role that can view orders', () => {
@@ -36,7 +35,7 @@ describe('isUnassignedReminderDue', () => {
     lastUnassignedPushAt: new Date(now - 15 * 60 * 1000),
   };
 
-  it('is not due in the first 10 minutes', () => {
+  it('is not due in the first 15 minutes', () => {
     expect(
       isUnassignedReminderDue(
         {
@@ -59,10 +58,12 @@ describe('isUnassignedReminderDue', () => {
     expect(isUnassignedReminderDue({ ...base, assignedStaffId: 'staff-1' }, now)).toBe(false);
   });
 
-  it('stops after the reminder cap', () => {
-    expect(
-      isUnassignedReminderDue({ ...base, unassignedPushReminders: UNASSIGNED_PUSH_REMINDER_MAX }, now),
-    ).toBe(false);
+  it('keeps reminding while still Pending, even after several pings', () => {
+    expect(isUnassignedReminderDue({ ...base, unassignedPushReminders: 12 }, now)).toBe(true);
+  });
+
+  it('stops once staff Accepts the order', () => {
+    expect(isUnassignedReminderDue({ ...base, status: 'ACCEPTED' }, now)).toBe(false);
   });
 
   it('skips delivered and cancelled', () => {

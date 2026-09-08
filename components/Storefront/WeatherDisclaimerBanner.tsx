@@ -1,10 +1,31 @@
 'use client';
 
+import { useEffect } from 'react';
 import { CloudRain } from 'lucide-react';
 import { useConfigStore } from '@/store/configStore';
 
+/** Cron can clear rain on the server; this tab must re-read /api/config to hide the banner. */
+const WEATHER_CONFIG_POLL_MS = 2 * 60 * 1000;
+
 export default function WeatherDisclaimerBanner({ className = '' }: { className?: string }) {
   const weather = useConfigStore((s) => s.weatherDisclaimer);
+  const refreshConfig = useConfigStore((s) => s.refreshConfig);
+
+  useEffect(() => {
+    const poll = () => {
+      void refreshConfig();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') poll();
+    };
+    const id = window.setInterval(poll, WEATHER_CONFIG_POLL_MS);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [refreshConfig]);
+
   if (!weather.visible || !weather.message.trim()) return null;
 
   return (

@@ -4,10 +4,8 @@ import { formatCustomerName } from '@/utils/customer';
 import { AdminPushService } from '@/services/AdminPushService';
 import { StaffAssignmentService } from '@/services/StaffAssignmentService';
 import {
-  ACTIVE_ORDER_STATUSES,
   UNASSIGNED_PUSH_REMINDER_INTERVAL_MS,
   UNASSIGNED_PUSH_REMINDER_LOOKBACK_MS,
-  UNASSIGNED_PUSH_REMINDER_MAX,
 } from '@/constants/orders';
 
 export type UnassignedReminderDueInput = {
@@ -26,10 +24,7 @@ export function isUnassignedReminderDue(
 ): boolean {
   if (order.assignedStaffId) return false;
   if (order.archivedAt) return false;
-  if (!ACTIVE_ORDER_STATUSES.includes(order.status as (typeof ACTIVE_ORDER_STATUSES)[number])) {
-    return false;
-  }
-  if (order.unassignedPushReminders >= UNASSIGNED_PUSH_REMINDER_MAX) return false;
+  if (order.status !== 'PENDING') return false;
   if (nowMs - order.createdAt.getTime() > UNASSIGNED_PUSH_REMINDER_LOOKBACK_MS) return false;
   const lastAt = order.lastUnassignedPushAt?.getTime() ?? order.createdAt.getTime();
   return nowMs - lastAt >= UNASSIGNED_PUSH_REMINDER_INTERVAL_MS;
@@ -49,8 +44,7 @@ export class UnassignedOrderReminderService {
       where: {
         assignedStaffId: null,
         archivedAt: null,
-        status: { in: [...ACTIVE_ORDER_STATUSES] },
-        unassignedPushReminders: { lt: UNASSIGNED_PUSH_REMINDER_MAX },
+        status: 'PENDING',
         createdAt: { gte: lookbackStart, lte: intervalAgo },
         OR: [{ lastUnassignedPushAt: null }, { lastUnassignedPushAt: { lte: intervalAgo } }],
       },
@@ -83,7 +77,7 @@ export class UnassignedOrderReminderService {
           id: order.id,
           assignedStaffId: null,
           archivedAt: null,
-          unassignedPushReminders: { lt: UNASSIGNED_PUSH_REMINDER_MAX },
+          status: 'PENDING',
           OR: [{ lastUnassignedPushAt: null }, { lastUnassignedPushAt: { lte: intervalAgo } }],
         },
         data: {
