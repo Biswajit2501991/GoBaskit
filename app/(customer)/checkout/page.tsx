@@ -27,7 +27,7 @@ import { refreshCartStockFromServer } from '@/utils/refreshCartStock';
 import StockRemovalNotice from '@/components/Cart/StockRemovalNotice';
 import WeatherDisclaimerBanner from '@/components/Storefront/WeatherDisclaimerBanner';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
-import { checkoutSchema, type CheckoutSchema } from '@/lib/validations';
+import { checkoutSchema, formatZodFlattenError, type CheckoutSchema } from '@/lib/validations';
 import { buildWhatsAppMessage, buildWhatsAppUrl, openWhatsAppUrl } from '@/utils/whatsapp';
 import { getOrCreateCheckoutIdempotencyKey, clearCheckoutIdempotencyKey } from '@/utils/checkoutAttempt';
 import { nightDeliveryCopy, nightDeliveryWindow } from '@/lib/nightDelivery';
@@ -94,6 +94,7 @@ export default function CheckoutPage() {
     setValue,
     getValues,
     reset,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<CheckoutSchema>({
     resolver: zodResolver(checkoutSchema),
@@ -192,6 +193,7 @@ export default function CheckoutPage() {
         paymentMethod: 'COD',
         deliveryNotes: localProfile.deliveryNotes || '',
       });
+      void trigger(['houseNumber', 'street', 'area']);
     } else if (customerMobile || checkedMobile) {
       setValue('mobile', customerMobile || checkedMobile || '', { shouldValidate: true });
     }
@@ -237,6 +239,7 @@ export default function CheckoutPage() {
           paymentMethod: 'COD',
           deliveryNotes: profile.deliveryNotes || '',
         });
+        void trigger(['houseNumber', 'street', 'area']);
         if (profile.mobile || mobile) {
           saveCheckoutProfileLocal({
             ...profile,
@@ -250,7 +253,7 @@ export default function CheckoutPage() {
     }
 
     loadProfile();
-  }, [profileLoaded, customerMobile, checkedMobile, reset, setValue]);
+  }, [profileLoaded, customerMobile, checkedMobile, reset, setValue, trigger]);
 
   useEffect(() => {
     if (locationPin && !getValues('pincode')) {
@@ -566,6 +569,13 @@ export default function CheckoutPage() {
     source: 'website' | 'whatsapp',
     options?: { nightDeliveryAck?: boolean },
   ) {
+    const parsed = checkoutSchema.safeParse(data);
+    if (!parsed.success) {
+      setOrderError(formatZodFlattenError(parsed.error.flatten()));
+      focusSection('address');
+      return;
+    }
+    data = parsed.data as CheckoutSchema;
     if (!validateBeforeSubmit(data)) return;
     if (!(await ensureWhatsAppVerified(data))) {
       setPendingSubmitSource(source);
@@ -877,6 +887,9 @@ export default function CheckoutPage() {
     isWhatsAppPatternValid &&
     !belowMinimum &&
     !hasOutOfStock &&
+    !errors.houseNumber &&
+    !errors.street &&
+    !errors.area &&
     !isSubmitting;
 
   if (!hydrated || !authChecked) {

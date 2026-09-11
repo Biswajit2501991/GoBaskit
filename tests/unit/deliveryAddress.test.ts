@@ -11,6 +11,22 @@ describe('delivery address lines', () => {
     expect(deliveryAddressLineError('Adra', 'area')).toBeNull();
   });
 
+  it('rejects a saved Test / tets profile so that customer cannot place another order until they fix the address', () => {
+    const parsed = checkoutSchema.safeParse({
+      firstName: 'Sunahs',
+      lastName: 'Kumar',
+      mobile: '9876543210',
+      houseNumber: 'Sunahs',
+      street: 'Test',
+      area: 'tets',
+      city: 'Adra',
+      state: 'West Bengal',
+      pincode: '723121',
+      paymentMethod: 'COD',
+    });
+    expect(parsed.success).toBe(false);
+  });
+
   it('rejects placeholders and keyboard smash', () => {
     expect(deliveryAddressLineError('test', 'street')).toBeTruthy();
     expect(deliveryAddressLineError('asdf', 'area')).toBeTruthy();
