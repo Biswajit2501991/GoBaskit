@@ -1,5 +1,11 @@
 import { z } from 'zod';
 import { STAFF_ROLES } from '@/types/staff';
+import {
+  deliveryAddressLineError,
+  isKnownLocalityLine,
+  normalizeAddressLine,
+  type DeliveryAddressKind,
+} from '@/lib/deliveryAddress';
 
 function emptyToUndefined(val: unknown) {
   if (val === '' || val === null || val === undefined) return undefined;
@@ -29,6 +35,16 @@ export function formatZodFlattenError(error: {
 
 const staffRoleEnum = z.enum(STAFF_ROLES as [typeof STAFF_ROLES[number], ...typeof STAFF_ROLES[number][]]);
 
+function addressLineSchema(kind: DeliveryAddressKind, optional = false) {
+  return z.preprocess((val) => {
+    return typeof val === 'string' ? normalizeAddressLine(val) : '';
+  }, z.string().superRefine((val, ctx) => {
+    if (optional && !val) return;
+    const err = deliveryAddressLineError(val, kind);
+    if (err) ctx.addIssue({ code: 'custom', message: err });
+  }));
+}
+
 export const checkoutSchema = z
   .object({
     firstName: z.string().min(2, 'First name must be at least 2 characters'),
@@ -37,18 +53,37 @@ export const checkoutSchema = z
     alternateMobile: z
       .union([z.literal(''), z.string().regex(/^\d{10}$/, 'Enter a valid 10-digit number')])
       .optional(),
-    houseNumber: z.string().min(1, 'House number is required'),
-    street: z.string().min(2, 'Street is required'),
-    area: z.string().min(2, 'Area is required'),
-    landmark: z.string().optional(),
+    houseNumber: addressLineSchema('house'),
+    street: addressLineSchema('street'),
+    area: addressLineSchema('area'),
+    landmark: addressLineSchema('landmark', true),
     city: z.string().min(2, 'City is required'),
     state: z.string().min(2, 'State is required'),
     pincode: z.union([
       z.literal(''),
       z.string().regex(/^\d{6}$/, 'Enter a valid 6-digit pincode'),
     ]),
-    deliveryNotes: z.string().optional(),
+    deliveryNotes: addressLineSchema('notes', true),
     paymentMethod: z.enum(['COD', 'QR_ON_DELIVERY']),
+  })
+  .superRefine((data, ctx) => {
+    const house = normalizeAddressLine(String(data.houseNumber ?? ''));
+    const street = normalizeAddressLine(String(data.street ?? ''));
+    const area = normalizeAddressLine(String(data.area ?? ''));
+    if (
+      house &&
+      street &&
+      area &&
+      house.toLowerCase() === street.toLowerCase() &&
+      street.toLowerCase() === area.toLowerCase() &&
+      !isKnownLocalityLine(house)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'House, street, and area cannot all be the same. Add the real street and area.',
+        path: ['street'],
+      });
+    }
   });
 
 export type CheckoutSchema = z.infer<typeof checkoutSchema>;

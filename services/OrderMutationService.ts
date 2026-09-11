@@ -21,6 +21,7 @@ import { AuditService } from '@/services/AuditService';
 import { DashboardService } from '@/services/DashboardService';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { adminEventBus } from '@/lib/realtime/eventBus';
+import { assertDeliveryAddressLines } from '@/lib/deliveryAddress';
 
 export class OrderEditError extends Error {
   constructor(
@@ -575,6 +576,18 @@ function mergeDelivery(
   }
   if (!houseNumber || street.length < 2 || area.length < 2 || city.length < 2 || state.length < 2) {
     throw new OrderEditError('Enter a complete delivery address', 400);
+  }
+  try {
+    assertDeliveryAddressLines({
+      houseNumber,
+      street,
+      area,
+      landmark: patch.landmark !== undefined ? (patch.landmark || '').trim() : customer.landmark,
+      deliveryNotes:
+        patch.deliveryNotes !== undefined ? (patch.deliveryNotes || '').trim() : deliveryNotes,
+    });
+  } catch (err) {
+    throw new OrderEditError(err instanceof Error ? err.message : 'Enter a real delivery address', 400);
   }
   if (pincode && !/^\d{6}$/.test(pincode)) {
     throw new OrderEditError('Enter a valid 6-digit pincode', 400);

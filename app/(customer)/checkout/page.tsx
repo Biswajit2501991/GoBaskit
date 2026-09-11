@@ -1068,19 +1068,22 @@ export default function CheckoutPage() {
             }`}
           >
             <h3 className="font-bold text-sm">Delivery Address</h3>
+            <p className="text-[11px] text-gray-500 leading-snug">
+              Use your real house, street, and area so the rider can find you. City and PIN stay as selected.
+            </p>
             <div>
               <Label>Address (House / Flat No.) *</Label>
-              <Input {...register('houseNumber')} className="mt-1" />
+              <Input {...register('houseNumber')} placeholder="e.g. 12/A or Qtr 4" className="mt-1" />
               {errors.houseNumber && <p className="text-red-500 text-xs mt-1">{errors.houseNumber.message}</p>}
             </div>
             <div>
               <Label>Street *</Label>
-              <Input {...register('street')} className="mt-1" />
+              <Input {...register('street')} placeholder="e.g. Station Road" className="mt-1" />
               {errors.street && <p className="text-red-500 text-xs mt-1">{errors.street.message}</p>}
             </div>
             <div>
               <Label>Area *</Label>
-              <Input {...register('area')} className="mt-1" />
+              <Input {...register('area')} placeholder="e.g. Railway Colony" className="mt-1" />
               {errors.area && <p className="text-red-500 text-xs mt-1">{errors.area.message}</p>}
             </div>
             <div>
