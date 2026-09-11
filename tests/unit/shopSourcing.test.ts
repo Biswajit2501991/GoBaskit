@@ -3,6 +3,7 @@ import {
   isFourDigitPin,
   nextFulfillmentSuffix,
   parseShopSourcing,
+  shopHistorySince,
 } from '@/lib/shopSourcing';
 
 describe('shop sourcing helpers', () => {
@@ -16,6 +17,12 @@ describe('shop sourcing helpers', () => {
     expect(nextFulfillmentSuffix(0)).toBe('A');
     expect(nextFulfillmentSuffix(1)).toBe('B');
     expect(fulfillmentTicket('GBABC', 'A')).toBe('GBABC-A');
+  });
+
+  it('keeps shop history to the last 30 days', () => {
+    const now = new Date('2026-09-11T12:00:00.000Z');
+    const since = shopHistorySince(now);
+    expect(now.getTime() - since.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
   });
 
   it('accepts a 4-digit PIN that is not 0000', () => {

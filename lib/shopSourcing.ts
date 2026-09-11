@@ -48,6 +48,12 @@ export function fulfillmentTicket(orderNumber: string, suffix: string): string {
   return `${orderNumber}-${suffix}`;
 }
 
+export const SHOP_FULFILLMENT_HISTORY_MS = 30 * 24 * 60 * 60 * 1000;
+
+export function shopHistorySince(now = new Date()): Date {
+  return new Date(now.getTime() - SHOP_FULFILLMENT_HISTORY_MS);
+}
+
 export function generateDeliveryPin(): string {
   return String(1000 + Math.floor(Math.random() * 9000));
 }

@@ -9,6 +9,14 @@ import { Label } from '@/components/ui/label';
 import { markAndroidAlertsPromptAfterLogin } from '@/lib/admin-push-client';
 import { normalizeMobile } from '@/utils/mobile';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
+import { formatCurrency, formatDateTime } from '@/utils/formatter';
+
+type HistoryRow = {
+  ticket: string;
+  orderNumber: string;
+  costToGobaskit: number;
+  acceptedAt: string;
+};
 
 type Offer = {
   offerId: string;
@@ -38,6 +46,7 @@ export default function ShopPortalPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
   const [active, setActive] = useState<Offer | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [pickupAt, setPickupAt] = useState('');
@@ -54,7 +63,9 @@ export default function ShopPortalPage() {
     }
     const data = await res.json().catch(() => ({}));
     const next = Array.isArray(data.offers) ? (data.offers as Offer[]) : [];
+    const past = Array.isArray(data.history) ? (data.history as HistoryRow[]) : [];
     setOffers(next);
+    setHistory(past);
     setAuthed(true);
     setSessionReady(true);
     setActive((current) => {
@@ -274,6 +285,21 @@ export default function ShopPortalPage() {
             </p>
           </button>
         ))}
+
+        <section className="pt-4 space-y-2">
+          <h2 className="text-sm font-semibold text-gray-900">Accepted last 30 days</h2>
+          <p className="text-xs text-gray-500">These pickups are locked. Cost and ticket cannot be changed.</p>
+          {!history.length && (
+            <p className="text-sm text-gray-500">No accepted pickups in the last 30 days.</p>
+          )}
+          {history.map((row) => (
+            <div key={row.ticket} className="bg-white border rounded-2xl p-4">
+              <p className="font-bold">{row.ticket}</p>
+              <p className="text-sm text-gray-600">Cost {formatCurrency(row.costToGobaskit)}</p>
+              <p className="text-xs text-gray-400 mt-1">{formatDateTime(row.acceptedAt)}</p>
+            </div>
+          ))}
+        </section>
       </main>
 
       {active && (

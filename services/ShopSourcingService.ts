@@ -11,6 +11,7 @@ import {
   isFourDigitPin,
   nextFulfillmentSuffix,
   parseShopSourcing,
+  shopHistorySince,
   verifyDeliveryPinHash,
 } from '@/lib/shopSourcing';
 import { formatCustomerName } from '@/utils/customer';
@@ -249,15 +250,26 @@ export class ShopSourcingService {
   }
 
   static async listFulfillmentsForShop(shopId: string) {
-    return prisma.shopFulfillment.findMany({
-      where: { shopId, status: { not: 'CANCELLED' } },
-      include: {
-        items: { include: { orderItem: { select: { productName: true, quantity: true, unit: true } } } },
-        order: { select: { orderNumber: true, status: true } },
+    const rows = await prisma.shopFulfillment.findMany({
+      where: {
+        shopId,
+        status: { not: 'CANCELLED' },
+        createdAt: { gte: shopHistorySince() },
+      },
+      select: {
+        suffix: true,
+        costToGobaskit: true,
+        createdAt: true,
+        order: { select: { orderNumber: true } },
       },
       orderBy: { createdAt: 'desc' },
-      take: 50,
     });
+    return rows.map((row) => ({
+      ticket: fulfillmentTicket(row.order.orderNumber, row.suffix),
+      orderNumber: row.order.orderNumber,
+      costToGobaskit: Number(row.costToGobaskit),
+      acceptedAt: row.createdAt.toISOString(),
+    }));
   }
 
   static staffCart(orderId: string) {
