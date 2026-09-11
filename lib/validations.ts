@@ -144,6 +144,7 @@ export const staffCreateSchema = z.object({
     emptyToNull,
     z.number().min(0).max(500).optional().nullable()
   ),
+  shopId: z.union([z.string().min(1), z.null()]).optional(),
 });
 
 export const staffUpdateSchema = staffCreateSchema.partial().extend({

@@ -44,6 +44,7 @@ export function signStaffAccessToken(staff: {
   role: StaffRole;
   permissions: unknown;
   name?: string | null;
+  shopId?: string | null;
 }) {
   const payload: StaffSessionPayload = {
     sub: staff.id,
@@ -52,6 +53,7 @@ export function signStaffAccessToken(staff: {
     permissions: parsePermissions(staff.permissions),
     type: 'staff',
     name: staff.name?.trim() || undefined,
+    shopId: staff.shopId ?? null,
   };
   return jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TTL });
 }
@@ -128,6 +130,7 @@ export const getStaffFromSession = cache(async () => {
           latitude: true,
           longitude: true,
           deliveryRadius: true,
+          shopId: true,
           active: true,
           deletedAt: true,
           lastLogin: true,
@@ -158,6 +161,7 @@ export const getStaffFromSession = cache(async () => {
       lastLogin: null,
       createdAt: admin.createdAt,
       updatedAt: admin.updatedAt,
+      shopId: null,
     };
   } catch (err) {
     // Never reject the shared React cache() promise — layout may swallow it while
@@ -193,6 +197,7 @@ export const getAdminPageStaff = cache(async () => {
       lastLogin: null,
       createdAt: new Date(0),
       updatedAt: new Date(0),
+      shopId: session.shopId ?? null,
     };
   }
 

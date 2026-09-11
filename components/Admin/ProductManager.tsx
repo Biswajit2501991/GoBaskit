@@ -66,11 +66,22 @@ export default function ProductManager({
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [shopIds, setShopIds] = useState<string[]>([]);
+  const [shops, setShops] = useState<Array<{ id: string; name: string }>>([]);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const searchDebounced = useRef(search);
   const [debouncedSearch, setDebouncedSearch] = useState(search);
+  useEffect(() => {
+    fetch('/api/admin/shops', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : { items: [] }))
+      .then((data) => {
+        const items = Array.isArray(data.items) ? data.items : [];
+        setShops(items.map((shop: { id: string; name: string }) => ({ id: shop.id, name: shop.name })));
+      })
+      .catch(() => setShops([]));
+  }, []);
 
   const listParams = {
     page,
@@ -172,6 +183,7 @@ export default function ProductManager({
       categoryId: categories[0]?.id || '',
       imageUrl: '',
     });
+    setShopIds([]);
     setShowForm(true);
     setError('');
   }
@@ -197,6 +209,7 @@ export default function ProductManager({
       hasVariants: product.hasVariants || hasExistingOptions,
       healthStarRating: product.healthStarRating ?? null,
     });
+    setShopIds(product.shopIds ?? []);
     setShowForm(true);
     setError('');
   }
@@ -239,6 +252,14 @@ export default function ProductManager({
     }
 
     const saved = await res.json().catch(() => null);
+    const productId = editingId || saved?.id;
+    if (productId) {
+      await fetch(`/api/admin/products/${productId}/shops`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shopIds }),
+      });
+    }
     await reloadAfterMutation();
 
     // When creating a product that has options, keep the form open and switch
@@ -512,6 +533,28 @@ export default function ProductManager({
                   Fill in the product details above and click <strong>Create Product</strong>. The option manager will appear here right after saving so you can add each brand / size.
                 </div>
               )
+            )}
+            {shops.length > 0 && (
+              <div className="mt-4">
+                <Label>Sold at shops</Label>
+                <p className="text-xs text-gray-400 mb-2">Tag at most the limit from Settings → Shop sourcing.</p>
+                <div className="flex flex-wrap gap-2">
+                  {shops.map((shop) => (
+                    <label key={shop.id} className="flex items-center gap-1 text-sm border rounded-lg px-2 py-1">
+                      <input
+                        type="checkbox"
+                        checked={shopIds.includes(shop.id)}
+                        onChange={(e) => {
+                          setShopIds((prev) =>
+                            e.target.checked ? [...prev, shop.id] : prev.filter((id) => id !== shop.id),
+                          );
+                        }}
+                      />
+                      {shop.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>

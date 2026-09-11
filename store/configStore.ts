@@ -22,6 +22,11 @@ import {
   parseOvernightCheckout,
   type OvernightCheckoutConfig,
 } from '@/lib/nightDelivery';
+import {
+  DEFAULT_SHOP_SOURCING,
+  parseShopSourcing,
+  type ShopSourcingConfig,
+} from '@/lib/shopSourcing';
 
 interface ConfigState {
   serviceablePins: string[];
@@ -79,6 +84,7 @@ interface ConfigState {
   };
   weatherDisclaimer: WeatherDisclaimerPublic;
   overnightCheckout: OvernightCheckoutConfig;
+  shopSourcing: ShopSourcingConfig;
   deliveryAddressLocalities: string[];
   loaded: boolean;
   fetchConfig: () => Promise<void>;
@@ -149,6 +155,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     visible: false,
   },
   overnightCheckout: DEFAULT_OVERNIGHT_CHECKOUT,
+  shopSourcing: DEFAULT_SHOP_SOURCING,
   deliveryAddressLocalities: [],
   loaded: false,
 
@@ -234,6 +241,7 @@ async function loadConfig(
               }
             : get().weatherDisclaimer,
         overnightCheckout: parseOvernightCheckout(c.overnightCheckout),
+        shopSourcing: parseShopSourcing(c.shopSourcing),
         deliveryAddressLocalities: Array.isArray(c.deliveryAddressLocalities)
           ? c.deliveryAddressLocalities
               .map((word: unknown) => String(word).toLowerCase().replace(/[^a-z0-9]/g, ''))

@@ -30,4 +30,5 @@ export interface AdminProduct {
   categoryId: string;
   category: { id: string; name: string; slug: string };
   _count?: { variants: number };
+  shopIds?: string[];
 }

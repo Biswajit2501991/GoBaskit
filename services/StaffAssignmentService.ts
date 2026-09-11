@@ -91,7 +91,7 @@ export class StaffAssignmentService {
   /** Staff IDs that should receive a new-order notification (any orders:view role). */
   static async getOrderCapableStaffIds(): Promise<string[]> {
     const staff = await prisma.staffAccount.findMany({
-      where: { active: true, deletedAt: null },
+      where: { active: true, deletedAt: null, shopId: null },
       select: { id: true, role: true, permissions: true },
     });
     return orderCapableStaffIds(staff);

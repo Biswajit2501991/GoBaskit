@@ -26,6 +26,7 @@ interface StaffRow {
   latitude: number | null;
   longitude: number | null;
   deliveryRadius: number | null;
+  shopId: string | null;
 }
 
 const emptyForm = {
@@ -40,6 +41,7 @@ const emptyForm = {
   latitude: '',
   longitude: '',
   deliveryRadius: '',
+  shopId: '',
 };
 
 function parseOptionalNumber(value: string): number | null {
@@ -95,6 +97,7 @@ export default function StaffManager({
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [showViewedPassword, setShowViewedPassword] = useState(false);
+  const [shops, setShops] = useState<Array<{ id: string; name: string }>>([]);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordSaving, setPasswordSaving] = useState(false);
@@ -117,6 +120,16 @@ export default function StaffManager({
     setLoading(false);
     initialLoadDone.current = true;
   }, [page, search]);
+
+  useEffect(() => {
+    fetch('/api/admin/shops', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : { items: [] }))
+      .then((data) => {
+        const items = Array.isArray(data.items) ? data.items : [];
+        setShops(items.map((shop: { id: string; name: string }) => ({ id: shop.id, name: shop.name })));
+      })
+      .catch(() => setShops([]));
+  }, []);
 
   useEffect(() => {
     if (!initialLoadDone.current || !search) {
@@ -152,6 +165,7 @@ export default function StaffManager({
       latitude: row.latitude != null ? String(row.latitude) : '',
       longitude: row.longitude != null ? String(row.longitude) : '',
       deliveryRadius: row.deliveryRadius != null ? String(row.deliveryRadius) : '',
+      shopId: row.shopId || '',
     });
     setShowPassword(false);
     setShowForm(true);
@@ -241,6 +255,7 @@ export default function StaffManager({
       latitude: parseOptionalNumber(form.latitude),
       longitude: parseOptionalNumber(form.longitude),
       deliveryRadius: parseOptionalNumber(form.deliveryRadius),
+      shopId: form.shopId || null,
       ...(email ? { email } : {}),
       ...(form.password ? { password: form.password } : {}),
     };
@@ -384,6 +399,23 @@ export default function StaffManager({
                 <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
                 Active
               </label>
+              {shops.length > 0 && (
+                <div>
+                  <Label>Shop portal login</Label>
+                  <select
+                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                    value={form.shopId}
+                    onChange={(e) => setForm({ ...form, shopId: e.target.value })}
+                  >
+                    <option value="">None (staff /admin)</option>
+                    {shops.map((shop) => (
+                      <option key={shop.id} value={shop.id}>
+                        {shop.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="border-t pt-3 space-y-3">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Delivery Zone</p>
                 <div>

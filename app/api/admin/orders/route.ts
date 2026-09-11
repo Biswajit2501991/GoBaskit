@@ -33,13 +33,13 @@ export async function PATCH(req: NextRequest) {
   if (originError) return NextResponse.json({ error: originError }, { status: 403 });
 
   const body = await req.json();
-  const { id, status, priority, adminNotes } = body;
-  if (!id) return NextResponse.json({ error: 'Order id required' }, { status: 400 });
+    const { id, status, priority, adminNotes, deliveryPin } = body;
+    if (!id) return NextResponse.json({ error: 'Order id required' }, { status: 400 });
 
-  try {
-    const order = await OrderService.update(
-      id,
-      { status, priority, adminNotes },
+    try {
+      const order = await OrderService.update(
+        id,
+        { status, priority, adminNotes, deliveryPin },
       { id: auth.staff!.id, role: auth.staff!.role, permissions: auth.staff!.permissions },
     );
     return NextResponse.json(order);

@@ -54,6 +54,11 @@ import {
   normalizeHhMm,
   type OvernightCheckoutConfig,
 } from '@/lib/nightDelivery';
+import {
+  DEFAULT_SHOP_SOURCING,
+  parseShopSourcing,
+  type ShopSourcingConfig,
+} from '@/lib/shopSourcing';
 import { BROADCAST_BODY_MAX, BROADCAST_TITLE_MAX } from '@/lib/customerBroadcastPush';
 
 const SETTINGS_SECTIONS = [
@@ -110,6 +115,12 @@ const SETTINGS_SECTIONS = [
     label: 'Store Status',
     group: 'Orders',
     hint: 'Opening hours, holiday mode, and the overnight Accept/Decline prompt at checkout (India time).',
+  },
+  {
+    id: 'shop-sourcing',
+    label: 'Shop sourcing',
+    group: 'Orders',
+    hint: 'Off by default. When on, tagged shops get pickup offers and delivery needs the customer PIN.',
   },
   {
     id: 'weather',
@@ -189,6 +200,7 @@ const SETTINGS_ICONS: Record<(typeof SETTINGS_SECTIONS)[number]['id'], LucideIco
   notifications: Bell,
   session: Users,
   'store-status': Store,
+  'shop-sourcing': Building2,
   weather: CloudRain,
   payments: Wallet,
   'wa-templates': FileText,
@@ -333,6 +345,7 @@ interface StoreConfig {
   };
   weatherDisclaimer?: WeatherDisclaimerPublic;
   overnightCheckout?: OvernightCheckoutConfig;
+  shopSourcing?: ShopSourcingConfig;
   discountConfig: DiscountConfig;
 }
 
@@ -445,6 +458,7 @@ export default function SettingsManager({
   const [overnightCheckout, setOvernightCheckout] = useState(() =>
     parseOvernightCheckout(initialConfig.overnightCheckout),
   );
+  const [shopSourcing, setShopSourcing] = useState(() => parseShopSourcing(initialConfig.shopSourcing));
   const [broadcastTitle, setBroadcastTitle] = useState('GoBaskit');
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastSending, setBroadcastSending] = useState(false);
@@ -484,6 +498,7 @@ export default function SettingsManager({
       homepageConfig: homepageConfig as StoreConfig['homepageConfig'],
       weatherDisclaimer,
       overnightCheckout,
+      shopSourcing,
     };
     // Capture hydrated defaults once so the first save only writes real edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -744,10 +759,19 @@ export default function SettingsManager({
         }
         body.overnightCheckout = parseOvernightCheckout({
           enabled: overnightCheckout.enabled,
-          eveningStart,
-          morningCutoff,
-          morningDeliveryFrom,
+          eveningStart: eveningStart ?? overnightCheckout.eveningStart,
+          morningCutoff: morningCutoff ?? overnightCheckout.morningCutoff,
+          morningDeliveryFrom: morningDeliveryFrom ?? overnightCheckout.morningDeliveryFrom,
         });
+      }
+      const prevShop = parseShopSourcing(prev.shopSourcing);
+      if (
+        prevShop.enabled !== shopSourcing.enabled ||
+        prevShop.maxShopsPerItem !== shopSourcing.maxShopsPerItem ||
+        prevShop.offerTimeoutSeconds !== shopSourcing.offerTimeoutSeconds ||
+        prevShop.maxOfferRounds !== shopSourcing.maxOfferRounds
+      ) {
+        body.shopSourcing = parseShopSourcing(shopSourcing);
       }
 
       if (Object.keys(body).length === 0) {
@@ -783,6 +807,7 @@ export default function SettingsManager({
       setStaffIdleTimeoutMinutes(updated.staffIdleTimeoutMinutes ?? 15);
       setWeatherDisclaimer(parseWeatherDisclaimer(updated.weatherDisclaimer));
       setOvernightCheckout(parseOvernightCheckout(updated.overnightCheckout));
+      setShopSourcing(parseShopSourcing(updated.shopSourcing));
       setHomepageConfig({
         ...updated.homepageConfig,
         showTopDiscounted: updated.homepageConfig.showTopDiscounted !== false,
@@ -1404,6 +1429,84 @@ export default function SettingsManager({
             </div>
           </div>
         </div>
+      </section>
+          )}
+
+          {activeSection === 'shop-sourcing' && (
+      <section className={SECTION_CARD}>
+        <div>
+          <h2 className="font-semibold text-sm text-gray-900">Shop sourcing</h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Off by default. When on, tagged shops get pickup offers (no website total), shops enter
+            the amount GoBaskit should pay, and delivery staff need the customer 4-digit PIN.
+            Saving this does not change homepage or overnight settings.
+          </p>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={shopSourcing.enabled}
+            onChange={(e) => setShopSourcing((prev) => ({ ...prev, enabled: e.target.checked }))}
+            disabled={!canEdit}
+          />
+          Enable multi-shop sourcing
+        </label>
+        <div className="grid md:grid-cols-3 gap-3">
+          <div>
+            <Label>Max shops per item</Label>
+            <Input
+              type="number"
+              min={1}
+              max={10}
+              className="mt-1"
+              value={shopSourcing.maxShopsPerItem}
+              onChange={(e) =>
+                setShopSourcing((prev) => ({
+                  ...prev,
+                  maxShopsPerItem: Number(e.target.value) || DEFAULT_SHOP_SOURCING.maxShopsPerItem,
+                }))
+              }
+              disabled={!canEdit || !shopSourcing.enabled}
+            />
+          </div>
+          <div>
+            <Label>Offer timeout (seconds)</Label>
+            <Input
+              type="number"
+              min={30}
+              max={3600}
+              className="mt-1"
+              value={shopSourcing.offerTimeoutSeconds}
+              onChange={(e) =>
+                setShopSourcing((prev) => ({
+                  ...prev,
+                  offerTimeoutSeconds: Number(e.target.value) || DEFAULT_SHOP_SOURCING.offerTimeoutSeconds,
+                }))
+              }
+              disabled={!canEdit || !shopSourcing.enabled}
+            />
+          </div>
+          <div>
+            <Label>Max offer rounds</Label>
+            <Input
+              type="number"
+              min={1}
+              max={10}
+              className="mt-1"
+              value={shopSourcing.maxOfferRounds}
+              onChange={(e) =>
+                setShopSourcing((prev) => ({
+                  ...prev,
+                  maxOfferRounds: Number(e.target.value) || DEFAULT_SHOP_SOURCING.maxOfferRounds,
+                }))
+              }
+              disabled={!canEdit || !shopSourcing.enabled}
+            />
+          </div>
+        </div>
+        <p className="text-xs text-gray-400">
+          Add shops under Admin → Shops, tag products, and give shopkeepers a staff login linked to that shop.
+        </p>
       </section>
           )}
 

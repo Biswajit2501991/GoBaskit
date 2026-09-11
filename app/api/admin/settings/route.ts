@@ -129,6 +129,14 @@ const settingsSchema = z.object({
       morningDeliveryFrom: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/).optional(),
     })
     .optional(),
+  shopSourcing: z
+    .object({
+      enabled: z.boolean().optional(),
+      maxShopsPerItem: z.number().int().min(1).max(10).optional(),
+      offerTimeoutSeconds: z.number().int().min(30).max(3600).optional(),
+      maxOfferRounds: z.number().int().min(1).max(10).optional(),
+    })
+    .optional(),
 });
 
 export async function GET() {

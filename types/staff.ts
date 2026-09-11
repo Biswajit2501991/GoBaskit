@@ -123,6 +123,8 @@ export interface StaffSessionPayload {
   type: 'staff';
   /** Display name; older tokens omit this until the next login/heartbeat. */
   name?: string;
+  /** Shopkeeper accounts only. Older tokens omit this until the next login. */
+  shopId?: string | null;
 }
 
 export interface LegacyAdminSessionPayload {

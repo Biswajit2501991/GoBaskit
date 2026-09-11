@@ -3,6 +3,7 @@ import { getAdminPageStaff } from '@/lib/auth';
 import { AdminShell } from '@/components/Admin/AdminShell';
 import { parsePermissions, staffHasPermission } from '@/types/staff';
 import { ADMIN_NAV_ITEMS } from '@/lib/adminNav';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   // Keep staff "Add to Home Screen" opening Orders for push alerts,
@@ -29,6 +30,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
   if (!staff) {
     return <div className="min-h-screen bg-gray-50">{children}</div>;
+  }
+  if ('shopId' in staff && staff.shopId) {
+    redirect('/shop');
   }
   const perms = parsePermissions(staff.permissions);
 

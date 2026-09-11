@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
         latitude: parsed.data.latitude ?? null,
         longitude: parsed.data.longitude ?? null,
         deliveryRadius: parsed.data.deliveryRadius ?? null,
+        shopId: parsed.data.shopId || null,
       },
       select: {
         id: true, name: true, mobile: true, email: true, role: true, permissions: true, active: true,

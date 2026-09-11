@@ -126,6 +126,36 @@ export class NotificationService {
     return notifications;
   }
 
+  static async notifyShopPickup(params: {
+    staffId: string;
+    orderId: string;
+    orderNumber: string;
+    title: string;
+    message: string;
+    itemSummary: string;
+  }) {
+    const notification = await prisma.adminNotification.create({
+      data: {
+        staffId: params.staffId,
+        type: 'shop_pickup',
+        title: params.title,
+        message: params.message,
+        entityType: 'orders',
+        entityId: params.orderId,
+      },
+    });
+    await emitNotification(notification);
+    void AdminPushService.notifyStaffIds([params.staffId], {
+      title: params.title,
+      body: params.itemSummary
+        ? `${params.orderNumber}\n${params.itemSummary}`
+        : params.orderNumber,
+      url: `/shop?order=${params.orderId}`,
+      tag: `shop-offer-${params.orderId}`,
+    });
+    return notification;
+  }
+
   static async notifyOrderClaimed(params: {
     orderId: string;
     orderNumber: string;

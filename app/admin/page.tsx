@@ -44,6 +44,11 @@ export default function AdminLoginPage() {
         }).catch(() => null);
       }
       markAndroidAlertsPromptAfterLogin();
+      if (data.staff?.shopId) {
+        router.push('/shop');
+        router.refresh();
+        return;
+      }
       const next =
         sanitizeAdminNextPath(new URLSearchParams(window.location.search).get('next')) ||
         '/admin/dashboard';

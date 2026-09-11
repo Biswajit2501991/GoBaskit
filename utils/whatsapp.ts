@@ -15,6 +15,7 @@ interface WhatsAppOrderParams {
   storeName?: string;
   orderNumber?: string;
   deliveryNote?: string;
+  deliveryPin?: string;
 }
 
 export function buildWhatsAppMessage({
@@ -28,12 +29,14 @@ export function buildWhatsAppMessage({
   storeName = 'GoBaskit',
   orderNumber,
   deliveryNote,
+  deliveryPin,
 }: WhatsAppOrderParams): string {
   const lines: string[] = [
     `Hello ${storeName},`,
     '',
     'I would like to place the following order.',
     ...(orderNumber ? ['', `Order number: ${orderNumber}`] : []),
+    ...(deliveryPin ? ['', `Delivery PIN: ${deliveryPin} (tell this to the rider)`] : []),
     ...(deliveryNote ? ['', deliveryNote] : []),
     '',
     'Customer',

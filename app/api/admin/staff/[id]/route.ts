@@ -86,6 +86,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (parsed.data.latitude !== undefined) data.latitude = parsed.data.latitude;
   if (parsed.data.longitude !== undefined) data.longitude = parsed.data.longitude;
   if (parsed.data.deliveryRadius !== undefined) data.deliveryRadius = parsed.data.deliveryRadius;
+  if (parsed.data.shopId !== undefined) data.shopId = parsed.data.shopId || null;
 
   let nextMobile: string | undefined;
   if (parsed.data.mobile) {

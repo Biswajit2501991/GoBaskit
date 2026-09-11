@@ -66,6 +66,7 @@ export class ProductService {
           categoryId: true,
           category: { select: { id: true, name: true, slug: true } },
           _count: { select: { variants: true } },
+          productShops: { select: { shopId: true } },
         },
         orderBy,
         skip: (page - 1) * pageSize,
@@ -74,7 +75,15 @@ export class ProductService {
       prisma.product.count({ where }),
     ]);
 
-    return { items, total, page, pageSize };
+    return {
+      items: items.map((item) => ({
+        ...item,
+        shopIds: item.productShops.map((row) => row.shopId),
+      })),
+      total,
+      page,
+      pageSize,
+    };
   }
 
   static async getAll(params?: {

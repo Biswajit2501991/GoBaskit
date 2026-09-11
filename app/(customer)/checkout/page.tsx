@@ -133,6 +133,7 @@ export default function CheckoutPage() {
   const [placedSuccess, setPlacedSuccess] = useState<{
     orderNumber: string;
     orderId?: string;
+    deliveryPin?: string;
     whatsappMessage?: string;
     whatsappUrl?: string;
   } | null>(null);
@@ -646,6 +647,7 @@ export default function CheckoutPage() {
       message?: string;
       orderNumber?: string;
       orderId?: string;
+      deliveryPin?: string;
       quote?: {
         items: Array<{ productId: string; variantId?: string | null; price: number }>;
         subtotal: number;
@@ -681,6 +683,10 @@ export default function CheckoutPage() {
     function finishSuccess(result: CheckoutResult) {
       const placedOrderNumber = typeof result.orderNumber === 'string' ? result.orderNumber : undefined;
       const placedOrderId = typeof result.orderId === 'string' ? result.orderId : undefined;
+      const deliveryPin =
+        typeof result.deliveryPin === 'string' && /^\d{4}$/.test(result.deliveryPin)
+          ? result.deliveryPin
+          : undefined;
       orderCompletedRef.current = true;
       clearCheckoutIdempotencyKey();
       const normalized = normalizeMobile(data.mobile);
@@ -722,6 +728,7 @@ export default function CheckoutPage() {
           storeName: STORE_NAME,
           orderNumber: placedOrderNumber,
           deliveryNote: overnightNote,
+          deliveryPin,
         });
         whatsappUrl = buildWhatsAppUrl(WHATSAPP_NUMBER, whatsappMessage);
         const opened = openWhatsAppUrl(whatsappUrl, { allowSameWindow: false });
@@ -729,6 +736,7 @@ export default function CheckoutPage() {
           setPlacedSuccess({
             orderNumber: placedOrderNumber,
             orderId: placedOrderId,
+            deliveryPin,
             whatsappMessage,
             whatsappUrl,
           });
@@ -958,6 +966,14 @@ export default function CheckoutPage() {
               <CheckCircle2 className="h-7 w-7" />
             </div>
             <h2 className="text-lg font-bold text-gray-900">Order {placedSuccess.orderNumber} is in</h2>
+            {placedSuccess.deliveryPin && (
+              <p className="text-base font-semibold text-gray-900">
+                Delivery PIN: {placedSuccess.deliveryPin}
+                <span className="block text-sm font-normal text-gray-500 mt-1">
+                  Tell this PIN to the rider when your order arrives.
+                </span>
+              </p>
+            )}
             <p className="text-sm text-gray-500">
               You can track it from your account. WhatsApp didn&apos;t open in this browser — copy the message
               below and send it, or continue shopping.

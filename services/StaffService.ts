@@ -73,6 +73,7 @@ export class StaffService {
           latitude: true,
           longitude: true,
           deliveryRadius: true,
+          shopId: true,
           lastLogin: true,
           createdAt: true,
           updatedAt: true,

@@ -92,6 +92,12 @@ if $local_ok || $public_ok; then
     run_cron_job /api/cron/unassigned-order-reminders scripts/unassigned-order-reminders.ts
     touch "$REMIND_STAMP"
   fi
+
+  SHOP_STAMP="$ROOT/logs/.last-shop-offer-rebroadcast"
+  if [[ ! -f "$SHOP_STAMP" ]] || [[ -n "$(find "$SHOP_STAMP" -mmin +1 2>/dev/null)" ]]; then
+    run_cron_job /api/cron/shop-offer-rebroadcast scripts/shop-offer-rebroadcast.ts
+    touch "$SHOP_STAMP"
+  fi
 fi
 
 if $local_ok && $public_ok; then

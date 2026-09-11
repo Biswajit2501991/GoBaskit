@@ -13,6 +13,7 @@ import { ACTIVE_ORDER_STATUSES } from '@/constants/orders';
 import { shouldClaimUnassignedPending, shouldUnlockStaffLock } from '@/lib/orderClaim';
 import { NotificationService } from '@/services/NotificationService';
 import { CustomerPushService } from '@/services/CustomerPushService';
+import { ShopSourcingService } from '@/services/ShopSourcingService';
 import { shouldNotifyOutForDelivery } from '@/lib/customerOutForDeliveryPush';
 
 export interface OrderListParams {
@@ -74,6 +75,13 @@ function orderListInclude(includeHistory: boolean) {
         unit: true,
         totalPrice: true,
       },
+    },
+    shopFulfillments: {
+      include: {
+        shop: { select: { id: true, name: true, phone: true } },
+        items: { include: { orderItem: { select: { id: true, productName: true, quantity: true, unit: true } } } },
+      },
+      orderBy: { suffix: 'asc' as const },
     },
     ...(includeHistory
       ? {
@@ -158,7 +166,15 @@ export class OrderService {
       prisma.order.count({ where }),
     ]);
 
-    return { items, total, page, pageSize };
+    return {
+      items: items.map((order) => ({
+        ...order,
+        shopSourcing: ShopSourcingService.serializeFulfillments(order.shopFulfillments, order.orderNumber),
+      })),
+      total,
+      page,
+      pageSize,
+    };
   }
 
   /** Live active-order counts for the Orders ops strip (excludes delivered/cancelled). */
@@ -241,6 +257,9 @@ export class OrderService {
   static async assign(orderId: string, staffId: string, actorId: string) {
     const order = await prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new Error('Order not found');
+    if (order.assignmentFrozenAt) {
+      throw new Error('Assignment is locked after PIN delivery.');
+    }
     if (order.lockedAt && order.assignedStaffId && order.assignedStaffId !== staffId) {
       throw new Error('Order is locked to another staff member');
     }
@@ -281,6 +300,9 @@ export class OrderService {
     if (order.assignedStaffId !== actor.id && !canOverride) {
       throw new Error('Only the assigned staff or a super admin can release this order');
     }
+    if (order.assignmentFrozenAt && !canOverride) {
+      throw new Error('Assignment is locked after PIN delivery.');
+    }
 
     const updated = await prisma.order.update({
       where: { id: orderId },
@@ -303,18 +325,19 @@ export class OrderService {
   }
 
   static canEditOrder(
-    order: { assignedStaffId: string | null; lockedAt: Date | null },
+    order: { assignedStaffId: string | null; lockedAt: Date | null; assignmentFrozenAt?: Date | null },
     actor: { id: string; role: string; permissions: unknown },
   ): boolean {
-    if (!order.assignedStaffId || !order.lockedAt) return true;
     const perms = parsePermissions(actor.permissions);
     if (staffHasPermission(actor.role as StaffRole, perms, 'orders:override_lock')) return true;
+    if (order.assignmentFrozenAt) return order.assignedStaffId === actor.id;
+    if (!order.assignedStaffId || !order.lockedAt) return true;
     return order.assignedStaffId === actor.id;
   }
 
   static async update(
     orderId: string,
-    data: { status?: OrderStatus; priority?: OrderPriority; adminNotes?: string },
+    data: { status?: OrderStatus; priority?: OrderPriority; adminNotes?: string; deliveryPin?: string },
     actor: { id: string; role: string; permissions: unknown },
   ) {
     const order = await prisma.order.findUnique({
@@ -324,6 +347,24 @@ export class OrderService {
     if (!order) throw new Error('Order not found');
     if (!this.canEditOrder(order, actor)) {
       throw new Error('Order is locked to another staff member');
+    }
+    if (
+      order.assignmentFrozenAt &&
+      !staffHasPermission(actor.role as StaffRole, parsePermissions(actor.permissions), 'orders:override_lock') &&
+      data.status &&
+      data.status !== 'DELIVERED'
+    ) {
+      throw new Error('This delivery is locked to the staff who entered the PIN.');
+    }
+
+    const sourcingOn = await ShopSourcingService.isEnabled();
+    const pinDeliver =
+      sourcingOn && data.status === 'DELIVERED' && order.status !== 'DELIVERED';
+    if (pinDeliver) {
+      const ok = await ShopSourcingService.verifyDeliveryPin(orderId, String(data.deliveryPin ?? ''));
+      if (!ok) {
+        throw new Error('Enter the customer 4-digit delivery PIN to mark delivered.');
+      }
     }
 
     if (
@@ -363,7 +404,10 @@ export class OrderService {
         data: {
           status: nextStatus,
           assignedStaffId: actor.id,
-          lockedAt: unlock ? null : new Date(),
+          lockedAt: unlock && !pinDeliver ? null : new Date(),
+          ...(pinDeliver
+            ? { assignmentFrozenAt: new Date(), deliveryConfirmedById: actor.id }
+            : {}),
           ...(data.priority ? { priority: data.priority } : {}),
           ...(data.adminNotes !== undefined ? { adminNotes: data.adminNotes } : {}),
         },
@@ -385,7 +429,15 @@ export class OrderService {
           ...(data.status ? { status: data.status } : {}),
           ...(data.priority ? { priority: data.priority } : {}),
           ...(data.adminNotes !== undefined ? { adminNotes: data.adminNotes } : {}),
-          ...(unlock ? { lockedAt: null } : {}),
+          ...(unlock && !pinDeliver ? { lockedAt: null } : {}),
+          ...(pinDeliver
+            ? {
+                assignedStaffId: actor.id,
+                lockedAt: new Date(),
+                assignmentFrozenAt: new Date(),
+                deliveryConfirmedById: actor.id,
+              }
+            : {}),
         },
       });
     }

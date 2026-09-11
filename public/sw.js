@@ -51,6 +51,7 @@ function safeNotificationUrl(raw) {
   }
   if (dest.origin !== origin) return new URL('/', origin);
   if (dest.pathname.startsWith('/admin')) return dest;
+  if (dest.pathname.startsWith('/shop')) return dest;
   if (dest.pathname.startsWith('/account')) return dest;
   return new URL('/', origin);
 }
@@ -62,12 +63,16 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       const wantAdmin = dest.pathname.startsWith('/admin');
+      const wantShop = dest.pathname.startsWith('/shop');
       for (const client of clientList) {
         try {
           const clientUrl = new URL(client.url);
           if (clientUrl.origin !== self.location.origin) continue;
           const isAdminClient = clientUrl.pathname.startsWith('/admin');
-          if (wantAdmin !== isAdminClient) continue;
+          const isShopClient = clientUrl.pathname.startsWith('/shop');
+          if (wantShop) {
+            if (!isShopClient) continue;
+          } else if (wantAdmin !== isAdminClient) continue;
           if ('focus' in client) client.focus();
           if ('navigate' in client) return client.navigate(dest.href);
           return;

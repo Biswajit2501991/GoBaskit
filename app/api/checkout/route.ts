@@ -8,6 +8,7 @@ import {
 } from '@/lib/prismaInteractiveTxn';
 import { checkoutSchema, formatZodFlattenError } from '@/lib/validations';
 import { extractLearnableTokens, setLearnedDeliveryLocalities } from '@/lib/deliveryAddress';
+import { ShopSourcingService } from '@/services/ShopSourcingService';
 import { deliveryChargeFrom } from '@/constants';
 import { deliveryIsServiceable } from '@/utils/delivery';
 import { SettingsService } from '@/services/SettingsService';
@@ -92,6 +93,7 @@ function successPayload(
   order: { id: string; orderNumber: string; grandTotal: number },
   started: number,
   replay = false,
+  extras?: { deliveryPin?: string },
 ) {
   return {
     ok: true as const,
@@ -101,6 +103,7 @@ function successPayload(
     replay,
     ms: Date.now() - started,
     order: { id: order.id, orderNumber: order.orderNumber },
+    ...(extras?.deliveryPin ? { deliveryPin: extras.deliveryPin } : {}),
   };
 }
 
@@ -376,7 +379,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const res = NextResponse.json(successPayload(order, started, false));
+    const deliveryPin =
+      config.shopSourcing.enabled === true
+        ? await ShopSourcingService.createDeliveryPin(order.id)
+        : '';
+    const res = NextResponse.json(
+      successPayload(order, started, false, deliveryPin ? { deliveryPin } : undefined),
+    );
     if (isWhatsappVerified) {
       res.cookies.set(
         CUSTOMER_MOBILE_COOKIE,
@@ -438,6 +447,7 @@ export async function POST(req: NextRequest) {
               parsed.data.landmark,
             ),
           ),
+          ShopSourcingService.startForOrder(orderSnapshot.id),
         ]);
       } catch (err) {
         console.error('Checkout post-order side effects failed:', err);

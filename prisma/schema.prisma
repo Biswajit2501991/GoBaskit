@@ -114,6 +114,7 @@ model Product {
   orderItems  OrderItem[]
   variants    ProductVariant[]
   wishlistItems CustomerWishlistItem[]
+  productShops ProductShop[]
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
@@ -326,9 +327,15 @@ model Order {
   /** Cron unassigned-order push reminders (not the initial checkout push). */
   unassignedPushReminders Int        @default(0) @map("unassigned_push_reminders")
   lastUnassignedPushAt    DateTime?  @map("last_unassigned_push_at")
+  assignmentFrozenAt      DateTime?  @map("assignment_frozen_at")
+  deliveryConfirmedById   String?    @map("delivery_confirmed_by_id")
+  deliveryConfirmedBy     StaffAccount? @relation("DeliveryConfirmedBy", fields: [deliveryConfirmedById], references: [id], onDelete: SetNull)
   items           OrderItem[]
   statusHistory   OrderStatusHistory[]
   feedback        OrderFeedback?
+  deliveryPin     OrderDeliveryPin?
+  shopOffers      ShopOffer[]
+  shopFulfillments ShopFulfillment[]
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
@@ -337,6 +344,7 @@ model Order {
   @@index([priority, createdAt])
   @@index([archivedAt, purgeAt])
   @@index([assignedStaffId, status, archivedAt])
+  @@index([deliveryConfirmedById])
   @@map("orders")
 }
 
@@ -411,6 +419,8 @@ model OrderItem {
   order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product     Product @relation(fields: [productId], references: [id])
   variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  shopClaim   ShopItemClaim?
+  shopFulfillmentItems ShopFulfillmentItem[]
 
   @@index([variantId])
   @@map("order_items")
@@ -458,8 +468,12 @@ model StaffAccount {
 
   refreshTokens     StaffRefreshToken[]
   auditLogs         AuditLog[]              @relation("AuditActor")
+  shopId            String?   @map("shop_id")
+  shop              Shop?     @relation(fields: [shopId], references: [id], onDelete: SetNull)
   assignedOrders    Order[]                 @relation("AssignedOrders")
+  deliveryConfirmedOrders Order[]           @relation("DeliveryConfirmedBy")
   orderStatusChanges OrderStatusHistory[]   @relation("OrderStatusChanges")
+  shopFulfillmentsAccepted ShopFulfillment[] @relation("ShopFulfillmentAcceptedBy")
   notifications     AdminNotification[]
   pushSubscriptions StaffPushSubscription[]
   verifiedCustomers Customer[]              @relation("CustomerVerifiedBy")
@@ -471,6 +485,7 @@ model StaffAccount {
   @@index([mobile])
   @@index([role, active])
   @@index([deletedAt])
+  @@index([shopId])
   @@map("staff_accounts")
 }
 
@@ -613,4 +628,131 @@ model LearningNote {
 
   @@index([updatedAt])
   @@map("learning_notes")
+}
+
+enum ShopOfferStatus {
+  OPEN
+  EXPIRED
+  CLOSED
+}
+
+enum ShopFulfillmentStatus {
+  ACCEPTED
+  PICKED
+  CANCELLED
+}
+
+model Shop {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  address   String   @default("")
+  city      String   @default("")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  staff            StaffAccount[]
+  productShops     ProductShop[]
+  offersSkipped    ShopOfferSkip[]
+  fulfillments     ShopFulfillment[]
+
+  @@index([active])
+  @@map("shops")
+}
+
+model ProductShop {
+  id        String  @id @default(cuid())
+  productId String  @map("product_id")
+  shopId    String  @map("shop_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  shop      Shop    @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, shopId])
+  @@index([shopId])
+  @@map("product_shops")
+}
+
+model OrderDeliveryPin {
+  id        String   @id @default(cuid())
+  orderId   String   @unique @map("order_id")
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  pinHash   String   @map("pin_hash")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("order_delivery_pins")
+}
+
+model ShopOffer {
+  id        String          @id @default(cuid())
+  orderId   String          @map("order_id")
+  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  round     Int
+  status    ShopOfferStatus @default(OPEN)
+  expiresAt DateTime        @map("expires_at")
+  pickupHint DateTime?      @map("pickup_hint")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+  skips     ShopOfferSkip[]
+
+  @@index([orderId, status])
+  @@index([status, expiresAt])
+  @@map("shop_offers")
+}
+
+model ShopOfferSkip {
+  id      String    @id @default(cuid())
+  offerId String    @map("offer_id")
+  shopId  String    @map("shop_id")
+  offer   ShopOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  shop    Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([offerId, shopId])
+  @@map("shop_offer_skips")
+}
+
+model ShopFulfillment {
+  id              String                 @id @default(cuid())
+  orderId         String                 @map("order_id")
+  order           Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  shopId          String                 @map("shop_id")
+  shop            Shop                   @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  suffix          String
+  status          ShopFulfillmentStatus  @default(ACCEPTED)
+  pickupAt        DateTime               @map("pickup_at")
+  costToGobaskit  Float                  @default(0) @map("cost_to_gobaskit")
+  acceptedById    String?                @map("accepted_by_id")
+  acceptedBy      StaffAccount?          @relation("ShopFulfillmentAcceptedBy", fields: [acceptedById], references: [id], onDelete: SetNull)
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+  items           ShopFulfillmentItem[]
+  claims          ShopItemClaim[]
+
+  @@unique([orderId, suffix])
+  @@index([shopId, status])
+  @@map("shop_fulfillments")
+}
+
+model ShopFulfillmentItem {
+  id             String          @id @default(cuid())
+  fulfillmentId  String          @map("fulfillment_id")
+  orderItemId    String          @map("order_item_id")
+  quantity       Int
+  fulfillment    ShopFulfillment @relation(fields: [fulfillmentId], references: [id], onDelete: Cascade)
+  orderItem      OrderItem       @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@unique([fulfillmentId, orderItemId])
+  @@map("shop_fulfillment_items")
+}
+
+model ShopItemClaim {
+  id             String          @id @default(cuid())
+  orderItemId    String          @unique @map("order_item_id")
+  shopId         String          @map("shop_id")
+  fulfillmentId  String          @map("fulfillment_id")
+  orderItem      OrderItem       @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  fulfillment    ShopFulfillment @relation(fields: [fulfillmentId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+  @@map("shop_item_claims")
 }

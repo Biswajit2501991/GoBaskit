@@ -32,6 +32,13 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     hint: 'Accept, pack, and update live customer orders.',
   },
   {
+    href: '/admin/shops',
+    label: 'Shops',
+    permission: 'settings:view',
+    group: 'Fulfilment',
+    hint: 'Onboard shops for multi-shop sourcing. Off until you enable Shop sourcing in Settings.',
+  },
+  {
     href: '/admin/delivery',
     label: 'Delivery Desk',
     permission: 'delivery:view',

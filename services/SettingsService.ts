@@ -32,6 +32,11 @@ import {
   parseOvernightCheckout,
   type OvernightCheckoutConfig,
 } from '@/lib/nightDelivery';
+import {
+  DEFAULT_SHOP_SOURCING,
+  parseShopSourcing,
+  type ShopSourcingConfig,
+} from '@/lib/shopSourcing';
 
 export type {
   HealthStarDisplay,
@@ -135,6 +140,8 @@ export interface StoreConfig {
   weatherDisclaimer: WeatherDisclaimerPublic;
   /** Overnight Accept/Decline at checkout. Missing DB row uses defaults (enabled). */
   overnightCheckout: OvernightCheckoutConfig;
+  /** Multi-shop sourcing. Own Setting row. Default off — checkout/delivery unchanged. */
+  shopSourcing: ShopSourcingConfig;
   /** Neighbourhood words learned from real checkouts. Separate Setting row. */
   deliveryAddressLocalities: string[];
 }
@@ -146,6 +153,7 @@ type StoreConfigUpdate = Partial<
     | 'discountConfig'
     | 'weatherDisclaimer'
     | 'overnightCheckout'
+    | 'shopSourcing'
     | 'deliveryAddressLocalities'
   >
 > & {
@@ -164,6 +172,7 @@ type StoreConfigUpdate = Partial<
     message?: string;
   };
   overnightCheckout?: Partial<OvernightCheckoutConfig>;
+  shopSourcing?: Partial<ShopSourcingConfig>;
 };
 
 function parseHealthStarDisplay(raw: unknown): HealthStarDisplay {
@@ -229,6 +238,7 @@ const KEY_HOMEPAGE_CONFIG = 'homepage_config';
 const KEY_DISCOUNT_CONFIG = 'discount_config';
 const KEY_WEATHER_DISCLAIMER = 'weather_disclaimer';
 const KEY_OVERNIGHT_CHECKOUT = 'overnight_checkout';
+const KEY_SHOP_SOURCING = 'shop_sourcing';
 const KEY_DELIVERY_ADDRESS_LOCALITIES = 'delivery_address_localities';
 
 const DEFAULT_STAFF_IDLE_TIMEOUT_MINUTES = 15;
@@ -347,6 +357,7 @@ const DEFAULTS: StoreConfig = {
   discountConfig: DEFAULT_DISCOUNT_CONFIG,
   weatherDisclaimer: parseWeatherDisclaimer(DEFAULT_WEATHER_DISCLAIMER),
   overnightCheckout: DEFAULT_OVERNIGHT_CHECKOUT,
+  shopSourcing: DEFAULT_SHOP_SOURCING,
   deliveryAddressLocalities: [],
 };
 
@@ -677,6 +688,16 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     }
   }
 
+  let shopSourcing = DEFAULT_SHOP_SOURCING;
+  const rawShopSourcing = map.get(KEY_SHOP_SOURCING);
+  if (rawShopSourcing) {
+    try {
+      shopSourcing = parseShopSourcing(JSON.parse(rawShopSourcing));
+    } catch {
+      shopSourcing = DEFAULT_SHOP_SOURCING;
+    }
+  }
+
   let deliveryAddressLocalities: string[] = [];
   const rawDeliveryLocalities = map.get(KEY_DELIVERY_ADDRESS_LOCALITIES);
   if (rawDeliveryLocalities) {
@@ -707,6 +728,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     discountConfig,
     weatherDisclaimer,
     overnightCheckout,
+    shopSourcing,
     deliveryAddressLocalities,
   };
 }
@@ -743,6 +765,7 @@ export const SettingsService = {
               KEY_DISCOUNT_CONFIG,
               KEY_WEATHER_DISCLAIMER,
               KEY_OVERNIGHT_CHECKOUT,
+              KEY_SHOP_SOURCING,
               KEY_DELIVERY_ADDRESS_LOCALITIES,
             ],
           },
@@ -1079,6 +1102,14 @@ export const SettingsService = {
         ...partial.overnightCheckout,
       });
       writes.push(upsert(KEY_OVERNIGHT_CHECKOUT, JSON.stringify(merged)));
+    }
+    if (partial.shopSourcing) {
+      const current = await this.getStoreConfig();
+      const merged = parseShopSourcing({
+        ...current.shopSourcing,
+        ...partial.shopSourcing,
+      });
+      writes.push(upsert(KEY_SHOP_SOURCING, JSON.stringify(merged)));
     }
     if (partial.weatherDisclaimer) {
       const current = await this.getStoreConfig();

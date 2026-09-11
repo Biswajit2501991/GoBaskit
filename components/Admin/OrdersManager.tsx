@@ -15,6 +15,7 @@ import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 import { buildWhatsAppUrl, openWhatsAppUrl } from '@/utils/whatsapp';
 import { PAYMENT_METHODS } from '@/constants';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
+import { useConfigStore } from '@/store/configStore';
 import ListPagination from './ListPagination';
 import OrdersLiveOpsStrip, {
   type OpsFilter,
@@ -75,6 +76,17 @@ interface OrderRow {
   customer: CustomerDetails;
   items: OrderItem[];
   statusHistory?: StatusHistoryEntry[];
+  assignmentFrozenAt?: string | null;
+  shopSourcing?: {
+    procurementTotal: number;
+    fulfillments: Array<{
+      ticket: string;
+      pickupAt: string;
+      costToGobaskit: number;
+      shop: { name: string; phone: string };
+      items: Array<{ name: string; quantity: number; unit: string }>;
+    }>;
+  };
 }
 
 interface StaffOption {
@@ -490,6 +502,21 @@ function OrderCard({
               ))}
             </ul>
           )}
+          {order.shopSourcing && order.shopSourcing.fulfillments.length > 0 && (
+            <div className="text-[11px] text-gray-700 space-y-1 pt-1 border-t border-gray-50">
+              <p className="font-semibold">Shop pickups</p>
+              {order.shopSourcing.fulfillments.map((row) => (
+                <p key={row.ticket}>
+                  {row.ticket} ({row.shop.name} / {row.shop.phone} —{' '}
+                  {row.items.map((item) => `${item.quantity} ${item.unit} ${item.name}`).join(', ')}{' '}
+                  · pickup {formatDateTime(row.pickupAt)} · pay ₹{row.costToGobaskit})
+                </p>
+              ))}
+              <p className="font-medium">
+                Procurement total {formatCurrency(order.shopSourcing.procurementTotal)}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -648,7 +675,7 @@ function OrderCard({
                 value={order.assignedStaffId ?? ''}
                 onChange={(e) => e.target.value && onAssign(order.id, e.target.value)}
                 className="text-xs border rounded px-2 py-1"
-                disabled={!canAssign || lockedByOther}
+                disabled={!canAssign || lockedByOther || (Boolean(order.assignmentFrozenAt) && !canOverrideLock)}
               >
                 <option value="">Assign to...</option>
                 {staffList.map((s) => (
@@ -755,6 +782,8 @@ export default function OrdersManager({
   canOverrideLock: boolean;
   forceAssignedToMe?: boolean;
 }) {
+  const shopSourcingEnabled = useConfigStore((s) => s.shopSourcing.enabled);
+  const refreshConfig = useConfigStore((s) => s.refreshConfig);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [staffList, setStaffList] = useState<StaffOption[]>([]);
   const [search, setSearch] = useState('');
@@ -782,6 +811,10 @@ export default function OrdersManager({
   const loadRef = useRef<(options?: { silent?: boolean }) => Promise<void>>(async () => {});
   const loadOpsRef = useRef<() => Promise<void>>(async () => {});
   const showLiveOps = !forceAssignedToMe;
+
+  useEffect(() => {
+    void refreshConfig();
+  }, [refreshConfig]);
 
   const loadOpsSummary = useCallback(async () => {
     if (!showLiveOps) return;
@@ -1092,6 +1125,11 @@ export default function OrdersManager({
 
   async function updateOrder(id: string, patch: Record<string, unknown>, optimistic: Partial<OrderRow>) {
     if (!canEdit) return;
+    if (patch.status === 'DELIVERED' && shopSourcingEnabled) {
+      const entered = window.prompt('Enter the customer 4-digit delivery PIN');
+      if (!entered) return;
+      patch = { ...patch, deliveryPin: entered.trim() };
+    }
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...optimistic } : o)));
     const res = await fetch('/api/admin/orders', {
       method: 'PATCH',

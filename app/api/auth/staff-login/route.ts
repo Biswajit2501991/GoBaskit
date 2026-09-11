@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
       name: staff.name,
       mobile: staff.mobile,
       role: staff.role,
+      shopId: staff.shopId ?? null,
     },
   });
   setAuthCookies(response, access, refresh);

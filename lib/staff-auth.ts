@@ -3,6 +3,7 @@ import type { StaffRole } from '@prisma/client';
 import type { Permission } from '@/types/staff';
 import { getSession, getStaffFromSession, sessionHasPermission } from '@/lib/auth';
 import { parsePermissions, staffHasPermission } from '@/types/staff';
+import { SettingsService } from '@/services/SettingsService';
 
 /** Minimal staff identity from JWT (no DB). Enough for permission checks + actor ids. */
 export type StaffAuthUser = {
@@ -11,6 +12,7 @@ export type StaffAuthUser = {
   permissions: unknown;
   name: string;
   mobile: string;
+  shopId?: string | null;
 };
 
 function staffFromJwt(session: NonNullable<Awaited<ReturnType<typeof getSession>>>): StaffAuthUser | null {
@@ -21,6 +23,7 @@ function staffFromJwt(session: NonNullable<Awaited<ReturnType<typeof getSession>
     permissions: session.permissions,
     name: session.name?.trim() || '',
     mobile: session.mobile,
+    shopId: session.shopId ?? null,
   };
 }
 
@@ -111,4 +114,32 @@ export async function requireStaffSession(options?: { live?: boolean }) {
     };
   }
   return { error: null, staff: staff as StaffAuthUser, session };
+}
+
+export async function requireShopStaff() {
+  const enabled = (await SettingsService.getStoreConfig()).shopSourcing.enabled;
+  if (!enabled) {
+    return {
+      error: NextResponse.json({ error: 'Shop sourcing is turned off' }, { status: 403 }),
+      staff: null,
+    };
+  }
+  const staff = await getStaffFromSession();
+  if (!staff || !staff.active || staff.deletedAt) {
+    return {
+      error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+      staff: null,
+    };
+  }
+  const shopId = 'shopId' in staff ? staff.shopId : null;
+  if (!shopId) {
+    return {
+      error: NextResponse.json({ error: 'Use the shop login at /shop' }, { status: 403 }),
+      staff: null,
+    };
+  }
+  return {
+    error: null,
+    staff: { ...(staff as StaffAuthUser), shopId },
+  };
 }
