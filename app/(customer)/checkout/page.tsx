@@ -104,6 +104,11 @@ export default function CheckoutPage() {
       state: 'West Bengal',
       city: 'Kolkata',
       pincode: '',
+      houseNumber: '',
+      street: '',
+      area: '',
+      landmark: '',
+      deliveryNotes: '',
     },
   });
 
@@ -575,7 +580,7 @@ export default function CheckoutPage() {
       focusSection('address');
       return;
     }
-    data = parsed.data as CheckoutSchema;
+    data = parsed.data;
     if (!validateBeforeSubmit(data)) return;
     if (!(await ensureWhatsAppVerified(data))) {
       setPendingSubmitSource(source);

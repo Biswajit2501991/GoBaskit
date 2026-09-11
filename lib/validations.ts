@@ -36,13 +36,16 @@ export function formatZodFlattenError(error: {
 const staffRoleEnum = z.enum(STAFF_ROLES as [typeof STAFF_ROLES[number], ...typeof STAFF_ROLES[number][]]);
 
 function addressLineSchema(kind: DeliveryAddressKind, optional = false) {
-  return z.preprocess((val) => {
-    return typeof val === 'string' ? normalizeAddressLine(val) : '';
-  }, z.string().superRefine((val, ctx) => {
-    if (optional && !val) return;
-    const err = deliveryAddressLineError(val, kind);
-    if (err) ctx.addIssue({ code: 'custom', message: err });
-  }));
+  return z
+    .string()
+    .transform((val) => normalizeAddressLine(val))
+    .pipe(
+      z.string().superRefine((val, ctx) => {
+        if (optional && !val) return;
+        const err = deliveryAddressLineError(val, kind);
+        if (err) ctx.addIssue({ code: 'custom', message: err });
+      }),
+    );
 }
 
 export const checkoutSchema = z
@@ -86,7 +89,7 @@ export const checkoutSchema = z
     }
   });
 
-export type CheckoutSchema = z.infer<typeof checkoutSchema>;
+export type CheckoutSchema = z.output<typeof checkoutSchema>;
 
 export const adminLoginSchema = z.object({
   email: z.string().email('Invalid email'),

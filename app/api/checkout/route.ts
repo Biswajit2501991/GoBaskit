@@ -127,7 +127,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const parsed = checkoutSchema.safeParse({ ...customer, paymentMethod });
+    const parsed = checkoutSchema.safeParse({
+      landmark: '',
+      deliveryNotes: '',
+      ...customer,
+      paymentMethod,
+    });
     if (!parsed.success) {
       return jsonError(formatZodFlattenError(parsed.error.flatten()), CHECKOUT_CODES.INVALID, 400);
     }

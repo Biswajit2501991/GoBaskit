@@ -22,6 +22,8 @@ describe('delivery address lines', () => {
       city: 'Adra',
       state: 'West Bengal',
       pincode: '723121',
+      landmark: '',
+      deliveryNotes: '',
       paymentMethod: 'COD',
     });
     expect(parsed.success).toBe(false);
@@ -48,6 +50,8 @@ describe('delivery address lines', () => {
       city: 'Adra',
       state: 'West Bengal',
       pincode: '723121',
+      landmark: '',
+      deliveryNotes: '',
       paymentMethod: 'COD',
     });
     expect(parsed.success).toBe(false);
@@ -72,6 +76,8 @@ describe('delivery address lines', () => {
       city: 'Raghunathpur',
       state: 'West Bengal',
       pincode: '723121',
+      landmark: '',
+      deliveryNotes: '',
       paymentMethod: 'COD',
     });
     expect(parsed.success).toBe(true);
@@ -88,6 +94,8 @@ describe('delivery address lines', () => {
       city: 'Adra',
       state: 'West Bengal',
       pincode: '723121',
+      landmark: '',
+      deliveryNotes: '',
       paymentMethod: 'COD',
     });
     expect(parsed.success).toBe(true);
