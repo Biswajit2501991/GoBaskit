@@ -19,6 +19,7 @@ import {
 } from '@/utils/phone';
 import { isValidIndianMobile, normalizeMobile } from '@/utils/mobile';
 import { openWhatsAppUrl } from '@/utils/whatsapp';
+import { notifyWhatsAppOpened } from '@/utils/notifyWhatsAppOpened';
 import { prepareCheckoutVerification } from '@/utils/prepareCheckoutVerification';
 
 interface VerificationData {
@@ -150,6 +151,7 @@ export default function WhatsAppVerificationModal({
           mobile,
           ...(verificationId ? { verificationId } : {}),
         }),
+        keepalive: true,
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -198,7 +200,7 @@ export default function WhatsAppVerificationModal({
     return () => clearInterval(timer);
   }, [sentWaitUntil]);
 
-  const markOpenedWhatsApp = useCallback((mobile: string, verification: VerificationData, url: string) => {
+  const markOpenedWhatsApp = useCallback(async (mobile: string, verification: VerificationData, url: string) => {
     mobileRef.current = mobile;
     verificationRef.current = verification;
     verificationIdRef.current = verification.id;
@@ -208,22 +210,14 @@ export default function WhatsAppVerificationModal({
     setVerification(verification);
     setWhatsappUrl(url);
     setPending(true);
+    const result = await notifyWhatsAppOpened({
+      mobile,
+      verificationId: verification.id,
+    });
+    if (result.verified) {
+      finishVerified(mobile);
+    }
     openWhatsAppUrl(url);
-    void fetch('/api/customer/verification/opened', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mobile,
-        verificationId: verification.id,
-      }),
-    })
-      .then(async (res) => {
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.verified === true) {
-          finishVerified(mobile);
-        }
-      })
-      .catch(() => {});
   }, [beginSentAckWait, finishVerified]);
 
   useEffect(() => {
@@ -307,7 +301,7 @@ export default function WhatsAppVerificationModal({
           finishVerified(mobileE164);
           return;
         }
-        markOpenedWhatsApp(mobileE164, data.verification, data.whatsappUrl);
+        await markOpenedWhatsApp(mobileE164, data.verification, data.whatsappUrl);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to generate code');
       } finally {
@@ -334,7 +328,7 @@ export default function WhatsAppVerificationModal({
           finishVerified(seedE164);
           return;
         }
-        markOpenedWhatsApp(seedE164, data.verification, data.whatsappUrl);
+        return markOpenedWhatsApp(seedE164, data.verification, data.whatsappUrl);
       })
       .catch((err) => {
         autoStartedRef.current = false;
@@ -345,7 +339,7 @@ export default function WhatsAppVerificationModal({
 
   function openWhatsApp() {
     if (!whatsappUrl || !mobileE164 || !verification) return;
-    markOpenedWhatsApp(mobileE164, verification, whatsappUrl);
+    void markOpenedWhatsApp(mobileE164, verification, whatsappUrl);
   }
 
   if (!open) return null;
@@ -357,7 +351,7 @@ export default function WhatsAppVerificationModal({
           <div>
             <h2 className="text-lg font-bold">Verify Your WhatsApp Number</h2>
             <p className="text-sm text-gray-500 mt-1">
-              Send the WhatsApp message from the same number you entered. We verify automatically when that message arrives.
+              Open WhatsApp from this screen. Your number is verified automatically — you do not need staff approval.
             </p>
           </div>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Close">
@@ -375,7 +369,7 @@ export default function WhatsAppVerificationModal({
           ) : !pending || !verification ? (
             <>
               <p className="text-sm text-gray-600">
-                Send a one-time WhatsApp code so we can confirm your number. After you send it, come back and your order continues.
+                Open WhatsApp from here to verify this number. Send the prefilled message to GoBaskit.
               </p>
 
               <div>
@@ -437,7 +431,7 @@ export default function WhatsAppVerificationModal({
                     : 'Checking WhatsApp from this number…'}
                 </p>
                 <p className="text-xs text-amber-700 mt-1">
-                  You do not need to tap continue. A different WhatsApp account cannot verify this number.
+                  Opening WhatsApp from this button verifies your number. Send the prefilled message to GoBaskit.
                 </p>
               </div>
 

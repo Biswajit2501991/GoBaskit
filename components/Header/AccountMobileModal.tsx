@@ -11,6 +11,7 @@ import { clearCheckoutProfileLocal, loadCheckoutProfileLocal } from '@/utils/cus
 import { normalizeMobile } from '@/utils/mobile';
 import { toE164, formatE164Display } from '@/utils/phone';
 import { openWhatsAppUrl } from '@/utils/whatsapp';
+import { notifyWhatsAppOpened } from '@/utils/notifyWhatsAppOpened';
 import { setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
 import LoginBrandSeal from '@/components/Header/LoginBrandSeal';
 import { useConfigStore } from '@/store/configStore';
@@ -206,6 +207,7 @@ export default function AccountMobileModal() {
             mobile,
             verificationId,
           }),
+          keepalive: true,
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !active) {
@@ -270,13 +272,8 @@ export default function AccountMobileModal() {
   if (!showAccountModal) return null;
 
   async function completeAfterWhatsAppOpened(mobile: string, verificationId: string) {
-    const openedRes = await fetch('/api/customer/verification/opened', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mobile, verificationId }),
-    });
-    const openedData = await openedRes.json().catch(() => ({}));
-    if (openedRes.ok && openedData.verified === true) {
+    const result = await notifyWhatsAppOpened({ mobile, verificationId });
+    if (result.verified) {
       setSessionVerifiedMobile(mobile);
       setPhase(existingPasswordRef.current ? 'password' : 'create-password');
       setError('');
@@ -325,8 +322,8 @@ export default function AccountMobileModal() {
         leftForWhatsAppRef.current = true;
         hiddenAtRef.current = Date.now();
         beginSentAckWait();
-        openWhatsAppUrl(data.whatsappUrl);
         await completeAfterWhatsAppOpened(mobileE164, data.verification.id);
+        openWhatsAppUrl(data.whatsappUrl);
       }
     } catch {
       setError('Network error. Please try again.');
@@ -352,6 +349,7 @@ export default function AccountMobileModal() {
           mobile: mobileE164,
           verificationId: verification.id,
         }),
+        keepalive: true,
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -666,7 +664,7 @@ export default function AccountMobileModal() {
           <div className="text-center">
             <h2 className="text-xl font-bold text-gray-900 tracking-tight">Verify your WhatsApp</h2>
             <p className="text-sm text-gray-500 mt-1.5 mb-5 leading-relaxed">
-              Send this code from the same WhatsApp number you entered. We verify automatically when that message arrives.
+              Open WhatsApp from this screen. Your number is verified automatically — you do not need staff approval.
             </p>
             <div className="bg-gray-50 rounded-2xl p-4 space-y-1 mb-4 border border-gray-100">
               <p className="text-[11px] text-gray-500 uppercase tracking-wide">Verification Code</p>
@@ -679,7 +677,9 @@ export default function AccountMobileModal() {
                   ? `Send the message — we continue automatically in ${sentWaitSeconds}s`
                   : 'Checking WhatsApp from this number…'}
               </p>
-              <p className="text-xs text-amber-800 mt-1">You do not need to tap continue. A different WhatsApp will not verify.</p>
+              <p className="text-xs text-amber-800 mt-1">
+                Opening WhatsApp from this button verifies your number. Send the prefilled message to GoBaskit.
+              </p>
             </div>
             <div className="space-y-2">
               {whatsappUrl && (
@@ -692,10 +692,12 @@ export default function AccountMobileModal() {
                     if (verification?.id) verificationIdRef.current = verification.id;
                     if (mobileE164) waitingMobileRef.current = mobileE164;
                     beginSentAckWait();
-                    openWhatsAppUrl(whatsappUrl);
-                    if (mobileE164 && verification?.id) {
-                      void completeAfterWhatsAppOpened(mobileE164, verification.id);
-                    }
+                    void (async () => {
+                      if (mobileE164 && verification?.id) {
+                        await completeAfterWhatsAppOpened(mobileE164, verification.id);
+                      }
+                      openWhatsAppUrl(whatsappUrl);
+                    })();
                   }}
                 >
                   <MessageCircle className="w-5 h-5" />

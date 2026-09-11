@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationService';
 import { getRequestMeta } from '@/lib/request-meta';
+import { parseJsonRequestBody } from '@/lib/parseJsonRequestBody';
 import { isValidE164 } from '@/utils/phone';
 
 const bodySchema = z.object({
@@ -10,8 +11,7 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null);
-  const parsed = bodySchema.safeParse(body);
+  const parsed = bodySchema.safeParse(await parseJsonRequestBody(req));
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
