@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { markAndroidAlertsPromptAfterLogin } from '@/lib/admin-push-client';
 import { normalizeMobile } from '@/utils/mobile';
+import { logoutEverywhere } from '@/utils/logoutEverywhere';
 
 type Offer = {
   offerId: string;
@@ -241,8 +242,19 @@ export default function ShopPortalPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b px-4 py-3 font-extrabold">
-        Go<span className="text-blinkit-green">Baskit</span> Shop
+      <header className="bg-white border-b px-4 py-3 flex items-center justify-between gap-3">
+        <p className="font-extrabold">
+          Go<span className="text-blinkit-green">Baskit</span> Shop
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            void logoutEverywhere('/shop');
+          }}
+          className="text-sm font-medium text-red-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50"
+        >
+          Logout
+        </button>
       </header>
       <main className="max-w-lg mx-auto p-4 space-y-4">
         {info && <p className="text-sm text-emerald-700 bg-emerald-50 rounded-xl p-3">{info}</p>}
