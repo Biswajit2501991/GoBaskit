@@ -9,6 +9,10 @@ describe('delivery address lines', () => {
     expect(deliveryAddressLineError('Lane 2', 'street')).toBeNull();
     expect(deliveryAddressLineError('Railway Colony', 'area')).toBeNull();
     expect(deliveryAddressLineError('Adra', 'area')).toBeNull();
+    expect(deliveryAddressLineError('12/A', 'house')).toBeNull();
+    expect(deliveryAddressLineError('subhas nagar', 'street')).toBeNull();
+    expect(deliveryAddressLineError('adra', 'area')).toBeNull();
+    expect(deliveryAddressLineError('mandir', 'landmark')).toBeNull();
   });
 
   it('rejects a saved Test / tets profile so that customer cannot place another order until they fix the address', () => {
