@@ -9,7 +9,10 @@ const prismaMock = {
 
 jest.mock('@/lib/prisma', () => ({ prisma: prismaMock }));
 jest.mock('@/services/SettingsService', () => ({
-  SettingsService: { getStoreConfig: jest.fn() },
+  SettingsService: {
+    getStoreConfig: jest.fn(),
+    mergeDeliveryAddressLocalities: jest.fn().mockResolvedValue(undefined),
+  },
 }));
 jest.mock('@/services/DiscountEngine', () => ({
   DiscountEngine: { quoteExistingOrderDiscount: jest.fn() },

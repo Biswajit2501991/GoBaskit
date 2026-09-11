@@ -79,6 +79,7 @@ interface ConfigState {
   };
   weatherDisclaimer: WeatherDisclaimerPublic;
   overnightCheckout: OvernightCheckoutConfig;
+  deliveryAddressLocalities: string[];
   loaded: boolean;
   fetchConfig: () => Promise<void>;
   refreshConfig: () => Promise<void>;
@@ -148,6 +149,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     visible: false,
   },
   overnightCheckout: DEFAULT_OVERNIGHT_CHECKOUT,
+  deliveryAddressLocalities: [],
   loaded: false,
 
   fetchConfig: async () => {
@@ -232,6 +234,12 @@ async function loadConfig(
               }
             : get().weatherDisclaimer,
         overnightCheckout: parseOvernightCheckout(c.overnightCheckout),
+        deliveryAddressLocalities: Array.isArray(c.deliveryAddressLocalities)
+          ? c.deliveryAddressLocalities
+              .map((word: unknown) => String(word).toLowerCase().replace(/[^a-z0-9]/g, ''))
+              .filter((word: string) => word.length >= 3 && word.length <= 32)
+              .slice(0, 500)
+          : get().deliveryAddressLocalities,
         loaded: true,
       });
       const hc = get().homepageConfig;

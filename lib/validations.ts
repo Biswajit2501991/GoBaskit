@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { STAFF_ROLES } from '@/types/staff';
 import {
   deliveryAddressLineError,
-  isKnownLocalityLine,
   normalizeAddressLine,
+  repeatedAddressContentError,
   type DeliveryAddressKind,
 } from '@/lib/deliveryAddress';
 
@@ -73,17 +73,11 @@ export const checkoutSchema = z
     const house = normalizeAddressLine(String(data.houseNumber ?? ''));
     const street = normalizeAddressLine(String(data.street ?? ''));
     const area = normalizeAddressLine(String(data.area ?? ''));
-    if (
-      house &&
-      street &&
-      area &&
-      house.toLowerCase() === street.toLowerCase() &&
-      street.toLowerCase() === area.toLowerCase() &&
-      !isKnownLocalityLine(house)
-    ) {
+    const repeatErr = repeatedAddressContentError(house, street, area);
+    if (repeatErr) {
       ctx.addIssue({
         code: 'custom',
-        message: 'House, street, and area cannot all be the same. Add the real street and area.',
+        message: repeatErr,
         path: ['street'],
       });
     }

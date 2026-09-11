@@ -7,6 +7,7 @@ import {
   runInteractiveTxn,
 } from '@/lib/prismaInteractiveTxn';
 import { checkoutSchema, formatZodFlattenError } from '@/lib/validations';
+import { extractLearnableTokens, setLearnedDeliveryLocalities } from '@/lib/deliveryAddress';
 import { deliveryChargeFrom } from '@/constants';
 import { deliveryIsServiceable } from '@/utils/delivery';
 import { SettingsService } from '@/services/SettingsService';
@@ -126,6 +127,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(successPayload(existing, started, true));
       }
     }
+
+    const configForAddress = await SettingsService.getStoreConfig();
+    setLearnedDeliveryLocalities(configForAddress.deliveryAddressLocalities);
 
     const parsed = checkoutSchema.safeParse({
       landmark: '',
@@ -426,6 +430,14 @@ export async function POST(req: NextRequest) {
             customerLng: orderSnapshot.customerLng,
           }),
           CustomerProfileService.save(profileMobile, profileData),
+          SettingsService.mergeDeliveryAddressLocalities(
+            extractLearnableTokens(
+              parsed.data.houseNumber,
+              parsed.data.street,
+              parsed.data.area,
+              parsed.data.landmark,
+            ),
+          ),
         ]);
       } catch (err) {
         console.error('Checkout post-order side effects failed:', err);

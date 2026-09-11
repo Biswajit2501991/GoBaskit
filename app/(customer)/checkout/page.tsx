@@ -31,6 +31,7 @@ import { checkoutSchema, formatZodFlattenError, type CheckoutSchema } from '@/li
 import { buildWhatsAppMessage, buildWhatsAppUrl, openWhatsAppUrl } from '@/utils/whatsapp';
 import { getOrCreateCheckoutIdempotencyKey, clearCheckoutIdempotencyKey } from '@/utils/checkoutAttempt';
 import { nightDeliveryCopy, nightDeliveryWindow } from '@/lib/nightDelivery';
+import { setLearnedDeliveryLocalities } from '@/lib/deliveryAddress';
 import { formatCurrency } from '@/utils/formatter';
 import { WHATSAPP_NUMBER, STORE_NAME } from '@/constants';
 import { isValidIndianMobile, normalizeMobile } from '@/utils/mobile';
@@ -60,6 +61,7 @@ export default function CheckoutPage() {
     checkoutMode,
     homepageConfig,
     overnightCheckout,
+    deliveryAddressLocalities,
     refreshConfig,
   } = useConfigStore();
   const appliedDiscount = useDiscountStore((s) => s.applied);
@@ -69,6 +71,10 @@ export default function CheckoutPage() {
   useEffect(() => {
     void refreshConfig();
   }, [refreshConfig]);
+
+  useEffect(() => {
+    setLearnedDeliveryLocalities(deliveryAddressLocalities);
+  }, [deliveryAddressLocalities]);
 
   const subtotal = getSubtotal();
   const deliveryCharge = deliveryChargeFrom(deliverySlabs, subtotal);
@@ -137,6 +143,11 @@ export default function CheckoutPage() {
     source: 'website' | 'whatsapp';
   } | null>(null);
   const [nightAckBusy, setNightAckBusy] = useState(false);
+  const [addressPrompt, setAddressPrompt] = useState<{
+    data: CheckoutSchema;
+    source: 'website' | 'whatsapp';
+  } | null>(null);
+  const [addressAckBusy, setAddressAckBusy] = useState(false);
   const customerSectionRef = useRef<HTMLDivElement | null>(null);
   const addressSectionRef = useRef<HTMLDivElement | null>(null);
   const summarySectionRef = useRef<HTMLDivElement | null>(null);
@@ -571,7 +582,7 @@ export default function CheckoutPage() {
   async function submitOrder(
     data: CheckoutSchema,
     source: 'website' | 'whatsapp',
-    options?: { nightDeliveryAck?: boolean },
+    options?: { nightDeliveryAck?: boolean; addressAccuracyAck?: boolean },
   ) {
     const parsed = checkoutSchema.safeParse(data);
     if (!parsed.success) {
@@ -583,6 +594,11 @@ export default function CheckoutPage() {
     if (!validateBeforeSubmit(data)) return;
     if (!(await ensureWhatsAppVerified(data))) {
       setPendingSubmitSource(source);
+      return;
+    }
+
+    if (!options?.addressAccuracyAck) {
+      setAddressPrompt({ data, source });
       return;
     }
 
@@ -1259,6 +1275,56 @@ export default function CheckoutPage() {
         }}
       />
 
+      {addressPrompt && (
+        <div className="fixed inset-0 z-[95] flex items-end sm:items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl p-5 space-y-4">
+            <h2 className="text-lg font-bold text-gray-900">Confirm your delivery address</h2>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Our rider must find this house from the address you entered. If the address is incomplete
+              or cannot be located, we may cancel the order. We do not auto-close orders from this check
+              — please WhatsApp GoBaskit Karo if you need help correcting it.
+            </p>
+            <a
+              href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-sm font-semibold text-emerald-700 underline"
+            >
+              WhatsApp GoBaskit Karo +{WHATSAPP_NUMBER.replace(/\D/g, '')}
+            </a>
+            <div className="space-y-2">
+              <Button
+                type="button"
+                className="w-full h-11 rounded-xl font-semibold"
+                disabled={addressAckBusy}
+                onClick={() => {
+                  const next = addressPrompt;
+                  setAddressAckBusy(true);
+                  setAddressPrompt(null);
+                  void submitOrder(next.data, next.source, { addressAccuracyAck: true }).finally(() => {
+                    setAddressAckBusy(false);
+                  });
+                }}
+              >
+                {addressAckBusy ? 'Continuing…' : 'Address is correct — continue'}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-gray-500"
+                disabled={addressAckBusy}
+                onClick={() => {
+                  setAddressPrompt(null);
+                  focusSection('address');
+                }}
+              >
+                Edit address
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {nightPrompt && (
         <div className="fixed inset-0 z-[95] flex items-end sm:items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-xl p-5 space-y-4">
@@ -1273,7 +1339,10 @@ export default function CheckoutPage() {
                   const next = nightPrompt;
                   setNightAckBusy(true);
                   setNightPrompt(null);
-                  void submitOrder(next.data, next.source, { nightDeliveryAck: true }).finally(() => {
+                  void submitOrder(next.data, next.source, {
+                    nightDeliveryAck: true,
+                    addressAccuracyAck: true,
+                  }).finally(() => {
                     setNightAckBusy(false);
                   });
                 }}

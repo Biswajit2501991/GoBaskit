@@ -21,7 +21,11 @@ import { AuditService } from '@/services/AuditService';
 import { DashboardService } from '@/services/DashboardService';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { adminEventBus } from '@/lib/realtime/eventBus';
-import { assertDeliveryAddressLines } from '@/lib/deliveryAddress';
+import {
+  assertDeliveryAddressLines,
+  extractLearnableTokens,
+  setLearnedDeliveryLocalities,
+} from '@/lib/deliveryAddress';
 
 export class OrderEditError extends Error {
   constructor(
@@ -241,6 +245,7 @@ export class OrderMutationService {
       ? Math.max(0, subtotal - quoted.discountAmount + deliveryCharge)
       : order.grandTotal;
 
+    setLearnedDeliveryLocalities(config.deliveryAddressLocalities);
     const deliveryNext = hasDelivery
       ? mergeDelivery(order.customer, order.deliveryNotes, params.delivery!)
       : null;
@@ -374,6 +379,19 @@ export class OrderMutationService {
     };
 
     emitOrderUpdated(updated);
+
+    if (deliveryNext) {
+      after(() =>
+        SettingsService.mergeDeliveryAddressLocalities(
+          extractLearnableTokens(
+            deliveryNext.houseNumber,
+            deliveryNext.street,
+            deliveryNext.area,
+            deliveryNext.landmark,
+          ),
+        ).catch((err) => console.error('[order] learn delivery localities failed', err)),
+      );
+    }
 
     const staffId = params.actor.type === 'staff' ? params.actor.staff.id : undefined;
     const notes: string[] = [];

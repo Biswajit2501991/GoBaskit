@@ -302,12 +302,128 @@ function isPlotOrQuarterLine(value: string): boolean {
   return /\p{L}/u.test(value) && /\p{N}/u.test(value);
 }
 
+const learnedLocalities = new Set<string>();
+const MAX_LEARNED_LOCALITIES = 500;
+
 export function isKnownLocalityLine(value: string): boolean {
   const normalized = normalizeAddressLine(value).toLowerCase();
   if (!normalized) return false;
-  if (KNOWN_SHORT_LINES.has(normalized)) return true;
+  if (KNOWN_SHORT_LINES.has(normalized) || learnedLocalities.has(normalized.replace(/\s+/g, ''))) return true;
   if (isPlotOrQuarterLine(normalized)) return true;
-  return tokens(normalized).some((tok) => LOCALITY_WORDS.has(tok));
+  return tokens(normalized).some(
+    (tok) => LOCALITY_WORDS.has(tok) || learnedLocalities.has(tok),
+  );
+}
+
+export function setLearnedDeliveryLocalities(words: readonly string[] | null | undefined): void {
+  learnedLocalities.clear();
+  for (const word of words ?? []) {
+    const token = sanitizeLearnedLocality(word);
+    if (token) learnedLocalities.add(token);
+  }
+}
+
+export function sanitizeLearnedLocality(raw: string): string | null {
+  const token = String(raw ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+  if (token.length < 3 || token.length > 32) return null;
+  if (/^\d+$/.test(token)) return null;
+  if (JUNK_TOKENS.has(token) || JUNK_LINE.test(token)) return null;
+  if (LOCALITY_WORDS.has(token)) return null;
+  return token;
+}
+
+export function extractLearnableTokens(...lines: Array<string | null | undefined>): string[] {
+  const out = new Set<string>();
+  for (const line of lines) {
+    for (const tok of tokens(normalizeAddressLine(line ?? ''))) {
+      const sanitized = sanitizeLearnedLocality(tok);
+      if (sanitized) out.add(sanitized);
+    }
+  }
+  return [...out];
+}
+
+export function parseDeliveryLocalities(raw: unknown): string[] {
+  let source: unknown[] = [];
+  if (Array.isArray(raw)) source = raw;
+  else if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      source = Array.isArray(parsed) ? parsed : trimmed.split(/[,\n]/);
+    } catch {
+      source = trimmed.split(/[,\n]/);
+    }
+  }
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of source) {
+    const token = sanitizeLearnedLocality(String(item ?? ''));
+    if (!token || seen.has(token)) continue;
+    seen.add(token);
+    out.push(token);
+    if (out.length >= MAX_LEARNED_LOCALITIES) break;
+  }
+  return out;
+}
+
+const REPEAT_SKIP = new Set([
+  'near',
+  'behind',
+  'beside',
+  'opposite',
+  'towards',
+  'from',
+  'with',
+  'and',
+  'the',
+  'for',
+  'house',
+  'ghar',
+  'shop',
+  'road',
+  'lane',
+  'para',
+  'pally',
+]);
+
+/** Same copied line, or the same non-locality word used in more than one of house/street/area. */
+export function repeatedAddressContentError(house: string, street: string, area: string): string | null {
+  const h = normalizeAddressLine(house).toLowerCase();
+  const s = normalizeAddressLine(street).toLowerCase();
+  const a = normalizeAddressLine(area).toLowerCase();
+  const pairs: Array<[string, string]> = [
+    [h, s],
+    [h, a],
+    [s, a],
+  ];
+  for (const [left, right] of pairs) {
+    if (left && right && left === right && !isKnownLocalityLine(left)) {
+      return 'House, street, and area should not copy the same text. Add the real street and area.';
+    }
+  }
+
+  const fieldTokens = [h, s, a].map(
+    (line) =>
+      new Set(
+        tokens(line).filter((tok) => tok.length >= 5 && !REPEAT_SKIP.has(tok) && !LOCALITY_WORDS.has(tok) && !learnedLocalities.has(tok) && !/^\d+$/.test(tok)),
+      ),
+  );
+  const seen = new Map<string, number>();
+  for (const set of fieldTokens) {
+    for (const tok of set) {
+      seen.set(tok, (seen.get(tok) ?? 0) + 1);
+    }
+  }
+  for (const [tok, count] of seen) {
+    if (count >= 2) {
+      return `Don't repeat "${tok}" in more than one address line.`;
+    }
+  }
+  return null;
 }
 
 export function deliveryAddressLineError(raw: string, kind: DeliveryAddressKind): string | null {
@@ -401,16 +517,6 @@ export function assertDeliveryAddressLines(params: {
   const notesErr = deliveryAddressLineError(deliveryNotes, 'notes');
   if (notesErr) throw Object.assign(new Error(notesErr), { field: 'deliveryNotes' });
 
-  const same =
-    houseNumber &&
-    street &&
-    area &&
-    houseNumber.toLowerCase() === street.toLowerCase() &&
-    street.toLowerCase() === area.toLowerCase();
-  if (same && !isKnownLocalityLine(houseNumber)) {
-    throw Object.assign(
-      new Error('House, street, and area cannot all be the same. Add the real street and area.'),
-      { field: 'street' },
-    );
-  }
+  const repeatErr = repeatedAddressContentError(houseNumber, street, area);
+  if (repeatErr) throw Object.assign(new Error(repeatErr), { field: 'street' });
 }

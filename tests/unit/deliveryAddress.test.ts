@@ -1,7 +1,18 @@
-import { checkoutSchema } from '@/lib/validations';
-import { deliveryAddressLineError } from '@/lib/deliveryAddress';
+import {
+  checkoutSchema,
+} from '@/lib/validations';
+import {
+  deliveryAddressLineError,
+  extractLearnableTokens,
+  repeatedAddressContentError,
+  sanitizeLearnedLocality,
+  setLearnedDeliveryLocalities,
+} from '@/lib/deliveryAddress';
 
 describe('delivery address lines', () => {
+  afterEach(() => {
+    setLearnedDeliveryLocalities([]);
+  });
   it('accepts ordinary Indian house, street, and area', () => {
     expect(deliveryAddressLineError('12/A', 'house')).toBeNull();
     expect(deliveryAddressLineError('Qtr 4', 'house')).toBeNull();
@@ -95,6 +106,58 @@ describe('delivery address lines', () => {
       houseNumber: '10A',
       street: 'Main Road',
       area: 'Center',
+      city: 'Adra',
+      state: 'West Bengal',
+      pincode: '723121',
+      landmark: '',
+      deliveryNotes: '',
+      paymentMethod: 'COD',
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('rejects the same copied text on two of house, street, and area', () => {
+    const parsed = checkoutSchema.safeParse({
+      firstName: 'Ravi',
+      lastName: 'Kumar',
+      mobile: '9876543210',
+      houseNumber: 'Hello World',
+      street: 'Hello World',
+      area: 'Adra',
+      city: 'Adra',
+      state: 'West Bengal',
+      pincode: '723121',
+      landmark: '',
+      deliveryNotes: '',
+      paymentMethod: 'COD',
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('rejects a non-locality word repeated across address lines', () => {
+    expect(repeatedAddressContentError('Foobar lane', 'Station Road', 'Foobar para')).toMatch(/foobar/i);
+  });
+
+  it('still allows locality words such as road or nagar in more than one line', () => {
+    expect(repeatedAddressContentError('12/A', 'Station Road', 'Subhas Nagar')).toBeNull();
+  });
+
+  it('does not learn junk or generic locality words', () => {
+    expect(sanitizeLearnedLocality('test')).toBeNull();
+    expect(sanitizeLearnedLocality('asdf')).toBeNull();
+    expect(sanitizeLearnedLocality('nagar')).toBeNull();
+    expect(extractLearnableTokens('test', 'asdf nagar', 'Chittaranjan')).toEqual(['chittaranjan']);
+  });
+
+  it('treats a learned neighbourhood name as a matching locality', () => {
+    setLearnedDeliveryLocalities(['chittaranjan']);
+    const parsed = checkoutSchema.safeParse({
+      firstName: 'Ravi',
+      lastName: 'Kumar',
+      mobile: '9876543210',
+      houseNumber: 'Chittaranjan',
+      street: 'Chittaranjan',
+      area: 'Chittaranjan',
       city: 'Adra',
       state: 'West Bengal',
       pincode: '723121',

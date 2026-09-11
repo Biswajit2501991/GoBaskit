@@ -18,6 +18,7 @@ import {
   parseSeasonalThemeId,
   type SeasonalThemeId,
 } from '@/constants/seasonalThemes';
+import { parseDeliveryLocalities, sanitizeLearnedLocality } from '@/lib/deliveryAddress';
 import {
   applyWeatherObservation,
   DEFAULT_WEATHER_DISCLAIMER,
@@ -134,10 +135,19 @@ export interface StoreConfig {
   weatherDisclaimer: WeatherDisclaimerPublic;
   /** Overnight Accept/Decline at checkout. Missing DB row uses defaults (enabled). */
   overnightCheckout: OvernightCheckoutConfig;
+  /** Neighbourhood words learned from real checkouts. Separate Setting row. */
+  deliveryAddressLocalities: string[];
 }
 
 type StoreConfigUpdate = Partial<
-  Omit<StoreConfig, 'homepageConfig' | 'discountConfig' | 'weatherDisclaimer' | 'overnightCheckout'>
+  Omit<
+    StoreConfig,
+    | 'homepageConfig'
+    | 'discountConfig'
+    | 'weatherDisclaimer'
+    | 'overnightCheckout'
+    | 'deliveryAddressLocalities'
+  >
 > & {
   homepageConfig?: Partial<Omit<StoreConfig['homepageConfig'], 'promoSections' | 'healthStarDisplay'>> & {
     promoSections?: Array<Partial<StoreConfig['homepageConfig']['promoSections'][number]>>;
@@ -219,6 +229,7 @@ const KEY_HOMEPAGE_CONFIG = 'homepage_config';
 const KEY_DISCOUNT_CONFIG = 'discount_config';
 const KEY_WEATHER_DISCLAIMER = 'weather_disclaimer';
 const KEY_OVERNIGHT_CHECKOUT = 'overnight_checkout';
+const KEY_DELIVERY_ADDRESS_LOCALITIES = 'delivery_address_localities';
 
 const DEFAULT_STAFF_IDLE_TIMEOUT_MINUTES = 15;
 
@@ -336,6 +347,7 @@ const DEFAULTS: StoreConfig = {
   discountConfig: DEFAULT_DISCOUNT_CONFIG,
   weatherDisclaimer: parseWeatherDisclaimer(DEFAULT_WEATHER_DISCLAIMER),
   overnightCheckout: DEFAULT_OVERNIGHT_CHECKOUT,
+  deliveryAddressLocalities: [],
 };
 
 // In-memory cache. The app runs as a single long-lived Node server, so this
@@ -665,6 +677,12 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     }
   }
 
+  let deliveryAddressLocalities: string[] = [];
+  const rawDeliveryLocalities = map.get(KEY_DELIVERY_ADDRESS_LOCALITIES);
+  if (rawDeliveryLocalities) {
+    deliveryAddressLocalities = parseDeliveryLocalities(rawDeliveryLocalities);
+  }
+
   return {
     serviceablePins: pins,
     serviceableCities: cities,
@@ -689,6 +707,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     discountConfig,
     weatherDisclaimer,
     overnightCheckout,
+    deliveryAddressLocalities,
   };
 }
 
@@ -724,6 +743,7 @@ export const SettingsService = {
               KEY_DISCOUNT_CONFIG,
               KEY_WEATHER_DISCLAIMER,
               KEY_OVERNIGHT_CHECKOUT,
+              KEY_DELIVERY_ADDRESS_LOCALITIES,
             ],
           },
         },
@@ -1096,6 +1116,26 @@ export const SettingsService = {
   },
 
   invalidate() {
+    cache = null;
+  },
+
+  /** Grow locality keywords from addresses that already passed junk checks. Own Setting row only. */
+  async mergeDeliveryAddressLocalities(incoming: readonly string[]): Promise<void> {
+    const extra = incoming
+      .map((word) => sanitizeLearnedLocality(word))
+      .filter((word): word is string => Boolean(word));
+    if (!extra.length) return;
+    const current = (await this.getStoreConfig()).deliveryAddressLocalities;
+    const seen = new Set(current);
+    const next = [...current];
+    for (const token of extra) {
+      if (seen.has(token)) continue;
+      seen.add(token);
+      next.push(token);
+    }
+    const capped = next.slice(-500);
+    if (capped.length === current.length && capped.every((word, i) => word === current[i])) return;
+    await upsert(KEY_DELIVERY_ADDRESS_LOCALITIES, JSON.stringify(capped));
     cache = null;
   },
 
