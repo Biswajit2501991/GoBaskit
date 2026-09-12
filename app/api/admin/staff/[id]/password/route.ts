@@ -30,7 +30,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
   const { id } = await params;
   const existing = await prisma.staffAccount.findFirst({
-    where: { id, deletedAt: null },
+    where: { id },
     select: { id: true, name: true, mobile: true, role: true, passwordVault: true },
   });
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -58,7 +58,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
   }
 
-  const existing = await prisma.staffAccount.findFirst({ where: { id, deletedAt: null } });
+  const existing = await prisma.staffAccount.findFirst({ where: { id } });
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   await prisma.staffAccount.update({

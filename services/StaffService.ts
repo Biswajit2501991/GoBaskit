@@ -40,9 +40,12 @@ export class StaffService {
     const page = Math.max(params.page ?? 1, 1);
     const pageSize = Math.min(params.pageSize ?? 20, 100);
     const where = {
-      deletedAt: null,
       ...(params.role ? { role: params.role } : {}),
-      ...(params.active !== undefined ? { active: params.active } : {}),
+      ...(params.active === true
+        ? { active: true, deletedAt: null }
+        : params.active === false
+          ? { OR: [{ active: false }, { deletedAt: { not: null } }] }
+          : {}),
       ...(params.search
         ? {
             OR: [
@@ -57,7 +60,7 @@ export class StaffService {
     const [items, total] = await Promise.all([
       prisma.staffAccount.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ deletedAt: { sort: 'asc' as const, nulls: 'first' as const } }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
         select: {
@@ -75,6 +78,7 @@ export class StaffService {
           deliveryRadius: true,
           shopId: true,
           lastLogin: true,
+          deletedAt: true,
           createdAt: true,
           updatedAt: true,
         },

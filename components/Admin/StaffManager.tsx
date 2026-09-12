@@ -27,6 +27,7 @@ interface StaffRow {
   longitude: number | null;
   deliveryRadius: number | null;
   shopId: string | null;
+  deletedAt: string | null;
 }
 
 const emptyForm = {
@@ -69,6 +70,10 @@ function staffPayloadError(form: typeof emptyForm, editingId: string | null): st
 
 function canEditStaffProfile(row: StaffRow): boolean {
   return row.role !== 'SUPER_ADMIN' && row.role !== 'ALL_SUPER_ADMIN';
+}
+
+function isDeactivatedStaff(row: StaffRow): boolean {
+  return Boolean(row.deletedAt) || row.active === false;
 }
 
 export default function StaffManager({
@@ -282,6 +287,22 @@ export default function StaffManager({
     }
   }
 
+  async function handleReactivate(row: StaffRow) {
+    if (!canManage || !canEditStaffProfile(row)) return;
+    const res = await fetch(`/api/admin/staff/${row.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: true }),
+    });
+    if (res.ok) {
+      load();
+      router.refresh();
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    alert(typeof data.error === 'string' ? data.error : 'Could not reactivate staff');
+  }
+
   async function handleDelete(id: string) {
     if (!canManage) return;
     if (!confirm('Deactivate this staff member?')) return;
@@ -302,7 +323,7 @@ export default function StaffManager({
           <h1 className="text-2xl font-bold">Staff Management</h1>
           <p className="text-sm text-gray-500">
             {canManage
-              ? 'Add staff and manage passwords. Super Admin profiles cannot be edited.'
+              ? 'Add staff and manage passwords. Deactivated accounts stay in this list so you can edit or reactivate them.'
               : 'View staff access (only All Super Admin can add staff or change passwords)'}
           </p>
         </div>
@@ -320,8 +341,9 @@ export default function StaffManager({
         placeholder="Search by name, mobile, email..."
         value={search}
         onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-        className="mb-4 max-w-md"
+        className="mb-1 max-w-md"
       />
+      <p className="text-xs text-gray-400 mb-4">Search by mobile to find a deactivated account.</p>
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/30 p-4 overflow-y-auto">
@@ -564,7 +586,7 @@ export default function StaffManager({
               <th className="p-3">Role</th>
               <th className="p-3">Zone</th>
               <th className="p-3">Status</th>
-              <th className="p-3 w-28">Actions</th>
+              <th className="p-3 w-40">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -574,7 +596,7 @@ export default function StaffManager({
               <tr><td colSpan={6} className="p-6 text-center text-gray-400">No staff found</td></tr>
             ) : (
               items.map((row) => (
-                <tr key={row.id} className="border-t">
+                <tr key={row.id} className={`border-t ${isDeactivatedStaff(row) ? 'bg-gray-50' : ''}`}>
                   <td className="p-3 font-medium">{row.name}</td>
                   <td className="p-3">{row.mobile}</td>
                   <td className="p-3">{STAFF_ROLE_LABELS[row.role] ?? row.role.replace(/_/g, ' ')}</td>
@@ -583,8 +605,8 @@ export default function StaffManager({
                     {row.deliveryRadius ? ` · ${row.deliveryRadius}km` : ''}
                   </td>
                   <td className="p-3">
-                    <span className={row.active ? 'text-green-600' : 'text-red-500'}>
-                      {row.active ? 'Active' : 'Inactive'}
+                    <span className={isDeactivatedStaff(row) ? 'text-red-500' : 'text-green-600'}>
+                      {row.deletedAt ? 'Deactivated' : row.active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td className="p-3 flex gap-1">
@@ -593,6 +615,15 @@ export default function StaffManager({
                         {canEditStaffProfile(row) && (
                           <button type="button" onClick={() => openEdit(row)} className="p-1.5 hover:bg-gray-100 rounded" aria-label="Edit">
                             <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                        {isDeactivatedStaff(row) && canEditStaffProfile(row) && (
+                          <button
+                            type="button"
+                            onClick={() => void handleReactivate(row)}
+                            className="px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 rounded"
+                          >
+                            Reactivate
                           </button>
                         )}
                         <button
@@ -604,7 +635,7 @@ export default function StaffManager({
                         >
                           <KeyRound className="w-4 h-4" />
                         </button>
-                        {row.role !== 'ALL_SUPER_ADMIN' && (
+                        {row.role !== 'ALL_SUPER_ADMIN' && !isDeactivatedStaff(row) && (
                           <button type="button" onClick={() => handleDelete(row.id)} className="p-1.5 hover:bg-red-50 text-red-500 rounded" aria-label="Deactivate">
                             <Trash2 className="w-4 h-4" />
                           </button>

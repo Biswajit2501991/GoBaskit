@@ -24,7 +24,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     );
   }
 
-  const existing = await prisma.staffAccount.findFirst({ where: { id, deletedAt: null } });
+  const existing = await prisma.staffAccount.findFirst({ where: { id } });
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   if (existing.role === 'ALL_SUPER_ADMIN' && auth.staff!.role !== 'ALL_SUPER_ADMIN') {
@@ -80,7 +80,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
   if (parsed.data.role) data.role = parsed.data.role;
   if (parsed.data.permissions) data.permissions = parsed.data.permissions;
-  if (parsed.data.active !== undefined) data.active = parsed.data.active;
+  if (parsed.data.active !== undefined) {
+    data.active = parsed.data.active;
+    if (parsed.data.active === true) data.deletedAt = null;
+  }
   if (parsed.data.assignedCity !== undefined) data.assignedCity = parsed.data.assignedCity || null;
   if (parsed.data.assignedAreas) data.assignedAreas = parsed.data.assignedAreas;
   if (parsed.data.latitude !== undefined) data.latitude = parsed.data.latitude;
