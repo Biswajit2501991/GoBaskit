@@ -15,6 +15,14 @@ type Shop = {
   active: boolean;
 };
 
+const emptyForm = {
+  name: '',
+  phone: '',
+  address: '',
+  city: '',
+  active: true,
+};
+
 export default function ShopManager({
   canEdit,
   canTagProducts,
@@ -23,10 +31,9 @@ export default function ShopManager({
   canTagProducts: boolean;
 }) {
   const [shops, setShops] = useState<Shop[]>([]);
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [city, setCity] = useState('');
+  const [form, setForm] = useState(emptyForm);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [catalogShop, setCatalogShop] = useState<Shop | null>(null);
 
@@ -40,24 +47,54 @@ export default function ShopManager({
     void load();
   }, []);
 
+  function startEdit(shop: Shop) {
+    setError('');
+    setEditingId(shop.id);
+    setForm({
+      name: shop.name,
+      phone: shop.phone.replace(/\D/g, '').slice(-10),
+      address: shop.address ?? '',
+      city: shop.city ?? '',
+      active: shop.active !== false,
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(emptyForm);
+    setError('');
+  }
+
   async function save() {
     setError('');
-    const res = await fetch('/api/admin/shops', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, address, city }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setError(typeof data.error === 'string' ? data.error : 'Could not save');
-      return;
+    setSaving(true);
+    try {
+      const res = await fetch(editingId ? `/api/admin/shops/${editingId}` : '/api/admin/shops', {
+        method: editingId ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          phone: form.phone,
+          address: form.address,
+          city: form.city,
+          active: form.active,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(typeof data.error === 'string' ? data.error : 'Could not save');
+        return;
+      }
+      const saved = data as Shop;
+      cancelEdit();
+      await load();
+      setCatalogShop((current) => (current && saved.id === current.id ? { ...current, ...saved } : current));
+    } finally {
+      setSaving(false);
     }
-    setName('');
-    setPhone('');
-    setAddress('');
-    setCity('');
-    await load();
   }
+
+  const canSave = form.name.trim().length >= 2 && form.phone.replace(/\D/g, '').length === 10;
 
   return (
     <div className="p-6 max-w-3xl space-y-6">
@@ -70,26 +107,50 @@ export default function ShopManager({
       </div>
       {canEdit && (
         <div className="bg-white border rounded-2xl p-4 grid sm:grid-cols-2 gap-3">
+          <p className="sm:col-span-2 text-sm font-semibold text-gray-900">
+            {editingId ? 'Edit shop' : 'Add shop'}
+          </p>
           <div>
             <Label>Name</Label>
-            <Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input className="mt-1" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div>
             <Label>Phone</Label>
-            <Input className="mt-1" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(-10))} />
+            <Input
+              className="mt-1"
+              inputMode="numeric"
+              maxLength={10}
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(-10) })}
+            />
           </div>
           <div className="sm:col-span-2">
             <Label>Address</Label>
-            <Input className="mt-1" value={address} onChange={(e) => setAddress(e.target.value)} />
+            <Input className="mt-1" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           </div>
           <div>
             <Label>City</Label>
-            <Input className="mt-1" value={city} onChange={(e) => setCity(e.target.value)} />
+            <Input className="mt-1" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
           </div>
-          <div className="flex items-end">
-            <Button type="button" onClick={() => void save()} disabled={!name || phone.length < 10}>
-              Add shop
+          {editingId && (
+            <label className="flex items-center gap-2 text-sm self-end pb-2">
+              <input
+                type="checkbox"
+                checked={form.active}
+                onChange={(e) => setForm({ ...form, active: e.target.checked })}
+              />
+              Active
+            </label>
+          )}
+          <div className="flex items-end gap-2 sm:col-span-2">
+            <Button type="button" onClick={() => void save()} disabled={!canSave || saving}>
+              {saving ? 'Saving…' : editingId ? 'Save shop' : 'Add shop'}
             </Button>
+            {editingId && (
+              <Button type="button" variant="ghost" disabled={saving} onClick={cancelEdit}>
+                Cancel
+              </Button>
+            )}
           </div>
           {error && <p className="sm:col-span-2 text-sm text-red-600">{error}</p>}
         </div>
@@ -102,14 +163,16 @@ export default function ShopManager({
               <p className="text-sm text-gray-600">+91 {shop.phone} · {shop.city}</p>
               {!shop.active && <p className="text-xs text-red-500">Inactive</p>}
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setCatalogShop(shop)}
-            >
-              Products
-            </Button>
+            <div className="flex flex-wrap gap-2 shrink-0">
+              {canEdit && (
+                <Button type="button" variant="outline" size="sm" onClick={() => startEdit(shop)}>
+                  Edit
+                </Button>
+              )}
+              <Button type="button" variant="outline" size="sm" onClick={() => setCatalogShop(shop)}>
+                Products
+              </Button>
+            </div>
           </li>
         ))}
       </ul>
