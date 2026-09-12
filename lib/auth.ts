@@ -241,7 +241,19 @@ export function setAuthCookies(
   }
 }
 
-export function clearAuthCookies(response: { cookies: { delete: (name: string) => void } }) {
-  response.cookies.delete(COOKIE_NAME);
-  response.cookies.delete(REFRESH_COOKIE_NAME);
+export function clearAuthCookies(response: {
+  cookies: {
+    set: (name: string, value: string, opts: object) => void;
+    delete: (name: string) => void;
+  };
+}) {
+  const expired = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    maxAge: 0,
+    path: '/',
+  };
+  response.cookies.set(COOKIE_NAME, '', expired);
+  response.cookies.set(REFRESH_COOKIE_NAME, '', expired);
 }

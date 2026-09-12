@@ -279,7 +279,7 @@ export default function ShopPortalPage() {
         <button
           type="button"
           onClick={() => {
-            void logoutEverywhere('/shop');
+            void logoutEverywhere('/');
           }}
           className="text-sm font-medium text-red-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50"
         >

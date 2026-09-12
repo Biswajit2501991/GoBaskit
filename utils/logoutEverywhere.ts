@@ -3,9 +3,14 @@
  * server (and revokes all staff refresh tokens), then hard-navigates Home.
  */
 export async function logoutEverywhere(redirectTo = '/') {
+  const request = {
+    method: 'DELETE' as const,
+    credentials: 'same-origin' as const,
+    cache: 'no-store' as const,
+  };
   await Promise.all([
-    fetch('/api/auth/staff-login', { method: 'DELETE' }).catch(() => null),
-    fetch('/api/customer/account', { method: 'DELETE' }).catch(() => null),
+    fetch('/api/auth/staff-login', request).catch(() => null),
+    fetch('/api/customer/account', request).catch(() => null),
   ]);
 
   try {
@@ -23,6 +28,20 @@ export async function logoutEverywhere(redirectTo = '/') {
   }
 
   try {
+    const { useStaffPortalStore } = await import('@/store/staffPortalStore');
+    useStaffPortalStore.getState().clearAccount();
+  } catch {
+    /* ignore */
+  }
+
+  try {
+    const { clearSessionVerifiedMobile } = await import('@/utils/whatsappVerificationSession');
+    clearSessionVerifiedMobile();
+  } catch {
+    /* ignore */
+  }
+
+  try {
     const { useAdminProductsStore } = await import('@/store/adminProductsStore');
     useAdminProductsStore.getState().invalidateProducts();
     useAdminProductsStore.getState().invalidateCategories();
@@ -30,5 +49,6 @@ export async function logoutEverywhere(redirectTo = '/') {
     /* ignore */
   }
 
-  window.location.replace(redirectTo);
+  const target = redirectTo.startsWith('/') ? redirectTo : '/';
+  window.location.replace(target);
 }
