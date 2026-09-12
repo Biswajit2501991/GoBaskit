@@ -371,18 +371,33 @@ export class ShopSourcingService {
         createdAt: { gte: shopHistorySince() },
       },
       select: {
+        id: true,
         suffix: true,
         costToGobaskit: true,
         createdAt: true,
+        pickupAt: true,
         order: { select: { orderNumber: true } },
+        items: {
+          select: {
+            quantity: true,
+            orderItem: { select: { productName: true, unit: true } },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
     return rows.map((row) => ({
+      id: row.id,
       ticket: fulfillmentTicket(row.order.orderNumber, row.suffix),
       orderNumber: row.order.orderNumber,
       costToGobaskit: Number(row.costToGobaskit),
       acceptedAt: row.createdAt.toISOString(),
+      pickupAt: row.pickupAt.toISOString(),
+      items: row.items.map((item) => ({
+        name: item.orderItem.productName,
+        quantity: item.quantity,
+        unit: item.orderItem.unit,
+      })),
     }));
   }
 

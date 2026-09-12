@@ -12,10 +12,13 @@ import { logoutEverywhere } from '@/utils/logoutEverywhere';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 
 type HistoryRow = {
+  id: string;
   ticket: string;
   orderNumber: string;
   costToGobaskit: number;
   acceptedAt: string;
+  pickupAt: string;
+  items: Array<{ name: string; quantity: number; unit: string }>;
 };
 
 type Offer = {
@@ -49,6 +52,7 @@ export default function ShopPortalPage() {
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const loadSeq = useRef(0);
   const [active, setActive] = useState<Offer | null>(null);
+  const [viewedHistory, setViewedHistory] = useState<HistoryRow | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [pickupAt, setPickupAt] = useState('');
   const [cost, setCost] = useState('');
@@ -303,16 +307,24 @@ export default function ShopPortalPage() {
 
         <section className="pt-4 space-y-2">
           <h2 className="text-sm font-semibold text-gray-900">Accepted last 30 days</h2>
-          <p className="text-xs text-gray-500">These pickups are locked. Cost and ticket cannot be changed.</p>
+          <p className="text-xs text-gray-500">Tap an order to see items. Cost and ticket cannot be changed.</p>
           {!history.length && (
             <p className="text-sm text-gray-500">No accepted pickups in the last 30 days.</p>
           )}
           {history.map((row) => (
-            <div key={row.ticket} className="bg-white border rounded-2xl p-4">
+            <button
+              key={row.id || row.ticket}
+              type="button"
+              className="w-full text-left bg-white border rounded-2xl p-4"
+              onClick={() => {
+                setActive(null);
+                setViewedHistory(row);
+              }}
+            >
               <p className="font-bold">{row.ticket}</p>
               <p className="text-sm text-gray-600">Cost {formatCurrency(row.costToGobaskit)}</p>
               <p className="text-xs text-gray-400 mt-1">{formatDateTime(row.acceptedAt)}</p>
-            </div>
+            </button>
           ))}
         </section>
       </main>
@@ -363,6 +375,30 @@ export default function ShopPortalPage() {
             </Button>
             <Button variant="ghost" className="w-full" disabled={busy} onClick={() => void reject()}>
               Reject
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {viewedHistory && (
+        <div className="fixed inset-0 z-[95] flex items-end sm:items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl p-5 space-y-4">
+            <h2 className="text-lg font-bold">Accepted · {viewedHistory.ticket}</h2>
+            <p className="text-sm text-gray-600">Cost {formatCurrency(viewedHistory.costToGobaskit)}</p>
+            <p className="text-xs text-gray-400">{formatDateTime(viewedHistory.acceptedAt)}</p>
+            <ul className="space-y-2">
+              {(viewedHistory.items ?? []).map((item, index) => (
+                <li key={`${item.name}-${index}`} className="text-sm text-gray-800">
+                  {item.quantity} {item.unit} {item.name}
+                </li>
+              ))}
+              {!(viewedHistory.items ?? []).length && (
+                <li className="text-sm text-gray-500">No item lines on this pickup.</li>
+              )}
+            </ul>
+            <p className="text-xs text-gray-400">This pickup is locked. Nothing can be edited.</p>
+            <Button variant="ghost" className="w-full" onClick={() => setViewedHistory(null)}>
+              Close
             </Button>
           </div>
         </div>
