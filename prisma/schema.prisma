@@ -719,9 +719,10 @@ model ShopFulfillment {
   shop            Shop                   @relation(fields: [shopId], references: [id], onDelete: Restrict)
   suffix          String
   status          ShopFulfillmentStatus  @default(ACCEPTED)
-  pickupAt        DateTime               @map("pickup_at")
-  costToGobaskit  Float                  @default(0) @map("cost_to_gobaskit")
-  acceptedById    String?                @map("accepted_by_id")
+  pickupAt         DateTime               @map("pickup_at")
+  costToGobaskit   Float                  @default(0) @map("cost_to_gobaskit")
+  costConfirmedAt  DateTime?              @map("cost_confirmed_at")
+  acceptedById     String?                @map("accepted_by_id")
   acceptedBy      StaffAccount?          @relation("ShopFulfillmentAcceptedBy", fields: [acceptedById], references: [id], onDelete: SetNull)
   createdAt       DateTime               @default(now()) @map("created_at")
   updatedAt       DateTime               @updatedAt @map("updated_at")
@@ -734,12 +735,13 @@ model ShopFulfillment {
 }
 
 model ShopFulfillmentItem {
-  id             String          @id @default(cuid())
-  fulfillmentId  String          @map("fulfillment_id")
-  orderItemId    String          @map("order_item_id")
-  quantity       Int
-  fulfillment    ShopFulfillment @relation(fields: [fulfillmentId], references: [id], onDelete: Cascade)
-  orderItem      OrderItem       @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  id              String          @id @default(cuid())
+  fulfillmentId   String          @map("fulfillment_id")
+  orderItemId     String          @map("order_item_id")
+  quantity        Int
+  costToGobaskit  Float           @default(0) @map("cost_to_gobaskit")
+  fulfillment     ShopFulfillment @relation(fields: [fulfillmentId], references: [id], onDelete: Cascade)
+  orderItem       OrderItem       @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
 
   @@unique([fulfillmentId, orderItemId])
   @@map("shop_fulfillment_items")

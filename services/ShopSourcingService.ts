@@ -10,12 +10,14 @@ import {
   hashDeliveryPin,
   isFourDigitPin,
   nextFulfillmentSuffix,
+  parseFulfillmentLineCosts,
   parseShopSourcing,
   planShopCatalogSync,
   shopHistorySince,
   verifyDeliveryPinHash,
 } from '@/lib/shopSourcing';
 import { formatCustomerName } from '@/utils/customer';
+import { formatOrderLineLabel } from '@/utils/orderItemName';
 
 export class ShopSourcingError extends Error {
   constructor(
@@ -372,33 +374,48 @@ export class ShopSourcingService {
       },
       select: {
         id: true,
+        orderId: true,
         suffix: true,
         costToGobaskit: true,
+        costConfirmedAt: true,
         createdAt: true,
         pickupAt: true,
         order: { select: { orderNumber: true } },
         items: {
           select: {
+            id: true,
             quantity: true,
+            costToGobaskit: true,
             orderItem: { select: { productName: true, unit: true } },
           },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
-    return rows.map((row) => ({
+    const mapped = rows.map((row) => ({
       id: row.id,
       ticket: fulfillmentTicket(row.order.orderNumber, row.suffix),
+      orderId: row.orderId,
       orderNumber: row.order.orderNumber,
       costToGobaskit: Number(row.costToGobaskit),
+      costConfirmedAt: row.costConfirmedAt ? row.costConfirmedAt.toISOString() : null,
       acceptedAt: row.createdAt.toISOString(),
       pickupAt: row.pickupAt.toISOString(),
       items: row.items.map((item) => ({
+        id: item.id,
         name: item.orderItem.productName,
         quantity: item.quantity,
         unit: item.orderItem.unit,
+        costToGobaskit: Number(item.costToGobaskit),
       })),
     }));
+    mapped.sort((a, b) => {
+      const pendingA = a.costConfirmedAt ? 1 : 0;
+      const pendingB = b.costConfirmedAt ? 1 : 0;
+      if (pendingA !== pendingB) return pendingA - pendingB;
+      return new Date(b.acceptedAt).getTime() - new Date(a.acceptedAt).getTime();
+    });
+    return mapped;
   }
 
   static staffCart(orderId: string) {
@@ -431,7 +448,6 @@ export class ShopSourcingService {
     offerId: string;
     itemIds: string[];
     pickupAt: Date;
-    costToGobaskit: number;
   }) {
     const itemIds = [...new Set(params.itemIds.filter(Boolean))];
     if (!itemIds.length) throw new ShopSourcingError('Tick at least one item');
@@ -440,10 +456,6 @@ export class ShopSourcingService {
     }
     if (params.pickupAt.getTime() < Date.now() - 60_000) {
       throw new ShopSourcingError('Pickup time must be in the future');
-    }
-    const cost = Number(params.costToGobaskit);
-    if (!Number.isFinite(cost) || cost < 0) {
-      throw new ShopSourcingError('Enter the amount GoBaskit should pay this shop');
     }
 
     try {
@@ -489,7 +501,8 @@ export class ShopSourcingService {
             shopId: params.shopId,
             suffix,
             pickupAt: params.pickupAt,
-            costToGobaskit: cost,
+            costToGobaskit: 0,
+            costConfirmedAt: null,
             acceptedById: params.staffId,
             items: {
               create: items.map((item) => ({
@@ -621,7 +634,13 @@ export class ShopSourcingService {
       );
       if (!shopItems.length) continue;
       const itemSummary = shopItems
-        .map((item) => `${item.quantity} ${item.unit} ${item.productName}`.trim())
+        .map((item) =>
+          formatOrderLineLabel({
+            productName: item.productName,
+            quantity: item.quantity,
+            unit: item.unit,
+          }),
+        )
         .join(', ');
       await NotificationService.notifyShopPickup({
         staffId: member.id,
@@ -647,7 +666,10 @@ export class ShopSourcingService {
     rows: Awaited<ReturnType<typeof ShopSourcingService.staffCart>>,
     orderNumber: string,
   ) {
-    const procurementTotal = rows.reduce((sum, row) => sum + (row.status === 'CANCELLED' ? 0 : row.costToGobaskit), 0);
+    const procurementTotal = rows.reduce((sum, row) => {
+      if (row.status === 'CANCELLED' || !row.costConfirmedAt) return sum;
+      return sum + Number(row.costToGobaskit);
+    }, 0);
     return {
       procurementTotal,
       fulfillments: rows.map((row) => ({
@@ -656,15 +678,85 @@ export class ShopSourcingService {
         suffix: row.suffix,
         status: row.status,
         pickupAt: row.pickupAt.toISOString(),
-        costToGobaskit: row.costToGobaskit,
+        costToGobaskit: Number(row.costToGobaskit),
+        costConfirmedAt: row.costConfirmedAt ? row.costConfirmedAt.toISOString() : null,
         shop: row.shop,
         items: row.items.map((line) => ({
-          id: line.orderItem.id,
+          id: line.id,
+          orderItemId: line.orderItem.id,
           name: line.orderItem.productName,
           quantity: line.quantity,
           unit: line.orderItem.unit,
+          costToGobaskit: Number(line.costToGobaskit),
         })),
       })),
     };
+  }
+
+  static async saveFulfillmentCosts(params: {
+    fulfillmentId: string;
+    items: unknown;
+    mode: 'shop-confirm' | 'admin';
+    shopId?: string;
+  }) {
+    const fulfillment = await prisma.shopFulfillment.findFirst({
+      where: {
+        id: params.fulfillmentId,
+        ...(params.mode === 'shop-confirm' && params.shopId ? { shopId: params.shopId } : {}),
+      },
+      select: {
+        id: true,
+        orderId: true,
+        shopId: true,
+        status: true,
+        costConfirmedAt: true,
+        items: { select: { id: true } },
+      },
+    });
+    if (!fulfillment || fulfillment.status === 'CANCELLED') {
+      throw new ShopSourcingError('Pickup not found', 404);
+    }
+    if (params.mode === 'shop-confirm') {
+      if (!params.shopId || fulfillment.shopId !== params.shopId) {
+        throw new ShopSourcingError('Pickup not found', 404);
+      }
+      if (fulfillment.costConfirmedAt) {
+        throw new ShopSourcingError('Costs are locked. Ask GoBaskit admin to change them.', 409, 'LOCKED');
+      }
+    }
+
+    const parsed = parseFulfillmentLineCosts(
+      params.items,
+      fulfillment.items.map((item) => item.id),
+    );
+    if (!parsed.ok) throw new ShopSourcingError(parsed.error);
+
+    const now = new Date();
+    await prisma.$transaction([
+      ...parsed.lines.map((line) =>
+        prisma.shopFulfillmentItem.update({
+          where: { id: line.id },
+          data: { costToGobaskit: line.costToGobaskit },
+        }),
+      ),
+      prisma.shopFulfillment.update({
+        where: { id: fulfillment.id },
+        data: {
+          costToGobaskit: parsed.total,
+          costConfirmedAt: fulfillment.costConfirmedAt ?? now,
+        },
+      }),
+    ]);
+
+    const rows = await this.staffCart(fulfillment.orderId);
+    const order = await prisma.order.findUniqueOrThrow({
+      where: { id: fulfillment.orderId },
+      select: { orderNumber: true },
+    });
+    adminEventBus.emit({
+      type: 'order_updated',
+      payload: { id: fulfillment.orderId, shopFulfillmentId: fulfillment.id },
+    });
+    return this.serializeFulfillments(rows, order.orderNumber);
   }
 }

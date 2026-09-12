@@ -2,6 +2,7 @@ import {
   fulfillmentTicket,
   isFourDigitPin,
   nextFulfillmentSuffix,
+  parseFulfillmentLineCosts,
   parseShopSourcing,
   planShopCatalogSync,
   shopHistorySince,
@@ -42,5 +43,28 @@ describe('shop sourcing helpers', () => {
     expect(plan.add).toEqual(['add']);
     expect(plan.remove).toEqual(['drop']);
     expect(plan.skipped).toEqual(['full']);
+  });
+});
+
+describe('parseFulfillmentLineCosts', () => {
+  it('sums every line and rejects missing or unknown items', () => {
+    const ok = parseFulfillmentLineCosts(
+      [
+        { id: 'a', costToGobaskit: 10.555 },
+        { id: 'b', costToGobaskit: 2 },
+      ],
+      ['a', 'b'],
+    );
+    expect(ok).toEqual({
+      ok: true,
+      lines: [
+        { id: 'a', costToGobaskit: 10.56 },
+        { id: 'b', costToGobaskit: 2 },
+      ],
+      total: 12.56,
+    });
+    expect(parseFulfillmentLineCosts([{ id: 'a', costToGobaskit: 1 }], ['a', 'b']).ok).toBe(false);
+    expect(parseFulfillmentLineCosts([{ id: 'z', costToGobaskit: 1 }], ['a']).ok).toBe(false);
+    expect(parseFulfillmentLineCosts([{ id: 'a', costToGobaskit: -1 }], ['a']).ok).toBe(false);
   });
 });

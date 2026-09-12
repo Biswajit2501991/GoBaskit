@@ -66,6 +66,16 @@ describe('formatOrderItemsSummary', () => {
     ).toBe('Amul Taaza Homogenised Milk 1L × 2\nAmul Gold Full Cream Milk 1L × 1');
   });
 
+  it('lists pack size once with a times quantity, matching admin order lines', () => {
+    expect(
+      formatOrderLineLabel({
+        productName: 'Catch Cumin Seeds Jeera Seeds (100g)',
+        quantity: 1,
+        unit: '100g',
+      }),
+    ).toBe('Catch Cumin Seeds Jeera Seeds (100g) × 1');
+  });
+
   it('adds pack size for drinks when the name is only the brand', () => {
     expect(
       formatOrderLineLabel({ productName: 'Maaza', quantity: 1, unit: '600 ml' }),

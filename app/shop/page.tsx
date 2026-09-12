@@ -1,28 +1,46 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { markAndroidAlertsPromptAfterLogin } from '@/lib/admin-push-client';
+import {
+  enableAdminPushAlerts,
+  hasAdminPushSubscription,
+  isAppleMobileBrowser,
+  isStandaloneDisplay,
+  markAndroidAlertsPromptAfterLogin,
+} from '@/lib/admin-push-client';
 import { normalizeMobile } from '@/utils/mobile';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
+import { formatOrderLineLabel } from '@/utils/orderItemName';
+
+type HistoryItem = {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  costToGobaskit: number;
+};
 
 type HistoryRow = {
   id: string;
   ticket: string;
+  orderId: string;
   orderNumber: string;
   costToGobaskit: number;
+  costConfirmedAt: string | null;
   acceptedAt: string;
   pickupAt: string;
-  items: Array<{ name: string; quantity: number; unit: string }>;
+  items: HistoryItem[];
 };
 
 type Offer = {
   offerId: string;
+  orderId: string;
   orderNumber: string;
   expiresAt: string;
   pickupHint: string | null;
@@ -39,8 +57,18 @@ type Offer = {
   items: Array<{ id: string; name: string; quantity: number; unit: string }>;
 };
 
-export default function ShopPortalPage() {
+function lineLabel(item: { name: string; quantity: number; unit: string }) {
+  return formatOrderLineLabel({
+    productName: item.name,
+    quantity: item.quantity,
+    unit: item.unit,
+  });
+}
+
+function ShopPortal() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const deepOrderId = searchParams.get('order');
   const [sessionReady, setSessionReady] = useState(false);
   const [authed, setAuthed] = useState(false);
   const [mobile, setMobile] = useState('');
@@ -55,27 +83,30 @@ export default function ShopPortalPage() {
   const [viewedHistory, setViewedHistory] = useState<HistoryRow | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [pickupAt, setPickupAt] = useState('');
-  const [cost, setCost] = useState('');
+  const [itemCosts, setItemCosts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState('');
+  const [alertsOn, setAlertsOn] = useState(false);
+  const [alertsBusy, setAlertsBusy] = useState(false);
+  const [alertsError, setAlertsError] = useState('');
 
   const loadOffers = useCallback(async () => {
     const seq = ++loadSeq.current;
     const res = await fetch('/api/shop/offers', { cache: 'no-store', credentials: 'same-origin' });
-    if (seq !== loadSeq.current) return false;
+    if (seq !== loadSeq.current) return { ok: false as const, offers: [] as Offer[], history: [] as HistoryRow[] };
     if (res.status === 401) {
       setAuthed(false);
       setSessionReady(true);
-      return false;
+      return { ok: false as const, offers: [] as Offer[], history: [] as HistoryRow[] };
     }
     if (!res.ok) {
       const fail = await res.json().catch(() => ({}));
       setSessionReady(true);
       if (typeof fail.error === 'string') setError(fail.error);
-      return false;
+      return { ok: false as const, offers: [] as Offer[], history: [] as HistoryRow[] };
     }
     const data = await res.json().catch(() => ({}));
-    if (seq !== loadSeq.current) return false;
+    if (seq !== loadSeq.current) return { ok: false as const, offers: [] as Offer[], history: [] as HistoryRow[] };
     const next = Array.isArray(data.offers) ? (data.offers as Offer[]) : [];
     const past = Array.isArray(data.history) ? (data.history as HistoryRow[]) : [];
     setOffers(next);
@@ -87,12 +118,36 @@ export default function ShopPortalPage() {
       if (current && next.some((offer) => offer.offerId === current.offerId)) return current;
       return next[0] ?? null;
     });
-    return true;
+    setViewedHistory((current) => {
+      if (!current) return current;
+      return past.find((row) => row.id === current.id) ?? current;
+    });
+    return { ok: true as const, offers: next, history: past };
   }, []);
 
   useEffect(() => {
     void loadOffers();
   }, [loadOffers]);
+
+  useEffect(() => {
+    if (!authed) return;
+    void hasAdminPushSubscription().then(setAlertsOn);
+  }, [authed]);
+
+  useEffect(() => {
+    if (!authed || !deepOrderId) return;
+    const matchOffer = offers.find((offer) => offer.orderId === deepOrderId);
+    if (matchOffer) {
+      setActive(matchOffer);
+      setViewedHistory(null);
+      return;
+    }
+    const matchHistory = history.find((row) => row.orderId === deepOrderId);
+    if (matchHistory) {
+      setActive(null);
+      setViewedHistory(matchHistory);
+    }
+  }, [authed, deepOrderId, offers, history]);
 
   useEffect(() => {
     if (!authed) return;
@@ -148,6 +203,21 @@ export default function ShopPortalPage() {
     setPickupAt(local);
   }, [active?.offerId]);
 
+  useEffect(() => {
+    if (!viewedHistory) {
+      setItemCosts({});
+      return;
+    }
+    setItemCosts(
+      Object.fromEntries(
+        viewedHistory.items.map((item) => [
+          item.id,
+          item.costToGobaskit ? String(item.costToGobaskit) : '',
+        ]),
+      ),
+    );
+  }, [viewedHistory?.id]);
+
   async function onLogin(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -169,7 +239,7 @@ export default function ShopPortalPage() {
       }
       markAndroidAlertsPromptAfterLogin();
       const opened = await loadOffers();
-      if (!opened) {
+      if (!opened.ok) {
         setError((prev) => prev || 'Could not open the shop portal. Try again.');
         return;
       }
@@ -193,7 +263,6 @@ export default function ShopPortalPage() {
         body: JSON.stringify({
           itemIds,
           pickupAt: new Date(pickupAt).toISOString(),
-          costToGobaskit: Number(cost),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -202,9 +271,13 @@ export default function ShopPortalPage() {
         await loadOffers();
         return;
       }
-      setInfo(`Accepted as ${data.ticket}`);
+      setInfo(`Accepted as ${data.ticket}. Enter each item cost and Confirm.`);
       setActive(null);
-      await loadOffers();
+      const loaded = await loadOffers();
+      const next =
+        loaded.history.find((row) => row.id === data.fulfillmentId) ||
+        loaded.history.find((row) => row.ticket === data.ticket);
+      if (next) setViewedHistory(next);
     } finally {
       setBusy(false);
     }
@@ -221,6 +294,59 @@ export default function ShopPortalPage() {
       setBusy(false);
     }
   }
+
+  async function confirmCosts() {
+    if (!viewedHistory || viewedHistory.costConfirmedAt) return;
+    setBusy(true);
+    setInfo('');
+    try {
+      const res = await fetch(`/api/shop/fulfillments/${viewedHistory.id}/costs`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: viewedHistory.items.map((item) => ({
+            id: item.id,
+            costToGobaskit: Number(itemCosts[item.id]),
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setInfo(typeof data.error === 'string' ? data.error : 'Could not save costs');
+        return;
+      }
+      setInfo(`Saved ${viewedHistory.ticket}`);
+      await loadOffers();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function enableAlerts() {
+    setAlertsBusy(true);
+    setAlertsError('');
+    const result = await enableAdminPushAlerts();
+    setAlertsBusy(false);
+    if (result.ok) {
+      setAlertsOn(true);
+      return;
+    }
+    setAlertsError(result.error || 'Could not enable alerts');
+  }
+
+  const pendingCosts = viewedHistory && !viewedHistory.costConfirmedAt;
+  const costTotal = viewedHistory
+    ? viewedHistory.items.reduce((sum, item) => {
+        const n = Number(itemCosts[item.id]);
+        return sum + (Number.isFinite(n) ? n : 0);
+      }, 0)
+    : 0;
+  const costsReady =
+    Boolean(viewedHistory) &&
+    viewedHistory!.items.every((item) => {
+      const n = Number(itemCosts[item.id]);
+      return itemCosts[item.id] !== '' && Number.isFinite(n) && n >= 0;
+    });
 
   if (!sessionReady) {
     return <div className="min-h-screen bg-gray-50" />;
@@ -264,6 +390,10 @@ export default function ShopPortalPage() {
             <Button type="submit" className="w-full" disabled={loading || mobile.length < 10 || !password}>
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
+            <p className="text-xs text-gray-500 text-center">
+              After login, enable new-order alerts. Alerts stay on after logout so you can tap the
+              notification and sign in to accept.
+            </p>
           </form>
         </div>
       </div>
@@ -287,6 +417,20 @@ export default function ShopPortalPage() {
         </button>
       </header>
       <main className="max-w-lg mx-auto p-4 space-y-4">
+        {!alertsOn && (
+          <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 space-y-2">
+            <p className="text-sm font-semibold text-amber-900">Enable new-order alerts</p>
+            <p className="text-xs text-amber-800">
+              {isAppleMobileBrowser() && !isStandaloneDisplay()
+                ? 'On iPhone, tap Share → Add to Home Screen, open this Shop icon, then enable alerts. Notifications then work even after logout.'
+                : 'Turn on alerts so a new pickup can pop up even if you are logged out. Tap the notification, then log in to accept.'}
+            </p>
+            {alertsError && <p className="text-xs text-red-600">{alertsError}</p>}
+            <Button type="button" className="w-full" disabled={alertsBusy} onClick={() => void enableAlerts()}>
+              {alertsBusy ? 'Enabling…' : 'Enable alerts'}
+            </Button>
+          </div>
+        )}
         {info && <p className="text-sm text-emerald-700 bg-emerald-50 rounded-xl p-3">{info}</p>}
         {!offers.length && (
           <p className="text-sm text-gray-500">No open pickups. New orders will pop up here with sound.</p>
@@ -300,14 +444,16 @@ export default function ShopPortalPage() {
           >
             <p className="font-bold">{offer.orderNumber}</p>
             <p className="text-sm text-gray-600">
-              {offer.items.map((item) => `${item.quantity} ${item.unit} ${item.name}`).join(', ')}
+              {offer.items.map((item) => lineLabel(item)).join(', ')}
             </p>
           </button>
         ))}
 
         <section className="pt-4 space-y-2">
           <h2 className="text-sm font-semibold text-gray-900">Accepted last 30 days</h2>
-          <p className="text-xs text-gray-500">Tap an order to see items. Cost and ticket cannot be changed.</p>
+          <p className="text-xs text-gray-500">
+            After accept, enter each item cost and Confirm. After Confirm only GoBaskit admin can change costs.
+          </p>
           {!history.length && (
             <p className="text-sm text-gray-500">No accepted pickups in the last 30 days.</p>
           )}
@@ -321,8 +467,17 @@ export default function ShopPortalPage() {
                 setViewedHistory(row);
               }}
             >
-              <p className="font-bold">{row.ticket}</p>
-              <p className="text-sm text-gray-600">Cost {formatCurrency(row.costToGobaskit)}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-bold">{row.ticket}</p>
+                {!row.costConfirmedAt && (
+                  <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                    Add costs
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-gray-600">
+                {row.costConfirmedAt ? `Cost ${formatCurrency(row.costToGobaskit)}` : 'Costs pending'}
+              </p>
               <p className="text-xs text-gray-400 mt-1">{formatDateTime(row.acceptedAt)}</p>
             </button>
           ))}
@@ -352,7 +507,7 @@ export default function ShopPortalPage() {
                     checked={selected[item.id] === true}
                     onChange={(e) => setSelected((prev) => ({ ...prev, [item.id]: e.target.checked }))}
                   />
-                  {item.quantity} {item.unit} {item.name}
+                  {lineLabel(item)}
                 </label>
               ))}
             </div>
@@ -360,16 +515,9 @@ export default function ShopPortalPage() {
               <Label>Pickup time</Label>
               <Input type="datetime-local" className="mt-1" value={pickupAt} onChange={(e) => setPickupAt(e.target.value)} />
             </div>
-            <div>
-              <Label>Amount GoBaskit should pay (₹)</Label>
-              <Input
-                type="number"
-                min="0"
-                className="mt-1"
-                value={cost}
-                onChange={(e) => setCost(e.target.value)}
-              />
-            </div>
+            <p className="text-xs text-gray-500">
+              Accept claims these items. Then enter a cost per item and Confirm.
+            </p>
             <Button className="w-full" disabled={busy} onClick={() => void accept()}>
               {busy ? 'Saving…' : 'Accept'}
             </Button>
@@ -384,19 +532,44 @@ export default function ShopPortalPage() {
         <div className="fixed inset-0 z-[95] flex items-end sm:items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-xl p-5 space-y-4">
             <h2 className="text-lg font-bold">Accepted · {viewedHistory.ticket}</h2>
-            <p className="text-sm text-gray-600">Cost {formatCurrency(viewedHistory.costToGobaskit)}</p>
+            <p className="text-sm text-gray-600">
+              {pendingCosts ? 'Enter a cost for every item' : `Cost ${formatCurrency(viewedHistory.costToGobaskit)}`}
+            </p>
             <p className="text-xs text-gray-400">{formatDateTime(viewedHistory.acceptedAt)}</p>
-            <ul className="space-y-2">
-              {(viewedHistory.items ?? []).map((item, index) => (
-                <li key={`${item.name}-${index}`} className="text-sm text-gray-800">
-                  {item.quantity} {item.unit} {item.name}
+            <ul className="space-y-3">
+              {(viewedHistory.items ?? []).map((item) => (
+                <li key={item.id} className="text-sm text-gray-800">
+                  <p>{lineLabel(item)}</p>
+                  {pendingCosts ? (
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="text-xs text-gray-500">₹</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={itemCosts[item.id] ?? ''}
+                        onChange={(e) => setItemCosts((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-0.5">{formatCurrency(item.costToGobaskit)}</p>
+                  )}
                 </li>
               ))}
               {!(viewedHistory.items ?? []).length && (
                 <li className="text-sm text-gray-500">No item lines on this pickup.</li>
               )}
             </ul>
-            <p className="text-xs text-gray-400">This pickup is locked. Nothing can be edited.</p>
+            {pendingCosts ? (
+              <>
+                <p className="text-sm font-semibold">Total {formatCurrency(costTotal)}</p>
+                <Button className="w-full" disabled={busy || !costsReady} onClick={() => void confirmCosts()}>
+                  {busy ? 'Saving…' : 'Confirm and save'}
+                </Button>
+              </>
+            ) : (
+              <p className="text-xs text-gray-400">Costs are locked. Only GoBaskit admin can change them.</p>
+            )}
             <Button variant="ghost" className="w-full" onClick={() => setViewedHistory(null)}>
               Close
             </Button>
@@ -404,5 +577,13 @@ export default function ShopPortalPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ShopPortalPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50" />}>
+      <ShopPortal />
+    </Suspense>
   );
 }

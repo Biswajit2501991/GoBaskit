@@ -108,7 +108,7 @@ export async function enableAdminPushAlerts(): Promise<{ ok: boolean; error?: st
   if (cfgRes.status === 401 || cfgRes.status === 403) {
     return {
       ok: false,
-      error: 'Log in to Staff Admin on this same home-screen app, then tap Enable Alerts again.',
+      error: 'Log in on this same home-screen app, then tap Enable alerts again.',
     };
   }
   if (!cfgRes.ok) {

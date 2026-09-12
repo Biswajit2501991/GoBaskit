@@ -7,6 +7,7 @@ import { canStaffMutateItems } from '@/utils/orderEditPolicy';
 import OrderContentsEditor, { type EditableLine } from '@/components/Orders/OrderContentsEditor';
 import { formatCustomerAddress, formatCustomerName } from '@/utils/customer';
 import { formatOrderLineLabel } from '@/utils/orderItemName';
+import ShopPickupCosts, { type ShopPickupRow } from '@/components/Admin/ShopPickupCosts';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,13 +80,7 @@ interface OrderRow {
   assignmentFrozenAt?: string | null;
   shopSourcing?: {
     procurementTotal: number;
-    fulfillments: Array<{
-      ticket: string;
-      pickupAt: string;
-      costToGobaskit: number;
-      shop: { name: string; phone: string };
-      items: Array<{ name: string; quantity: number; unit: string }>;
-    }>;
+    fulfillments: ShopPickupRow[];
   };
 }
 
@@ -503,18 +498,16 @@ function OrderCard({
             </ul>
           )}
           {order.shopSourcing && order.shopSourcing.fulfillments.length > 0 && (
-            <div className="text-[11px] text-gray-700 space-y-1 pt-1 border-t border-gray-50">
-              <p className="font-semibold">Shop pickups</p>
-              {order.shopSourcing.fulfillments.map((row) => (
-                <p key={row.ticket}>
-                  {row.ticket} ({row.shop.name} / {row.shop.phone} —{' '}
-                  {row.items.map((item) => `${item.quantity} ${item.unit} ${item.name}`).join(', ')}{' '}
-                  · pickup {formatDateTime(row.pickupAt)} · pay ₹{row.costToGobaskit})
-                </p>
-              ))}
-              <p className="font-medium">
-                Procurement total {formatCurrency(order.shopSourcing.procurementTotal)}
-              </p>
+            <div onClick={(e) => e.stopPropagation()}>
+              <ShopPickupCosts
+                compact
+                fulfillments={order.shopSourcing.fulfillments}
+                procurementTotal={order.shopSourcing.procurementTotal}
+                canEdit={canEdit}
+                onSaved={(shopSourcing) =>
+                  onReplaceOrder({ ...order, shopSourcing })
+                }
+              />
             </div>
           )}
         </div>

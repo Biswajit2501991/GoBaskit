@@ -106,3 +106,49 @@ export async function verifyDeliveryPinHash(pin: string, hash: string): Promise<
 export function isFourDigitPin(pin: string): boolean {
   return /^\d{4}$/.test(String(pin ?? '').trim()) && pin !== '0000';
 }
+
+export type FulfillmentCostLineInput = { id: string; costToGobaskit: number };
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/** Require a finite rupee amount (>= 0) for every expected fulfillment-item id. */
+export function parseFulfillmentLineCosts(
+  rawItems: unknown,
+  expectedIds: string[],
+): { ok: true; lines: FulfillmentCostLineInput[]; total: number } | { ok: false; error: string } {
+  if (!Array.isArray(rawItems)) {
+    return { ok: false, error: 'Enter a cost for every item' };
+  }
+  const expected = [...new Set(expectedIds.filter(Boolean))];
+  if (!expected.length) {
+    return { ok: false, error: 'This pickup has no items' };
+  }
+  const expectedSet = new Set(expected);
+  const seen = new Set<string>();
+  const lines: FulfillmentCostLineInput[] = [];
+  for (const row of rawItems) {
+    if (!row || typeof row !== 'object') {
+      return { ok: false, error: 'Enter a cost for every item' };
+    }
+    const id = typeof (row as { id?: unknown }).id === 'string' ? (row as { id: string }).id : '';
+    const cost = Number((row as { costToGobaskit?: unknown }).costToGobaskit);
+    if (!id || !expectedSet.has(id)) {
+      return { ok: false, error: 'Unknown item on this pickup' };
+    }
+    if (seen.has(id)) {
+      return { ok: false, error: 'Duplicate item cost' };
+    }
+    if (!Number.isFinite(cost) || cost < 0) {
+      return { ok: false, error: 'Enter a cost of 0 or more for every item' };
+    }
+    seen.add(id);
+    lines.push({ id, costToGobaskit: roundMoney(cost) });
+  }
+  if (seen.size !== expected.length) {
+    return { ok: false, error: 'Enter a cost for every item' };
+  }
+  const total = roundMoney(lines.reduce((sum, line) => sum + line.costToGobaskit, 0));
+  return { ok: true, lines, total };
+}

@@ -5,7 +5,7 @@ import { ShopSourcingError, ShopSourcingService } from '@/services/ShopSourcingS
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function POST(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, { params }: Params) {
   const auth = await requireShopStaff();
   if (auth.error) return auth.error;
   const disabled = await requireShopSourcingEnabled();
@@ -15,28 +15,20 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
-  const itemIds = Array.isArray(body.itemIds) ? body.itemIds.map(String) : [];
-  const pickupAt = new Date(String(body.pickupAt ?? ''));
 
   try {
-    const result = await ShopSourcingService.acceptOffer({
+    const shopSourcing = await ShopSourcingService.saveFulfillmentCosts({
+      fulfillmentId: id,
+      items: body.items,
+      mode: 'shop-confirm',
       shopId: auth.staff!.shopId!,
-      staffId: auth.staff!.id,
-      offerId: id,
-      itemIds,
-      pickupAt,
     });
-    return NextResponse.json({
-      ok: true,
-      ticket: result.ticket,
-      suffix: result.fulfillment.suffix,
-      fulfillmentId: result.fulfillment.id,
-    });
+    return NextResponse.json({ ok: true, shopSourcing });
   } catch (err) {
     if (err instanceof ShopSourcingError) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }
-    const message = err instanceof Error ? err.message : 'Could not accept pickup';
+    const message = err instanceof Error ? err.message : 'Could not save costs';
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
