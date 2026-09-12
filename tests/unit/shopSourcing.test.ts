@@ -3,6 +3,7 @@ import {
   isFourDigitPin,
   nextFulfillmentSuffix,
   parseShopSourcing,
+  planShopCatalogSync,
   shopHistorySince,
 } from '@/lib/shopSourcing';
 
@@ -29,5 +30,17 @@ describe('shop sourcing helpers', () => {
     expect(isFourDigitPin('4821')).toBe(true);
     expect(isFourDigitPin('0000')).toBe(false);
     expect(isFourDigitPin('12')).toBe(false);
+  });
+
+  it('syncs one shop without dropping other shops, and skips items already at the cap', () => {
+    const plan = planShopCatalogSync({
+      currentProductIds: ['keep', 'drop'],
+      wantedProductIds: ['keep', 'add', 'full'],
+      otherShopCountByProduct: { add: 1, full: 3 },
+      maxShopsPerItem: 3,
+    });
+    expect(plan.add).toEqual(['add']);
+    expect(plan.remove).toEqual(['drop']);
+    expect(plan.skipped).toEqual(['full']);
   });
 });

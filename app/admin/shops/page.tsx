@@ -9,6 +9,9 @@ export default async function AdminShopsPage() {
   const staff = await getAdminPageStaff();
   const { perms } = await requireAdminPage(staff, 'settings:view');
   return (
-    <ShopManager canEdit={staffHasPermission(staff!.role, perms, 'settings:edit')} />
+    <ShopManager
+      canEdit={staffHasPermission(staff!.role, perms, 'settings:edit')}
+      canTagProducts={staffHasPermission(staff!.role, perms, 'products:edit')}
+    />
   );
 }

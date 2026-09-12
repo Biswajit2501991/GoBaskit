@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import ShopProductCatalog from '@/components/Admin/ShopProductCatalog';
 
 type Shop = {
   id: string;
@@ -14,13 +15,20 @@ type Shop = {
   active: boolean;
 };
 
-export default function ShopManager({ canEdit }: { canEdit: boolean }) {
+export default function ShopManager({
+  canEdit,
+  canTagProducts,
+}: {
+  canEdit: boolean;
+  canTagProducts: boolean;
+}) {
   const [shops, setShops] = useState<Shop[]>([]);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [error, setError] = useState('');
+  const [catalogShop, setCatalogShop] = useState<Shop | null>(null);
 
   async function load() {
     const res = await fetch('/api/admin/shops', { cache: 'no-store' });
@@ -56,8 +64,8 @@ export default function ShopManager({ canEdit }: { canEdit: boolean }) {
       <div>
         <h1 className="text-xl font-bold">Shops</h1>
         <p className="text-sm text-gray-500">
-          Onboard shops, then tag products (max shops per item is set under Settings → Shop sourcing).
-          Shopkeepers log in at /shop.
+          Onboard shops, then open Products on a shop to tick the catalogue (by category, or all).
+          Max shops per item is under Settings → Shop sourcing. Shopkeepers log in at /shop.
         </p>
       </div>
       {canEdit && (
@@ -88,13 +96,31 @@ export default function ShopManager({ canEdit }: { canEdit: boolean }) {
       )}
       <ul className="space-y-2">
         {shops.map((shop) => (
-          <li key={shop.id} className="bg-white border rounded-xl p-3">
-            <p className="font-semibold">{shop.name}</p>
-            <p className="text-sm text-gray-600">+91 {shop.phone} · {shop.city}</p>
-            {!shop.active && <p className="text-xs text-red-500">Inactive</p>}
+          <li key={shop.id} className="bg-white border rounded-xl p-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold">{shop.name}</p>
+              <p className="text-sm text-gray-600">+91 {shop.phone} · {shop.city}</p>
+              {!shop.active && <p className="text-xs text-red-500">Inactive</p>}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setCatalogShop(shop)}
+            >
+              Products
+            </Button>
           </li>
         ))}
       </ul>
+      {catalogShop && (
+        <ShopProductCatalog
+          shopId={catalogShop.id}
+          shopName={catalogShop.name}
+          canEdit={canTagProducts}
+          onClose={() => setCatalogShop(null)}
+        />
+      )}
     </div>
   );
 }

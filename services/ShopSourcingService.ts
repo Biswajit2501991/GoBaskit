@@ -11,6 +11,7 @@ import {
   isFourDigitPin,
   nextFulfillmentSuffix,
   parseShopSourcing,
+  planShopCatalogSync,
   shopHistorySince,
   verifyDeliveryPinHash,
 } from '@/lib/shopSourcing';
@@ -97,6 +98,119 @@ export class ShopSourcingService {
       ),
     ]);
     return unique;
+  }
+
+  static async listCatalogForShop(shopId: string) {
+    const shop = await prisma.shop.findFirst({ where: { id: shopId }, select: { id: true, name: true } });
+    if (!shop) throw new ShopSourcingError('Shop not found', 404);
+    const cfg = await this.config();
+    const products = await prisma.product.findMany({
+      select: {
+        id: true,
+        name: true,
+        categoryId: true,
+        category: { select: { id: true, name: true } },
+        productShops: { select: { shopId: true } },
+      },
+      orderBy: [{ category: { name: 'asc' } }, { name: 'asc' }],
+    });
+    return {
+      shop,
+      maxShopsPerItem: cfg.maxShopsPerItem,
+      items: products.map((row) => {
+        const assigned = row.productShops.some((tag) => tag.shopId === shopId);
+        const otherCount = row.productShops.filter((tag) => tag.shopId !== shopId).length;
+        return {
+          id: row.id,
+          name: row.name,
+          categoryId: row.categoryId,
+          categoryName: row.category.name,
+          assigned,
+          atCap: !assigned && otherCount >= cfg.maxShopsPerItem,
+        };
+      }),
+    };
+  }
+
+  static async setShopCatalog(shopId: string, productIds: string[]) {
+    const shop = await prisma.shop.findFirst({ where: { id: shopId, active: true }, select: { id: true } });
+    if (!shop) throw new ShopSourcingError('Shop not found or inactive', 404);
+    const cfg = await this.config();
+    const wanted = [...new Set(productIds.filter(Boolean))];
+    const products = wanted.length
+      ? await prisma.product.findMany({
+          where: { id: { in: wanted } },
+          select: { id: true, productShops: { select: { shopId: true } } },
+        })
+      : [];
+    if (products.length !== wanted.length) {
+      throw new ShopSourcingError('One or more products are missing');
+    }
+    const currentRows = await prisma.productShop.findMany({
+      where: { shopId },
+      select: { productId: true },
+    });
+    const otherShopCountByProduct: Record<string, number> = {};
+    for (const row of products) {
+      otherShopCountByProduct[row.id] = row.productShops.filter((tag) => tag.shopId !== shopId).length;
+    }
+    const plan = planShopCatalogSync({
+      currentProductIds: currentRows.map((row) => row.productId),
+      wantedProductIds: wanted,
+      otherShopCountByProduct,
+      maxShopsPerItem: cfg.maxShopsPerItem,
+    });
+
+    const ops = [];
+    if (plan.remove.length) {
+      ops.push(
+        prisma.productShop.deleteMany({
+          where: { shopId, productId: { in: plan.remove } },
+        }),
+      );
+    }
+    for (const productId of plan.add) {
+      ops.push(
+        prisma.productShop.upsert({
+          where: { productId_shopId: { productId, shopId } },
+          create: { productId, shopId },
+          update: {},
+        }),
+      );
+    }
+    if (ops.length) await prisma.$transaction(ops);
+
+    return {
+      added: plan.add.length,
+      removed: plan.remove.length,
+      skipped: plan.skipped,
+      assigned: wanted.filter((id) => !plan.skipped.includes(id)).length,
+    };
+  }
+
+  static async setShopCategory(shopId: string, categoryId: string, assigned: boolean) {
+    const shop = await prisma.shop.findFirst({ where: { id: shopId, active: true }, select: { id: true } });
+    if (!shop) throw new ShopSourcingError('Shop not found or inactive', 404);
+    const category = await prisma.category.findFirst({ where: { id: categoryId }, select: { id: true } });
+    if (!category) throw new ShopSourcingError('Category not found', 404);
+    const inCategory = await prisma.product.findMany({
+      where: { categoryId },
+      select: { id: true },
+    });
+    const ids = inCategory.map((row) => row.id);
+    if (!assigned) {
+      const result = await prisma.productShop.deleteMany({
+        where: { shopId, productId: { in: ids } },
+      });
+      return { added: 0, removed: result.count, skipped: [] as string[] };
+    }
+    const currentRows = await prisma.productShop.findMany({
+      where: { shopId },
+      select: { productId: true },
+    });
+    const current = new Set(currentRows.map((row) => row.productId));
+    const wanted = [...current, ...ids];
+    return this.setShopCatalog(shopId, wanted);
   }
 
   static async createDeliveryPin(orderId: string): Promise<string> {

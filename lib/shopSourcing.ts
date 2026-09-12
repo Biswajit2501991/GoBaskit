@@ -48,6 +48,43 @@ export function fulfillmentTicket(orderNumber: string, suffix: string): string {
   return `${orderNumber}-${suffix}`;
 }
 
+export type ShopCatalogPlan = {
+  add: string[];
+  remove: string[];
+  skipped: string[];
+};
+
+/**
+ * Sync one shop’s product tags only. Never removes other shops from an item.
+ * Skips adds that would exceed maxShopsPerItem (counts shops other than this one).
+ */
+export function planShopCatalogSync(params: {
+  currentProductIds: string[];
+  wantedProductIds: string[];
+  otherShopCountByProduct: Record<string, number>;
+  maxShopsPerItem: number;
+}): ShopCatalogPlan {
+  const current = new Set(params.currentProductIds.filter(Boolean));
+  const wanted = new Set(params.wantedProductIds.filter(Boolean));
+  const add: string[] = [];
+  const remove: string[] = [];
+  const skipped: string[] = [];
+
+  for (const productId of wanted) {
+    if (current.has(productId)) continue;
+    const others = params.otherShopCountByProduct[productId] ?? 0;
+    if (others >= params.maxShopsPerItem) {
+      skipped.push(productId);
+      continue;
+    }
+    add.push(productId);
+  }
+  for (const productId of current) {
+    if (!wanted.has(productId)) remove.push(productId);
+  }
+  return { add, remove, skipped };
+}
+
 export const SHOP_FULFILLMENT_HISTORY_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function shopHistorySince(now = new Date()): Date {

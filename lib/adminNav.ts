@@ -36,7 +36,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: 'Shops',
     permission: 'settings:view',
     group: 'Fulfilment',
-    hint: 'Onboard shops for multi-shop sourcing. Off until you enable Shop sourcing in Settings.',
+    hint: 'Onboard shops and tick which products each shop sells, by category or all at once.',
   },
   {
     href: '/admin/delivery',
