@@ -34,27 +34,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     );
   }
 
-  // Super Admin profiles are locked — password changes go through /password.
-  if (existing.role === 'SUPER_ADMIN') {
-    const touchingProfile = Boolean(
-      parsed.data.name ||
-      parsed.data.mobile ||
-      parsed.data.email !== undefined ||
-      parsed.data.role ||
-      parsed.data.permissions ||
-      parsed.data.active !== undefined ||
-      parsed.data.assignedCity !== undefined ||
-      parsed.data.assignedAreas ||
-      parsed.data.latitude !== undefined ||
-      parsed.data.longitude !== undefined ||
-      parsed.data.deliveryRadius !== undefined,
+  // Super Admin profiles: only Super Admin / All Super Admin may edit (including reactivate).
+  if (
+    existing.role === 'SUPER_ADMIN' &&
+    auth.staff!.role !== 'ALL_SUPER_ADMIN' &&
+    auth.staff!.role !== 'SUPER_ADMIN'
+  ) {
+    return NextResponse.json(
+      { error: 'Only Super Admin can edit a Super Admin account' },
+      { status: 403 },
     );
-    if (touchingProfile) {
-      return NextResponse.json(
-        { error: 'Super Admin accounts cannot be edited. Use View password to change their password.' },
-        { status: 403 },
-      );
-    }
   }
 
   if (parsed.data.role === 'ALL_SUPER_ADMIN' && auth.staff!.role !== 'ALL_SUPER_ADMIN') {

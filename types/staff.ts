@@ -68,14 +68,14 @@ const FULL_OPS_PERMISSIONS: Permission[] = [
 ];
 
 export const ROLE_PERMISSIONS: Record<StaffRole, Permission[]> = {
-  /** Only this role can add staff, change passwords, or bulk-import staff. */
+  /** Unrestricted: staff passwords and bulk import stay exclusive to this role. */
   ALL_SUPER_ADMIN: [
     ...FULL_OPS_PERMISSIONS,
     'staff:manage',
     'staff:bulk_import',
   ],
-  /** Full store ops — cannot add staff or change anyone's password. */
-  SUPER_ADMIN: [...FULL_OPS_PERMISSIONS],
+  /** Full store ops plus add/edit/reactivate staff. Cannot view or change passwords or bulk-import. */
+  SUPER_ADMIN: [...FULL_OPS_PERMISSIONS, 'staff:manage'],
   MANAGER: [
     'staff:view', 'products:view', 'products:edit', 'categories:view', 'categories:edit',
     'orders:view', 'orders:edit', 'orders:assign', 'settings:view', 'analytics:view',

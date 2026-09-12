@@ -30,10 +30,10 @@ describe('staffHasPermission', () => {
     expect(staffHasPermission('ALL_SUPER_ADMIN', [], 'orders:delete')).toBe(true);
   });
 
-  it('gives SUPER_ADMIN full ops but not staff:manage', () => {
+  it('gives SUPER_ADMIN full ops and staff:manage, but not bulk import', () => {
     expect(staffHasPermission('SUPER_ADMIN', [], 'orders:delete')).toBe(true);
     expect(staffHasPermission('SUPER_ADMIN', [], 'staff:view')).toBe(true);
-    expect(staffHasPermission('SUPER_ADMIN', [], 'staff:manage')).toBe(false);
+    expect(staffHasPermission('SUPER_ADMIN', [], 'staff:manage')).toBe(true);
     expect(staffHasPermission('SUPER_ADMIN', [], 'staff:bulk_import')).toBe(false);
   });
 

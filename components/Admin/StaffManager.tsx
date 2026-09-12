@@ -68,8 +68,12 @@ function staffPayloadError(form: typeof emptyForm, editingId: string | null): st
   return null;
 }
 
-function canEditStaffProfile(row: StaffRow): boolean {
-  return row.role !== 'SUPER_ADMIN' && row.role !== 'ALL_SUPER_ADMIN';
+function canEditStaffProfile(row: StaffRow, actorRole: StaffRole): boolean {
+  if (row.role === 'ALL_SUPER_ADMIN') return actorRole === 'ALL_SUPER_ADMIN';
+  if (row.role === 'SUPER_ADMIN') {
+    return actorRole === 'ALL_SUPER_ADMIN' || actorRole === 'SUPER_ADMIN';
+  }
+  return true;
 }
 
 function isDeactivatedStaff(row: StaffRow): boolean {
@@ -106,6 +110,8 @@ export default function StaffManager({
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordSaving, setPasswordSaving] = useState(false);
+  const canManagePasswords = actorRole === 'ALL_SUPER_ADMIN';
+  const canBulkImport = actorRole === 'ALL_SUPER_ADMIN';
   const roleOptions = assignableStaffRoles(actorRole).filter((r) => r !== 'ALL_SUPER_ADMIN' || actorRole === 'ALL_SUPER_ADMIN');
 
   const load = useCallback(async () => {
@@ -156,7 +162,7 @@ export default function StaffManager({
   }
 
   function openEdit(row: StaffRow) {
-    if (!canManage || !canEditStaffProfile(row)) return;
+    if (!canManage || !canEditStaffProfile(row, actorRole)) return;
     setEditingId(row.id);
     setForm({
       name: row.name,
@@ -179,7 +185,7 @@ export default function StaffManager({
   }
 
   async function openPassword(row: StaffRow) {
-    if (!canManage) return;
+    if (!canManagePasswords) return;
     setPasswordModal(row);
     setViewedPassword(null);
     setPasswordAvailable(false);
@@ -288,7 +294,7 @@ export default function StaffManager({
   }
 
   async function handleReactivate(row: StaffRow) {
-    if (!canManage || !canEditStaffProfile(row)) return;
+    if (!canManage || !canEditStaffProfile(row, actorRole)) return;
     const res = await fetch(`/api/admin/staff/${row.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -323,13 +329,15 @@ export default function StaffManager({
           <h1 className="text-2xl font-bold">Staff Management</h1>
           <p className="text-sm text-gray-500">
             {canManage
-              ? 'Add staff and manage passwords. Deactivated accounts stay in this list so you can edit or reactivate them.'
-              : 'View staff access (only All Super Admin can add staff or change passwords)'}
+              ? canManagePasswords
+                ? 'Add, edit, and reactivate staff. You can also view and change passwords.'
+                : 'Add, edit, and reactivate staff, including deactivated accounts. Password viewing is All Super Admin only.'
+              : 'View staff access (only Super Admin can add, edit, or reactivate staff)'}
           </p>
         </div>
         {canManage && (
           <div className="flex gap-2">
-            <StaffBulkImport onComplete={load} />
+            {canBulkImport && <StaffBulkImport onComplete={load} />}
             <Button onClick={openCreate} className="gap-1">
               <Plus className="w-4 h-4" /> Add Staff
             </Button>
@@ -612,12 +620,12 @@ export default function StaffManager({
                   <td className="p-3 flex gap-1">
                     {canManage && (
                       <>
-                        {canEditStaffProfile(row) && (
+                        {canEditStaffProfile(row, actorRole) && (
                           <button type="button" onClick={() => openEdit(row)} className="p-1.5 hover:bg-gray-100 rounded" aria-label="Edit">
                             <Pencil className="w-4 h-4" />
                           </button>
                         )}
-                        {isDeactivatedStaff(row) && canEditStaffProfile(row) && (
+                        {isDeactivatedStaff(row) && canEditStaffProfile(row, actorRole) && (
                           <button
                             type="button"
                             onClick={() => void handleReactivate(row)}
@@ -626,15 +634,17 @@ export default function StaffManager({
                             Reactivate
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => openPassword(row)}
-                          className="p-1.5 hover:bg-gray-100 rounded text-amber-700"
-                          aria-label="View password"
-                          title="View / change password"
-                        >
-                          <KeyRound className="w-4 h-4" />
-                        </button>
+                        {canManagePasswords && (
+                          <button
+                            type="button"
+                            onClick={() => openPassword(row)}
+                            className="p-1.5 hover:bg-gray-100 rounded text-amber-700"
+                            aria-label="View password"
+                            title="View / change password"
+                          >
+                            <KeyRound className="w-4 h-4" />
+                          </button>
+                        )}
                         {row.role !== 'ALL_SUPER_ADMIN' && !isDeactivatedStaff(row) && (
                           <button type="button" onClick={() => handleDelete(row.id)} className="p-1.5 hover:bg-red-50 text-red-500 rounded" aria-label="Deactivate">
                             <Trash2 className="w-4 h-4" />
