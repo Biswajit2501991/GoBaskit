@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireShopStaff } from '@/lib/staff-auth';
+import { requireShopStaff, requireShopSourcingEnabled } from '@/lib/staff-auth';
 import { requireSameOrigin } from '@/lib/security';
 import { ShopSourcingError, ShopSourcingService } from '@/services/ShopSourcingService';
 
@@ -8,6 +8,8 @@ type Params = { params: Promise<{ id: string }> };
 export async function POST(req: NextRequest, { params }: Params) {
   const auth = await requireShopStaff();
   if (auth.error) return auth.error;
+  const disabled = await requireShopSourcingEnabled();
+  if (disabled) return disabled;
   const originError = requireSameOrigin(req);
   if (originError) return NextResponse.json({ error: originError }, { status: 403 });
 

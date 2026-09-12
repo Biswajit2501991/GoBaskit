@@ -117,13 +117,6 @@ export async function requireStaffSession(options?: { live?: boolean }) {
 }
 
 export async function requireShopStaff() {
-  const enabled = (await SettingsService.getStoreConfig()).shopSourcing.enabled;
-  if (!enabled) {
-    return {
-      error: NextResponse.json({ error: 'Shop sourcing is turned off' }, { status: 403 }),
-      staff: null,
-    };
-  }
   const staff = await getStaffFromSession();
   if (!staff || !staff.active || staff.deletedAt) {
     return {
@@ -142,4 +135,13 @@ export async function requireShopStaff() {
     error: null,
     staff: { ...(staff as StaffAuthUser), shopId },
   };
+}
+
+/** Mutations that create or skip offers — not required to view /shop history. */
+export async function requireShopSourcingEnabled() {
+  const enabled = (await SettingsService.getStoreConfig()).shopSourcing.enabled;
+  if (!enabled) {
+    return NextResponse.json({ error: 'Shop sourcing is turned off' }, { status: 403 });
+  }
+  return null;
 }

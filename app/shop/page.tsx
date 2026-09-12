@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -47,6 +47,7 @@ export default function ShopPortalPage() {
   const [loading, setLoading] = useState(false);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [history, setHistory] = useState<HistoryRow[]>([]);
+  const loadSeq = useRef(0);
   const [active, setActive] = useState<Offer | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [pickupAt, setPickupAt] = useState('');
@@ -55,23 +56,34 @@ export default function ShopPortalPage() {
   const [info, setInfo] = useState('');
 
   const loadOffers = useCallback(async () => {
-    const res = await fetch('/api/shop/offers', { cache: 'no-store' });
-    if (res.status === 401 || res.status === 403) {
+    const seq = ++loadSeq.current;
+    const res = await fetch('/api/shop/offers', { cache: 'no-store', credentials: 'same-origin' });
+    if (seq !== loadSeq.current) return false;
+    if (res.status === 401) {
       setAuthed(false);
       setSessionReady(true);
-      return;
+      return false;
+    }
+    if (!res.ok) {
+      const fail = await res.json().catch(() => ({}));
+      setSessionReady(true);
+      if (typeof fail.error === 'string') setError(fail.error);
+      return false;
     }
     const data = await res.json().catch(() => ({}));
+    if (seq !== loadSeq.current) return false;
     const next = Array.isArray(data.offers) ? (data.offers as Offer[]) : [];
     const past = Array.isArray(data.history) ? (data.history as HistoryRow[]) : [];
     setOffers(next);
     setHistory(past);
+    setError('');
     setAuthed(true);
     setSessionReady(true);
     setActive((current) => {
       if (current && next.some((offer) => offer.offerId === current.offerId)) return current;
       return next[0] ?? null;
     });
+    return true;
   }, []);
 
   useEffect(() => {
@@ -152,8 +164,11 @@ export default function ShopPortalPage() {
         return;
       }
       markAndroidAlertsPromptAfterLogin();
-      setAuthed(true);
-      await loadOffers();
+      const opened = await loadOffers();
+      if (!opened) {
+        setError((prev) => prev || 'Could not open the shop portal. Try again.');
+        return;
+      }
       router.refresh();
     } catch {
       setError('Network error. Please try again.');
