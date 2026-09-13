@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { productSchema } from '@/lib/validations';
-import { buildProductPricingData } from '@/utils/pricing';
+import { buildProductPricingData, shiftSellingPriceHistory } from '@/utils/pricing';
 import { requireStaffPermission } from '@/lib/staff-auth';
 import { requireSameOrigin } from '@/lib/security';
 import { AuditService } from '@/services/AuditService';
@@ -32,6 +32,13 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     price: parsed.data.price,
     actualPrice: parsed.data.actualPrice,
   });
+  const history = shiftSellingPriceHistory({
+    currentPrice: existing.price,
+    nextPrice: pricing.price,
+    previousPrice: existing.previousPrice,
+    earlierPrice: existing.earlierPrice,
+    previousPriceAt: existing.previousPriceAt,
+  });
 
   await InventoryService.applyAdminStockUpdate(
     existing,
@@ -47,6 +54,9 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
       details: parsed.data.details ?? '',
       price: pricing.price,
       actualPrice: pricing.actualPrice,
+      previousPrice: history.previousPrice,
+      earlierPrice: history.earlierPrice,
+      previousPriceAt: history.previousPriceAt,
       unit: parsed.data.unit,
       categoryId: parsed.data.categoryId,
       imageUrl: parsed.data.imageUrl || null,

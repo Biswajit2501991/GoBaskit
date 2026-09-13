@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import ProductImageUpload from './ProductImageUpload';
+import SellingPriceHistoryNote from './SellingPriceHistoryNote';
 import ProductPriceDisplay from '@/components/ProductCard/ProductPriceDisplay';
 import VariantAdminTable from './VariantAdminTable';
 import ListPagination from './ListPagination';
@@ -69,6 +70,11 @@ export default function ProductManager({
   const [shopIds, setShopIds] = useState<string[]>([]);
   const [shops, setShops] = useState<Array<{ id: string; name: string }>>([]);
   const [showForm, setShowForm] = useState(false);
+  const [priceHistory, setPriceHistory] = useState<{
+    previousPrice: number | null;
+    earlierPrice: number | null;
+    previousPriceAt: string | null;
+  } | null>(null);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const searchDebounced = useRef(search);
@@ -184,6 +190,7 @@ export default function ProductManager({
       imageUrl: '',
     });
     setShopIds([]);
+    setPriceHistory(null);
     setShowForm(true);
     setError('');
   }
@@ -210,6 +217,11 @@ export default function ProductManager({
       healthStarRating: product.healthStarRating ?? null,
     });
     setShopIds(product.shopIds ?? []);
+    setPriceHistory({
+      previousPrice: product.previousPrice ?? null,
+      earlierPrice: product.earlierPrice ?? null,
+      previousPriceAt: product.previousPriceAt ?? null,
+    });
     setShowForm(true);
     setError('');
   }
@@ -391,6 +403,9 @@ export default function ProductManager({
                 <Label>Current Price (₹) *</Label>
                 <Input {...register('price')} type="number" step="0.01" min="0" className="mt-1" disabled={!canEdit} />
                 {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price.message}</p>}
+                {editingId ? (
+                  <SellingPriceHistoryNote currentPrice={sellingPrice} history={priceHistory} />
+                ) : null}
               </div>
 
               <div>

@@ -97,6 +97,11 @@ model Product {
   details     String        @default("") @map("details")
   price       Float
   actualPrice Float?        @map("actual_price")
+  /** Last selling price before the current one (admin Edit Product). */
+  previousPrice   Float?    @map("previous_price")
+  /** Selling price before previousPrice. */
+  earlierPrice    Float?    @map("earlier_price")
+  previousPriceAt DateTime? @map("previous_price_at")
   unit        String
   stock            Int           @default(0)
   stockBaseline    Int           @default(0) @map("stock_baseline")
@@ -135,6 +140,10 @@ model ProductVariant {
   unit        String   @default("")
   price       Float
   mrp         Float?
+  /** Last selling price before the current one (admin option editor). */
+  previousPrice   Float?    @map("previous_price")
+  earlierPrice    Float?    @map("earlier_price")
+  previousPriceAt DateTime? @map("previous_price_at")
   discount    Float    @default(0)
   sku         String?
   barcode     String?

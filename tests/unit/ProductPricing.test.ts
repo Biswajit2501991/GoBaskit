@@ -5,6 +5,7 @@ import {
   getListPrice,
   getSellingPrice,
   formatDiscountBadge,
+  shiftSellingPriceHistory,
 } from '@/utils/pricing';
 
 describe('product pricing', () => {
@@ -38,5 +39,34 @@ describe('product pricing', () => {
     expect(formatDiscountBadge(240, 220)).toBe('8% OFF');
     expect(formatDiscountBadge(220, 220)).toBeNull();
     expect(formatDiscountBadge(null, 220)).toBeNull();
+  });
+
+  it('keeps the last two selling prices when the live price changes', () => {
+    const first = shiftSellingPriceHistory({
+      currentPrice: 70,
+      nextPrice: 75,
+      previousPrice: null,
+      earlierPrice: null,
+    });
+    expect(first.previousPrice).toBe(70);
+    expect(first.earlierPrice).toBeNull();
+
+    const second = shiftSellingPriceHistory({
+      currentPrice: 75,
+      nextPrice: 80,
+      previousPrice: first.previousPrice,
+      earlierPrice: first.earlierPrice,
+    });
+    expect(second.previousPrice).toBe(75);
+    expect(second.earlierPrice).toBe(70);
+
+    const unchanged = shiftSellingPriceHistory({
+      currentPrice: 80,
+      nextPrice: 80,
+      previousPrice: second.previousPrice,
+      earlierPrice: second.earlierPrice,
+    });
+    expect(unchanged.previousPrice).toBe(75);
+    expect(unchanged.earlierPrice).toBe(70);
   });
 });

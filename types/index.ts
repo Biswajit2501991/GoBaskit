@@ -38,6 +38,9 @@ export interface ProductVariant {
   unit: string;
   price: number;
   mrp?: number | null;
+  previousPrice?: number | null;
+  earlierPrice?: number | null;
+  previousPriceAt?: string | Date | null;
   discount: number;
   sku?: string | null;
   barcode?: string | null;

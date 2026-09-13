@@ -53,6 +53,9 @@ export class ProductService {
           details: true,
           price: true,
           actualPrice: true,
+          previousPrice: true,
+          earlierPrice: true,
+          previousPriceAt: true,
           unit: true,
           stock: true,
           stockBaseline: true,
@@ -78,6 +81,7 @@ export class ProductService {
     return {
       items: items.map((item) => ({
         ...item,
+        previousPriceAt: item.previousPriceAt ? item.previousPriceAt.toISOString() : null,
         shopIds: item.productShops.map((row) => row.shopId),
       })),
       total,

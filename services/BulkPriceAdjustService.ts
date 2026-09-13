@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { buildProductPricingData } from '@/utils/pricing';
+import { buildProductPricingData, shiftSellingPriceHistory } from '@/utils/pricing';
 
 const UNDO_SETTING_KEY = 'bulk_price_adjust_last';
 const UNDO_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -8,7 +8,15 @@ const PREVIEW_SAMPLE = 25;
 const UPDATE_CHUNK = 25;
 
 async function applyProductPriceChunks(
-  rows: Array<{ id: string; price: number; actualPrice: number | null; discount: number }>,
+  rows: Array<{
+    id: string;
+    price: number;
+    actualPrice: number | null;
+    discount: number;
+    previousPrice?: number | null;
+    earlierPrice?: number | null;
+    previousPriceAt?: Date | string | null;
+  }>,
 ) {
   for (let i = 0; i < rows.length; i += UPDATE_CHUNK) {
     const chunk = rows.slice(i, i + UPDATE_CHUNK);
@@ -20,6 +28,13 @@ async function applyProductPriceChunks(
             price: row.price,
             actualPrice: row.actualPrice,
             discount: row.discount,
+            ...(row.previousPrice !== undefined
+              ? {
+                  previousPrice: row.previousPrice,
+                  earlierPrice: row.earlierPrice ?? null,
+                  previousPriceAt: row.previousPriceAt ? new Date(row.previousPriceAt) : null,
+                }
+              : {}),
           },
         }),
       ),
@@ -28,7 +43,15 @@ async function applyProductPriceChunks(
 }
 
 async function applyVariantPriceChunks(
-  rows: Array<{ id: string; price: number; mrp: number | null; discount: number }>,
+  rows: Array<{
+    id: string;
+    price: number;
+    mrp: number | null;
+    discount: number;
+    previousPrice?: number | null;
+    earlierPrice?: number | null;
+    previousPriceAt?: Date | string | null;
+  }>,
 ) {
   for (let i = 0; i < rows.length; i += UPDATE_CHUNK) {
     const chunk = rows.slice(i, i + UPDATE_CHUNK);
@@ -40,6 +63,13 @@ async function applyVariantPriceChunks(
             price: row.price,
             mrp: row.mrp,
             discount: row.discount,
+            ...(row.previousPrice !== undefined
+              ? {
+                  previousPrice: row.previousPrice,
+                  earlierPrice: row.earlierPrice ?? null,
+                  previousPriceAt: row.previousPriceAt ? new Date(row.previousPriceAt) : null,
+                }
+              : {}),
           },
         }),
       ),
@@ -73,6 +103,9 @@ type ProductSnapshot = {
   price: number;
   actualPrice: number | null;
   discount: number;
+  previousPrice: number | null;
+  earlierPrice: number | null;
+  previousPriceAt: string | null;
 };
 
 type VariantSnapshot = {
@@ -80,6 +113,9 @@ type VariantSnapshot = {
   price: number;
   mrp: number | null;
   discount: number;
+  previousPrice: number | null;
+  earlierPrice: number | null;
+  previousPriceAt: string | null;
 };
 
 export type BulkPriceUndoRecord = {
@@ -264,15 +300,41 @@ export class BulkPriceAdjustService {
         price: true,
         actualPrice: true,
         discount: true,
+        previousPrice: true,
+        earlierPrice: true,
+        previousPriceAt: true,
         variants: {
-          select: { id: true, price: true, mrp: true, discount: true },
+          select: {
+            id: true,
+            price: true,
+            mrp: true,
+            discount: true,
+            previousPrice: true,
+            earlierPrice: true,
+            previousPriceAt: true,
+          },
         },
       },
     });
 
-    const productUpdates: Array<{ id: string; price: number; actualPrice: number | null; discount: number }> =
-      [];
-    const variantUpdates: Array<{ id: string; price: number; mrp: number | null; discount: number }> = [];
+    const productUpdates: Array<{
+      id: string;
+      price: number;
+      actualPrice: number | null;
+      discount: number;
+      previousPrice: number | null;
+      earlierPrice: number | null;
+      previousPriceAt: Date | null;
+    }> = [];
+    const variantUpdates: Array<{
+      id: string;
+      price: number;
+      mrp: number | null;
+      discount: number;
+      previousPrice: number | null;
+      earlierPrice: number | null;
+      previousPriceAt: Date | null;
+    }> = [];
     const productSnapshots: ProductSnapshot[] = [];
     const variantSnapshots: VariantSnapshot[] = [];
     let skipped = 0;
@@ -287,12 +349,25 @@ export class BulkPriceAdjustService {
           price: p.price,
           actualPrice: p.actualPrice,
           discount: p.discount,
+          previousPrice: p.previousPrice,
+          earlierPrice: p.earlierPrice,
+          previousPriceAt: p.previousPriceAt ? p.previousPriceAt.toISOString() : null,
+        });
+        const history = shiftSellingPriceHistory({
+          currentPrice: p.price,
+          nextPrice: next.price,
+          previousPrice: p.previousPrice,
+          earlierPrice: p.earlierPrice,
+          previousPriceAt: p.previousPriceAt,
         });
         productUpdates.push({
           id: p.id,
           price: next.price,
           actualPrice: next.actualPrice,
           discount: next.discount,
+          previousPrice: history.previousPrice,
+          earlierPrice: history.earlierPrice,
+          previousPriceAt: history.previousPriceAt,
         });
       }
 
@@ -307,12 +382,25 @@ export class BulkPriceAdjustService {
           price: v.price,
           mrp: v.mrp,
           discount: v.discount,
+          previousPrice: v.previousPrice,
+          earlierPrice: v.earlierPrice,
+          previousPriceAt: v.previousPriceAt ? v.previousPriceAt.toISOString() : null,
+        });
+        const vHistory = shiftSellingPriceHistory({
+          currentPrice: v.price,
+          nextPrice: vNext.price,
+          previousPrice: v.previousPrice,
+          earlierPrice: v.earlierPrice,
+          previousPriceAt: v.previousPriceAt,
         });
         variantUpdates.push({
           id: v.id,
           price: vNext.price,
           mrp: vNext.actualPrice,
           discount: vNext.discount,
+          previousPrice: vHistory.previousPrice,
+          earlierPrice: vHistory.earlierPrice,
+          previousPriceAt: vHistory.previousPriceAt,
         });
       }
     }

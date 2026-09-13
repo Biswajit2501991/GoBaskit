@@ -86,3 +86,47 @@ export function formatProductPriceLabel(
     list: list ? formatCurrency(list) : null,
   };
 }
+
+export type SellingPriceHistory = {
+  previousPrice: number | null;
+  earlierPrice: number | null;
+  previousPriceAt: Date | null;
+};
+
+function roundSellingPrice(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function finitePrice(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return roundSellingPrice(n);
+}
+
+/** Shift last-two selling prices when the live price actually changes. Same price is a no-op. */
+export function shiftSellingPriceHistory(params: {
+  currentPrice: number;
+  nextPrice: number;
+  previousPrice?: number | null;
+  earlierPrice?: number | null;
+  previousPriceAt?: Date | null;
+  now?: Date;
+}): SellingPriceHistory {
+  const current = finitePrice(params.currentPrice);
+  const next = finitePrice(params.nextPrice);
+  const previous = finitePrice(params.previousPrice);
+  const earlier = finitePrice(params.earlierPrice);
+  if (current == null || next == null || current === next) {
+    return {
+      previousPrice: previous,
+      earlierPrice: earlier,
+      previousPriceAt: params.previousPriceAt ?? null,
+    };
+  }
+  return {
+    previousPrice: current,
+    earlierPrice: previous,
+    previousPriceAt: params.now ?? new Date(),
+  };
+}

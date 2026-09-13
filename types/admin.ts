@@ -17,6 +17,9 @@ export interface AdminProduct {
   details?: string;
   price: number;
   actualPrice: number | null;
+  previousPrice?: number | null;
+  earlierPrice?: number | null;
+  previousPriceAt?: string | null;
   unit: string;
   stock: number;
   stockBaseline: number;

@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { AuditService } from '@/services/AuditService';
 import { NotificationService } from '@/services/NotificationService';
 import { nextCatalogSellingPrice, roundMoney } from '@/lib/shopSourcing';
-import { buildProductPricingData } from '@/utils/pricing';
+import { buildProductPricingData, shiftSellingPriceHistory } from '@/utils/pricing';
 import { formatOrderLineLabel } from '@/utils/orderItemName';
 
 export class CatalogMarginService {
@@ -55,15 +55,37 @@ export class CatalogMarginService {
       if (variantId) {
         const variant = await prisma.productVariant.findUnique({
           where: { id: variantId },
-          select: { id: true, price: true, mrp: true, productId: true },
+          select: {
+            id: true,
+            price: true,
+            mrp: true,
+            productId: true,
+            previousPrice: true,
+            earlierPrice: true,
+            previousPriceAt: true,
+          },
         });
         if (!variant) continue;
         const next = nextCatalogSellingPrice(variant.price, shopUnit);
         if (next <= variant.price) continue;
         const pricing = buildProductPricingData({ price: next, actualPrice: variant.mrp });
+        const history = shiftSellingPriceHistory({
+          currentPrice: variant.price,
+          nextPrice: pricing.price,
+          previousPrice: variant.previousPrice,
+          earlierPrice: variant.earlierPrice,
+          previousPriceAt: variant.previousPriceAt,
+        });
         await prisma.productVariant.update({
           where: { id: variant.id },
-          data: { price: pricing.price, mrp: pricing.actualPrice, discount: pricing.discount },
+          data: {
+            price: pricing.price,
+            mrp: pricing.actualPrice,
+            discount: pricing.discount,
+            previousPrice: history.previousPrice,
+            earlierPrice: history.earlierPrice,
+            previousPriceAt: history.previousPriceAt,
+          },
         });
         await this.recordBump({
           orderId: fulfillment.orderId,
@@ -81,15 +103,36 @@ export class CatalogMarginService {
       if (!productId) continue;
       const product = await prisma.product.findUnique({
         where: { id: productId },
-        select: { id: true, price: true, actualPrice: true },
+        select: {
+          id: true,
+          price: true,
+          actualPrice: true,
+          previousPrice: true,
+          earlierPrice: true,
+          previousPriceAt: true,
+        },
       });
       if (!product) continue;
       const next = nextCatalogSellingPrice(product.price, shopUnit);
       if (next <= product.price) continue;
       const pricing = buildProductPricingData({ price: next, actualPrice: product.actualPrice });
+      const history = shiftSellingPriceHistory({
+        currentPrice: product.price,
+        nextPrice: pricing.price,
+        previousPrice: product.previousPrice,
+        earlierPrice: product.earlierPrice,
+        previousPriceAt: product.previousPriceAt,
+      });
       await prisma.product.update({
         where: { id: product.id },
-        data: { price: pricing.price, actualPrice: pricing.actualPrice, discount: pricing.discount },
+        data: {
+          price: pricing.price,
+          actualPrice: pricing.actualPrice,
+          discount: pricing.discount,
+          previousPrice: history.previousPrice,
+          earlierPrice: history.earlierPrice,
+          previousPriceAt: history.previousPriceAt,
+        },
       });
       await this.recordBump({
         orderId: fulfillment.orderId,

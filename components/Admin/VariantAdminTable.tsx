@@ -200,6 +200,12 @@ export default function VariantAdminTable({
                     {v.mrp && v.mrp > v.price ? (
                       <span className="text-[10px] text-gray-400 line-through ml-1">{formatCurrency(v.mrp)}</span>
                     ) : null}
+                    {v.previousPrice != null && v.previousPrice !== v.price ? (
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        was {formatCurrency(v.previousPrice)}
+                        {v.earlierPrice != null ? ` · earlier ${formatCurrency(v.earlierPrice)}` : ''}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="p-2">
                     <span className={v.stock <= 0 ? 'text-red-600 font-medium' : ''}>{v.stock}</span>

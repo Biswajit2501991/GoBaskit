@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
-import { buildProductPricingData } from '@/utils/pricing';
+import { buildProductPricingData, shiftSellingPriceHistory } from '@/utils/pricing';
 
 export interface VariantInput {
   brand?: string;
@@ -91,6 +91,13 @@ export class VariantService {
     if (!existing) throw new Error('Variant not found');
 
     const pricing = this.pricingFields(input);
+    const history = shiftSellingPriceHistory({
+      currentPrice: existing.price,
+      nextPrice: pricing.price,
+      previousPrice: existing.previousPrice,
+      earlierPrice: existing.earlierPrice,
+      previousPriceAt: existing.previousPriceAt,
+    });
     const stock = Math.max(0, Math.trunc(input.stock ?? existing.stock));
     const stockBaseline = Math.max(existing.stockBaseline, stock);
     const previous = existing.stock;
@@ -106,6 +113,9 @@ export class VariantService {
         price: pricing.price,
         mrp: pricing.mrp,
         discount: pricing.discount,
+        previousPrice: history.previousPrice,
+        earlierPrice: history.earlierPrice,
+        previousPriceAt: history.previousPriceAt,
         sku: input.sku?.trim() || null,
         barcode: input.barcode?.trim() || null,
         stock,

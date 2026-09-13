@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ProductImageUpload from './ProductImageUpload';
+import SellingPriceHistoryNote from './SellingPriceHistoryNote';
 import type { ProductVariant } from '@/types';
 
 interface VariantFormProps {
@@ -171,6 +172,12 @@ export default function VariantForm({
             <Label>Selling Price (₹) *</Label>
             <Input {...register('price')} type="number" step="0.01" min="0" className="mt-1" />
             {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price.message}</p>}
+            {variant ? (
+              <SellingPriceHistoryNote
+                currentPrice={Number(watch('price')) || variant.price}
+                history={variant}
+              />
+            ) : null}
           </div>
           <div>
             <Label>MRP (₹)</Label>
