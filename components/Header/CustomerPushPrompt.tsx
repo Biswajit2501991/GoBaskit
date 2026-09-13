@@ -32,6 +32,7 @@ export default function CustomerPushPrompt({
     }
     if (typeof window === 'undefined') return;
     if (window.location.pathname.startsWith('/admin')) return;
+    if (window.location.pathname.startsWith('/account')) return;
     if (peekCustomerPushPromptSkipped()) return;
     if ('Notification' in window && Notification.permission === 'denied') return;
 

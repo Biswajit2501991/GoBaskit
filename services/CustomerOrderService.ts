@@ -5,6 +5,7 @@ import { isActiveOrderStatus } from '@/utils/orderTracking';
 import { canCustomerMutate, customerEditExpiresAt } from '@/utils/orderEditPolicy';
 import { CustomerProfileService } from '@/services/CustomerProfileService';
 import { OrderArchiveService } from '@/services/OrderArchiveService';
+import { ShopSourcingService } from '@/services/ShopSourcingService';
 import type { SavedCheckoutProfile } from '@/utils/customerProfile';
 
 export interface CustomerOrderSummary {
@@ -29,6 +30,7 @@ export interface CustomerOrderDetail extends CustomerOrderSummary {
   editableUntil: string | null;
   canEdit: boolean;
   canCancel: boolean;
+  deliveryPin: string | null;
   items: Array<{
     id: string;
     productId: string;
@@ -155,7 +157,8 @@ export class CustomerOrderService {
     });
 
     if (!order) return null;
-    return this.toDetail(order);
+    const deliveryPin = await ShopSourcingService.customerDeliveryPin(order.id);
+    return this.toDetail(order, deliveryPin);
   }
 
   static toDetail(order: {
@@ -176,7 +179,7 @@ export class CustomerOrderService {
     archivedAt?: Date | null;
     items: CustomerOrderDetail['items'];
     customer: CustomerOrderDetail['customer'];
-  }): CustomerOrderDetail {
+  }, deliveryPin: string | null = null): CustomerOrderDetail {
     const canMutate = canCustomerMutate(order);
     const expires = customerEditExpiresAt(order.createdAt);
     return {
@@ -198,6 +201,7 @@ export class CustomerOrderService {
       editableUntil: expires.toISOString(),
       canEdit: canMutate,
       canCancel: canMutate,
+      deliveryPin,
       items: order.items,
       customer: order.customer,
     };

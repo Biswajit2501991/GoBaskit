@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/Header/Header';
 import { Button } from '@/components/ui/button';
 import { formatCustomerName } from '@/utils/customer';
+import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import type { SavedCheckoutProfile } from '@/utils/customerProfile';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
 import {
@@ -22,6 +23,9 @@ export default function AccountPageClient() {
   const openAccountModal = useStaffPortalStore((s) => s.openAccountModal);
   const [mobile, setMobile] = useState<string | null>(null);
   const [profile, setProfile] = useState<SavedCheckoutProfile | null>(null);
+  const [activeOrders, setActiveOrders] = useState<
+    Array<{ id: string; orderNumber: string; status: string; grandTotal: number; createdAt: string; itemCount: number }>
+  >([]);
   const [activeCount, setActiveCount] = useState(0);
   const [notices, setNotices] = useState<Array<{ id: string; message: string }>>([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +37,7 @@ export default function AccountPageClient() {
       setMobile(cached.mobile);
       setProfile(cached.profile);
       setActiveCount(cached.activeCount);
+      setActiveOrders(cached.activeOrders ?? []);
       setNotices(cached.notices);
       setLoading(false);
     }
@@ -51,6 +56,7 @@ export default function AccountPageClient() {
 
     setProfile(warm.profile);
     setActiveCount(warm.activeCount);
+    setActiveOrders(warm.activeOrders ?? []);
     setNotices(warm.notices);
     setLoading(false);
   }, [customerMobile]);
@@ -69,7 +75,11 @@ export default function AccountPageClient() {
       }
       const orders = warm.activeOrders ?? [];
       setActiveCount(warm.activeCount);
-      if (orders.length === 0) return;
+      setActiveOrders(orders);
+      if (orders.length === 0) {
+        router.push('/account/track');
+        return;
+      }
       if (orders.length === 1) {
         router.push(`/account/track/${orders[0].id}`);
         return;
@@ -134,14 +144,42 @@ export default function AccountPageClient() {
                 Mobile: <span className="font-medium text-gray-900">+91 {mobile}</span>
               </p>
               {activeCount > 0 && (
-                <Link
-                  href="/account/track"
-                  className="inline-block text-sm text-blinkit-green font-medium mt-2 underline-offset-2 hover:underline"
-                >
+                <p className="text-sm text-blinkit-green font-medium mt-2">
                   {activeCount} active order{activeCount === 1 ? '' : 's'} in progress
-                </Link>
+                </p>
               )}
             </section>
+
+            {activeOrders.length > 0 && (
+              <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
+                <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Package className="w-4 h-4 text-blinkit-green" />
+                  Active orders
+                </h2>
+                <ul className="space-y-2">
+                  {activeOrders.map((order) => (
+                    <li key={order.id}>
+                      <Link
+                        href={`/account/track/${order.id}`}
+                        className="block rounded-xl border border-gray-100 p-3 hover:border-blinkit-green/40"
+                      >
+                        <div className="flex justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-gray-900">{order.orderNumber}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">{formatDateTime(order.createdAt)}</p>
+                            <p className="text-xs text-gray-500">
+                              {order.itemCount} item{order.itemCount === 1 ? '' : 's'} ·{' '}
+                              {order.status.replace(/_/g, ' ').toLowerCase()}
+                            </p>
+                          </div>
+                          <p className="font-semibold text-blinkit-green">{formatCurrency(order.grandTotal)}</p>
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
             <AccountWishlistSection />
 

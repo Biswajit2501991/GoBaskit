@@ -233,6 +233,10 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
   }, [hasAccountIdentity, setCustomerMobile]);
 
   useEffect(() => {
+    setAccountMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
     if (!accountMenuOpen) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setAccountMenuOpen(false);

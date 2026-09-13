@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import type { OrderStatus } from '@prisma/client';
 import Header from '@/components/Header/Header';
 import OrderProgressTracker from '@/components/Account/OrderProgressTracker';
@@ -13,6 +12,7 @@ import { ChevronLeft, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useStaffPortalStore } from '@/store/staffPortalStore';
 
 const POLL_MS = 60_000;
 
@@ -33,6 +33,7 @@ interface OrderDetail {
   editableUntil?: string | null;
   canEdit?: boolean;
   canCancel?: boolean;
+  deliveryPin?: string | null;
   items: Array<{
     id?: string;
     productId?: string;
@@ -66,7 +67,7 @@ function remainingLabel(untilIso: string | null | undefined, now: number): strin
 }
 
 export default function OrderTrackDetailClient({ orderId }: { orderId: string }) {
-  const router = useRouter();
+  const openAccountModal = useStaffPortalStore((s) => s.openAccountModal);
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -93,9 +94,14 @@ export default function OrderTrackDetailClient({ orderId }: { orderId: string })
     else setRefreshing(true);
 
     try {
-      const res = await fetch(`/api/customer/orders/${orderId}`, { cache: 'no-store' });
+      const res = await fetch(`/api/customer/orders/${orderId}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
       if (res.status === 401) {
-        router.replace('/account');
+        setError('Log in with the mobile number used for this order to view it.');
+        setOrder(null);
+        openAccountModal();
         return;
       }
       if (!res.ok) {
@@ -110,7 +116,7 @@ export default function OrderTrackDetailClient({ orderId }: { orderId: string })
       setLoading(false);
       setRefreshing(false);
     }
-  }, [orderId, router]);
+  }, [orderId, openAccountModal]);
 
   useEffect(() => {
     load();
@@ -266,6 +272,16 @@ export default function OrderTrackDetailClient({ orderId }: { orderId: string })
               )}
               {lockedReason ? <p className="text-xs text-gray-500 mt-2">{lockedReason}</p> : null}
             </div>
+
+            {order.deliveryPin && order.status !== 'CANCELLED' && (
+              <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5 text-center">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Delivery PIN</p>
+                <p className="text-3xl font-mono font-bold tracking-[0.35em] text-gray-900 mt-2">{order.deliveryPin}</p>
+                <p className="text-sm text-gray-600 mt-2">
+                  Tell this 4-digit PIN to the rider when your order arrives. It is not the shop handover code.
+                </p>
+              </div>
+            )}
 
             <div className="bg-white rounded-2xl border border-gray-100 p-5">
               <OrderProgressTracker status={order.status} cancelMessage={order.cancelNotice} />

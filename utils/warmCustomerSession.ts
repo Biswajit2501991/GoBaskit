@@ -83,7 +83,7 @@ export async function warmCustomerSession(opts?: {
 
   inFlight = (async () => {
     try {
-      const accountRes = await fetch('/api/customer/account');
+      const accountRes = await fetch('/api/customer/account', { credentials: 'include', cache: 'no-store' });
       const accountData = accountRes.ok ? await accountRes.json() : { mobile: null };
       const mobile = typeof accountData.mobile === 'string' ? accountData.mobile : null;
       const isWhatsappVerified = accountData.isWhatsappVerified === true;
@@ -103,10 +103,10 @@ export async function warmCustomerSession(opts?: {
       }
 
       const [profileRes, ordersRes, noticesRes, wishlistRes] = await Promise.all([
-        fetch('/api/customer/profile'),
-        fetch('/api/customer/orders?active=1'),
-        fetch('/api/customer/notices'),
-        fetch('/api/customer/wishlist'),
+        fetch('/api/customer/profile', { credentials: 'include', cache: 'no-store' }),
+        fetch('/api/customer/orders?active=1', { credentials: 'include', cache: 'no-store' }),
+        fetch('/api/customer/notices', { credentials: 'include', cache: 'no-store' }),
+        fetch('/api/customer/wishlist', { credentials: 'include', cache: 'no-store' }),
       ]);
 
       let profile: SavedCheckoutProfile | null = null;

@@ -19,6 +19,7 @@ import {
 import { formatCustomerName } from '@/utils/customer';
 import { formatOrderLineLabel } from '@/utils/orderItemName';
 import { CatalogMarginService } from '@/services/CatalogMarginService';
+import { sealStaffPassword, openStaffPassword } from '@/lib/staff-password-vault';
 
 export class ShopSourcingError extends Error {
   constructor(
@@ -218,12 +219,27 @@ export class ShopSourcingService {
 
   static async createDeliveryPin(orderId: string): Promise<string> {
     const existing = await prisma.orderDeliveryPin.findUnique({ where: { orderId } });
-    if (existing) return '';
+    if (existing) {
+      const stored = openStaffPassword(existing.pinVault);
+      return stored && isFourDigitPin(stored) ? stored : '';
+    }
     const pin = generateDeliveryPin();
     await prisma.orderDeliveryPin.create({
-      data: { orderId, pinHash: await hashDeliveryPin(pin) },
+      data: {
+        orderId,
+        pinHash: await hashDeliveryPin(pin),
+        pinVault: sealStaffPassword(pin),
+      },
     });
     return pin;
+  }
+
+  /** Plaintext PIN for the owning customer only. Null if none or hash-only (legacy). */
+  static async customerDeliveryPin(orderId: string): Promise<string | null> {
+    const row = await prisma.orderDeliveryPin.findUnique({ where: { orderId } });
+    if (!row) return null;
+    const pin = openStaffPassword(row.pinVault);
+    return pin && isFourDigitPin(pin) ? pin : null;
   }
 
   static async verifyDeliveryPin(orderId: string, pin: string): Promise<boolean> {
@@ -234,7 +250,10 @@ export class ShopSourcingService {
   }
 
   static async startForOrder(orderId: string) {
-    if (!(await this.isEnabled())) return null;
+    if (!(await this.isEnabled())) {
+      console.warn('[shop-sourcing] skip pickup offers; Enable multi-shop sourcing is off', { orderId });
+      return null;
+    }
     return this.openOfferRound(orderId);
   }
 

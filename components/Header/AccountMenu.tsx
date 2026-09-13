@@ -119,7 +119,7 @@ export default function AccountMenu({
           <Link
             href="/account"
             role="menuitem"
-            onClick={onClose}
+            onClick={() => window.setTimeout(onClose, 300)}
             className="block w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-blinkit-green"
           >
             My Account
@@ -127,7 +127,7 @@ export default function AccountMenu({
           <Link
             href="/account#wishlist"
             role="menuitem"
-            onClick={onClose}
+            onClick={() => window.setTimeout(onClose, 300)}
             className="block w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-gray-900"
           >
             My Wishlist{wishlistCount > 0 ? ` (${wishlistCount})` : ''}
@@ -135,7 +135,7 @@ export default function AccountMenu({
           <Link
             href="/account/track"
             role="menuitem"
-            onClick={onClose}
+            onClick={() => window.setTimeout(onClose, 300)}
             className="block w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-gray-900"
           >
             Track My Orders

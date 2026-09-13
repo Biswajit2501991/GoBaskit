@@ -43,10 +43,6 @@ export default function OrderTrackListClient() {
   const load = useCallback(async () => {
     const cached = peekWarmCustomerSession();
     if (cached?.activeOrders?.length) {
-      if (cached.activeOrders.length === 1) {
-        router.replace(`/account/track/${cached.activeOrders[0].id}`);
-        return;
-      }
       setOrders(cached.activeOrders.map(toListItem));
       setLoading(false);
     }
@@ -60,10 +56,6 @@ export default function OrderTrackListClient() {
     }
 
     const list = warm.activeOrders.map(toListItem);
-    if (list.length === 1) {
-      router.replace(`/account/track/${list[0].id}`);
-      return;
-    }
     setOrders(list);
     setLoading(false);
   }, [router]);
@@ -81,7 +73,7 @@ export default function OrderTrackListClient() {
           My Account
         </Link>
         <h1 className="text-xl font-bold mb-1">Track an order</h1>
-        <p className="text-sm text-gray-500 mb-6">Select an active order to view live status</p>
+        <p className="text-sm text-gray-500 mb-6">Open an order to see live status and your delivery PIN</p>
 
         {loading ? (
           <p className="text-gray-400 text-sm">Loading orders...</p>

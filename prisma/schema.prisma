@@ -687,6 +687,8 @@ model OrderDeliveryPin {
   orderId   String   @unique @map("order_id")
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   pinHash   String   @map("pin_hash")
+  /** Sealed plaintext so the customer can see the PIN again on Track order. */
+  pinVault  String?  @map("pin_vault")
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("order_delivery_pins")

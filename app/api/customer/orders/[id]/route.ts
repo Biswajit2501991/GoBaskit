@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCustomerMobileFromRequest } from '@/lib/customer-session';
 import { requireSameOrigin } from '@/lib/security';
 import { CustomerOrderService } from '@/services/CustomerOrderService';
+import { ShopSourcingService } from '@/services/ShopSourcingService';
 import { OrderEditError, OrderMutationService } from '@/services/OrderMutationService';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -45,7 +46,8 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       delivery,
       actor: { type: 'customer', mobile },
     });
-    return NextResponse.json({ order: CustomerOrderService.toDetail(updated) });
+    const deliveryPin = await ShopSourcingService.customerDeliveryPin(id);
+    return NextResponse.json({ order: CustomerOrderService.toDetail(updated, deliveryPin) });
   } catch (err) {
     if (err instanceof OrderEditError) {
       return NextResponse.json({ error: err.message }, { status: err.status });

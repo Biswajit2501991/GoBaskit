@@ -7,6 +7,7 @@ import { Check } from 'lucide-react';
 
 const CELEBRATE_KEY = 'gobaskit_celebrate_order';
 const ORDER_NUMBER_KEY = 'gobaskit_last_order_number';
+const DELIVERY_PIN_KEY = 'gobaskit_last_delivery_pin';
 
 export function markOrderCelebration(orderNumber?: string) {
   try {
@@ -24,6 +25,7 @@ export function markOrderCelebration(orderNumber?: string) {
 export default function OrderCelebration() {
   const [visible, setVisible] = useState(false);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const [deliveryPin, setDeliveryPin] = useState<string | null>(null);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -32,7 +34,9 @@ export default function OrderCelebration() {
       if (sessionStorage.getItem(CELEBRATE_KEY) === '1') {
         setVisible(true);
         setOrderNumber(sessionStorage.getItem(ORDER_NUMBER_KEY));
+        setDeliveryPin(sessionStorage.getItem(DELIVERY_PIN_KEY));
         sessionStorage.removeItem(CELEBRATE_KEY);
+        sessionStorage.removeItem(DELIVERY_PIN_KEY);
       }
     } catch {
       /* ignore */
@@ -41,9 +45,9 @@ export default function OrderCelebration() {
 
   useEffect(() => {
     if (!visible) return;
-    const t = window.setTimeout(() => setVisible(false), 3200);
+    const t = window.setTimeout(() => setVisible(false), deliveryPin ? 8000 : 3200);
     return () => window.clearTimeout(t);
-  }, [visible]);
+  }, [visible, deliveryPin]);
 
   if (!visible || !portalRoot) return null;
 
@@ -81,6 +85,17 @@ export default function OrderCelebration() {
         <h2 className="text-xl font-extrabold text-gray-900">Order placed!</h2>
         {orderNumber ? (
           <p className="mt-1 text-sm font-semibold text-blinkit-green">#{orderNumber}</p>
+        ) : null}
+        {deliveryPin ? (
+          <p className="mt-3 rounded-xl bg-emerald-50 border border-emerald-100 px-3 py-2">
+            <span className="block text-[11px] font-semibold uppercase tracking-wide text-emerald-800">
+              Delivery PIN
+            </span>
+            <span className="block text-2xl font-mono font-bold tracking-[0.35em] text-gray-900 mt-1">
+              {deliveryPin}
+            </span>
+            <span className="block text-xs text-gray-500 mt-1">Tell this to the rider when the order arrives.</span>
+          </p>
         ) : null}
         <p className="mt-2 text-sm text-gray-500">
           We&apos;re on it — delivery in about 15 minutes. Taking you home to keep shopping…

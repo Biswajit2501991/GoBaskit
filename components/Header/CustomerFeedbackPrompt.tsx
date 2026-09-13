@@ -29,6 +29,10 @@ export default function CustomerFeedbackPrompt({
       onSettled();
       return;
     }
+    if (window.location.pathname.startsWith('/account')) {
+      onSettled();
+      return;
+    }
 
     let cancelled = false;
     void fetch('/api/customer/feedback/pending', { credentials: 'include', cache: 'no-store' })

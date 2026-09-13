@@ -707,6 +707,13 @@ export default function CheckoutPage() {
         /* ignore */
       }
       markOrderCelebration(placedOrderNumber);
+      if (deliveryPin) {
+        try {
+          sessionStorage.setItem('gobaskit_last_delivery_pin', deliveryPin);
+        } catch {
+          /* ignore */
+        }
+      }
 
       let whatsappMessage: string | undefined;
       let whatsappUrl: string | undefined;
