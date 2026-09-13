@@ -30,7 +30,7 @@ export class ShopHandoverService {
       const pin = generateShopHandoverPin();
       const lookup = shopHandoverLookupKey(pin);
       try {
-        await prisma.order.update({
+        const written = await prisma.order.updateMany({
           where: { id: orderId, shopHandoverPinLookup: null },
           data: {
             shopHandoverPinLookup: lookup,
@@ -38,6 +38,7 @@ export class ShopHandoverService {
             shopHandoverGeneratedAt: new Date(),
           },
         });
+        if (written.count === 1) return;
         return;
       } catch {
         /* unique collision — try another pin */
