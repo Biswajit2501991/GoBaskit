@@ -1485,6 +1485,7 @@ export default function SettingsManager({
               }
               disabled={!canEdit || !shopSourcing.enabled}
             />
+            <p className="text-xs text-gray-400 mt-1">Default 300 (5 minutes) so a shopkeeper can log in and accept.</p>
           </div>
           <div>
             <Label>Max offer rounds</Label>

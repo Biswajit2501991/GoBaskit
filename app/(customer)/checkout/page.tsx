@@ -607,6 +607,7 @@ export default function CheckoutPage() {
       const copy = nightDeliveryCopy(nightDeliveryWindow(undefined, overnightCheckout), overnightCheckout);
       if (copy) {
         setNightPrompt({ title: copy.title, message: copy.message, data, source });
+        setAddressPrompt(null);
         return;
       }
     }
@@ -681,6 +682,8 @@ export default function CheckoutPage() {
     }
 
     function finishSuccess(result: CheckoutResult) {
+      setAddressPrompt(null);
+      setNightPrompt(null);
       const placedOrderNumber = typeof result.orderNumber === 'string' ? result.orderNumber : undefined;
       const placedOrderId = typeof result.orderId === 'string' ? result.orderId : undefined;
       const deliveryPin =
@@ -757,6 +760,7 @@ export default function CheckoutPage() {
 
     function handleFailure(result: CheckoutResult) {
       if (result.code === 'NIGHT_DELIVERY_ACK') {
+        setAddressPrompt(null);
         setNightPrompt({
           title: typeof result.title === 'string' ? result.title : 'Confirm delivery time',
           message:
@@ -770,6 +774,8 @@ export default function CheckoutPage() {
         });
         return;
       }
+      setAddressPrompt(null);
+      setNightPrompt(null);
       const message = typeof result.error === 'string' ? result.error : 'Failed to place order';
       setOrderError(message);
       if (result.code === 'LOGIN_REQUIRED') {
@@ -819,6 +825,8 @@ export default function CheckoutPage() {
           finishSuccess(existingRetry);
           return;
         }
+        setAddressPrompt(null);
+        setNightPrompt(null);
         setOrderError('Network error. Checking whether your order went through… Please try Place Order again if nothing appears in Track order.');
         return;
       }
@@ -838,6 +846,8 @@ export default function CheckoutPage() {
           finishSuccess(existingRetry);
           return;
         }
+        setAddressPrompt(null);
+        setNightPrompt(null);
         setOrderError('Checkout is taking longer than usual. Please try Place Order again.');
         return;
       }
@@ -915,7 +925,9 @@ export default function CheckoutPage() {
     isWhatsAppPatternValid &&
     !belowMinimum &&
     !hasOutOfStock &&
-    !isSubmitting;
+    !isSubmitting &&
+    !addressAckBusy &&
+    !nightAckBusy;
 
   if (!hydrated || !authChecked) {
     return (
@@ -1314,9 +1326,9 @@ export default function CheckoutPage() {
                 className="w-full h-11 rounded-xl font-semibold"
                 disabled={addressAckBusy}
                 onClick={() => {
+                  if (addressAckBusy) return;
                   const next = addressPrompt;
                   setAddressAckBusy(true);
-                  setAddressPrompt(null);
                   void submitOrder(next.data, next.source, { addressAccuracyAck: true }).finally(() => {
                     setAddressAckBusy(false);
                   });
@@ -1352,9 +1364,9 @@ export default function CheckoutPage() {
                 className="w-full h-11 rounded-xl font-semibold"
                 disabled={nightAckBusy}
                 onClick={() => {
+                  if (nightAckBusy) return;
                   const next = nightPrompt;
                   setNightAckBusy(true);
-                  setNightPrompt(null);
                   void submitOrder(next.data, next.source, {
                     nightDeliveryAck: true,
                     addressAccuracyAck: true,

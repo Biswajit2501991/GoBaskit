@@ -12,6 +12,7 @@ import {
   isAppleMobileBrowser,
   isStandaloneDisplay,
   markAndroidAlertsPromptAfterLogin,
+  registerAdminServiceWorker,
 } from '@/lib/admin-push-client';
 import { normalizeMobile } from '@/utils/mobile';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
@@ -140,6 +141,10 @@ function ShopPortal() {
   }, [loadOffers]);
 
   useEffect(() => {
+    void registerAdminServiceWorker();
+  }, []);
+
+  useEffect(() => {
     if (!authed) return;
     void hasAdminPushSubscription().then(setAlertsOn);
   }, [authed]);
@@ -160,42 +165,100 @@ function ShopPortal() {
   }, [authed, deepOrderId, offers, history]);
 
   useEffect(() => {
-    if (!authed) return;
-    const source = new EventSource('/api/shop/events');
-    source.onmessage = (ev) => {
+    const unlockAudio = () => {
       try {
-        const event = JSON.parse(ev.data) as { type?: string };
-        if (event.type === 'notification_created' || event.type === 'order_updated') {
-          void loadOffers();
-        }
-        if (event.type === 'notification_created') {
-          try {
-            const Ctx =
-              window.AudioContext ||
-              (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-            if (Ctx) {
-              const ctx = new Ctx();
-              const osc = ctx.createOscillator();
-              const gain = ctx.createGain();
-              osc.frequency.value = 880;
-              gain.gain.value = 0.05;
-              osc.connect(gain);
-              gain.connect(ctx.destination);
-              osc.start();
-              osc.stop(ctx.currentTime + 0.18);
-            }
-          } catch {
-            /* ignore */
-          }
-        }
+        const Ctx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        void ctx.resume();
+        ctx.close().catch(() => undefined);
       } catch {
         /* ignore */
       }
     };
-    const poll = setInterval(() => void loadOffers(), 15000);
+    window.addEventListener('pointerdown', unlockAudio, { once: true });
+    return () => window.removeEventListener('pointerdown', unlockAudio);
+  }, []);
+
+  useEffect(() => {
+    if (!authed) return;
+    let source: EventSource | null = null;
+    let stopped = false;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+
+    const playBeep = () => {
+      try {
+        const Ctx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = 880;
+        gain.gain.value = 0.08;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.22);
+      } catch {
+        /* iPad Safari often blocks Web Audio until a tap */
+      }
+    };
+
+    const connect = () => {
+      if (stopped) return;
+      source?.close();
+      source = new EventSource('/api/shop/events');
+      source.onmessage = (ev) => {
+        try {
+          const event = JSON.parse(ev.data) as { type?: string };
+          if (event.type === 'notification_created' || event.type === 'order_updated') {
+            void loadOffers();
+          }
+          if (event.type === 'notification_created') playBeep();
+        } catch {
+          /* ignore */
+        }
+      };
+      source.onerror = () => {
+        if (stopped) return;
+        if (source && source.readyState !== EventSource.CLOSED) {
+          void loadOffers();
+          return;
+        }
+        source?.close();
+        source = null;
+        void loadOffers();
+        if (retry) clearTimeout(retry);
+        retry = setTimeout(connect, 2000);
+      };
+    };
+    connect();
+
+    const onVisible = () => {
+      if (document.visibilityState === 'hidden') return;
+      void loadOffers();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('pageshow', onVisible);
+    window.addEventListener('focus', onVisible);
+
+    const poll = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      void loadOffers();
+    }, 8000);
+
     return () => {
-      source.close();
+      stopped = true;
+      source?.close();
+      if (retry) clearTimeout(retry);
       clearInterval(poll);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('pageshow', onVisible);
+      window.removeEventListener('focus', onVisible);
     };
   }, [authed, loadOffers]);
 
@@ -452,8 +515,8 @@ function ShopPortal() {
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
             <p className="text-xs text-gray-500 text-center">
-              After login, enable new-order alerts. Alerts stay on after logout so you can tap the
-              notification and sign in to accept.
+              After login, enable new-order alerts. Open pickups stay available for 5 minutes so you can
+              sign in and accept. On iPhone/iPad, add Shop to the Home Screen for alerts after logout.
             </p>
           </form>
         </div>
@@ -483,8 +546,8 @@ function ShopPortal() {
             <p className="text-sm font-semibold text-amber-900">Enable new-order alerts</p>
             <p className="text-xs text-amber-800">
               {isAppleMobileBrowser() && !isStandaloneDisplay()
-                ? 'On iPhone, tap Share → Add to Home Screen, open this Shop icon, then enable alerts. Notifications then work even after logout.'
-                : 'Turn on alerts so a new pickup can pop up even if you are logged out. Tap the notification, then log in to accept.'}
+                ? 'On iPhone and iPad, tap Share → Add to Home Screen, open the Shop icon, then Enable alerts. Safari in a browser tab cannot show alerts after you leave. Open pickups stay available for 5 minutes.'
+                : 'Turn on alerts so a new pickup can pop up even if you are logged out. Tap the notification, then log in to accept. Open pickups stay available for 5 minutes.'}
             </p>
             {alertsError && <p className="text-xs text-red-600">{alertsError}</p>}
             <Button type="button" className="w-full" disabled={alertsBusy} onClick={() => void enableAlerts()}>

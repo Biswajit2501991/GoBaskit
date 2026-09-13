@@ -28,6 +28,29 @@ describe('admin push', () => {
     ).toBe(false);
   });
 
+  it('treats iPad Safari as Apple even when the UA looks like a Mac', () => {
+    expect(
+      isAppleMobileBrowser(
+        'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+      ),
+    ).toBe(true);
+  });
+
+  it('treats iPadOS Macintosh UA as Apple when the device reports a touch screen', () => {
+    const nav = globalThis.navigator as Navigator & { maxTouchPoints: number };
+    const previous = nav.maxTouchPoints;
+    Object.defineProperty(nav, 'maxTouchPoints', { configurable: true, value: 5 });
+    try {
+      expect(
+        isAppleMobileBrowser(
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+        ),
+      ).toBe(true);
+    } finally {
+      Object.defineProperty(nav, 'maxTouchPoints', { configurable: true, value: previous });
+    }
+  });
+
   it('strips wrapping quotes and whitespace from VAPID secrets', () => {
     expect(sanitizeVapidValue('"BNpublic"')).toBe('BNpublic');
     expect(sanitizeVapidValue("'BNpublic'")).toBe('BNpublic');

@@ -15,6 +15,9 @@ describe('shop sourcing helpers', () => {
     expect(parseShopSourcing(undefined).enabled).toBe(false);
     expect(parseShopSourcing({ enabled: true, maxShopsPerItem: 5 }).maxShopsPerItem).toBe(5);
     expect(parseShopSourcing({ maxShopsPerItem: 99 }).maxShopsPerItem).toBe(10);
+    expect(parseShopSourcing({ offerTimeoutSeconds: 90 }).offerTimeoutSeconds).toBe(300);
+    expect(parseShopSourcing({ offerTimeoutSeconds: 120 }).offerTimeoutSeconds).toBe(120);
+    expect(parseShopSourcing(undefined).offerTimeoutSeconds).toBe(300);
   });
 
   it('assigns A then B suffixes', () => {

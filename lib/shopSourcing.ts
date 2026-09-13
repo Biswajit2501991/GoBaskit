@@ -11,7 +11,7 @@ export type ShopSourcingConfig = {
 export const DEFAULT_SHOP_SOURCING: ShopSourcingConfig = {
   enabled: false,
   maxShopsPerItem: 3,
-  offerTimeoutSeconds: 90,
+  offerTimeoutSeconds: 300,
   maxOfferRounds: 3,
 };
 
@@ -25,11 +25,14 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
 
 export function parseShopSourcing(raw: unknown): ShopSourcingConfig {
   const src = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const rawTimeout = src.offerTimeoutSeconds;
+  // 90s was the old default; shops could not log in in time. Treat it as 5 minutes.
+  const timeoutSource = rawTimeout === 90 ? DEFAULT_SHOP_SOURCING.offerTimeoutSeconds : rawTimeout;
   return {
     enabled: src.enabled === true,
     maxShopsPerItem: clampInt(src.maxShopsPerItem, 1, MAX_SHOPS_HARD_CAP, DEFAULT_SHOP_SOURCING.maxShopsPerItem),
     offerTimeoutSeconds: clampInt(
-      src.offerTimeoutSeconds,
+      timeoutSource,
       30,
       3600,
       DEFAULT_SHOP_SOURCING.offerTimeoutSeconds,

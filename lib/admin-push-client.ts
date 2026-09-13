@@ -17,6 +17,12 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export function isAppleMobileBrowser(ua?: string): boolean {
   const agent = ua ?? (typeof navigator === 'undefined' ? '' : navigator.userAgent || '');
   if (/iPad|iPhone|iPod/.test(agent)) return true;
+  // iPadOS 13+ Safari/Chrome often report as Macintosh.
+  const isiPadOsDesktopUa =
+    /\bMacintosh\b/.test(agent) &&
+    typeof navigator !== 'undefined' &&
+    navigator.maxTouchPoints > 1;
+  if (isiPadOsDesktopUa) return true;
   if (ua != null) return false;
   return typeof navigator !== 'undefined' && navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
 }
@@ -93,7 +99,7 @@ export async function enableAdminPushAlerts(): Promise<{ ok: boolean; error?: st
       return {
         ok: false,
         error:
-          'iPhone Safari needs Add to Home Screen for background popups. Share → Add to Home Screen, open from the home icon, then try again.',
+          'iPhone/iPad Safari needs Add to Home Screen for background alerts. Share → Add to Home Screen, open the Shop icon, log in, then Enable alerts.',
       };
     }
     return { ok: false, error: 'This browser does not support push notifications' };

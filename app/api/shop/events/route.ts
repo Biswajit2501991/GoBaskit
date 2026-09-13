@@ -11,6 +11,7 @@ export async function GET() {
   const encoder = new TextEncoder();
   let unsubscribe: (() => void) | null = null;
   let closed = false;
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
   const staffId = auth.staff!.id;
 
   const stream = new ReadableStream({
@@ -27,20 +28,14 @@ export async function GET() {
         }
         send(event);
       });
-      const heartbeat = setInterval(() => {
+      heartbeat = setInterval(() => {
         if (closed) return;
         controller.enqueue(encoder.encode(': heartbeat\n\n'));
-      }, 25000);
-      const cleanup = () => {
-        closed = true;
-        clearInterval(heartbeat);
-        unsubscribe?.();
-      };
-      // @ts-expect-error attach cleanup for cancel
-      controller._cleanup = cleanup;
+      }, 15000);
     },
     cancel() {
       closed = true;
+      if (heartbeat) clearInterval(heartbeat);
       unsubscribe?.();
     },
   });
