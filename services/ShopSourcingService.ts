@@ -221,7 +221,8 @@ export class ShopSourcingService {
     const existing = await prisma.orderDeliveryPin.findUnique({ where: { orderId } });
     if (existing) {
       const stored = openStaffPassword(existing.pinVault);
-      return stored && isFourDigitPin(stored) ? stored : '';
+      if (stored && isFourDigitPin(stored)) return stored;
+      return this.rotateDeliveryPin(orderId);
     }
     const pin = generateDeliveryPin();
     await prisma.orderDeliveryPin.create({
@@ -234,12 +235,27 @@ export class ShopSourcingService {
     return pin;
   }
 
-  /** Plaintext PIN for the owning customer only. Null if none or hash-only (legacy). */
+  /** New 4-digit PIN, sealed with this server's JWT_SECRET so Track can show it again. */
+  static async rotateDeliveryPin(orderId: string): Promise<string> {
+    const pin = generateDeliveryPin();
+    const pinHash = await hashDeliveryPin(pin);
+    const pinVault = sealStaffPassword(pin);
+    await prisma.orderDeliveryPin.upsert({
+      where: { orderId },
+      create: { orderId, pinHash, pinVault },
+      update: { pinHash, pinVault },
+    });
+    console.warn('[shop-sourcing] rotated customer delivery PIN (vault unreadable)', { orderId });
+    return pin;
+  }
+
+  /** Plaintext PIN for the owning customer only. Rotates if the sealed copy cannot be opened. */
   static async customerDeliveryPin(orderId: string): Promise<string | null> {
     const row = await prisma.orderDeliveryPin.findUnique({ where: { orderId } });
     if (!row) return null;
     const pin = openStaffPassword(row.pinVault);
-    return pin && isFourDigitPin(pin) ? pin : null;
+    if (pin && isFourDigitPin(pin)) return pin;
+    return this.rotateDeliveryPin(orderId);
   }
 
   static async verifyDeliveryPin(orderId: string, pin: string): Promise<boolean> {
