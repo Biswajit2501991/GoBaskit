@@ -33,6 +33,8 @@ type HistoryRow = {
   orderNumber: string;
   costToGobaskit: number;
   costConfirmedAt: string | null;
+  paymentStatus?: 'UNSET' | 'PAID' | 'PENDING';
+  pendingPaymentBy?: string | null;
   acceptedAt: string;
   pickupAt: string;
   items: HistoryItem[];
@@ -89,6 +91,14 @@ function ShopPortal() {
   const [alertsOn, setAlertsOn] = useState(false);
   const [alertsBusy, setAlertsBusy] = useState(false);
   const [alertsError, setAlertsError] = useState('');
+  const [handoverCode, setHandoverCode] = useState('');
+  const [handover, setHandover] = useState<{
+    fulfillmentId: string;
+    ticket: string;
+    amount: number;
+    staffName: string;
+    paymentStatus: string;
+  } | null>(null);
 
   const loadOffers = useCallback(async () => {
     const seq = ++loadSeq.current;
@@ -334,6 +344,57 @@ function ShopPortal() {
     setAlertsError(result.error || 'Could not enable alerts');
   }
 
+  async function verifyHandover() {
+    setBusy(true);
+    setInfo('');
+    try {
+      const res = await fetch('/api/shop/handover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: handoverCode }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setInfo(typeof data.error === 'string' ? data.error : 'Invalid shop code');
+        return;
+      }
+      setHandover({
+        fulfillmentId: data.fulfillmentId,
+        ticket: data.ticket,
+        amount: Number(data.amount),
+        staffName: data.staffName,
+        paymentStatus: data.paymentStatus,
+      });
+      setHandoverCode('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function markHandoverPayment(paymentStatus: 'PAID' | 'PENDING') {
+    if (!handover) return;
+    setBusy(true);
+    setInfo('');
+    try {
+      const res = await fetch('/api/shop/handover/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fulfillmentId: handover.fulfillmentId, paymentStatus }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setInfo(typeof data.error === 'string' ? data.error : 'Could not save payment');
+        return;
+      }
+      setHandover(null);
+      setViewedHistory(null);
+      setInfo(paymentStatus === 'PAID' ? 'Payment marked done' : 'Pending payment recorded');
+      await loadOffers();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const pendingCosts = viewedHistory && !viewedHistory.costConfirmedAt;
   const costTotal = viewedHistory
     ? viewedHistory.items.reduce((sum, item) => {
@@ -461,7 +522,9 @@ function ShopPortal() {
             <button
               key={row.id || row.ticket}
               type="button"
-              className="w-full text-left bg-white border rounded-2xl p-4"
+              className={`w-full text-left bg-white border rounded-2xl p-4 ${
+                row.paymentStatus === 'PENDING' ? 'ring-2 ring-amber-400 bg-amber-50' : ''
+              }`}
               onClick={() => {
                 setActive(null);
                 setViewedHistory(row);
@@ -478,6 +541,11 @@ function ShopPortal() {
               <p className="text-sm text-gray-600">
                 {row.costConfirmedAt ? `Cost ${formatCurrency(row.costToGobaskit)}` : 'Costs pending'}
               </p>
+              {row.paymentStatus === 'PENDING' && (
+                <p className="text-sm font-semibold text-red-600 mt-1">
+                  Pending payment by {row.pendingPaymentBy || 'staff'} · {formatCurrency(row.costToGobaskit)}
+                </p>
+              )}
               <p className="text-xs text-gray-400 mt-1">{formatDateTime(row.acceptedAt)}</p>
             </button>
           ))}
@@ -568,9 +636,50 @@ function ShopPortal() {
                 </Button>
               </>
             ) : (
-              <p className="text-xs text-gray-400">Costs are locked. Only GoBaskit admin can change them.</p>
+              <>
+                <p className="text-xs text-gray-400">Costs are locked. Only GoBaskit admin can change them.</p>
+                {viewedHistory.paymentStatus !== 'PAID' && (
+                  <div className="space-y-2 border-t pt-3">
+                    <Label>Staff arrived — 6-digit shop code</Label>
+                    <Input
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={handoverCode}
+                      onChange={(e) => setHandoverCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="000000"
+                    />
+                    <Button
+                      className="w-full"
+                      disabled={busy || handoverCode.length !== 6}
+                      onClick={() => void verifyHandover()}
+                    >
+                      {busy ? 'Checking…' : 'Verify staff'}
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
             <Button variant="ghost" className="w-full" onClick={() => setViewedHistory(null)}>
+              Close
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {handover && (
+        <div className="fixed inset-0 z-[96] flex items-end sm:items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl p-5 space-y-4">
+            <h2 className="text-lg font-bold">Payment · {handover.ticket}</h2>
+            <p className="text-sm text-gray-600">
+              {handover.staffName} · {formatCurrency(handover.amount)}
+            </p>
+            <Button className="w-full" disabled={busy} onClick={() => void markHandoverPayment('PAID')}>
+              Payment done
+            </Button>
+            <Button variant="secondary" className="w-full" disabled={busy} onClick={() => void markHandoverPayment('PENDING')}>
+              Pending
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={() => setHandover(null)}>
               Close
             </Button>
           </div>

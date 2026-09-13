@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 export type ShopSourcingConfig = {
   enabled: boolean;
@@ -86,9 +87,31 @@ export function planShopCatalogSync(params: {
 }
 
 export const SHOP_FULFILLMENT_HISTORY_MS = 30 * 24 * 60 * 60 * 1000;
+export const SHOP_MARGIN_FLOOR_RS = 3;
 
 export function shopHistorySince(now = new Date()): Date {
   return new Date(now.getTime() - SHOP_FULFILLMENT_HISTORY_MS);
+}
+
+export function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/**
+ * Next catalog selling price after a shop unit cost.
+ * Never lowers the site price. Target margin is shop unit + floor (₹3).
+ */
+export function nextCatalogSellingPrice(
+  sitePrice: number,
+  shopUnitCost: number,
+  floor = SHOP_MARGIN_FLOOR_RS,
+): number {
+  const site = roundMoney(sitePrice);
+  const shop = roundMoney(shopUnitCost);
+  if (!Number.isFinite(site) || site < 0) return sitePrice;
+  if (!Number.isFinite(shop) || shop < 0) return site;
+  if (site - shop >= floor) return site;
+  return roundMoney(Math.max(site, shop + floor));
 }
 
 export function generateDeliveryPin(): string {
@@ -107,11 +130,21 @@ export function isFourDigitPin(pin: string): boolean {
   return /^\d{4}$/.test(String(pin ?? '').trim()) && pin !== '0000';
 }
 
-export type FulfillmentCostLineInput = { id: string; costToGobaskit: number };
-
-function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
+export function generateShopHandoverPin(): string {
+  return String(100000 + Math.floor(Math.random() * 900000));
 }
+
+export function isSixDigitPin(pin: string): boolean {
+  const value = String(pin ?? '').trim();
+  return /^\d{6}$/.test(value) && value !== '000000';
+}
+
+export function shopHandoverLookupKey(pin: string): string {
+  const secret = process.env.JWT_SECRET || 'dev-secret-change-me';
+  return crypto.createHmac('sha256', secret).update(`shop-handover:${String(pin).trim()}`).digest('hex');
+}
+
+export type FulfillmentCostLineInput = { id: string; costToGobaskit: number };
 
 /** Require a finite rupee amount (>= 0) for every expected fulfillment-item id. */
 export function parseFulfillmentLineCosts(

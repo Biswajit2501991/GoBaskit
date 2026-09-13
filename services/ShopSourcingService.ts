@@ -18,6 +18,7 @@ import {
 } from '@/lib/shopSourcing';
 import { formatCustomerName } from '@/utils/customer';
 import { formatOrderLineLabel } from '@/utils/orderItemName';
+import { CatalogMarginService } from '@/services/CatalogMarginService';
 
 export class ShopSourcingError extends Error {
   constructor(
@@ -378,9 +379,15 @@ export class ShopSourcingService {
         suffix: true,
         costToGobaskit: true,
         costConfirmedAt: true,
+        paymentStatus: true,
         createdAt: true,
         pickupAt: true,
-        order: { select: { orderNumber: true } },
+        order: {
+          select: {
+            orderNumber: true,
+            assignedStaff: { select: { name: true } },
+          },
+        },
         items: {
           select: {
             id: true,
@@ -399,6 +406,8 @@ export class ShopSourcingService {
       orderNumber: row.order.orderNumber,
       costToGobaskit: Number(row.costToGobaskit),
       costConfirmedAt: row.costConfirmedAt ? row.costConfirmedAt.toISOString() : null,
+      paymentStatus: row.paymentStatus,
+      pendingPaymentBy: row.paymentStatus === 'PENDING' ? (row.order.assignedStaff?.name ?? 'Staff') : null,
       acceptedAt: row.createdAt.toISOString(),
       pickupAt: row.pickupAt.toISOString(),
       items: row.items.map((item) => ({
@@ -680,6 +689,7 @@ export class ShopSourcingService {
         pickupAt: row.pickupAt.toISOString(),
         costToGobaskit: Number(row.costToGobaskit),
         costConfirmedAt: row.costConfirmedAt ? row.costConfirmedAt.toISOString() : null,
+        paymentStatus: row.paymentStatus,
         shop: row.shop,
         items: row.items.map((line) => ({
           id: line.id,
@@ -757,6 +767,7 @@ export class ShopSourcingService {
       type: 'order_updated',
       payload: { id: fulfillment.orderId, shopFulfillmentId: fulfillment.id },
     });
+    void CatalogMarginService.applyAfterFulfillmentCosts(fulfillment.id);
     return this.serializeFulfillments(rows, order.orderNumber);
   }
 }

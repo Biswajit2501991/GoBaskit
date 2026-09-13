@@ -268,6 +268,8 @@ function OrderCard({
   const [historyLoading, setHistoryLoading] = useState(false);
   const [editingContents, setEditingContents] = useState(false);
   const [savingContents, setSavingContents] = useState(false);
+  const [shopCode, setShopCode] = useState<string | null>(null);
+  const [shopCodeReady, setShopCodeReady] = useState(false);
   const [contentsError, setContentsError] = useState('');
   const [editLines, setEditLines] = useState<EditableLine[]>([]);
   const [editAddress, setEditAddress] = useState({
@@ -305,10 +307,34 @@ function OrderCard({
     };
   }, [expanded, order.id, history]);
 
+  useEffect(() => {
+    if (!expanded || !order.assignedStaffId) return;
+    let alive = true;
+    fetch(`/api/admin/orders/${order.id}/shop-handover-code`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!alive) return;
+        setShopCodeReady(Boolean(data?.ready));
+        setShopCode(typeof data?.code === 'string' ? data.code : null);
+      })
+      .catch(() => {
+        if (alive) {
+          setShopCodeReady(false);
+          setShopCode(null);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [expanded, order.id, order.assignedStaffId]);
+
   const isLocked = Boolean(order.lockedAt && order.assignedStaffId);
   const isMine = order.assignedStaffId === currentStaffId;
   const lockedByOther = isLocked && !isMine && !canOverrideLock;
   const pendingVerifyLock = isPendingUnverifiedLock(order);
+  const shopPayPending = Boolean(
+    order.shopSourcing?.fulfillments.some((row) => row.paymentStatus === 'PENDING'),
+  );
   const canDrag = canEdit && !lockedByOther && !pendingVerifyLock;
   const canEditContents =
     canEdit &&
@@ -340,7 +366,7 @@ function OrderCard({
         isDragging ? 'opacity-40 border-dashed border-blinkit-green scale-[0.98]' : 'border-gray-100'
       } ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''} ${
         pendingVerifyLock ? 'opacity-75 ring-1 ring-amber-300' : ''
-      } ${highlight ? 'ring-2 ring-blinkit-green' : ''}`}
+      } ${shopPayPending ? 'ring-2 ring-amber-500' : ''} ${highlight ? 'ring-2 ring-blinkit-green' : ''}`}
     >
       <div
         role="button"
@@ -411,6 +437,11 @@ function OrderCard({
             )}
             {order.orderSource === 'whatsapp' && (
               <span className="text-[10px] font-medium bg-green-100 text-green-800 px-1.5 py-0.5 rounded">WA</span>
+            )}
+            {shopPayPending && (
+              <span className="text-[10px] font-semibold bg-amber-100 text-red-700 px-1.5 py-0.5 rounded">
+                Pending payment to shop
+              </span>
             )}
             {isLocked && (
               <span className="text-[10px] flex items-center gap-0.5 text-gray-500">
@@ -546,6 +577,22 @@ function OrderCard({
               )}
             </div>
           </div>
+
+          {order.assignedStaffId && (
+            <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-sm" onClick={(e) => e.stopPropagation()}>
+              <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">Shop handover code</p>
+              {shopCode ? (
+                <p className="text-2xl font-mono font-bold tracking-widest mt-1">{shopCode}</p>
+              ) : shopCodeReady ? (
+                <p className="text-xs text-gray-500 mt-1">Code shown to assignee only.</p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1">Code appears after this order is assigned.</p>
+              )}
+              <p className="text-[11px] text-emerald-800 mt-1">
+                Show this 6-digit code at the shop. It is not the customer delivery PIN.
+              </p>
+            </div>
+          )}
 
           <div>
             <p className="text-xs font-semibold text-gray-500 mb-2">Items</p>

@@ -5,6 +5,8 @@ import {
   parseFulfillmentLineCosts,
   parseShopSourcing,
   planShopCatalogSync,
+  nextCatalogSellingPrice,
+  isSixDigitPin,
   shopHistorySince,
 } from '@/lib/shopSourcing';
 
@@ -43,6 +45,23 @@ describe('shop sourcing helpers', () => {
     expect(plan.add).toEqual(['add']);
     expect(plan.remove).toEqual(['drop']);
     expect(plan.skipped).toEqual(['full']);
+  });
+});
+
+describe('nextCatalogSellingPrice', () => {
+  it('raises site price to shop unit plus 3 when margin is under 3', () => {
+    expect(nextCatalogSellingPrice(70, 68)).toBe(71);
+    expect(nextCatalogSellingPrice(70, 67)).toBe(70);
+    expect(nextCatalogSellingPrice(70, 75)).toBe(78);
+    expect(nextCatalogSellingPrice(70, 68)).toBeGreaterThanOrEqual(70);
+  });
+});
+
+describe('isSixDigitPin', () => {
+  it('accepts 6-digit codes except 000000', () => {
+    expect(isSixDigitPin('482193')).toBe(true);
+    expect(isSixDigitPin('000000')).toBe(false);
+    expect(isSixDigitPin('1234')).toBe(false);
   });
 });
 

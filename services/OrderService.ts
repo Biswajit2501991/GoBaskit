@@ -14,6 +14,7 @@ import { shouldClaimUnassignedPending, shouldUnlockStaffLock } from '@/lib/order
 import { NotificationService } from '@/services/NotificationService';
 import { CustomerPushService } from '@/services/CustomerPushService';
 import { ShopSourcingService } from '@/services/ShopSourcingService';
+import { ShopHandoverService } from '@/services/ShopHandoverService';
 import { shouldNotifyOutForDelivery } from '@/lib/customerOutForDeliveryPush';
 
 export interface OrderListParams {
@@ -283,6 +284,8 @@ export class OrderService {
       meta: { assignedTo: staffId },
     });
 
+    await ShopHandoverService.ensureCode(orderId);
+
     const payload = orderPayload(updated);
     DashboardService.invalidateCache();
     AnalyticsService.invalidateCache();
@@ -461,6 +464,10 @@ export class OrderService {
       entityId: orderId,
       meta: { ...data, claimed: claim || undefined },
     });
+
+    if (updated.assignedStaffId) {
+      await ShopHandoverService.ensureCode(orderId);
+    }
 
     const payload = orderPayload(updated);
     DashboardService.invalidateCache();

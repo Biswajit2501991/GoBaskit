@@ -330,6 +330,9 @@ model Order {
   assignmentFrozenAt      DateTime?  @map("assignment_frozen_at")
   deliveryConfirmedById   String?    @map("delivery_confirmed_by_id")
   deliveryConfirmedBy     StaffAccount? @relation("DeliveryConfirmedBy", fields: [deliveryConfirmedById], references: [id], onDelete: SetNull)
+  shopHandoverPinLookup   String?    @unique @map("shop_handover_pin_lookup")
+  shopHandoverPinVault    String?    @map("shop_handover_pin_vault")
+  shopHandoverGeneratedAt DateTime?  @map("shop_handover_generated_at")
   items           OrderItem[]
   statusHistory   OrderStatusHistory[]
   feedback        OrderFeedback?
@@ -642,6 +645,12 @@ enum ShopFulfillmentStatus {
   CANCELLED
 }
 
+enum ShopPaymentStatus {
+  UNSET
+  PAID
+  PENDING
+}
+
 model Shop {
   id        String   @id @default(cuid())
   name      String
@@ -722,6 +731,9 @@ model ShopFulfillment {
   pickupAt         DateTime               @map("pickup_at")
   costToGobaskit   Float                  @default(0) @map("cost_to_gobaskit")
   costConfirmedAt  DateTime?              @map("cost_confirmed_at")
+  paymentStatus    ShopPaymentStatus      @default(UNSET) @map("payment_status")
+  paymentMarkedAt  DateTime?              @map("payment_marked_at")
+  handoverVerifiedAt DateTime?            @map("handover_verified_at")
   acceptedById     String?                @map("accepted_by_id")
   acceptedBy      StaffAccount?          @relation("ShopFulfillmentAcceptedBy", fields: [acceptedById], references: [id], onDelete: SetNull)
   createdAt       DateTime               @default(now()) @map("created_at")
@@ -731,6 +743,7 @@ model ShopFulfillment {
 
   @@unique([orderId, suffix])
   @@index([shopId, status])
+  @@index([shopId, paymentStatus])
   @@map("shop_fulfillments")
 }
 

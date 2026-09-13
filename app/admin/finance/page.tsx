@@ -1,9 +1,9 @@
 import { getAdminPageStaff } from '@/lib/auth';
 import { requireAdminPage } from '@/lib/admin-page';
-import AnalyticsClient from '@/components/Admin/AnalyticsClient';
+import FinanceProfitClient from '@/components/Admin/FinanceProfitClient';
 
 export default async function FinanceDeskPage() {
   const staff = await getAdminPageStaff();
   await requireAdminPage(staff, 'finance:view');
-  return <AnalyticsClient />;
+  return <FinanceProfitClient />;
 }

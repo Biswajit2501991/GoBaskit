@@ -273,6 +273,68 @@ export class NotificationService {
     return notifications;
   }
 
+  static async notifyCatalogPriceBump(params: { productId: string; title: string; message: string }) {
+    const recipientIds = await StaffAssignmentService.getOrderCapableStaffIds();
+    if (!recipientIds.length) return [];
+    const notifications = await Promise.all(
+      recipientIds.map((staffId) =>
+        prisma.adminNotification.create({
+          data: {
+            staffId,
+            type: 'catalog_price_bump',
+            title: params.title,
+            message: params.message,
+            entityType: 'products',
+            entityId: params.productId,
+          },
+        }),
+      ),
+    );
+    for (const notification of notifications) {
+      await emitNotification(notification);
+    }
+    void AdminPushService.notifyStaffIds(recipientIds, {
+      title: params.title,
+      body: params.message,
+      url: '/admin/products',
+      tag: `price-bump-${params.productId}`,
+    });
+    return notifications;
+  }
+
+  static async notifyShopPaymentPending(params: {
+    orderId: string;
+    title: string;
+    message: string;
+  }) {
+    const recipientIds = await StaffAssignmentService.getOrderCapableStaffIds();
+    if (!recipientIds.length) return [];
+    const notifications = await Promise.all(
+      recipientIds.map((staffId) =>
+        prisma.adminNotification.create({
+          data: {
+            staffId,
+            type: 'shop_payment_pending',
+            title: params.title,
+            message: params.message,
+            entityType: 'orders',
+            entityId: params.orderId,
+          },
+        }),
+      ),
+    );
+    for (const notification of notifications) {
+      await emitNotification(notification);
+    }
+    void AdminPushService.notifyStaffIds(recipientIds, {
+      title: params.title,
+      body: params.message,
+      url: staffOrderDeepLink(params.orderId),
+      tag: `shop-pay-${params.orderId}`,
+    });
+    return notifications;
+  }
+
   static async getUnreadCount(staffId: string) {
     return prisma.adminNotification.count({
       where: { OR: [{ staffId: null }, { staffId }], readAt: null },
