@@ -769,7 +769,10 @@ export default function SettingsManager({
         prevShop.enabled !== shopSourcing.enabled ||
         prevShop.maxShopsPerItem !== shopSourcing.maxShopsPerItem ||
         prevShop.offerTimeoutSeconds !== shopSourcing.offerTimeoutSeconds ||
-        prevShop.maxOfferRounds !== shopSourcing.maxOfferRounds
+        prevShop.maxOfferRounds !== shopSourcing.maxOfferRounds ||
+        prevShop.outsourceAutoStockEnabled !== shopSourcing.outsourceAutoStockEnabled ||
+        prevShop.outsourceRefillAt !== shopSourcing.outsourceRefillAt ||
+        prevShop.outsourceRefillTo !== shopSourcing.outsourceRefillTo
       ) {
         body.shopSourcing = parseShopSourcing(shopSourcing);
       }
@@ -1505,8 +1508,22 @@ export default function SettingsManager({
             />
           </div>
         </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={shopSourcing.outsourceAutoStockEnabled}
+            onChange={(e) =>
+              setShopSourcing((prev) => ({ ...prev, outsourceAutoStockEnabled: e.target.checked }))
+            }
+            disabled={!canEdit}
+          />
+          Auto-refill Outsource stock (5 → 30)
+        </label>
         <p className="text-xs text-gray-400">
-          Add shops under Admin → Shops, tag products, and give shopkeepers a staff login linked to that shop.
+          Off by default. When on, every Outsource SKU at 5 or below is set to 30. In House stock,
+          prices, and shop catalogues are never changed. Add shops under Admin → Shops, tag products,
+          and give shopkeepers a staff login linked to that shop. In House lines get a warehouse
+          ticket after shop pickups (A/B then C).
         </p>
       </section>
           )}

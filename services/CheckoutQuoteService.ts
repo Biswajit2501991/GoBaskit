@@ -1,8 +1,16 @@
 import { prisma } from '@/lib/prisma';
 import { InventoryService } from '@/services/InventoryService';
+import { SettingsService } from '@/services/SettingsService';
 import { appendPackSize, composeOrderItemName } from '@/utils/orderItemName';
 import { variantLabel, variantSizeLabel } from '@/utils/variant';
-import { snapshotFulfillment, type FulfillmentSource } from '@/lib/fulfillmentSource';
+import {
+  decideFulfillmentRoute,
+  shouldReserveWarehouseStock,
+  snapshotFulfillment,
+  type FulfillmentRoute,
+  type FulfillmentSource,
+} from '@/lib/fulfillmentSource';
+import { parseShopSourcing } from '@/lib/shopSourcing';
 
 export type CheckoutLineInput = {
   productId: string;
@@ -21,18 +29,12 @@ export type QuotedCheckoutLine = {
   price: number;
   unit: string;
   fulfillmentSource: FulfillmentSource;
+  fulfillmentRoute: FulfillmentRoute | null;
   costPriceSnapshot: number | null;
 };
 
 export class CheckoutQuoteService {
   static async quoteLines(items: CheckoutLineInput[]): Promise<QuotedCheckoutLine[]> {
-    const stockItems = items.map((item) => ({
-      productId: item.productId,
-      variantId: item.variantId ?? null,
-      quantity: item.quantity,
-    }));
-    await InventoryService.validateCheckoutItems(stockItems);
-
     const productIds = [...new Set(items.map((item) => item.productId))];
     const variantIds = [
       ...new Set(
@@ -41,6 +43,11 @@ export class CheckoutQuoteService {
           .filter((id): id is string => typeof id === 'string' && id.length > 0),
       ),
     ];
+
+    await InventoryService.refillOutsourceBuffers({ productIds, variantIds });
+    const shopSourcingEnabled = parseShopSourcing(
+      (await SettingsService.getStoreConfig()).shopSourcing,
+    ).enabled;
 
     const [products, variants] = await Promise.all([
       prisma.product.findMany({
@@ -51,6 +58,8 @@ export class CheckoutQuoteService {
           unit: true,
           price: true,
           hasVariants: true,
+          stock: true,
+          status: true,
           fulfillmentSource: true,
           costPrice: true,
         },
@@ -66,6 +75,8 @@ export class CheckoutQuoteService {
               variantName: true,
               weight: true,
               unit: true,
+              stock: true,
+              isActive: true,
               fulfillmentSource: true,
               costPrice: true,
             },
@@ -81,11 +92,17 @@ export class CheckoutQuoteService {
       if (!product) {
         throw new Error('A product in your cart is no longer available.');
       }
+      if (product.status === 'INACTIVE') {
+        throw new Error(`${product.name} is currently unavailable.`);
+      }
 
       const variant = item.variantId ? variantById.get(item.variantId) : undefined;
       if (item.variantId) {
         if (!variant || variant.productId !== item.productId) {
           throw new Error('A product option in your cart is no longer available.');
+        }
+        if (!variant.isActive) {
+          throw new Error(`${product.name} option is currently unavailable.`);
         }
       }
 
@@ -93,6 +110,7 @@ export class CheckoutQuoteService {
         ? variantSizeLabel(variant) || item.unit
         : (product.unit ?? '').trim() || item.unit;
       const price = variant ? variant.price : product.price;
+      const stock = variant ? variant.stock : product.stock;
 
       const snap = snapshotFulfillment({
         productSource: product.fulfillmentSource,
@@ -100,6 +118,32 @@ export class CheckoutQuoteService {
         variantSource: variant?.fulfillmentSource,
         variantCost: variant?.costPrice,
       });
+      const fulfillmentRoute = decideFulfillmentRoute({
+        source: snap.fulfillmentSource,
+        availableStock: stock,
+        quantity: item.quantity,
+        shopSourcingEnabled,
+      });
+
+      if (
+        shouldReserveWarehouseStock({
+          fulfillmentSource: snap.fulfillmentSource,
+          fulfillmentRoute,
+        }) &&
+        stock < item.quantity
+      ) {
+        const label = variant
+          ? [variant.brand, variant.variantName, `${variant.weight}${variant.unit}`]
+              .filter(Boolean)
+              .join(' ')
+              .trim() || product.name
+          : product.name;
+        throw new Error(
+          stock > 0
+            ? `Only ${stock} unit${stock === 1 ? '' : 's'} of ${label} left in stock.`
+            : `${label} is out of stock.`,
+        );
+      }
 
       return {
         productId: item.productId,
@@ -116,6 +160,7 @@ export class CheckoutQuoteService {
           packSize,
         ),
         fulfillmentSource: snap.fulfillmentSource,
+        fulfillmentRoute,
         costPriceSnapshot: snap.costPriceSnapshot,
       };
     });

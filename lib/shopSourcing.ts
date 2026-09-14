@@ -6,6 +6,9 @@ export type ShopSourcingConfig = {
   maxShopsPerItem: number;
   offerTimeoutSeconds: number;
   maxOfferRounds: number;
+  outsourceAutoStockEnabled: boolean;
+  outsourceRefillAt: number;
+  outsourceRefillTo: number;
 };
 
 export const DEFAULT_SHOP_SOURCING: ShopSourcingConfig = {
@@ -13,7 +16,12 @@ export const DEFAULT_SHOP_SOURCING: ShopSourcingConfig = {
   maxShopsPerItem: 3,
   offerTimeoutSeconds: 300,
   maxOfferRounds: 3,
+  outsourceAutoStockEnabled: false,
+  outsourceRefillAt: 5,
+  outsourceRefillTo: 30,
 };
+
+export const INTERNAL_WAREHOUSE_SHOP_NAME = 'GoBaskit In House';
 
 const MAX_SHOPS_HARD_CAP = 10;
 
@@ -38,6 +46,9 @@ export function parseShopSourcing(raw: unknown): ShopSourcingConfig {
       DEFAULT_SHOP_SOURCING.offerTimeoutSeconds,
     ),
     maxOfferRounds: clampInt(src.maxOfferRounds, 1, 10, DEFAULT_SHOP_SOURCING.maxOfferRounds),
+    outsourceAutoStockEnabled: src.outsourceAutoStockEnabled === true,
+    outsourceRefillAt: clampInt(src.outsourceRefillAt, 0, 100, DEFAULT_SHOP_SOURCING.outsourceRefillAt),
+    outsourceRefillTo: clampInt(src.outsourceRefillTo, 1, 9999, DEFAULT_SHOP_SOURCING.outsourceRefillTo),
   };
 }
 

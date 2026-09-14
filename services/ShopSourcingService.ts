@@ -16,6 +16,7 @@ import {
   shopHistorySince,
   verifyDeliveryPinHash,
 } from '@/lib/shopSourcing';
+import { isShopOfferLine } from '@/lib/fulfillmentSource';
 import { formatCustomerName } from '@/utils/customer';
 import { formatOrderLineLabel } from '@/utils/orderItemName';
 import { CatalogMarginService } from '@/services/CatalogMarginService';
@@ -35,6 +36,18 @@ function isUniqueViolation(err: unknown): boolean {
   return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
 }
 
+const EXTERNAL_ACTIVE_SHOP = { active: true, isInternal: false } as const;
+
+function shopOfferEligible(item: {
+  fulfillmentRoute: string | null;
+  product: { productShops: { shopId: string }[] };
+}): boolean {
+  return isShopOfferLine({
+    fulfillmentRoute: item.fulfillmentRoute,
+    hasShopTags: item.product.productShops.length > 0,
+  });
+}
+
 export class ShopSourcingService {
   static async config() {
     const store = await SettingsService.getStoreConfig();
@@ -47,6 +60,7 @@ export class ShopSourcingService {
 
   static async listShops() {
     return prisma.shop.findMany({
+      where: { isInternal: false },
       orderBy: { name: 'asc' },
       include: { _count: { select: { staff: true, productShops: true } } },
     });
@@ -72,6 +86,9 @@ export class ShopSourcingService {
       active: input.active !== false,
     };
     if (input.id) {
+      const existing = await prisma.shop.findUnique({ where: { id: input.id }, select: { isInternal: true } });
+      if (!existing) throw new ShopSourcingError('Shop not found', 404);
+      if (existing.isInternal) throw new ShopSourcingError('The warehouse shop cannot be edited');
       return prisma.shop.update({ where: { id: input.id }, data });
     }
     return prisma.shop.create({ data });
@@ -84,7 +101,10 @@ export class ShopSourcingService {
       throw new ShopSourcingError(`This item can be tagged to at most ${cfg.maxShopsPerItem} shops`);
     }
     const shops = unique.length
-      ? await prisma.shop.findMany({ where: { id: { in: unique }, active: true }, select: { id: true } })
+      ? await prisma.shop.findMany({
+          where: { id: { in: unique }, ...EXTERNAL_ACTIVE_SHOP },
+          select: { id: true },
+        })
       : [];
     if (shops.length !== unique.length) {
       throw new ShopSourcingError('One or more shops are missing or inactive');
@@ -105,7 +125,10 @@ export class ShopSourcingService {
   }
 
   static async listCatalogForShop(shopId: string) {
-    const shop = await prisma.shop.findFirst({ where: { id: shopId }, select: { id: true, name: true } });
+    const shop = await prisma.shop.findFirst({
+      where: { id: shopId, isInternal: false },
+      select: { id: true, name: true },
+    });
     if (!shop) throw new ShopSourcingError('Shop not found', 404);
     const cfg = await this.config();
     const products = await prisma.product.findMany({
@@ -137,7 +160,10 @@ export class ShopSourcingService {
   }
 
   static async setShopCatalog(shopId: string, productIds: string[]) {
-    const shop = await prisma.shop.findFirst({ where: { id: shopId, active: true }, select: { id: true } });
+    const shop = await prisma.shop.findFirst({
+      where: { id: shopId, ...EXTERNAL_ACTIVE_SHOP },
+      select: { id: true },
+    });
     if (!shop) throw new ShopSourcingError('Shop not found or inactive', 404);
     const cfg = await this.config();
     const wanted = [...new Set(productIds.filter(Boolean))];
@@ -193,7 +219,10 @@ export class ShopSourcingService {
   }
 
   static async setShopCategory(shopId: string, categoryId: string, assigned: boolean) {
-    const shop = await prisma.shop.findFirst({ where: { id: shopId, active: true }, select: { id: true } });
+    const shop = await prisma.shop.findFirst({
+      where: { id: shopId, ...EXTERNAL_ACTIVE_SHOP },
+      select: { id: true },
+    });
     if (!shop) throw new ShopSourcingError('Shop not found or inactive', 404);
     const category = await prisma.category.findFirst({ where: { id: categoryId }, select: { id: true } });
     if (!category) throw new ShopSourcingError('Category not found', 404);
@@ -270,7 +299,9 @@ export class ShopSourcingService {
       console.warn('[shop-sourcing] skip pickup offers; Enable multi-shop sourcing is off', { orderId });
       return null;
     }
-    return this.openOfferRound(orderId);
+    const offer = await this.openOfferRound(orderId);
+    await this.ensureInHouseTicket(orderId);
+    return offer;
   }
 
   static async openOfferRound(orderId: string) {
@@ -317,10 +348,18 @@ export class ShopSourcingService {
         productName: true,
         quantity: true,
         unit: true,
-        product: { select: { productShops: { where: { shop: { active: true } }, select: { shopId: true } } } },
+        fulfillmentRoute: true,
+        product: {
+          select: {
+            productShops: {
+              where: { shop: EXTERNAL_ACTIVE_SHOP },
+              select: { shopId: true },
+            },
+          },
+        },
       },
     });
-    return items.filter((item) => item.product.productShops.length > 0);
+    return items.filter((item) => shopOfferEligible(item));
   }
 
   static async earliestPickup(orderId: string): Promise<Date | null> {
@@ -348,7 +387,7 @@ export class ShopSourcingService {
                 shopClaim: true,
                 product: {
                   select: {
-                    productShops: { where: { shopId }, select: { shopId: true } },
+                    productShops: { where: { shopId, shop: { isInternal: false } }, select: { shopId: true } },
                   },
                 },
               },
@@ -368,7 +407,12 @@ export class ShopSourcingService {
     return offers
       .map((offer) => {
         const items = offer.order.items.filter(
-          (item) => !item.shopClaim && item.product.productShops.length > 0,
+          (item) =>
+            !item.shopClaim &&
+            shopOfferEligible({
+              fulfillmentRoute: item.fulfillmentRoute,
+              product: item.product,
+            }),
         );
         if (!items.length) return null;
         const customer = offer.order.customer;
@@ -521,14 +565,19 @@ export class ShopSourcingService {
           include: {
             shopClaim: true,
             product: {
-              select: { productShops: { where: { shopId: params.shopId }, select: { shopId: true } } },
+              select: {
+                productShops: {
+                  where: { shopId: params.shopId, shop: { isInternal: false } },
+                  select: { shopId: true },
+                },
+              },
             },
           },
         });
         if (items.length !== itemIds.length) {
           throw new ShopSourcingError('Those items are not on this order');
         }
-        if (items.some((item) => item.shopClaim || item.product.productShops.length === 0)) {
+        if (items.some((item) => item.shopClaim || !shopOfferEligible(item))) {
           throw new ShopSourcingError('Another shop accepted those items', 409, 'GONE');
         }
 
@@ -580,9 +629,14 @@ export class ShopSourcingService {
         };
       });
 
-      void this.openOfferRound(result.orderId).catch((err) =>
-        console.error('[shop-sourcing] next offer failed', err),
-      );
+      void (async () => {
+        try {
+          await this.openOfferRound(result.orderId);
+          await this.ensureInHouseTicket(result.orderId);
+        } catch (err) {
+          console.error('[shop-sourcing] next offer failed', err);
+        }
+      })();
       adminEventBus.emit({
         type: 'order_updated',
         payload: { id: result.orderId, shopFulfillmentId: result.fulfillment.id },
@@ -616,6 +670,7 @@ export class ShopSourcingService {
       seen.add(row.orderId);
       const next = await this.openOfferRound(row.orderId);
       if (next) reopened += 1;
+      await this.ensureInHouseTicket(row.orderId);
     }
     return { expired: expired.length, reopened };
   }
@@ -630,7 +685,9 @@ export class ShopSourcingService {
             items: {
               include: {
                 shopClaim: true,
-                product: { select: { productShops: { select: { shopId: true } } } },
+                product: {
+                  select: { productShops: { where: { shop: { isInternal: false } }, select: { shopId: true } } },
+                },
               },
             },
             shopFulfillments: {
@@ -646,7 +703,12 @@ export class ShopSourcingService {
     if (!offer) return;
 
     const remaining = offer.order.items.filter(
-      (item) => !item.shopClaim && item.product.productShops.length > 0,
+      (item) =>
+        !item.shopClaim &&
+        shopOfferEligible({
+          fulfillmentRoute: item.fulfillmentRoute,
+          product: item.product,
+        }),
     );
     const shopIds = new Set<string>();
     for (const item of remaining) {
@@ -703,6 +765,92 @@ export class ShopSourcingService {
           .join('\n'),
         itemSummary,
       });
+    }
+  }
+
+  /** After shops take A/B (or offers end), auto-accept remaining In House lines on the warehouse shop. */
+  static async ensureInHouseTicket(orderId: string) {
+    if (!(await this.isEnabled())) return null;
+
+    const remainingShop = await this.remainingTaggedItems(orderId);
+    if (remainingShop.length) {
+      const cfg = await this.config();
+      const open = await prisma.shopOffer.findFirst({
+        where: { orderId, status: 'OPEN' },
+        select: { id: true },
+      });
+      if (open) return null;
+      const last = await prisma.shopOffer.findFirst({
+        where: { orderId },
+        orderBy: { round: 'desc' },
+        select: { round: true },
+      });
+      if ((last?.round ?? 0) < cfg.maxOfferRounds) return null;
+    }
+
+    const warehouse = await prisma.shop.findFirst({
+      where: { isInternal: true },
+      select: { id: true },
+    });
+    if (!warehouse) {
+      console.error('[shop-sourcing] missing GoBaskit In House warehouse shop');
+      return null;
+    }
+
+    try {
+      const result = await runInteractiveTxn(async (tx) => {
+        const already = await tx.shopFulfillment.findFirst({
+          where: { orderId, shopId: warehouse.id, status: { not: 'CANCELLED' } },
+          select: { id: true },
+        });
+        if (already) return null;
+
+        const still = await tx.orderItem.findMany({
+          where: { orderId, shopClaim: { is: null }, fulfillmentRoute: 'IN_HOUSE' },
+        });
+        if (!still.length) return null;
+
+        const existingCount = await tx.shopFulfillment.count({ where: { orderId } });
+        const suffix = nextFulfillmentSuffix(existingCount);
+        const now = new Date();
+        const fulfillment = await tx.shopFulfillment.create({
+          data: {
+            orderId,
+            shopId: warehouse.id,
+            suffix,
+            pickupAt: now,
+            costToGobaskit: 0,
+            costConfirmedAt: now,
+            items: {
+              create: still.map((item) => ({
+                orderItemId: item.id,
+                quantity: item.quantity,
+                costToGobaskit: 0,
+              })),
+            },
+          },
+        });
+        for (const item of still) {
+          await tx.shopItemClaim.create({
+            data: {
+              orderItemId: item.id,
+              shopId: warehouse.id,
+              fulfillmentId: fulfillment.id,
+            },
+          });
+        }
+        return fulfillment;
+      });
+      if (result) {
+        adminEventBus.emit({
+          type: 'order_updated',
+          payload: { id: orderId, shopFulfillmentId: result.id },
+        });
+      }
+      return result;
+    } catch (err) {
+      if (isUniqueViolation(err)) return null;
+      throw err;
     }
   }
 

@@ -13,6 +13,9 @@ import {
 describe('shop sourcing helpers', () => {
   it('defaults the feature off', () => {
     expect(parseShopSourcing(undefined).enabled).toBe(false);
+    expect(parseShopSourcing(undefined).outsourceAutoStockEnabled).toBe(false);
+    expect(parseShopSourcing(undefined).outsourceRefillAt).toBe(5);
+    expect(parseShopSourcing(undefined).outsourceRefillTo).toBe(30);
     expect(parseShopSourcing({ enabled: true, maxShopsPerItem: 5 }).maxShopsPerItem).toBe(5);
     expect(parseShopSourcing({ maxShopsPerItem: 99 }).maxShopsPerItem).toBe(10);
     expect(parseShopSourcing({ offerTimeoutSeconds: 90 }).offerTimeoutSeconds).toBe(300);

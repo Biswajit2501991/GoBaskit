@@ -1,4 +1,4 @@
-import { coerceFulfillmentSource, parseCostPrice, parseFulfillmentSource, snapshotFulfillment } from '@/lib/fulfillmentSource';
+import { coerceFulfillmentSource, decideFulfillmentRoute, isShopOfferLine, parseCostPrice, parseFulfillmentSource, shouldReserveWarehouseStock, snapshotFulfillment } from '@/lib/fulfillmentSource';
 
 describe('fulfillmentSource helpers', () => {
   it('parses common labels and skips unknown values', () => {
@@ -28,5 +28,49 @@ describe('fulfillmentSource helpers', () => {
         variantCost: null,
       }),
     ).toEqual({ fulfillmentSource: 'IN_HOUSE', costPriceSnapshot: 10 });
+  });
+
+  it('routes In House OOS to shops without changing the catalog tag helper', () => {
+    expect(
+      decideFulfillmentRoute({
+        source: 'IN_HOUSE',
+        availableStock: 4,
+        quantity: 2,
+        shopSourcingEnabled: true,
+      }),
+    ).toBe('IN_HOUSE');
+    expect(
+      decideFulfillmentRoute({
+        source: 'IN_HOUSE',
+        availableStock: 0,
+        quantity: 2,
+        shopSourcingEnabled: true,
+      }),
+    ).toBe('SHOP');
+    expect(
+      decideFulfillmentRoute({
+        source: 'IN_HOUSE',
+        availableStock: 0,
+        quantity: 2,
+        shopSourcingEnabled: false,
+      }),
+    ).toBe('IN_HOUSE');
+    expect(
+      decideFulfillmentRoute({
+        source: 'OUTSOURCE',
+        availableStock: 0,
+        quantity: 2,
+        shopSourcingEnabled: true,
+      }),
+    ).toBe('SHOP');
+    expect(
+      shouldReserveWarehouseStock({ fulfillmentSource: 'IN_HOUSE', fulfillmentRoute: 'SHOP' }),
+    ).toBe(false);
+    expect(
+      shouldReserveWarehouseStock({ fulfillmentSource: 'OUTSOURCE', fulfillmentRoute: 'SHOP' }),
+    ).toBe(true);
+    expect(isShopOfferLine({ fulfillmentRoute: 'IN_HOUSE', hasShopTags: true })).toBe(false);
+    expect(isShopOfferLine({ fulfillmentRoute: 'SHOP', hasShopTags: true })).toBe(true);
+    expect(isShopOfferLine({ fulfillmentRoute: null, hasShopTags: true })).toBe(true);
   });
 });

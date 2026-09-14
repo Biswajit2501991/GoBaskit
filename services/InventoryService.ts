@@ -8,6 +8,8 @@ import {
   nextStockBaseline,
   resolveProductStatus,
 } from '@/utils/inventory';
+import { parseShopSourcing } from '@/lib/shopSourcing';
+import { snapshotFulfillment } from '@/lib/fulfillmentSource';
 
 export { LOW_STOCK_RATIO } from '@/utils/inventory';
 
@@ -110,6 +112,67 @@ export class InventoryService {
     }
   }
 
+  /**
+   * Outsource SKUs only. When enabled, stock at or below refillAt becomes refillTo.
+   * Never touches In House / untagged stock or selling price.
+   */
+  static async refillOutsourceBuffers(params: {
+    productIds?: string[];
+    variantIds?: string[];
+  }): Promise<void> {
+    const productIds = [...new Set((params.productIds ?? []).filter(Boolean))];
+    const variantIds = [...new Set((params.variantIds ?? []).filter(Boolean))];
+    if (!productIds.length && !variantIds.length) return;
+
+    const { SettingsService } = await import('@/services/SettingsService');
+    const cfg = parseShopSourcing((await SettingsService.getStoreConfig()).shopSourcing);
+    if (!cfg.outsourceAutoStockEnabled) return;
+    const at = cfg.outsourceRefillAt;
+    const to = Math.max(cfg.outsourceRefillTo, at + 1);
+
+    await prisma.product.updateMany({
+      where: {
+        id: { in: productIds },
+        fulfillmentSource: 'OUTSOURCE',
+        stock: { lte: at },
+      },
+      data: { stock: to },
+    });
+
+    const variants = await prisma.productVariant.findMany({
+      where: {
+        OR: [
+          ...(variantIds.length ? [{ id: { in: variantIds } }] : []),
+          ...(productIds.length ? [{ productId: { in: productIds } }] : []),
+        ],
+        stock: { lte: at },
+      },
+      select: {
+        id: true,
+        fulfillmentSource: true,
+        costPrice: true,
+        product: { select: { fulfillmentSource: true, costPrice: true } },
+      },
+    });
+    const outsourceVariantIds = variants
+      .filter(
+        (row) =>
+          snapshotFulfillment({
+            productSource: row.product.fulfillmentSource,
+            productCost: row.product.costPrice,
+            variantSource: row.fulfillmentSource,
+            variantCost: row.costPrice,
+          }).fulfillmentSource === 'OUTSOURCE',
+      )
+      .map((row) => row.id);
+    if (outsourceVariantIds.length) {
+      await prisma.productVariant.updateMany({
+        where: { id: { in: outsourceVariantIds } },
+        data: { stock: to },
+      });
+    }
+  }
+
   static async applyAdminStockUpdate(
     product: ProductRow,
     newStock: number,
@@ -129,19 +192,28 @@ export class InventoryService {
       },
     });
 
+    await this.refillOutsourceBuffers({ productIds: [product.id] });
+    const afterRefill = await prisma.product.findUnique({
+      where: { id: product.id },
+      select: { stock: true, stockBaseline: true, status: true, lowStockNotifiedAt: true },
+    });
+    const stock = afterRefill?.stock ?? newStock;
+    const baseline = afterRefill?.stockBaseline ?? stockBaseline;
+    const nextStatus = afterRefill?.status ?? status;
+
     await this.evaluateAlerts(
       {
         ...product,
-        stock: newStock,
-        stockBaseline,
-        status,
-        lowStockNotifiedAt: clearedAlert ? null : product.lowStockNotifiedAt,
+        stock,
+        stockBaseline: baseline,
+        status: nextStatus,
+        lowStockNotifiedAt: afterRefill?.lowStockNotifiedAt ?? (clearedAlert ? null : product.lowStockNotifiedAt),
       },
       product.stock,
     );
 
     DashboardService.invalidateCache();
-    return { stock: newStock, stockBaseline, status };
+    return { stock, stockBaseline: baseline, status: nextStatus };
   }
 
   static async reserveForOrder(
@@ -188,7 +260,14 @@ export class InventoryService {
     items: Array<{ productId: string; variantId: string | null; quantity: number }>,
     stockReserved: boolean,
   ): Promise<void> {
-    if (!stockReserved || !items.length) return;
+    if (!stockReserved) return;
+    if (!items.length) {
+      await tx.order.update({
+        where: { id: orderId },
+        data: { stockReserved: false },
+      });
+      return;
+    }
 
     const byProduct = new Map<string, number>();
     const byVariant = new Map<string, number>();
@@ -269,6 +348,8 @@ export class InventoryService {
     variantIds: string[] = [],
     qtyByVariant: Map<string, number> = new Map(),
   ): Promise<void> {
+    await this.refillOutsourceBuffers({ productIds, variantIds });
+
     const parentIdsFromVariants = new Set<string>();
 
     if (variantIds.length) {
@@ -390,13 +471,31 @@ export class InventoryService {
   static async restoreForOrder(orderId: string): Promise<void> {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: { items: { select: { productId: true, variantId: true, quantity: true } } },
+      include: {
+        items: {
+          select: {
+            productId: true,
+            variantId: true,
+            quantity: true,
+            fulfillmentSource: true,
+            fulfillmentRoute: true,
+          },
+        },
+      },
     });
     if (!order?.stockReserved) return;
 
+    const { shouldReserveWarehouseStock } = await import('@/lib/fulfillmentSource');
+    const reservedItems = order.items.filter((item) =>
+      shouldReserveWarehouseStock({
+        fulfillmentSource: item.fulfillmentSource,
+        fulfillmentRoute: item.fulfillmentRoute,
+      }),
+    );
+
     const byProduct = new Map<string, number>();
     const byVariant = new Map<string, number>();
-    for (const item of order.items) {
+    for (const item of reservedItems) {
       if (item.variantId) {
         byVariant.set(item.variantId, (byVariant.get(item.variantId) ?? 0) + item.quantity);
       } else {

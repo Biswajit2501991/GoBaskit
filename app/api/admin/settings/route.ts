@@ -136,6 +136,9 @@ const settingsSchema = z.object({
       maxShopsPerItem: z.number().int().min(1).max(10).optional(),
       offerTimeoutSeconds: z.number().int().min(30).max(3600).optional(),
       maxOfferRounds: z.number().int().min(1).max(10).optional(),
+      outsourceAutoStockEnabled: z.boolean().optional(),
+      outsourceRefillAt: z.number().int().min(0).max(100).optional(),
+      outsourceRefillTo: z.number().int().min(1).max(9999).optional(),
     })
     .optional(),
 });

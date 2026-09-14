@@ -1,6 +1,8 @@
 import { fulfillmentTicket, roundMoney } from '@/lib/shopSourcing';
 import {
   coerceFulfillmentSource,
+  parseFulfillmentRoute,
+  type FulfillmentRoute,
   type FulfillmentSource,
 } from '@/lib/fulfillmentSource';
 
@@ -10,6 +12,7 @@ export type ProfitLineInput = {
   quantity: number;
   totalPrice: number;
   fulfillmentSource: FulfillmentSource | string;
+  fulfillmentRoute?: FulfillmentRoute | string | null;
   costPriceSnapshot: number | null;
   liveSource?: FulfillmentSource | string | null;
   liveCostPrice?: number | null;
@@ -75,6 +78,9 @@ export type ProfitOrderResult = {
 };
 
 function resolveSource(line: ProfitLineInput): { source: FulfillmentSource; frozen: boolean } {
+  const route = parseFulfillmentRoute(line.fulfillmentRoute);
+  if (route === 'SHOP') return { source: 'OUTSOURCE', frozen: true };
+  if (route === 'IN_HOUSE') return { source: 'IN_HOUSE', frozen: true };
   const snap = coerceFulfillmentSource(line.fulfillmentSource);
   if (snap !== 'UNSET') return { source: snap, frozen: true };
   const live = coerceFulfillmentSource(line.liveSource);

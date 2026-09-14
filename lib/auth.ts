@@ -131,6 +131,7 @@ export const getStaffFromSession = cache(async () => {
           longitude: true,
           deliveryRadius: true,
           shopId: true,
+          shop: { select: { isInternal: true } },
           active: true,
           deletedAt: true,
           lastLogin: true,
@@ -162,6 +163,7 @@ export const getStaffFromSession = cache(async () => {
       createdAt: admin.createdAt,
       updatedAt: admin.updatedAt,
       shopId: null,
+      shop: null,
     };
   } catch (err) {
     // Never reject the shared React cache() promise — layout may swallow it while

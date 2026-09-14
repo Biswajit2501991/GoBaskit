@@ -131,6 +131,13 @@ export async function requireShopStaff() {
       staff: null,
     };
   }
+  const isInternal = 'shop' in staff && staff.shop && (staff.shop as { isInternal?: boolean }).isInternal === true;
+  if (isInternal) {
+    return {
+      error: NextResponse.json({ error: 'Use the shop login at /shop' }, { status: 403 }),
+      staff: null,
+    };
+  }
   return {
     error: null,
     staff: { ...(staff as StaffAuthUser), shopId },

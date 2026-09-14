@@ -239,4 +239,33 @@ describe('computeOrderProfit', () => {
     expect(row.paidToShops).toBe(30);
     expect(row.outsourceProfit).toBe(60);
   });
+
+  it('treats an In House catalog line as outsource profit when the order routed it to shops', () => {
+    const row = computeOrderProfit({
+      id: 'o6',
+      orderNumber: 'GB4',
+      createdAt: '2026-09-14T00:00:00.000Z',
+      grandTotal: 80,
+      deliveryCharge: 0,
+      tickets: [{ suffix: 'A', costToGobaskit: 40, costConfirmed: true }],
+      lines: [
+        {
+          id: 'x',
+          productName: 'OOS in-house',
+          quantity: 1,
+          totalPrice: 80,
+          fulfillmentSource: 'IN_HOUSE',
+          fulfillmentRoute: 'SHOP',
+          costPriceSnapshot: 20,
+          ticketSuffix: 'A',
+          shopLineCost: 40,
+          shopCostConfirmed: true,
+        },
+      ],
+    });
+    expect(row.lines[0].source).toBe('OUTSOURCE');
+    expect(row.paidToShops).toBe(40);
+    expect(row.inHouseCogs).toBe(0);
+    expect(row.outsourceProfit).toBe(40);
+  });
 });

@@ -20,6 +20,11 @@ enum ProductFulfillmentSource {
   OUTSOURCE
 }
 
+enum OrderItemFulfillmentRoute {
+  IN_HOUSE
+  SHOP
+}
+
 enum OrderStatus {
   PENDING
   ACCEPTED
@@ -443,6 +448,7 @@ model OrderItem {
   unit        String
   totalPrice  Float   @map("total_price")
   fulfillmentSource ProductFulfillmentSource @default(UNSET) @map("fulfillment_source")
+  fulfillmentRoute  OrderItemFulfillmentRoute? @map("fulfillment_route")
   costPriceSnapshot Float? @map("cost_price_snapshot")
   order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product     Product @relation(fields: [productId], references: [id])
@@ -677,14 +683,15 @@ enum ShopPaymentStatus {
 }
 
 model Shop {
-  id        String   @id @default(cuid())
-  name      String
-  phone     String
-  address   String   @default("")
-  city      String   @default("")
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(cuid())
+  name       String
+  phone      String
+  address    String   @default("")
+  city       String   @default("")
+  active     Boolean  @default(true)
+  isInternal Boolean  @default(false) @map("is_internal")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   staff            StaffAccount[]
   productShops     ProductShop[]
@@ -692,6 +699,7 @@ model Shop {
   fulfillments     ShopFulfillment[]
 
   @@index([active])
+  @@index([isInternal])
   @@map("shops")
 }
 

@@ -6,7 +6,8 @@ import { deliveryChargeFrom } from '@/constants';
 import { deliveryIsServiceable } from '@/utils/delivery';
 import { appendPackSize, composeOrderItemName } from '@/utils/orderItemName';
 import { variantLabel, variantSizeLabel } from '@/utils/variant';
-import { snapshotFulfillment } from '@/lib/fulfillmentSource';
+import { snapshotFulfillment, decideFulfillmentRoute, shouldReserveWarehouseStock } from '@/lib/fulfillmentSource';
+import { parseShopSourcing } from '@/lib/shopSourcing';
 import { normalizeMobile } from '@/utils/mobile';
 import {
   canCustomerMutate,
@@ -264,11 +265,18 @@ export class OrderMutationService {
     }
 
     const stockItems = named
-      ? named.map((item) => ({
-          productId: item.productId,
-          variantId: item.variantId,
-          quantity: item.quantity,
-        }))
+      ? named
+          .filter((item) =>
+            shouldReserveWarehouseStock({
+              fulfillmentSource: item.fulfillmentSource,
+              fulfillmentRoute: item.fulfillmentRoute,
+            }),
+          )
+          .map((item) => ({
+            productId: item.productId,
+            variantId: item.variantId,
+            quantity: item.quantity,
+          }))
       : null;
 
     let inventoryUpdates: {
@@ -285,7 +293,12 @@ export class OrderMutationService {
             await InventoryService.restoreReservationInTx(
               tx,
               order.id,
-              order.items,
+              order.items.filter((item) =>
+                shouldReserveWarehouseStock({
+                  fulfillmentSource: item.fulfillmentSource,
+                  fulfillmentRoute: item.fulfillmentRoute,
+                }),
+              ),
               order.stockReserved,
             );
             await tx.orderItem.deleteMany({ where: { orderId: order.id } });
@@ -300,6 +313,7 @@ export class OrderMutationService {
                 unit: item.unit,
                 totalPrice: item.unitPrice * item.quantity,
                 fulfillmentSource: item.fulfillmentSource,
+                fulfillmentRoute: item.fulfillmentRoute,
                 costPriceSnapshot: item.costPriceSnapshot,
               })),
             });
@@ -485,10 +499,24 @@ export class OrderMutationService {
       ...new Set(lines.map((l) => l.variantId).filter((id): id is string => Boolean(id))),
     ];
 
+    await InventoryService.refillOutsourceBuffers({ productIds, variantIds });
+    const shopSourcingEnabled = parseShopSourcing(
+      (await SettingsService.getStoreConfig()).shopSourcing,
+    ).enabled;
+
     const [products, variants] = await Promise.all([
       prisma.product.findMany({
         where: { id: { in: productIds } },
-        select: { id: true, name: true, price: true, unit: true, status: true, fulfillmentSource: true, costPrice: true },
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          unit: true,
+          status: true,
+          stock: true,
+          fulfillmentSource: true,
+          costPrice: true,
+        },
       }),
       variantIds.length
         ? prisma.productVariant.findMany({
@@ -502,6 +530,7 @@ export class OrderMutationService {
               variantName: true,
               weight: true,
               isActive: true,
+              stock: true,
               fulfillmentSource: true,
               costPrice: true,
             },
@@ -536,6 +565,27 @@ export class OrderMutationService {
         variantSource: variant?.fulfillmentSource,
         variantCost: variant?.costPrice,
       });
+      const stock = variant ? variant.stock : product.stock;
+      const fulfillmentRoute = decideFulfillmentRoute({
+        source: snap.fulfillmentSource,
+        availableStock: stock,
+        quantity: line.quantity,
+        shopSourcingEnabled,
+      });
+      if (
+        shouldReserveWarehouseStock({
+          fulfillmentSource: snap.fulfillmentSource,
+          fulfillmentRoute,
+        }) &&
+        stock < line.quantity
+      ) {
+        throw new OrderEditError(
+          stock > 0
+            ? `Only ${stock} unit${stock === 1 ? '' : 's'} of ${product.name} left in stock.`
+            : `${product.name} is out of stock.`,
+          400,
+        );
+      }
       return {
         productId: line.productId,
         variantId: line.variantId ?? null,
@@ -551,6 +601,7 @@ export class OrderMutationService {
           unit,
         ),
         fulfillmentSource: snap.fulfillmentSource,
+        fulfillmentRoute,
         costPriceSnapshot: snap.costPriceSnapshot,
       };
     });

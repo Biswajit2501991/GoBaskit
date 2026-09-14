@@ -18,6 +18,7 @@ import { CustomerProfileService } from '@/services/CustomerProfileService';
 import { InventoryService } from '@/services/InventoryService';
 import { DiscountEngine } from '@/services/DiscountEngine';
 import { CheckoutQuoteService } from '@/services/CheckoutQuoteService';
+import { shouldReserveWarehouseStock } from '@/lib/fulfillmentSource';
 import { profileFromCheckout } from '@/utils/customerProfile';
 import { toE164 } from '@/utils/phone';
 import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationService';
@@ -159,11 +160,18 @@ export async function POST(req: NextRequest) {
     const checkoutItems = items as CheckoutLineItem[];
     const namedItems = await CheckoutQuoteService.quoteLines(checkoutItems);
     const subtotal = namedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const stockItems = namedItems.map((item) => ({
-      productId: item.productId,
-      variantId: item.variantId,
-      quantity: item.quantity,
-    }));
+    const stockItems = namedItems
+      .filter((item) =>
+        shouldReserveWarehouseStock({
+          fulfillmentSource: item.fulfillmentSource,
+          fulfillmentRoute: item.fulfillmentRoute,
+        }),
+      )
+      .map((item) => ({
+        productId: item.productId,
+        variantId: item.variantId,
+        quantity: item.quantity,
+      }));
 
     const mobileE164 = toE164('91', parsed.data.mobile) ?? `+91${parsed.data.mobile}`;
     const discountRequest = discount && typeof discount === 'object' ? discount : null;
@@ -338,6 +346,7 @@ export async function POST(req: NextRequest) {
             unit: item.unit,
             totalPrice: item.price * item.quantity,
             fulfillmentSource: item.fulfillmentSource,
+            fulfillmentRoute: item.fulfillmentRoute,
             costPriceSnapshot: item.costPriceSnapshot,
           })),
         });

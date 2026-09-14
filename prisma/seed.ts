@@ -146,6 +146,20 @@ async function main() {
     });
   }
 
+  const warehouse = await prisma.shop.findFirst({ where: { isInternal: true }, select: { id: true } });
+  if (!warehouse) {
+    await prisma.shop.create({
+      data: {
+        name: 'GoBaskit In House',
+        phone: '0000000000',
+        address: '',
+        city: '',
+        active: true,
+        isInternal: true,
+      },
+    });
+  }
+
   console.log('Seed completed!');
   console.log(`Admin: ${adminEmail} / ${adminPassword}`);
   console.log(`Staff Super Admin mobile: ${process.env.STAFF_SUPER_MOBILE || '9046370119'} / ${adminPassword}`);
