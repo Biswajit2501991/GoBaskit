@@ -6,10 +6,13 @@ import { requireSameOrigin } from '@/lib/security';
 import { AuditService } from '@/services/AuditService';
 import { parseCostPrice } from '@/lib/fulfillmentSource';
 
+export const BULK_SOURCE_CHUNK = 200;
+
 const bodySchema = z.object({
-  ids: z.array(z.string().min(1)).min(1).max(500),
+  ids: z.array(z.string().min(1)).min(1).max(BULK_SOURCE_CHUNK),
   fulfillmentSource: z.enum(['UNSET', 'IN_HOUSE', 'OUTSOURCE']),
   costPrice: z.unknown().optional(),
+  resetOptions: z.boolean().optional(),
 });
 
 export async function PATCH(req: NextRequest) {
@@ -35,12 +38,26 @@ export async function PATCH(req: NextRequest) {
     data,
   });
 
+  let optionsReset = 0;
+  if (parsed.data.resetOptions) {
+    const options = await prisma.productVariant.updateMany({
+      where: { productId: { in: parsed.data.ids } },
+      data: { fulfillmentSource: 'UNSET' },
+    });
+    optionsReset = options.count;
+  }
+
   await AuditService.log({
     staffId: auth.staff?.id,
     action: 'products_bulk_source',
     entity: 'products',
-    meta: { count: result.count, fulfillmentSource: parsed.data.fulfillmentSource },
+    meta: {
+      count: result.count,
+      fulfillmentSource: parsed.data.fulfillmentSource,
+      resetOptions: Boolean(parsed.data.resetOptions),
+      optionsReset,
+    },
   });
 
-  return NextResponse.json({ updated: result.count });
+  return NextResponse.json({ updated: result.count, optionsReset });
 }

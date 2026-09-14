@@ -2,6 +2,35 @@ import { prisma } from '@/lib/prisma';
 import type { ProductWithCategory } from '@/types';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants';
 
+function adminProductWhere(params?: { search?: string; categoryId?: string }) {
+  const where: Record<string, unknown> = {};
+
+  if (params?.search?.trim()) {
+    const q = params.search.trim();
+    where.OR = [
+      { name: { contains: q, mode: 'insensitive' } },
+      { description: { contains: q, mode: 'insensitive' } },
+      {
+        variants: {
+          some: {
+            OR: [
+              { brand: { contains: q, mode: 'insensitive' } },
+              { variantName: { contains: q, mode: 'insensitive' } },
+              { sku: { contains: q, mode: 'insensitive' } },
+            ],
+          },
+        },
+      },
+    ];
+  }
+
+  if (params?.categoryId) {
+    where.categoryId = params.categoryId;
+  }
+
+  return where;
+}
+
 export class ProductService {
   static async listAdmin(params?: {
     search?: string;
@@ -12,31 +41,7 @@ export class ProductService {
   }) {
     const page = Math.max(params?.page ?? 1, 1);
     const pageSize = Math.min(params?.pageSize ?? ADMIN_LIST_PAGE_SIZE, 100);
-    const where: Record<string, unknown> = {};
-
-    if (params?.search?.trim()) {
-      const q = params.search.trim();
-      where.OR = [
-        { name: { contains: q, mode: 'insensitive' } },
-        { description: { contains: q, mode: 'insensitive' } },
-        // Find parent products by option brand / name (e.g. search "Ganesh" → Almond).
-        {
-          variants: {
-            some: {
-              OR: [
-                { brand: { contains: q, mode: 'insensitive' } },
-                { variantName: { contains: q, mode: 'insensitive' } },
-                { sku: { contains: q, mode: 'insensitive' } },
-              ],
-            },
-          },
-        },
-      ];
-    }
-
-    if (params?.categoryId) {
-      where.categoryId = params.categoryId;
-    }
+    const where = adminProductWhere(params);
 
     const orderBy =
       params?.sort === 'stock'
@@ -90,6 +95,17 @@ export class ProductService {
       page,
       pageSize,
     };
+  }
+
+  /** Ids for bulk fulfillment tagging — same filters as the Products table. */
+  static async listAdminIds(params?: { search?: string; categoryId?: string }) {
+    const where = adminProductWhere(params);
+    const rows = await prisma.product.findMany({
+      where,
+      select: { id: true },
+      orderBy: { name: 'asc' },
+    });
+    return { ids: rows.map((row) => row.id), total: rows.length };
   }
 
   static async getAll(params?: {

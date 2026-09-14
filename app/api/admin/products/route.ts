@@ -15,11 +15,19 @@ export async function GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url);
+    const search = searchParams.get('search') || undefined;
+    const categoryId = searchParams.get('categoryId') || undefined;
+
+    if (searchParams.get('idsOnly') === '1') {
+      const data = await ProductService.listAdminIds({ search, categoryId });
+      return NextResponse.json(data);
+    }
+
     const includeCategories = searchParams.get('includeCategories') === '1';
     const [data, categories] = await Promise.all([
       ProductService.listAdmin({
-        search: searchParams.get('search') || undefined,
-        categoryId: searchParams.get('categoryId') || undefined,
+        search,
+        categoryId,
         page: Number(searchParams.get('page') || 1),
         pageSize: Number(searchParams.get('pageSize') || ADMIN_LIST_PAGE_SIZE),
         sort: searchParams.get('sort') === 'stock' ? 'stock' : 'name',

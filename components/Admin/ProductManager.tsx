@@ -82,6 +82,7 @@ export default function ProductManager({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkCost, setBulkCost] = useState('');
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [resetOptions, setResetOptions] = useState(false);
   const searchDebounced = useRef(search);
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   useEffect(() => {
@@ -307,23 +308,81 @@ export default function ProductManager({
 
   async function applyBulkSource(fulfillmentSource: 'UNSET' | 'IN_HOUSE' | 'OUTSOURCE') {
     if (!canEdit || selectedIds.length === 0) return;
-    setBulkBusy(true);
-    const res = await fetch('/api/admin/products/bulk-source', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ids: selectedIds,
-        fulfillmentSource,
-        ...(bulkCost !== '' ? { costPrice: Number(bulkCost) } : {}),
-      }),
-    });
-    setBulkBusy(false);
-    if (!res.ok) {
-      alert('Could not tag the selected products');
+    const label =
+      fulfillmentSource === 'IN_HOUSE'
+        ? 'In House'
+        : fulfillmentSource === 'OUTSOURCE'
+          ? 'Outsource'
+          : 'Untagged';
+    const filterHint = categoryFilter
+      ? categories.find((c) => c.id === categoryFilter)?.name || 'this filter'
+      : search.trim()
+        ? `"${search.trim()}"`
+        : 'the catalogue';
+    const costNote =
+      bulkCost !== '' && Number.isFinite(Number(bulkCost))
+        ? ` Cost will be set to ₹${Number(bulkCost)}.`
+        : ' Selling price, stock, and cost will not change.';
+    const optionNote = resetOptions
+      ? ' Options will be reset to Same as product.'
+      : '';
+    if (
+      !confirm(
+        `Mark ${selectedIds.length} product${selectedIds.length === 1 ? '' : 's'} matching ${filterHint} as ${label}?${costNote}${optionNote}`,
+      )
+    ) {
       return;
+    }
+
+    const uniqueIds = [...new Set(selectedIds)];
+    const costPayload =
+      bulkCost !== '' && Number.isFinite(Number(bulkCost)) ? { costPrice: Number(bulkCost) } : {};
+    setBulkBusy(true);
+    let updated = 0;
+    try {
+      for (let i = 0; i < uniqueIds.length; i += 200) {
+        const chunk = uniqueIds.slice(i, i + 200);
+        const res = await fetch('/api/admin/products/bulk-source', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ids: chunk,
+            fulfillmentSource,
+            resetOptions,
+            ...costPayload,
+          }),
+        });
+        if (!res.ok) {
+          alert('Could not tag the selected products');
+          return;
+        }
+        const json = await res.json().catch(() => ({ updated: chunk.length }));
+        updated += Number(json.updated) || chunk.length;
+      }
+    } finally {
+      setBulkBusy(false);
     }
     setSelectedIds([]);
     await reloadAfterMutation();
+  }
+
+  async function selectThisPage() {
+    setSelectedIds(products.map((p) => p.id));
+  }
+
+  async function selectAllMatching() {
+    if (!canEdit) return;
+    const qs = new URLSearchParams({ idsOnly: '1' });
+    if (debouncedSearch) qs.set('search', debouncedSearch);
+    if (categoryFilter) qs.set('categoryId', categoryFilter);
+    const res = await fetch(`/api/admin/products?${qs}`, { cache: 'no-store' });
+    if (!res.ok) {
+      alert('Could not load matching products');
+      return;
+    }
+    const json = await res.json();
+    const ids = Array.isArray(json.ids) ? json.ids.filter((id: unknown) => typeof id === 'string') : [];
+    setSelectedIds(ids);
   }
 
   const allVisibleSelected = products.length > 0 && products.every((p) => selectedIds.includes(p.id));
@@ -362,16 +421,25 @@ export default function ProductManager({
         </select>
       </div>
 
-      {canEdit && selectedIds.length > 0 && (
+      {canEdit && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm">
           <span className="font-medium">{selectedIds.length} selected</span>
-          <Button type="button" size="sm" disabled={bulkBusy} onClick={() => void applyBulkSource('IN_HOUSE')}>
+          <Button type="button" size="sm" variant="secondary" disabled={bulkBusy || products.length === 0} onClick={() => void selectThisPage()}>
+            This page
+          </Button>
+          <Button type="button" size="sm" variant="secondary" disabled={bulkBusy || total === 0} onClick={() => void selectAllMatching()}>
+            All matching ({total})
+          </Button>
+          <Button type="button" size="sm" variant="secondary" disabled={bulkBusy || selectedIds.length === 0} onClick={() => setSelectedIds([])}>
+            Clear
+          </Button>
+          <Button type="button" size="sm" disabled={bulkBusy || selectedIds.length === 0} onClick={() => void applyBulkSource('IN_HOUSE')}>
             In House
           </Button>
-          <Button type="button" size="sm" disabled={bulkBusy} onClick={() => void applyBulkSource('OUTSOURCE')}>
+          <Button type="button" size="sm" disabled={bulkBusy || selectedIds.length === 0} onClick={() => void applyBulkSource('OUTSOURCE')}>
             Outsource
           </Button>
-          <Button type="button" size="sm" variant="secondary" disabled={bulkBusy} onClick={() => void applyBulkSource('UNSET')}>
+          <Button type="button" size="sm" variant="secondary" disabled={bulkBusy || selectedIds.length === 0} onClick={() => void applyBulkSource('UNSET')}>
             Untagged
           </Button>
           <Input
@@ -383,6 +451,14 @@ export default function ProductManager({
             onChange={(e) => setBulkCost(e.target.value)}
             className="w-36 h-8"
           />
+          <label className="flex items-center gap-1.5 text-xs text-gray-600">
+            <input
+              type="checkbox"
+              checked={resetOptions}
+              onChange={(e) => setResetOptions(e.target.checked)}
+            />
+            Reset options to Same as product
+          </label>
         </div>
       )}
 
