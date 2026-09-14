@@ -1,11 +1,11 @@
 'use client';
 
 import { Star } from 'lucide-react';
-import { useConfigStore } from '@/store/configStore';
+import { useStorefrontRating } from '@/components/Header/StorefrontRatingHydrator';
 import { formatStorefrontScore } from '@/lib/storefrontRating';
 
 export default function StorefrontRatingBadge({ compact = false }: { compact?: boolean }) {
-  const rating = useConfigStore((s) => s.storefrontRating);
+  const rating = useStorefrontRating();
   if (!rating.enabled) return null;
 
   const score = formatStorefrontScore(rating.score);

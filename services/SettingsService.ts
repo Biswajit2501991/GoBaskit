@@ -40,7 +40,9 @@ import {
 import {
   DEFAULT_STOREFRONT_RATING,
   parseStorefrontRating,
+  withStorefrontDisplayCount,
   type StorefrontRatingConfig,
+  type StorefrontRatingPublic,
 } from '@/lib/storefrontRating';
 
 export type {
@@ -380,7 +382,11 @@ const DEFAULTS: StoreConfig = {
 // keeps DB reads for settings to at most one per TTL window (plus a refresh
 // right after an admin save, which invalidates the cache).
 const TTL_MS = 5 * 60 * 1000;
-let cache: { data: StoreConfig; expiresAt: number } | null = null;
+let cache: {
+  data: StoreConfig;
+  storefrontRatingPublic: StorefrontRatingPublic;
+  expiresAt: number;
+} | null = null;
 
 function toStringArray(value: unknown): string[] | null {
   if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean);
@@ -805,12 +811,26 @@ export const SettingsService = {
         select: { key: true, value: true },
       });
       const data = parseRows(rows);
-      cache = { data, expiresAt: Date.now() + TTL_MS };
+      const ratedCount = data.storefrontRating.enabled
+        ? await prisma.orderFeedback.count({
+            where: { skipped: false, stars: { not: null } },
+          })
+        : 0;
+      const storefrontRatingPublic = withStorefrontDisplayCount(data.storefrontRating, ratedCount);
+      cache = { data, storefrontRatingPublic, expiresAt: Date.now() + TTL_MS };
       return data;
     } catch {
       // On DB error, serve last-known cache or defaults; never throw.
       return cache?.data ?? DEFAULTS;
     }
+  },
+
+  async getPublicStorefrontRating(): Promise<StorefrontRatingPublic> {
+    await this.getStoreConfig();
+    return (
+      cache?.storefrontRatingPublic ??
+      withStorefrontDisplayCount(DEFAULT_STOREFRONT_RATING, 0)
+    );
   },
 
   /** Persist changed settings and invalidate the cache. */

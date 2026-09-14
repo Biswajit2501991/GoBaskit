@@ -68,6 +68,8 @@ export class OrderFeedbackService {
     }
 
     DashboardService.invalidateCache();
+    const { SettingsService } = await import('@/services/SettingsService');
+    SettingsService.invalidate();
     return { ok: true as const };
   }
 
