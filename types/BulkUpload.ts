@@ -29,6 +29,10 @@ export interface ProductTemplateRow {
   tags: string;
   brand: string;
   countryOfOrigin: string;
+  fulfillmentSource?: string;
+  costPrice?: number | null;
+  hasFulfillmentSource?: boolean;
+  hasCostPrice?: boolean;
 }
 
 export interface ValidatedRow {
@@ -114,6 +118,8 @@ export const TEMPLATE_COLUMNS = [
   { key: 'tags', header: 'Tags', required: false, sample: 'organic,fresh', description: 'Comma-separated tags' },
   { key: 'brand', header: 'Brand', required: false, sample: 'GoBaskit Farms', description: 'Product brand' },
   { key: 'countryOfOrigin', header: 'Country of Origin', required: false, sample: 'India', description: 'Country of origin' },
+  { key: 'fulfillmentSource', header: 'Fulfillment Source', required: false, sample: 'IN_HOUSE', description: 'UNSET, IN_HOUSE, or OUTSOURCE' },
+  { key: 'costPrice', header: 'Cost Price', required: false, sample: '20', description: 'GoBaskit unit cost for in-house profit (not MRP)' },
 ] as const;
 
 // Legacy column aliases (backward compatible)
@@ -135,4 +141,9 @@ export const LEGACY_COLUMN_MAP: Record<string, keyof ProductTemplateRow> = {
   'Image URL': 'imageUrl',
   'Product Image URL': 'imageUrl',
   image_url: 'imageUrl',
+  'Country of Origin': 'countryOfOrigin',
+  'Fulfillment Source': 'fulfillmentSource',
+  fulfillmentSource: 'fulfillmentSource',
+  'Cost Price': 'costPrice',
+  costPrice: 'costPrice',
 };

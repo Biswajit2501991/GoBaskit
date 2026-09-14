@@ -6,6 +6,7 @@ import { deliveryChargeFrom } from '@/constants';
 import { deliveryIsServiceable } from '@/utils/delivery';
 import { appendPackSize, composeOrderItemName } from '@/utils/orderItemName';
 import { variantLabel, variantSizeLabel } from '@/utils/variant';
+import { snapshotFulfillment } from '@/lib/fulfillmentSource';
 import { normalizeMobile } from '@/utils/mobile';
 import {
   canCustomerMutate,
@@ -298,6 +299,8 @@ export class OrderMutationService {
                 unitPrice: item.unitPrice,
                 unit: item.unit,
                 totalPrice: item.unitPrice * item.quantity,
+                fulfillmentSource: item.fulfillmentSource,
+                costPriceSnapshot: item.costPriceSnapshot,
               })),
             });
             inventoryUpdates = await InventoryService.reserveForOrder(tx, order.id, stockItems);
@@ -485,7 +488,7 @@ export class OrderMutationService {
     const [products, variants] = await Promise.all([
       prisma.product.findMany({
         where: { id: { in: productIds } },
-        select: { id: true, name: true, price: true, unit: true, status: true },
+        select: { id: true, name: true, price: true, unit: true, status: true, fulfillmentSource: true, costPrice: true },
       }),
       variantIds.length
         ? prisma.productVariant.findMany({
@@ -499,6 +502,8 @@ export class OrderMutationService {
               variantName: true,
               weight: true,
               isActive: true,
+              fulfillmentSource: true,
+              costPrice: true,
             },
           })
         : Promise.resolve([]),
@@ -525,6 +530,12 @@ export class OrderMutationService {
       const unit = variant
         ? (variantSizeLabel(variant) || product.unit || 'pcs').trim() || 'pcs'
         : (product.unit || 'pcs').trim() || 'pcs';
+      const snap = snapshotFulfillment({
+        productSource: product.fulfillmentSource,
+        productCost: product.costPrice,
+        variantSource: variant?.fulfillmentSource,
+        variantCost: variant?.costPrice,
+      });
       return {
         productId: line.productId,
         variantId: line.variantId ?? null,
@@ -539,6 +550,8 @@ export class OrderMutationService {
           }),
           unit,
         ),
+        fulfillmentSource: snap.fulfillmentSource,
+        costPriceSnapshot: snap.costPriceSnapshot,
       };
     });
   }

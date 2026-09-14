@@ -39,6 +39,8 @@ const emptyVariant: VariantFormData = {
   sortOrder: 0,
   isActive: true,
   healthStarRating: null,
+  fulfillmentSource: 'UNSET',
+  costPrice: null,
 };
 
 const selectClass =
@@ -78,6 +80,8 @@ export default function VariantForm({
           sortOrder: variant.sortOrder,
           isActive: variant.isActive,
           healthStarRating: variant.healthStarRating ?? null,
+          fulfillmentSource: variant.fulfillmentSource ?? 'UNSET',
+          costPrice: variant.costPrice ?? null,
         }
       : emptyVariant,
   });
@@ -178,6 +182,18 @@ export default function VariantForm({
                 history={variant}
               />
             ) : null}
+          </div>
+          <div>
+            <Label>Fulfillment</Label>
+            <select {...register('fulfillmentSource')} className={`mt-1 ${selectClass}`}>
+              <option value="UNSET">Same as product</option>
+              <option value="IN_HOUSE">In House</option>
+              <option value="OUTSOURCE">Outsource</option>
+            </select>
+          </div>
+          <div>
+            <Label>Cost (₹)</Label>
+            <Input {...register('costPrice')} type="number" step="0.01" min="0" className="mt-1" placeholder="Override product cost" />
           </div>
           <div>
             <Label>MRP (₹)</Label>

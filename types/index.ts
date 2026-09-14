@@ -49,6 +49,8 @@ export interface ProductVariant {
   sortOrder: number;
   isActive: boolean;
   healthStarRating?: number | null;
+  fulfillmentSource?: 'UNSET' | 'IN_HOUSE' | 'OUTSOURCE';
+  costPrice?: number | null;
   attributes?: unknown;
 }
 
@@ -87,6 +89,8 @@ export interface ProductWithCategory {
   isVisible: boolean;
   hasVariants?: boolean;
   healthStarRating?: number | null;
+  fulfillmentSource?: 'UNSET' | 'IN_HOUSE' | 'OUTSOURCE';
+  costPrice?: number | null;
   categoryId: string;
   category?: { id: string; name: string; slug: string };
   variants?: ProductVariant[];

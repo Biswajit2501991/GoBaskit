@@ -23,6 +23,7 @@ import {
 } from './ImportHistoryStore';
 import { buildProductPricingData } from '@/utils/pricing';
 import { InventoryService } from '@/services/InventoryService';
+import { parseFulfillmentSource } from '@/lib/fulfillmentSource';
 
 export interface LegacyPreviewResult {
   preview: { name: string; categoryName: string; price: number; unit: string; stock: number }[];
@@ -82,6 +83,10 @@ function rowToProductData(
     discount: pricing.discount,
     isFeatured: row.featured,
     isVisible: row.active,
+    ...(row.hasFulfillmentSource && parseFulfillmentSource(row.fulfillmentSource)
+      ? { fulfillmentSource: parseFulfillmentSource(row.fulfillmentSource)! }
+      : {}),
+    ...(row.hasCostPrice ? { costPrice: row.costPrice ?? null } : {}),
   };
 }
 

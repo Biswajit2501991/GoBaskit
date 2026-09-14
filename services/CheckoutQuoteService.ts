@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { InventoryService } from '@/services/InventoryService';
 import { appendPackSize, composeOrderItemName } from '@/utils/orderItemName';
 import { variantLabel, variantSizeLabel } from '@/utils/variant';
+import { snapshotFulfillment, type FulfillmentSource } from '@/lib/fulfillmentSource';
 
 export type CheckoutLineInput = {
   productId: string;
@@ -19,6 +20,8 @@ export type QuotedCheckoutLine = {
   quantity: number;
   price: number;
   unit: string;
+  fulfillmentSource: FulfillmentSource;
+  costPriceSnapshot: number | null;
 };
 
 export class CheckoutQuoteService {
@@ -42,7 +45,15 @@ export class CheckoutQuoteService {
     const [products, variants] = await Promise.all([
       prisma.product.findMany({
         where: { id: { in: productIds } },
-        select: { id: true, name: true, unit: true, price: true, hasVariants: true },
+        select: {
+          id: true,
+          name: true,
+          unit: true,
+          price: true,
+          hasVariants: true,
+          fulfillmentSource: true,
+          costPrice: true,
+        },
       }),
       variantIds.length
         ? prisma.productVariant.findMany({
@@ -55,6 +66,8 @@ export class CheckoutQuoteService {
               variantName: true,
               weight: true,
               unit: true,
+              fulfillmentSource: true,
+              costPrice: true,
             },
           })
         : Promise.resolve([]),
@@ -81,6 +94,13 @@ export class CheckoutQuoteService {
         : (product.unit ?? '').trim() || item.unit;
       const price = variant ? variant.price : product.price;
 
+      const snap = snapshotFulfillment({
+        productSource: product.fulfillmentSource,
+        productCost: product.costPrice,
+        variantSource: variant?.fulfillmentSource,
+        variantCost: variant?.costPrice,
+      });
+
       return {
         productId: item.productId,
         variantId: item.variantId ?? null,
@@ -95,6 +115,8 @@ export class CheckoutQuoteService {
           }),
           packSize,
         ),
+        fulfillmentSource: snap.fulfillmentSource,
+        costPriceSnapshot: snap.costPriceSnapshot,
       };
     });
   }

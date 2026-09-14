@@ -109,6 +109,13 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     hint: 'Payments and settlement views. It does not check out customers.',
   },
   {
+    href: '/admin/profit-dashboard',
+    label: 'Profit Dashboard',
+    permission: 'finance:view',
+    group: 'Store',
+    hint: 'In House vs Outsource cost and profit by order. Off until you turn the switch on.',
+  },
+  {
     href: '/admin/staff',
     label: 'Staff',
     permission: 'staff:view',

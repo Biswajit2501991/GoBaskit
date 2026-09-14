@@ -337,6 +337,8 @@ export async function POST(req: NextRequest) {
             unitPrice: item.price,
             unit: item.unit,
             totalPrice: item.price * item.quantity,
+            fulfillmentSource: item.fulfillmentSource,
+            costPriceSnapshot: item.costPriceSnapshot,
           })),
         });
 

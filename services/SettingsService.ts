@@ -144,6 +144,8 @@ export interface StoreConfig {
   shopSourcing: ShopSourcingConfig;
   /** Neighbourhood words learned from real checkouts. Separate Setting row. */
   deliveryAddressLocalities: string[];
+  /** Staff Profit Dashboard. Default off so Finance Desk stays the daily view. */
+  profitDashboardEnabled: boolean;
 }
 
 type StoreConfigUpdate = Partial<
@@ -240,6 +242,7 @@ const KEY_WEATHER_DISCLAIMER = 'weather_disclaimer';
 const KEY_OVERNIGHT_CHECKOUT = 'overnight_checkout';
 const KEY_SHOP_SOURCING = 'shop_sourcing';
 const KEY_DELIVERY_ADDRESS_LOCALITIES = 'delivery_address_localities';
+const KEY_PROFIT_DASHBOARD = 'profit_dashboard_enabled';
 
 const DEFAULT_STAFF_IDLE_TIMEOUT_MINUTES = 15;
 
@@ -359,6 +362,7 @@ const DEFAULTS: StoreConfig = {
   overnightCheckout: DEFAULT_OVERNIGHT_CHECKOUT,
   shopSourcing: DEFAULT_SHOP_SOURCING,
   deliveryAddressLocalities: [],
+  profitDashboardEnabled: false,
 };
 
 // In-memory cache. The app runs as a single long-lived Node server, so this
@@ -704,6 +708,9 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     deliveryAddressLocalities = parseDeliveryLocalities(rawDeliveryLocalities);
   }
 
+  const profitDashboardEnabled =
+    (map.get(KEY_PROFIT_DASHBOARD) ?? 'false').toLowerCase() === 'true';
+
   return {
     serviceablePins: pins,
     serviceableCities: cities,
@@ -730,6 +737,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     overnightCheckout,
     shopSourcing,
     deliveryAddressLocalities,
+    profitDashboardEnabled,
   };
 }
 
@@ -767,6 +775,7 @@ export const SettingsService = {
               KEY_OVERNIGHT_CHECKOUT,
               KEY_SHOP_SOURCING,
               KEY_DELIVERY_ADDRESS_LOCALITIES,
+              KEY_PROFIT_DASHBOARD,
             ],
           },
         },
@@ -828,6 +837,11 @@ export const SettingsService = {
     if (partial.notificationSoundEnabled != null) {
       writes.push(
         upsert(KEY_NOTIFICATION_SOUND, partial.notificationSoundEnabled ? 'true' : 'false'),
+      );
+    }
+    if (partial.profitDashboardEnabled != null) {
+      writes.push(
+        upsert(KEY_PROFIT_DASHBOARD, partial.profitDashboardEnabled ? 'true' : 'false'),
       );
     }
     if (partial.staffIdleTimeoutEnabled != null) {

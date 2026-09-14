@@ -9,7 +9,8 @@ export const revalidate = 0;
 // Served from the SettingsService in-memory cache, so it does not add DB load per request.
 export async function GET() {
   const config = await SettingsService.getStoreConfig();
-  return NextResponse.json(config, {
+  const { profitDashboardEnabled: _profitDashboardEnabled, ...publicConfig } = config;
+  return NextResponse.json(publicConfig, {
     headers: {
       'Cache-Control': 'private, no-cache, no-store, max-age=0, must-revalidate',
     },

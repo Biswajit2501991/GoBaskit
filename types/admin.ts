@@ -30,6 +30,8 @@ export interface AdminProduct {
   isVisible: boolean;
   hasVariants: boolean;
   healthStarRating?: number | null;
+  fulfillmentSource?: 'UNSET' | 'IN_HOUSE' | 'OUTSOURCE';
+  costPrice?: number | null;
   categoryId: string;
   category: { id: string; name: string; slug: string };
   _count?: { variants: number };

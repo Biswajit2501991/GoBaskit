@@ -66,6 +66,8 @@ export class ProductService {
           isVisible: true,
           hasVariants: true,
           healthStarRating: true,
+          fulfillmentSource: true,
+          costPrice: true,
           categoryId: true,
           category: { select: { id: true, name: true, slug: true } },
           _count: { select: { variants: true } },

@@ -65,6 +65,8 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
       isVisible: parsed.data.isVisible ?? true,
       hasVariants: parsed.data.hasVariants ?? false,
       healthStarRating: parsed.data.healthStarRating ?? null,
+      fulfillmentSource: parsed.data.fulfillmentSource ?? existing.fulfillmentSource,
+      costPrice: parsed.data.costPrice === undefined ? existing.costPrice : parsed.data.costPrice,
     },
     include: { category: true },
   });

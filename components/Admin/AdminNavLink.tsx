@@ -19,6 +19,7 @@ import {
   Upload,
   Users,
   Wallet,
+  PieChart,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -28,6 +29,7 @@ const ADMIN_ICONS: Record<string, LucideIcon> = {
   '/admin/delivery': Truck,
   '/admin/inventory': ClipboardList,
   '/admin/finance': Wallet,
+  '/admin/profit-dashboard': PieChart,
   '/admin/products': ShoppingBag,
   '/admin/price-adjust': SlidersHorizontal,
   '/admin/categories': FolderTree,

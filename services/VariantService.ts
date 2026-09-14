@@ -18,6 +18,8 @@ export interface VariantInput {
   isActive?: boolean;
   healthStarRating?: number | null;
   attributes?: Record<string, unknown> | null;
+  fulfillmentSource?: 'UNSET' | 'IN_HOUSE' | 'OUTSOURCE';
+  costPrice?: number | null;
 }
 
 export class VariantService {
@@ -76,6 +78,8 @@ export class VariantService {
           input.healthStarRating == null
             ? null
             : Math.min(5, Math.max(1, Math.trunc(input.healthStarRating))),
+        fulfillmentSource: input.fulfillmentSource ?? 'UNSET',
+        costPrice: input.costPrice ?? null,
         attributes: (input.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
       },
     });
@@ -129,6 +133,8 @@ export class VariantService {
             : input.healthStarRating == null
               ? null
               : Math.min(5, Math.max(1, Math.trunc(input.healthStarRating))),
+        fulfillmentSource: input.fulfillmentSource ?? existing.fulfillmentSource,
+        costPrice: input.costPrice === undefined ? existing.costPrice : input.costPrice,
         attributes: (input.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
       },
     });

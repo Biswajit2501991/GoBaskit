@@ -177,6 +177,11 @@ export const productSchema = z
       emptyToNull,
       z.coerce.number().int().min(1).max(5).optional().nullable(),
     ),
+    fulfillmentSource: z.enum(['UNSET', 'IN_HOUSE', 'OUTSOURCE']).optional(),
+    costPrice: z.preprocess(
+      emptyToNull,
+      z.coerce.number().min(0, 'Cost must be zero or more').optional().nullable(),
+    ),
   })
   .superRefine((data, ctx) => {
     if (data.actualPrice != null && data.actualPrice < data.price) {
@@ -223,6 +228,11 @@ export const variantSchema = z
     healthStarRating: z.preprocess(
       emptyToNull,
       z.coerce.number().int().min(1).max(5).optional().nullable(),
+    ),
+    fulfillmentSource: z.enum(['UNSET', 'IN_HOUSE', 'OUTSOURCE']).optional(),
+    costPrice: z.preprocess(
+      emptyToNull,
+      z.coerce.number().min(0, 'Cost must be zero or more').optional().nullable(),
     ),
   })
   .superRefine((data, ctx) => {

@@ -14,6 +14,12 @@ enum ProductStatus {
   OUT_OF_STOCK
 }
 
+enum ProductFulfillmentSource {
+  UNSET
+  IN_HOUSE
+  OUTSOURCE
+}
+
 enum OrderStatus {
   PENDING
   ACCEPTED
@@ -114,6 +120,10 @@ model Product {
   hasVariants Boolean       @default(false) @map("has_variants")
   /** 1–5 Health Star Rating; null = not set (hidden on storefront). */
   healthStarRating Int?     @map("health_star_rating")
+  /** In House vs shop-sourced. UNSET until staff tag the SKU. */
+  fulfillmentSource ProductFulfillmentSource @default(UNSET) @map("fulfillment_source")
+  /** GoBaskit unit cost for in-house profit. Not MRP. */
+  costPrice   Float?        @map("cost_price")
   categoryId  String        @map("category_id")
   category    Category      @relation(fields: [categoryId], references: [id])
   orderItems  OrderItem[]
@@ -126,6 +136,7 @@ model Product {
   @@index([categoryId])
   @@index([isFeatured, isVisible])
   @@index([stock])
+  @@index([fulfillmentSource])
   @@map("products")
 }
 
@@ -154,6 +165,9 @@ model ProductVariant {
   isActive    Boolean  @default(true) @map("is_active")
   /** 1–5 Health Star Rating for this option; null falls back to product rating. */
   healthStarRating Int? @map("health_star_rating")
+  /** UNSET inherits the parent product tag. */
+  fulfillmentSource ProductFulfillmentSource @default(UNSET) @map("fulfillment_source")
+  costPrice   Float?   @map("cost_price")
   // Reserved for future variant-specific data (colour, flavour, gst, supplier,
   // expiry, nutrition, bundle/subscription config, etc.) without schema changes.
   attributes  Json?
@@ -428,6 +442,8 @@ model OrderItem {
   unitPrice   Float   @map("unit_price")
   unit        String
   totalPrice  Float   @map("total_price")
+  fulfillmentSource ProductFulfillmentSource @default(UNSET) @map("fulfillment_source")
+  costPriceSnapshot Float? @map("cost_price_snapshot")
   order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product     Product @relation(fields: [productId], references: [id])
   variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)

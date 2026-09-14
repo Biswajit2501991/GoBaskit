@@ -71,6 +71,8 @@ export async function POST(req: NextRequest) {
       isVisible: parsed.data.isVisible ?? true,
       hasVariants: parsed.data.hasVariants ?? false,
       healthStarRating: parsed.data.healthStarRating ?? null,
+      fulfillmentSource: parsed.data.fulfillmentSource ?? 'UNSET',
+      costPrice: parsed.data.costPrice ?? null,
     },
     include: { category: true },
   });

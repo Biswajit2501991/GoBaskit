@@ -4,6 +4,7 @@ import {
   TEMPLATE_COLUMNS,
   type ProductTemplateRow,
 } from '@/types/BulkUpload';
+import { parseCostPrice, parseFulfillmentSource } from '@/lib/fulfillmentSource';
 
 function normalizeKey(key: string): string {
   return key.trim();
@@ -72,6 +73,16 @@ function mapRow(raw: Record<string, unknown>, rowNumber: number): ProductTemplat
     tags: mapped.tags ?? getCell(raw, 'Tags', 'tags'),
     brand: mapped.brand ?? getCell(raw, 'Brand', 'brand'),
     countryOfOrigin: mapped.countryOfOrigin ?? getCell(raw, 'Country of Origin', 'countryOfOrigin'),
+    fulfillmentSource: (() => {
+      const cell = mapped.fulfillmentSource ?? getCell(raw, 'Fulfillment Source', 'fulfillmentSource', 'Source');
+      const parsed = parseFulfillmentSource(cell);
+      return parsed && cell ? parsed : '';
+    })(),
+    costPrice: parseCostPrice(mapped.costPrice ?? getCell(raw, 'Cost Price', 'costPrice')),
+    hasFulfillmentSource: Boolean(
+      mapped.fulfillmentSource ?? getCell(raw, 'Fulfillment Source', 'fulfillmentSource', 'Source'),
+    ),
+    hasCostPrice: Boolean(mapped.costPrice ?? getCell(raw, 'Cost Price', 'costPrice')),
   };
 }
 

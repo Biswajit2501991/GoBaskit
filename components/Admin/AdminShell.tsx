@@ -44,6 +44,7 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
       pathname.startsWith('/admin/dashboard') ||
       pathname.startsWith('/admin/analytics') ||
       pathname.startsWith('/admin/finance') ||
+      pathname.startsWith('/admin/profit-dashboard') ||
       pathname.startsWith('/admin/orders') ||
       pathname.startsWith('/admin/delivery') ||
       pathname.startsWith('/admin/whatsapp-verification') ||

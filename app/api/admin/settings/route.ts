@@ -28,6 +28,7 @@ const settingsSchema = z.object({
   whatsappNumber: z.string().max(20).optional(),
   checkoutMode: z.enum(['website', 'whatsapp', 'both']).optional(),
   notificationSoundEnabled: z.boolean().optional(),
+  profitDashboardEnabled: z.boolean().optional(),
   staffIdleTimeoutEnabled: z.boolean().optional(),
   staffIdleTimeoutMinutes: z.number().int().min(5).max(240).optional(),
   cityAliases: z.record(z.string(), z.array(z.string().min(1))).optional(),

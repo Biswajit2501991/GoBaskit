@@ -46,6 +46,8 @@ const emptyProduct: ProductFormData = {
   isVisible: true,
   hasVariants: false,
   healthStarRating: null,
+  fulfillmentSource: 'UNSET',
+  costPrice: null,
 };
 
 export default function ProductManager({
@@ -77,6 +79,9 @@ export default function ProductManager({
   } | null>(null);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkCost, setBulkCost] = useState('');
+  const [bulkBusy, setBulkBusy] = useState(false);
   const searchDebounced = useRef(search);
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   useEffect(() => {
@@ -215,6 +220,8 @@ export default function ProductManager({
       isVisible: product.isVisible,
       hasVariants: product.hasVariants || hasExistingOptions,
       healthStarRating: product.healthStarRating ?? null,
+      fulfillmentSource: product.fulfillmentSource ?? 'UNSET',
+      costPrice: product.costPrice ?? null,
     });
     setShopIds(product.shopIds ?? []);
     setPriceHistory({
@@ -298,6 +305,29 @@ export default function ProductManager({
     await reloadAfterMutation();
   }
 
+  async function applyBulkSource(fulfillmentSource: 'UNSET' | 'IN_HOUSE' | 'OUTSOURCE') {
+    if (!canEdit || selectedIds.length === 0) return;
+    setBulkBusy(true);
+    const res = await fetch('/api/admin/products/bulk-source', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ids: selectedIds,
+        fulfillmentSource,
+        ...(bulkCost !== '' ? { costPrice: Number(bulkCost) } : {}),
+      }),
+    });
+    setBulkBusy(false);
+    if (!res.ok) {
+      alert('Could not tag the selected products');
+      return;
+    }
+    setSelectedIds([]);
+    await reloadAfterMutation();
+  }
+
+  const allVisibleSelected = products.length > 0 && products.every((p) => selectedIds.includes(p.id));
+
   const selectClass =
     'flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green';
 
@@ -331,6 +361,30 @@ export default function ProductManager({
           ))}
         </select>
       </div>
+
+      {canEdit && selectedIds.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm">
+          <span className="font-medium">{selectedIds.length} selected</span>
+          <Button type="button" size="sm" disabled={bulkBusy} onClick={() => void applyBulkSource('IN_HOUSE')}>
+            In House
+          </Button>
+          <Button type="button" size="sm" disabled={bulkBusy} onClick={() => void applyBulkSource('OUTSOURCE')}>
+            Outsource
+          </Button>
+          <Button type="button" size="sm" variant="secondary" disabled={bulkBusy} onClick={() => void applyBulkSource('UNSET')}>
+            Untagged
+          </Button>
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Optional cost ₹"
+            value={bulkCost}
+            onChange={(e) => setBulkCost(e.target.value)}
+            className="w-36 h-8"
+          />
+        </div>
+      )}
 
       {!loading && categories.length === 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
@@ -406,6 +460,31 @@ export default function ProductManager({
                 {editingId ? (
                   <SellingPriceHistoryNote currentPrice={sellingPrice} history={priceHistory} />
                 ) : null}
+              </div>
+
+              <div>
+                <Label>Fulfillment</Label>
+                <select {...register('fulfillmentSource')} className={`mt-1 ${selectClass}`} disabled={!canEdit}>
+                  <option value="UNSET">Untagged</option>
+                  <option value="IN_HOUSE">In House</option>
+                  <option value="OUTSOURCE">Outsource</option>
+                </select>
+                <p className="text-[11px] text-gray-400 mt-1">Used on Profit Dashboard. Not shown to customers.</p>
+              </div>
+
+              <div>
+                <Label>Cost (₹)</Label>
+                <Input
+                  {...register('costPrice')}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="GoBaskit unit cost"
+                  className="mt-1"
+                  disabled={!canEdit}
+                />
+                {errors.costPrice && <p className="text-red-500 text-xs mt-1">{errors.costPrice.message}</p>}
+                <p className="text-[11px] text-gray-400 mt-1">In-house profit uses this cost × quantity. Not MRP.</p>
               </div>
 
               <div>
@@ -580,10 +659,22 @@ export default function ProductManager({
           <table className="w-full text-sm min-w-[720px]">
             <thead className="bg-gray-50 border-b">
               <tr>
+                <th className="p-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedIds(products.map((p) => p.id));
+                      else setSelectedIds([]);
+                    }}
+                    disabled={!canEdit}
+                  />
+                </th>
                 <th className="text-left p-3 font-semibold w-14">Image</th>
                 <th className="text-left p-3 font-semibold">Name</th>
                 <th className="text-left p-3 font-semibold">Category</th>
                 <th className="text-left p-3 font-semibold">Price</th>
+                <th className="text-left p-3 font-semibold">Source</th>
                 <th className="text-left p-3 font-semibold">Unit</th>
                 <th className="text-left p-3 font-semibold">Stock</th>
                 <th className="text-left p-3 font-semibold">Status</th>
@@ -593,17 +684,29 @@ export default function ProductManager({
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-gray-400">Loading...</td>
+                  <td colSpan={10} className="p-8 text-center text-gray-400">Loading...</td>
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-gray-500">
+                  <td colSpan={10} className="p-8 text-center text-gray-500">
                     {search || categoryFilter ? 'No products match your filters.' : 'No products yet. Click Add Product to create one.'}
                   </td>
                 </tr>
               ) : (
                 products.map((p) => (
                 <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50">
+                  <td className="p-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(p.id)}
+                      disabled={!canEdit}
+                      onChange={(e) => {
+                        setSelectedIds((ids) =>
+                          e.target.checked ? [...ids, p.id] : ids.filter((id) => id !== p.id),
+                        );
+                      }}
+                    />
+                  </td>
                   <td className="p-3">
                     {p.imageUrl ? (
                       <img src={resolvePublicImageUrl(p.imageUrl)} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
@@ -634,6 +737,13 @@ export default function ProductManager({
                   </td>
                   <td className="p-3">
                     <ProductPriceDisplay price={p.price} actualPrice={p.actualPrice} size="sm" />
+                  </td>
+                  <td className="p-3 text-xs font-semibold text-gray-600">
+                    {p.fulfillmentSource === 'IN_HOUSE'
+                      ? 'In house'
+                      : p.fulfillmentSource === 'OUTSOURCE'
+                        ? 'Outsource'
+                        : '—'}
                   </td>
                   <td className="p-3 text-gray-500">{p.unit}</td>
                   <td className="p-3">
