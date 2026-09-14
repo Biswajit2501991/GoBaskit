@@ -1,24 +1,19 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useConfigStore } from '@/store/configStore';
-import { isSeasonalThemeId } from '@/constants/seasonalThemes';
+import { useLayoutEffect } from 'react';
+import { useStorefrontHomepageConfig } from '@/components/Header/StorefrontRatingHydrator';
+import { isSeasonalThemeId, parseSeasonalThemeId } from '@/constants/seasonalThemes';
 import { persistStorefrontPresentation } from '@/utils/storefrontPresentation';
 
-/**
- * Keeps `data-theme` on <html> in sync with homepageConfig after settings load.
- * Does not clear a server-set theme until live config has arrived.
- */
+/** Apply festive `data-theme` as soon as the server snapshot is available. */
 export default function SeasonalThemeProvider() {
-  const loaded = useConfigStore((s) => s.loaded);
-  const seasonalThemeEnabled = useConfigStore((s) => s.homepageConfig.seasonalThemeEnabled);
-  const seasonalThemeId = useConfigStore((s) => s.homepageConfig.seasonalThemeId);
+  const homepage = useStorefrontHomepageConfig();
+  const seasonalThemeEnabled = homepage.seasonalThemeEnabled === true;
+  const seasonalThemeId = parseSeasonalThemeId(homepage.seasonalThemeId);
 
-  useEffect(() => {
-    if (!loaded) return;
-
+  useLayoutEffect(() => {
     const root = document.documentElement;
-    if (seasonalThemeEnabled && isSeasonalThemeId(seasonalThemeId)) {
+    if (seasonalThemeEnabled && isSeasonalThemeId(seasonalThemeId) && seasonalThemeId !== 'normal') {
       root.dataset.theme = seasonalThemeId;
       persistStorefrontPresentation({
         seasonalThemeEnabled: true,
@@ -30,9 +25,9 @@ export default function SeasonalThemeProvider() {
     delete root.dataset.theme;
     persistStorefrontPresentation({
       seasonalThemeEnabled: false,
-      seasonalThemeId: isSeasonalThemeId(seasonalThemeId) ? seasonalThemeId : 'independence-day',
+      seasonalThemeId,
     });
-  }, [loaded, seasonalThemeEnabled, seasonalThemeId]);
+  }, [seasonalThemeEnabled, seasonalThemeId]);
 
   return null;
 }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
-import { useConfigStore } from '@/store/configStore';
+import { useStorefrontHomepageConfig } from '@/components/Header/StorefrontRatingHydrator';
 import { parseSeasonalThemeId, SEASONAL_THEME_COPY } from '@/constants/seasonalThemes';
 
 /**
@@ -10,14 +10,11 @@ import { parseSeasonalThemeId, SEASONAL_THEME_COPY } from '@/constants/seasonalT
  * Does not auto-apply discounts; customer still verifies the code in cart.
  */
 export default function SeasonalPromoBanner() {
-  const loaded = useConfigStore((s) => s.loaded);
-  const homepageConfig = useConfigStore((s) => s.homepageConfig);
+  const homepageConfig = useStorefrontHomepageConfig();
   const [copied, setCopied] = useState(false);
 
   const show =
-    loaded &&
-    homepageConfig.seasonalThemeEnabled === true &&
-    homepageConfig.seasonalPromoEnabled === true;
+    homepageConfig.seasonalThemeEnabled === true && homepageConfig.seasonalPromoEnabled === true;
 
   if (!show) return null;
 

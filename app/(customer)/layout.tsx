@@ -4,6 +4,15 @@ import { StorefrontRatingHydrator } from '@/components/Header/StorefrontRatingHy
 export const dynamic = 'force-dynamic';
 
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
+  const config = await SettingsService.getStoreConfig();
   const rating = await SettingsService.getPublicStorefrontRating();
-  return <StorefrontRatingHydrator rating={rating}>{children}</StorefrontRatingHydrator>;
+  return (
+    <StorefrontRatingHydrator
+      rating={rating}
+      homepageConfig={config.homepageConfig}
+      weatherDisclaimer={config.weatherDisclaimer}
+    >
+      {children}
+    </StorefrontRatingHydrator>
+  );
 }

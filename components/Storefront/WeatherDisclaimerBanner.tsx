@@ -3,12 +3,13 @@
 import { useEffect } from 'react';
 import { CloudRain } from 'lucide-react';
 import { useConfigStore } from '@/store/configStore';
+import { useStorefrontWeather } from '@/components/Header/StorefrontRatingHydrator';
 
 /** Cron can clear rain on the server; this tab must re-read /api/config to hide the banner. */
 const WEATHER_CONFIG_POLL_MS = 2 * 60 * 1000;
 
 export default function WeatherDisclaimerBanner({ className = '' }: { className?: string }) {
-  const weather = useConfigStore((s) => s.weatherDisclaimer);
+  const weather = useStorefrontWeather();
   const refreshConfig = useConfigStore((s) => s.refreshConfig);
 
   useEffect(() => {

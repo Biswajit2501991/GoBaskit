@@ -97,6 +97,8 @@ interface ConfigState {
   refreshConfig: () => Promise<void>;
 }
 
+export type HomepageConfig = ConfigState['homepageConfig'];
+
 // Guards against duplicate in-flight requests when several components mount together.
 let inFlight: Promise<void> | null = null;
 

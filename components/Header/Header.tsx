@@ -19,6 +19,7 @@ import AccountVerifiedToast from '@/components/Header/AccountVerifiedToast';
 import CustomerPushPrompt from '@/components/Header/CustomerPushPrompt';
 import CustomerFeedbackPrompt from '@/components/Header/CustomerFeedbackPrompt';
 import StorefrontRatingBadge from '@/components/Header/StorefrontRatingBadge';
+import { useStorefrontHomepageConfig } from '@/components/Header/StorefrontRatingHydrator';
 import PoweredByBanner from '@/components/Header/PoweredByBanner';
 import CartDrawer from '@/components/Cart/CartDrawer';
 import OrderCelebration from '@/components/Cart/OrderCelebration';
@@ -61,14 +62,11 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
   const wishlistCount = useWishlistStore((s) => s.count);
   const clearWishlist = useWishlistStore((s) => s.clear);
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
-  const showPoweredByBanner = useConfigStore(
-    (s) => s.loaded && s.homepageConfig.showPoweredByBanner !== false,
-  );
-  const poweredByText = useConfigStore((s) => s.homepageConfig.poweredByText);
-  const seasonalThemeEnabled = useConfigStore(
-    (s) => s.loaded && s.homepageConfig.seasonalThemeEnabled === true,
-  );
-  const seasonalRibbonText = useConfigStore((s) => s.homepageConfig.seasonalRibbonText);
+  const homepageConfig = useStorefrontHomepageConfig();
+  const showPoweredByBanner = homepageConfig.showPoweredByBanner !== false;
+  const poweredByText = homepageConfig.poweredByText;
+  const seasonalThemeEnabled = homepageConfig.seasonalThemeEnabled === true;
+  const seasonalRibbonText = homepageConfig.seasonalRibbonText;
   const categories = useCatalogStore((s) => s.categories);
   const fetchCatalog = useCatalogStore((s) => s.fetchCatalog);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);

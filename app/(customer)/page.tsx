@@ -10,6 +10,7 @@ import ProductRail from '@/components/ProductCard/ProductRail';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import SeasonalPromoBanner from '@/components/Theme/SeasonalPromoBanner';
 import WeatherDisclaimerBanner from '@/components/Storefront/WeatherDisclaimerBanner';
+import { useStorefrontHomepageConfig } from '@/components/Header/StorefrontRatingHydrator';
 import { useConfigStore } from '@/store/configStore';
 import { useCatalogStore } from '@/store/catalogStore';
 import { calculateDiscountPercentage } from '@/utils/pricing';
@@ -27,7 +28,8 @@ function productDiscountPercent(p: ProductWithCategory): number {
 export default function HomePage() {
   const [activeBanner, setActiveBanner] = useState(0);
   const [showAllCategories, setShowAllCategories] = useState(false);
-  const { homepageConfig, refreshConfig } = useConfigStore();
+  const homepageConfig = useStorefrontHomepageConfig();
+  const fetchConfig = useConfigStore((s) => s.fetchConfig);
   const products = useCatalogStore((s) => s.products);
   const categories = useCatalogStore((s) => s.categories);
   const loaded = useCatalogStore((s) => s.loaded);
@@ -96,8 +98,8 @@ export default function HomePage() {
   }, [fetchCatalog]);
 
   useEffect(() => {
-    refreshConfig();
-  }, [refreshConfig]);
+    void fetchConfig();
+  }, [fetchConfig]);
 
   useEffect(() => {
     if (rotatingBanners.length === 0) return;
