@@ -6,12 +6,11 @@ import Link from 'next/link';
 import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
 import ProductCard from '@/components/ProductCard/ProductCard';
+import { PRODUCT_GRID } from '@/components/ProductCard/productCardLayout';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { CATEGORY_ICONS } from '@/constants';
 import { resolvePublicImageUrl } from '@/utils/image';
 import { useCatalogStore } from '@/store/catalogStore';
-
-const PRODUCT_GRID = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2';
 
 function safeDecodeSlug(value: string): string {
   try {
@@ -98,7 +97,7 @@ export default function CategoryPage() {
 
         {showSkeleton ? (
           <div className={PRODUCT_GRID}>
-            {[...Array(8)].map((_, i) => <div key={i} className="aspect-[4/5] skeleton rounded-lg" />)}
+            {[...Array(8)].map((_, i) => <div key={i} className="aspect-square skeleton rounded-lg" />)}
           </div>
         ) : products.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">

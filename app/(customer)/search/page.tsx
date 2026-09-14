@@ -6,10 +6,10 @@ import { useSearchParams } from 'next/navigation';
 import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
 import ProductCard from '@/components/ProductCard/ProductCard';
+import { PRODUCT_GRID } from '@/components/ProductCard/productCardLayout';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import { useCatalogStore, searchProducts } from '@/store/catalogStore';
 
-const PRODUCT_GRID = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2';
 const SEARCH_LIMIT = 200;
 
 function SearchResults() {
@@ -78,7 +78,7 @@ function SearchResults() {
       ) : showSkeleton ? (
         <div className={PRODUCT_GRID}>
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="aspect-[4/5] skeleton rounded-lg" />
+            <div key={i} className="aspect-square skeleton rounded-lg" />
           ))}
         </div>
       ) : results.length === 0 ? (
@@ -111,7 +111,7 @@ export default function SearchPage() {
             <div className="h-4 w-32 skeleton rounded mb-5" />
             <div className={PRODUCT_GRID}>
               {[...Array(8)].map((_, i) => (
-                <div key={i} className="aspect-[4/5] skeleton rounded-lg" />
+                <div key={i} className="aspect-square skeleton rounded-lg" />
               ))}
             </div>
           </main>

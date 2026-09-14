@@ -7,6 +7,7 @@ import Link from 'next/link';
 import CategoryPager from '@/components/CategoryCard/CategoryPager';
 import AllCategoriesModal from '@/components/CategoryCard/AllCategoriesModal';
 import ProductRail from '@/components/ProductCard/ProductRail';
+import { PRODUCT_RAIL_CARD } from '@/components/ProductCard/productCardLayout';
 import FloatingCartBar from '@/components/Cart/FloatingCartBar';
 import SeasonalPromoBanner from '@/components/Theme/SeasonalPromoBanner';
 import WeatherDisclaimerBanner from '@/components/Storefront/WeatherDisclaimerBanner';
@@ -170,8 +171,8 @@ export default function HomePage() {
             <div className="h-5 w-40 skeleton rounded" />
             <div className="flex gap-2 overflow-hidden">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="w-[148px] shrink-0 bg-white rounded-lg border border-gray-100 overflow-hidden">
-                  <div className="aspect-[4/5] skeleton" />
+                <div key={i} className={`${PRODUCT_RAIL_CARD} bg-white rounded-lg border border-gray-100 overflow-hidden`}>
+                  <div className="aspect-square skeleton" />
                   <div className="p-2 space-y-1.5">
                     <div className="h-2.5 skeleton rounded" />
                     <div className="h-5 skeleton rounded mt-1" />

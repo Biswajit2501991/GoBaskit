@@ -21,6 +21,7 @@ import HealthStarBadge from '@/components/Product/HealthStarBadge';
 import VariantSelector from '@/components/Product/VariantSelector';
 import WishlistButton from '@/components/Product/WishlistButton';
 import { DEFAULT_HEALTH_STAR_DISPLAY } from '@/constants/healthStarDisplay';
+import { PRODUCT_IMAGE_FRAME } from '@/components/ProductCard/productCardLayout';
 
 interface ProductCardProps {
   product: ProductWithCategory;
@@ -105,8 +106,8 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div className="bg-white rounded-lg border border-gray-100 overflow-hidden flex flex-col hover:shadow-sm transition-shadow group">
-      <Link href={`/product/${product.id}`} className="block p-2">
-        <div className="aspect-[4/5] relative rounded-2xl overflow-hidden bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100">
+      <Link href={`/product/${product.id}`} className="block p-1.5">
+        <div className={PRODUCT_IMAGE_FRAME}>
           <ProductImageCarousel
             images={carouselImages}
             alt={product.name}
@@ -142,7 +143,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         </div>
       </Link>
 
-      <div className="px-2 pb-2 flex flex-col flex-1">
+      <div className="px-1.5 pb-1.5 flex flex-col flex-1">
         <div className="flex items-center justify-between gap-0.5 mb-1 min-h-[14px] flex-nowrap">
           {product.isFeatured ? (
             <BestsellerBadge className="relative self-center text-[8px] leading-none px-1.5 py-0.5 tracking-tight" />
