@@ -27,6 +27,11 @@ import {
   parseShopSourcing,
   type ShopSourcingConfig,
 } from '@/lib/shopSourcing';
+import {
+  DEFAULT_STOREFRONT_RATING,
+  parseStorefrontRating,
+  type StorefrontRatingPublic,
+} from '@/lib/storefrontRating';
 
 interface ConfigState {
   serviceablePins: string[];
@@ -85,6 +90,7 @@ interface ConfigState {
   weatherDisclaimer: WeatherDisclaimerPublic;
   overnightCheckout: OvernightCheckoutConfig;
   shopSourcing: ShopSourcingConfig;
+  storefrontRating: StorefrontRatingPublic;
   deliveryAddressLocalities: string[];
   loaded: boolean;
   fetchConfig: () => Promise<void>;
@@ -156,6 +162,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
   overnightCheckout: DEFAULT_OVERNIGHT_CHECKOUT,
   shopSourcing: DEFAULT_SHOP_SOURCING,
+  storefrontRating: { ...DEFAULT_STOREFRONT_RATING, displayCount: 0 },
   deliveryAddressLocalities: [],
   loaded: false,
 
@@ -242,6 +249,16 @@ async function loadConfig(
             : get().weatherDisclaimer,
         overnightCheckout: parseOvernightCheckout(c.overnightCheckout),
         shopSourcing: parseShopSourcing(c.shopSourcing),
+        storefrontRating: (() => {
+          const parsed = parseStorefrontRating(c.storefrontRating);
+          const displayCount = Number(c.storefrontRating?.displayCount);
+          return {
+            ...parsed,
+            displayCount: Number.isFinite(displayCount)
+              ? Math.max(0, Math.round(displayCount))
+              : parsed.seedCount,
+          };
+        })(),
         deliveryAddressLocalities: Array.isArray(c.deliveryAddressLocalities)
           ? c.deliveryAddressLocalities
               .map((word: unknown) => String(word).toLowerCase().replace(/[^a-z0-9]/g, ''))

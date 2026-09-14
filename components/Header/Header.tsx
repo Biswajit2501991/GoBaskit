@@ -18,6 +18,7 @@ import RestockToastHost from '@/components/Header/RestockToastHost';
 import AccountVerifiedToast from '@/components/Header/AccountVerifiedToast';
 import CustomerPushPrompt from '@/components/Header/CustomerPushPrompt';
 import CustomerFeedbackPrompt from '@/components/Header/CustomerFeedbackPrompt';
+import StorefrontRatingBadge from '@/components/Header/StorefrontRatingBadge';
 import PoweredByBanner from '@/components/Header/PoweredByBanner';
 import CartDrawer from '@/components/Cart/CartDrawer';
 import OrderCelebration from '@/components/Cart/OrderCelebration';
@@ -283,7 +284,7 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
             compact ? 'py-1.5' : 'py-2 sm:py-2.5'
           }`}
         >
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 min-w-0 shrink">
             <Link href="/" className="bg-white rounded-lg px-2 py-1 sm:px-2.5 shadow-sm shrink-0">
               <span
                 className={`font-extrabold text-gray-900 tracking-tight ${
@@ -293,6 +294,7 @@ export default function Header({ showSearch = true, showCategoryChips }: HeaderP
                 Go<span className="text-blinkit-yellow">Baskit</span>
               </span>
             </Link>
+            <StorefrontRatingBadge compact={compact} />
             {showAdminEntry && (
               <button
                 type="button"
