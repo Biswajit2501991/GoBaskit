@@ -116,6 +116,13 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     hint: 'In House vs Outsource cost and profit by order. Off until you turn the switch on.',
   },
   {
+    href: '/admin/expenses',
+    label: 'Expenses',
+    permission: 'finance:view',
+    group: 'Store',
+    hint: 'Staff costs. Add Expense is on by default. Show Total Profit is off until you turn it on.',
+  },
+  {
     href: '/admin/staff',
     label: 'Staff',
     permission: 'staff:view',

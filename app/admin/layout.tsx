@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { getAdminPageStaff } from '@/lib/auth';
 import { AdminShell } from '@/components/Admin/AdminShell';
 import { visibleAdminNav } from '@/lib/staffAccess';
+import { SettingsService } from '@/services/SettingsService';
 import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
@@ -36,6 +37,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   const visibleNav = visibleAdminNav(staff);
+  const config = await SettingsService.getStoreConfig();
+  const canSeeFinance = visibleNav.some(
+    (item) =>
+      item.href === '/admin/expenses' ||
+      item.href === '/admin/finance' ||
+      item.href === '/admin/profit-dashboard',
+  );
+  const showProfitChip = canSeeFinance && config.showTotalProfitEnabled === true;
 
   return (
     <>
@@ -48,6 +57,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <AdminShell
         staff={{ id: staff.id, name: staff.name, role: staff.role }}
         visibleNav={visibleNav}
+        showProfitChip={showProfitChip}
       >
         {children}
       </AdminShell>

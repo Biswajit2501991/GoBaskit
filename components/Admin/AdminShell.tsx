@@ -8,6 +8,7 @@ import { NotificationCenter } from '@/components/Admin/NotificationCenter';
 import { AdminNavLink } from '@/components/Admin/AdminNavLink';
 import AdminMasterSearch from '@/components/Admin/AdminMasterSearch';
 import AdminThemeToggle from '@/components/Admin/AdminThemeToggle';
+import AdminProfitChip from '@/components/Admin/AdminProfitChip';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
 import StaffSessionKeeper from '@/components/Admin/StaffSessionKeeper';
@@ -16,12 +17,13 @@ import { adminNavForPath, groupAdminNav, type AdminNavLinkItem } from '@/lib/adm
 type AdminShellProps = {
   staff: { id: string; name: string; role: string };
   visibleNav: AdminNavLinkItem[];
+  showProfitChip?: boolean;
   children: React.ReactNode;
 };
 
 const SIDEBAR_PREF_KEY = 'gobaskit_admin_sidebar_collapsed';
 
-export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
+export function AdminShell({ staff, visibleNav, showProfitChip = false, children }: AdminShellProps) {
   const pathname = usePathname();
   const mainRef = useRef<HTMLElement>(null);
   const [collapsed, setCollapsed] = useState(() => {
@@ -45,6 +47,7 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
       pathname.startsWith('/admin/analytics') ||
       pathname.startsWith('/admin/finance') ||
       pathname.startsWith('/admin/profit-dashboard') ||
+      pathname.startsWith('/admin/expenses') ||
       pathname.startsWith('/admin/orders') ||
       pathname.startsWith('/admin/delivery') ||
       pathname.startsWith('/admin/whatsapp-verification') ||
@@ -347,6 +350,7 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
             <Menu className="w-5 h-5" />
           </button>
           <AdminMasterSearch navItems={visibleNav} />
+          {showProfitChip ? <AdminProfitChip /> : null}
           <AdminThemeToggle />
           <div className="text-right shrink-0 hidden sm:block">
             <p className="text-xs font-semibold text-gray-700">{staff.name}</p>

@@ -523,6 +523,7 @@ model StaffAccount {
   whatsappVerificationsApproved WhatsAppVerification[] @relation("WhatsAppVerificationApprovedBy")
   learningNotesCreated LearningNote[] @relation("LearningNoteAuthor")
   learningNotesUpdated LearningNote[] @relation("LearningNoteUpdater")
+  expensesCreated      Expense[]      @relation("ExpensesCreated")
 
   @@index([mobile])
   @@index([role, active])
@@ -668,6 +669,23 @@ model DiscountLog {
   @@index([mobile, createdAt])
   @@index([createdAt])
   @@map("discount_logs")
+}
+
+model Expense {
+  id          String        @id @default(cuid())
+  amount      Float
+  category    String        @default("other")
+  note        String        @default("")
+  incurredAt  DateTime      @map("incurred_at")
+  createdById String?       @map("created_by_id")
+  createdBy   StaffAccount? @relation("ExpensesCreated", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  deletedAt   DateTime?     @map("deleted_at")
+
+  @@index([deletedAt, incurredAt])
+  @@index([createdById])
+  @@map("expenses")
 }
 
 /** Shared how-to notes for the admin team (Learning menu). */

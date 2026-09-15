@@ -10,7 +10,12 @@ export const revalidate = 0;
 export async function GET() {
   const config = await SettingsService.getStoreConfig();
   const storefrontRating = await SettingsService.getPublicStorefrontRating();
-  const { profitDashboardEnabled: _profitDashboardEnabled, ...publicConfig } = config;
+  const {
+    profitDashboardEnabled: _profitDashboardEnabled,
+    expensesEnabled: _expensesEnabled,
+    showTotalProfitEnabled: _showTotalProfitEnabled,
+    ...publicConfig
+  } = config;
   return NextResponse.json(
     {
       ...publicConfig,

@@ -144,6 +144,7 @@ const NAV_KEYWORDS: Record<string, string[]> = {
   '/admin/inventory': ['stock', 'sku', 'warehouse'],
   '/admin/finance': ['money', 'revenue', 'payout'],
   '/admin/profit-dashboard': ['profit', 'in house', 'outsource', 'margin'],
+  '/admin/expenses': ['expense', 'cost', 'spend', 'ledger', 'profit chip'],
   '/admin/products': ['catalog', 'items', 'sku'],
   '/admin/price-adjust': ['bulk price', 'percent', 'markup', 'increase', 'decrease'],
   '/admin/categories': ['category', 'aisle'],

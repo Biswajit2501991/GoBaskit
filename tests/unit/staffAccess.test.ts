@@ -21,6 +21,12 @@ describe('staff access grants', () => {
     expect(visibleAdminNav({ role: 'ORDER_MANAGER' }).some((item) => item.href === '/admin/orders')).toBe(true);
   });
 
+  it('gives Finance staff the new Expenses page from role defaults without touching grants', () => {
+    expect(visibleAdminNav({ role: 'FINANCE' }).some((item) => item.href === '/admin/expenses')).toBe(true);
+    expect(visibleAdminNav({ role: 'FINANCE' }).some((item) => item.href === '/admin/finance')).toBe(true);
+    expect(visibleAdminNav({ role: 'READ_ONLY' }).some((item) => item.href === '/admin/expenses')).toBe(false);
+  });
+
   it('hides unticked pages and blocks their URLs when All Super Admin saves ticks', () => {
     const grants = { sections: [pageAccessId('/admin/orders'), pageAccessId('/admin/delivery')] };
     const staff = { role: 'ORDER_MANAGER' as const, accessGrants: grants };

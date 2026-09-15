@@ -293,4 +293,11 @@ export const learningNoteSchema = z.object({
   body: z.string().trim().min(1, 'Note content is required').max(20000),
 });
 
+export const expenseSchema = z.object({
+  amount: z.coerce.number().positive('Amount must be greater than 0').max(10_000_000),
+  category: z.string().trim().max(40).optional(),
+  note: z.string().trim().max(500).optional(),
+  incurredAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
+});
+
 export type LearningNoteFormData = z.input<typeof learningNoteSchema>;

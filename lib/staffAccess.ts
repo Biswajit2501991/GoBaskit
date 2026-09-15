@@ -36,6 +36,8 @@ const PAGE_ACTIONS: Array<{ href: string; permission: Permission; label: string 
   { href: '/admin/whatsapp-verification', permission: 'verification:manage', label: 'Approve numbers' },
   { href: '/admin/finance', permission: 'finance:edit', label: 'Edit finance' },
   { href: '/admin/profit-dashboard', permission: 'settings:edit', label: 'Toggle profit dashboard' },
+  { href: '/admin/expenses', permission: 'finance:edit', label: 'Add / edit expenses' },
+  { href: '/admin/expenses', permission: 'settings:edit', label: 'Toggle expenses and total profit' },
   { href: '/admin/staff', permission: 'staff:manage', label: 'Add / edit staff' },
   { href: '/admin/settings', permission: 'settings:edit', label: 'Edit settings' },
   { href: '/admin/learning', permission: 'learning:edit', label: 'Edit learning' },

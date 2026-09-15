@@ -171,6 +171,10 @@ export interface StoreConfig {
   deliveryAddressLocalities: string[];
   /** Staff Profit Dashboard. Default off so Finance Desk stays the daily view. */
   profitDashboardEnabled: boolean;
+  /** Staff expense ledger. Default on. Off only hides writes; rows stay. */
+  expensesEnabled: boolean;
+  /** Header Total Profit chip (order profit minus expenses). Default off. */
+  showTotalProfitEnabled: boolean;
 }
 
 type StoreConfigUpdate = Partial<
@@ -273,6 +277,8 @@ const KEY_DELIVERY_OTP = 'delivery_otp_enabled';
 const KEY_STOREFRONT_RATING = 'storefront_rating';
 const KEY_DELIVERY_ADDRESS_LOCALITIES = 'delivery_address_localities';
 const KEY_PROFIT_DASHBOARD = 'profit_dashboard_enabled';
+const KEY_EXPENSES_ENABLED = 'expenses_enabled';
+const KEY_SHOW_TOTAL_PROFIT = 'show_total_profit_enabled';
 
 const DEFAULT_DISCOUNT_CONFIG: DiscountConfig = {
   couponsEnabled: false,
@@ -388,6 +394,8 @@ const DEFAULTS: StoreConfig = {
   storefrontRating: DEFAULT_STOREFRONT_RATING,
   deliveryAddressLocalities: [],
   profitDashboardEnabled: false,
+  expensesEnabled: true,
+  showTotalProfitEnabled: false,
 };
 
 // In-memory cache. The app runs as a single long-lived Node server, so this
@@ -749,6 +757,9 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
 
   const profitDashboardEnabled =
     (map.get(KEY_PROFIT_DASHBOARD) ?? 'false').toLowerCase() === 'true';
+  const expensesEnabled = (map.get(KEY_EXPENSES_ENABLED) ?? 'true').toLowerCase() !== 'false';
+  const showTotalProfitEnabled =
+    (map.get(KEY_SHOW_TOTAL_PROFIT) ?? 'false').toLowerCase() === 'true';
   const partnerDeliveryEnabled = parsePartnerDelivery(map.get(KEY_PARTNER_DELIVERY) ?? 'false').enabled;
   const deliveryOtpEnabled = parseDeliveryOtp(map.get(KEY_DELIVERY_OTP) ?? 'false').enabled;
 
@@ -782,6 +793,8 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     storefrontRating,
     deliveryAddressLocalities,
     profitDashboardEnabled,
+    expensesEnabled,
+    showTotalProfitEnabled,
   };
 }
 
@@ -823,6 +836,8 @@ export const SettingsService = {
               KEY_STOREFRONT_RATING,
               KEY_DELIVERY_ADDRESS_LOCALITIES,
               KEY_PROFIT_DASHBOARD,
+              KEY_EXPENSES_ENABLED,
+              KEY_SHOW_TOTAL_PROFIT,
             ],
           },
         },
@@ -903,6 +918,14 @@ export const SettingsService = {
     if (partial.profitDashboardEnabled != null) {
       writes.push(
         upsert(KEY_PROFIT_DASHBOARD, partial.profitDashboardEnabled ? 'true' : 'false'),
+      );
+    }
+    if (partial.expensesEnabled != null) {
+      writes.push(upsert(KEY_EXPENSES_ENABLED, partial.expensesEnabled ? 'true' : 'false'));
+    }
+    if (partial.showTotalProfitEnabled != null) {
+      writes.push(
+        upsert(KEY_SHOW_TOTAL_PROFIT, partial.showTotalProfitEnabled ? 'true' : 'false'),
       );
     }
     if (partial.partnerDeliveryEnabled != null) {

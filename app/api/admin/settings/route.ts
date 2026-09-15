@@ -29,6 +29,8 @@ const settingsSchema = z.object({
   checkoutMode: z.enum(['website', 'whatsapp', 'both']).optional(),
   notificationSoundEnabled: z.boolean().optional(),
   profitDashboardEnabled: z.boolean().optional(),
+  expensesEnabled: z.boolean().optional(),
+  showTotalProfitEnabled: z.boolean().optional(),
   staffIdleTimeoutEnabled: z.boolean().optional(),
   staffIdleTimeoutMinutes: z.number().int().min(5).max(720).optional(),
   cityAliases: z.record(z.string(), z.array(z.string().min(1))).optional(),

@@ -26,7 +26,17 @@ export class ProfitDashboardService {
         rows: [] as Array<ReturnType<typeof summarizeRow>>,
       };
     }
+    const computed = await this.computeOverview(params);
+    return { enabled: true, ...computed };
+  }
 
+  /** Order profit for a date range, even when the Profit Dashboard switch is off. */
+  static async orderProfitTotal(params: { from: Date; to: Date; includeDelivery: boolean }) {
+    const computed = await this.computeOverview(params);
+    return computed.totals.totalProfit;
+  }
+
+  private static async computeOverview(params: { from: Date; to: Date; includeDelivery: boolean }) {
     const orders = await prisma.order.findMany({
       where: {
         archivedAt: null,
@@ -135,7 +145,6 @@ export class ProfitDashboardService {
     );
 
     return {
-      enabled: true,
       from: params.from.toISOString(),
       to: params.to.toISOString(),
       includeDelivery: params.includeDelivery,
