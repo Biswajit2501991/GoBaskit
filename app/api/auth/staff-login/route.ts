@@ -21,6 +21,7 @@ import {
 } from '@/lib/customer-session';
 import { StaffService } from '@/services/StaffService';
 import { AuditService } from '@/services/AuditService';
+import { staffPortalHomePath } from '@/lib/staffAccess';
 
 const MAX_FAILED_ATTEMPTS = 5;
 
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
       mobile: staff.mobile,
       role: staff.role,
       shopId: staff.shopId ?? null,
+      homePath: staffPortalHomePath(staff),
     },
   });
   setAuthCookies(response, access, refresh);

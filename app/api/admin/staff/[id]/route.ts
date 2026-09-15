@@ -7,6 +7,7 @@ import { requireStaffPermission } from '@/lib/staff-auth';
 import { sealStaffPassword } from '@/lib/staff-password-vault';
 import { StaffService } from '@/services/StaffService';
 import { AuditService } from '@/services/AuditService';
+import { accessFieldsForWrite, parseAccessGrants } from '@/lib/staffAccess';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -83,6 +84,20 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (nextRole === 'DELIVERY_PARTNER') {
     data.shopId = null;
   }
+  const nextShopId = nextRole === 'DELIVERY_PARTNER' ? null : parsed.data.shopId !== undefined ? parsed.data.shopId : existing.shopId;
+  const skipAccessTree = nextRole === 'DELIVERY_PARTNER' || Boolean(nextShopId);
+  const accessWrite = skipAccessTree
+    ? accessFieldsForWrite(auth.staff!.role, { accessGrants: null, accessRoleId: null })
+    : accessFieldsForWrite(auth.staff!.role, {
+        accessGrants:
+          parsed.data.accessGrants === undefined
+            ? undefined
+            : parseAccessGrants(parsed.data.accessGrants),
+        accessRoleId: parsed.data.accessRoleId,
+      });
+  if (accessWrite.accessGrants !== undefined) data.accessGrants = accessWrite.accessGrants;
+  if (accessWrite.accessRoleId !== undefined) data.accessRoleId = accessWrite.accessRoleId;
+  if (accessWrite.permissions !== undefined) data.permissions = accessWrite.permissions;
   if (parsed.data.active === false || (parsed.data.role && parsed.data.role !== 'DELIVERY_PARTNER' && existing.role === 'DELIVERY_PARTNER')) {
     data.deliveryOnline = false;
     data.deliveryOnlineAt = null;
@@ -136,6 +151,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       select: {
         id: true, name: true, mobile: true, email: true, role: true, permissions: true, active: true,
         assignedCity: true, assignedAreas: true, latitude: true, longitude: true, deliveryRadius: true,
+        accessGrants: true, accessRoleId: true,
         updatedAt: true,
       },
     });

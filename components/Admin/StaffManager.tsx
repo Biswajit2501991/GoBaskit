@@ -8,8 +8,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Pencil, Trash2, X, KeyRound, Eye, EyeOff } from 'lucide-react';
 import StaffBulkImport from '@/components/Admin/StaffBulkImport';
+import AccessRolesManager, { type AccessRoleRow } from '@/components/Admin/AccessRolesManager';
+import StaffAccessTree from '@/components/Admin/StaffAccessTree';
 import ListPagination from './ListPagination';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
+import {
+  defaultSectionIdsForRole,
+  parseAccessGrants,
+} from '@/lib/staffAccess';
 import {
   useAdminStaffStore,
   adminStaffListKey,
@@ -33,6 +39,9 @@ const emptyForm = {
   longitude: '',
   deliveryRadius: '',
   shopId: '',
+  accessRoleId: '',
+  accessSectionIds: [] as string[],
+  customAccess: false,
 };
 
 function parseOptionalNumber(value: string): number | null {
@@ -96,8 +105,10 @@ export default function StaffManager({
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordSaving, setPasswordSaving] = useState(false);
+  const [accessRoles, setAccessRoles] = useState<AccessRoleRow[]>([]);
   const canManagePasswords = actorRole === 'ALL_SUPER_ADMIN';
   const canBulkImport = actorRole === 'ALL_SUPER_ADMIN';
+  const canEditAccess = actorRole === 'ALL_SUPER_ADMIN';
   const roleOptions = assignableStaffRoles(actorRole).filter((r) => r !== 'ALL_SUPER_ADMIN' || actorRole === 'ALL_SUPER_ADMIN');
 
   const listParams = {
@@ -138,14 +149,38 @@ export default function StaffManager({
     void fetchShops();
   }, [fetchShops]);
 
+  useEffect(() => {
+    if (!canEditAccess) return;
+    void fetch('/api/admin/access-roles')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.items) setAccessRoles(data.items);
+      })
+      .catch(() => {});
+  }, [canEditAccess]);
+
   function reloadAfterMutation() {
     void refreshStaff(listParams);
+  }
+
+  function previewSectionIds(role: StaffRole, accessRoleId: string, custom: boolean, customIds: string[]) {
+    if (custom) return customIds;
+    const template = accessRoles.find((item) => item.id === accessRoleId);
+    if (template) return template.grants.sections;
+    return defaultSectionIdsForRole(role);
+  }
+
+  function showAccessTree(role: StaffRole, shopId: string) {
+    return canEditAccess && role !== 'ALL_SUPER_ADMIN' && role !== 'DELIVERY_PARTNER' && !shopId;
   }
 
   function openCreate() {
     if (!canManage) return;
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      accessSectionIds: defaultSectionIdsForRole(emptyForm.role),
+    });
     setShowPassword(false);
     setShowForm(true);
     setError('');
@@ -155,6 +190,8 @@ export default function StaffManager({
   function openEdit(row: StaffRow) {
     if (!canManage || !canEditStaffProfile(row, actorRole)) return;
     setEditingId(row.id);
+    const parsed = parseAccessGrants(row.accessGrants);
+    const template = accessRoles.find((item) => item.id === row.accessRoleId);
     setForm({
       name: row.name,
       mobile: row.mobile,
@@ -168,6 +205,10 @@ export default function StaffManager({
       longitude: row.longitude != null ? String(row.longitude) : '',
       deliveryRadius: row.deliveryRadius != null ? String(row.deliveryRadius) : '',
       shopId: row.shopId || '',
+      accessRoleId: row.accessRoleId || '',
+      accessSectionIds:
+        parsed?.sections ?? template?.grants.sections ?? defaultSectionIdsForRole(row.role),
+      customAccess: parsed != null,
     });
     setShowPassword(false);
     setShowForm(true);
@@ -260,6 +301,14 @@ export default function StaffManager({
       shopId: form.role === 'DELIVERY_PARTNER' ? null : form.shopId || null,
       ...(email ? { email } : {}),
       ...(form.password ? { password: form.password } : {}),
+      ...(canEditAccess && showAccessTree(form.role, form.shopId)
+        ? {
+            accessRoleId: form.accessRoleId || null,
+            accessGrants: form.customAccess ? { sections: form.accessSectionIds } : null,
+          }
+        : canEditAccess && !showAccessTree(form.role, form.shopId)
+          ? { accessRoleId: null, accessGrants: null }
+          : {}),
     };
     const url = editingId ? `/api/admin/staff/${editingId}` : '/api/admin/staff';
     setSaving(true);
@@ -311,7 +360,7 @@ export default function StaffManager({
   }
 
   return (
-    <div className="p-6 max-w-5xl">
+    <div className="p-6 max-w-6xl">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Staff Management</h1>
@@ -333,6 +382,21 @@ export default function StaffManager({
         )}
       </div>
 
+      {canEditAccess && (
+        <AccessRolesManager
+          roles={accessRoles}
+          onChange={() => {
+            void fetch('/api/admin/access-roles')
+              .then((res) => (res.ok ? res.json() : null))
+              .then((data) => {
+                if (data?.items) setAccessRoles(data.items);
+              })
+              .catch(() => {});
+            reloadAfterMutation();
+          }}
+        />
+      )}
+
       <Input
         placeholder="Search by name, mobile, email..."
         value={search}
@@ -345,7 +409,7 @@ export default function StaffManager({
         <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/30 p-4 overflow-y-auto">
           <form
             onSubmit={handleSave}
-            className="bg-white rounded-xl w-full max-w-md shadow-xl max-h-[min(90vh,calc(100vh-2rem))] flex flex-col my-auto"
+            className="bg-white rounded-xl w-full max-w-2xl shadow-xl max-h-[min(90vh,calc(100vh-2rem))] flex flex-col my-auto"
           >
             <div className="flex justify-between items-center p-6 pb-4 shrink-0 border-b border-gray-100">
               <h2 className="font-bold">{editingId ? 'Edit Staff' : 'Add Staff'}</h2>
@@ -385,10 +449,14 @@ export default function StaffManager({
                   value={form.role}
                   onChange={(e) => {
                     const role = e.target.value as StaffRole;
+                    const nextCustom = form.customAccess;
                     setForm({
                       ...form,
                       role,
                       shopId: role === 'DELIVERY_PARTNER' ? '' : form.shopId,
+                      accessSectionIds: nextCustom
+                        ? form.accessSectionIds
+                        : previewSectionIds(role, form.accessRoleId, false, form.accessSectionIds),
                     });
                   }}
                   className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
@@ -439,6 +507,60 @@ export default function StaffManager({
                       </option>
                     ))}
                   </select>
+                </div>
+              )}
+              {showAccessTree(form.role, form.shopId) && (
+                <div className="border-t pt-3 space-y-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Admin pages</p>
+                  <p className="text-xs text-gray-500">
+                    Unticked pages are hidden and blocked. Leave ticks on role defaults unless this person needs a custom set.
+                  </p>
+                  {accessRoles.length > 0 && (
+                    <div>
+                      <Label>Access template</Label>
+                      <select
+                        className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                        value={form.accessRoleId}
+                        onChange={(e) => {
+                          const accessRoleId = e.target.value;
+                          setForm({
+                            ...form,
+                            accessRoleId,
+                            customAccess: false,
+                            accessSectionIds: previewSectionIds(form.role, accessRoleId, false, form.accessSectionIds),
+                          });
+                        }}
+                      >
+                        <option value="">Named role defaults</option>
+                        {accessRoles.map((role) => (
+                          <option key={role.id} value={role.id}>{role.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <StaffAccessTree
+                    selectedIds={form.accessSectionIds}
+                    onChange={(ids) => setForm({ ...form, accessSectionIds: ids, customAccess: true })}
+                  />
+                  <button
+                    type="button"
+                    className="text-xs text-blinkit-green underline"
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        customAccess: false,
+                        accessRoleId: '',
+                        accessSectionIds: defaultSectionIdsForRole(form.role),
+                      })
+                    }
+                  >
+                    Reset to role defaults
+                  </button>
+                  {form.customAccess ? (
+                    <p className="text-xs text-amber-700">Custom ticks will be saved for this person.</p>
+                  ) : (
+                    <p className="text-xs text-gray-400">Previewing defaults — save without changing ticks to keep the current login unchanged.</p>
+                  )}
                 </div>
               )}
               <div className="border-t pt-3 space-y-3">

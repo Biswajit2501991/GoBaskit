@@ -8,6 +8,7 @@ import { requireStaffPermission } from '@/lib/staff-auth';
 import { sealStaffPassword } from '@/lib/staff-password-vault';
 import { StaffService } from '@/services/StaffService';
 import { AuditService } from '@/services/AuditService';
+import { accessFieldsForWrite, parseAccessGrants } from '@/lib/staffAccess';
 
 export async function GET(req: NextRequest) {
   const auth = await requireStaffPermission('staff:view');
@@ -73,6 +74,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const skipAccessTree = parsed.data.role === 'DELIVERY_PARTNER' || Boolean(parsed.data.shopId);
+  const accessWrite = skipAccessTree
+    ? accessFieldsForWrite(auth.staff!.role, { accessGrants: null, accessRoleId: null })
+    : accessFieldsForWrite(auth.staff!.role, {
+        accessGrants:
+          parsed.data.accessGrants === undefined
+            ? undefined
+            : parseAccessGrants(parsed.data.accessGrants),
+        accessRoleId: parsed.data.accessRoleId,
+      });
+
   const password = parsed.data.password || 'changeme123';
   try {
     const staff = await prisma.staffAccount.create({
@@ -91,10 +103,14 @@ export async function POST(req: NextRequest) {
         longitude: parsed.data.longitude ?? null,
         deliveryRadius: parsed.data.deliveryRadius ?? null,
         shopId: parsed.data.role === 'DELIVERY_PARTNER' ? null : parsed.data.shopId || null,
+        ...(accessWrite.accessGrants !== undefined ? { accessGrants: accessWrite.accessGrants ?? undefined } : {}),
+        ...(accessWrite.accessRoleId !== undefined ? { accessRoleId: accessWrite.accessRoleId } : {}),
+        ...(accessWrite.permissions !== undefined ? { permissions: accessWrite.permissions } : {}),
       },
       select: {
         id: true, name: true, mobile: true, email: true, role: true, permissions: true, active: true,
         assignedCity: true, assignedAreas: true, latitude: true, longitude: true, deliveryRadius: true,
+        accessGrants: true, accessRoleId: true,
         createdAt: true,
       },
     });

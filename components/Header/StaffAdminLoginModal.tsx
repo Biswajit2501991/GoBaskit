@@ -54,12 +54,14 @@ export default function StaffAdminLoginModal() {
       });
       markAndroidAlertsPromptAfterLogin();
       const home =
-        data.staff?.shopId || data.staff?.role
-          ? staffHomePath({
-              role: (data.staff.role ?? 'READ_ONLY') as StaffRole,
-              shopId: data.staff.shopId ?? null,
-            })
-          : '/admin/dashboard';
+        typeof data.staff?.homePath === 'string' && data.staff.homePath
+          ? data.staff.homePath
+          : data.staff?.shopId || data.staff?.role
+            ? staffHomePath({
+                role: (data.staff.role ?? 'READ_ONLY') as StaffRole,
+                shopId: data.staff.shopId ?? null,
+              })
+            : '/admin/dashboard';
       router.push(home);
       router.refresh();
     } catch {

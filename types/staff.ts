@@ -128,6 +128,9 @@ export interface StaffSessionPayload {
   name?: string;
   /** Shopkeeper accounts only. Older tokens omit this until the next login. */
   shopId?: string | null;
+  /** null/omitted = named role defaults. */
+  accessGrants?: { sections: string[] } | null;
+  accessRoleGrants?: { sections: string[] } | null;
 }
 
 export interface LegacyAdminSessionPayload {

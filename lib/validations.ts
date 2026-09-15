@@ -145,6 +145,17 @@ export const staffCreateSchema = z.object({
     z.number().min(0).max(500).optional().nullable()
   ),
   shopId: z.union([z.string().min(1), z.null()]).optional(),
+  accessGrants: z
+    .object({ sections: z.array(z.string().min(1).max(160)).max(300) })
+    .nullable()
+    .optional(),
+  accessRoleId: z.union([z.string().min(1), z.null()]).optional(),
+});
+
+export const accessRoleSchema = z.object({
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(80),
+  description: z.string().max(200).optional(),
+  grants: z.object({ sections: z.array(z.string().min(1).max(160)).max(300) }),
 });
 
 export const staffUpdateSchema = staffCreateSchema.partial().extend({

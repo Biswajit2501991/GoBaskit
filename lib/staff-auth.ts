@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { StaffRole } from '@prisma/client';
 import type { Permission } from '@/types/staff';
-import { getSession, getStaffFromSession, sessionHasPermission } from '@/lib/auth';
-import { parsePermissions, staffHasPermission } from '@/types/staff';
+import { getSession, getStaffFromSession } from '@/lib/auth';
+import { accessInputFromStaff, staffHasEffectivePermission } from '@/lib/staffAccess';
 import { SettingsService } from '@/services/SettingsService';
 
 /** Minimal staff identity from JWT (no DB). Enough for permission checks + actor ids. */
@@ -13,6 +13,8 @@ export type StaffAuthUser = {
   name: string;
   mobile: string;
   shopId?: string | null;
+  accessGrants?: unknown;
+  accessRoleGrants?: unknown;
 };
 
 function staffFromJwt(session: NonNullable<Awaited<ReturnType<typeof getSession>>>): StaffAuthUser | null {
@@ -24,6 +26,8 @@ function staffFromJwt(session: NonNullable<Awaited<ReturnType<typeof getSession>
     name: session.name?.trim() || '',
     mobile: session.mobile,
     shopId: session.shopId ?? null,
+    accessGrants: session.accessGrants ?? null,
+    accessRoleGrants: session.accessRoleGrants ?? null,
   };
 }
 
@@ -46,9 +50,7 @@ export async function requireStaffPermission(
     if (!staff) {
       return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }), staff: null };
     }
-    const perms = parsePermissions(staff.permissions);
-    // Use DB role/permissions so role changes apply before JWT refresh.
-    if (!staffHasPermission(staff.role, perms, permission)) {
+    if (!staffHasEffectivePermission(accessInputFromStaff(staff), permission)) {
       return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }), staff: null };
     }
     return { error: null, staff: staff as StaffAuthUser };
@@ -57,7 +59,7 @@ export async function requireStaffPermission(
   // Fast path: JWT claims only (legacy email admin still needs DB).
   const fromJwt = staffFromJwt(session);
   if (fromJwt) {
-    if (!sessionHasPermission(session, permission, fromJwt.permissions as string[], fromJwt.role)) {
+    if (!staffHasEffectivePermission(fromJwt, permission)) {
       return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }), staff: null };
     }
     return { error: null, staff: fromJwt };
@@ -67,8 +69,7 @@ export async function requireStaffPermission(
   if (!staff) {
     return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }), staff: null };
   }
-  const perms = parsePermissions(staff.permissions);
-  if (!sessionHasPermission(session, permission, perms, staff.role)) {
+  if (!staffHasEffectivePermission(accessInputFromStaff(staff), permission)) {
     return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }), staff: null };
   }
   return { error: null, staff: staff as StaffAuthUser };

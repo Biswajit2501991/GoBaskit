@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { getAdminPageStaff } from '@/lib/auth';
 import { AdminShell } from '@/components/Admin/AdminShell';
-import { parsePermissions, staffHasPermission } from '@/types/staff';
-import { ADMIN_NAV_ITEMS } from '@/lib/adminNav';
+import { visibleAdminNav } from '@/lib/staffAccess';
 import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
@@ -15,8 +14,6 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
   },
 };
-
-const nav = ADMIN_NAV_ITEMS;
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   let staff: Awaited<ReturnType<typeof getAdminPageStaff>> = null;
@@ -37,9 +34,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (staff.role === 'DELIVERY_PARTNER') {
     redirect('/delivery');
   }
-  const perms = parsePermissions(staff.permissions);
 
-  const visibleNav = nav.filter((item) => staffHasPermission(staff!.role, perms, item.permission));
+  const visibleNav = visibleAdminNav(staff);
 
   return (
     <>
@@ -51,12 +47,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       />
       <AdminShell
         staff={{ id: staff.id, name: staff.name, role: staff.role }}
-        visibleNav={visibleNav.map((item) => ({
-          href: item.href,
-          label: item.label,
-          group: item.group,
-          hint: item.hint,
-        }))}
+        visibleNav={visibleNav}
       >
         {children}
       </AdminShell>

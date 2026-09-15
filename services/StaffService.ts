@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import type { StaffRole } from '@prisma/client';
 import { parsePermissions } from '@/types/staff';
+import { parseAccessGrants } from '@/lib/staffAccess';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const mobileCache = new Map<string, { found: boolean; expires: number }>();
@@ -27,6 +28,7 @@ export class StaffService {
   static async findByMobile(mobile: string) {
     return prisma.staffAccount.findFirst({
       where: { mobile, active: true, deletedAt: null },
+      include: { accessRole: { select: { grants: true } } },
     });
   }
 
@@ -77,6 +79,8 @@ export class StaffService {
           longitude: true,
           deliveryRadius: true,
           shopId: true,
+          accessGrants: true,
+          accessRoleId: true,
           lastLogin: true,
           deletedAt: true,
           createdAt: true,
@@ -91,6 +95,8 @@ export class StaffService {
         ...s,
         permissions: parsePermissions(s.permissions),
         assignedAreas: Array.isArray(s.assignedAreas) ? (s.assignedAreas as string[]) : [],
+        accessGrants: parseAccessGrants(s.accessGrants),
+        accessRoleId: s.accessRoleId ?? null,
       })),
       total,
       page,

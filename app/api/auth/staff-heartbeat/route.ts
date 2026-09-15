@@ -33,7 +33,17 @@ export async function POST(req: NextRequest) {
   if (accessStaff) {
     const stillActive = await prisma.staffAccount.findFirst({
       where: { id: accessStaff.sub, active: true, deletedAt: null },
-      select: { id: true, lastActiveAt: true },
+      select: {
+        id: true,
+        lastActiveAt: true,
+        mobile: true,
+        role: true,
+        permissions: true,
+        name: true,
+        shopId: true,
+        accessGrants: true,
+        accessRole: { select: { grants: true } },
+      },
     });
     if (!stillActive) {
       const response = NextResponse.json({ error: 'Session expired' }, { status: 401 });
@@ -44,12 +54,14 @@ export async function POST(req: NextRequest) {
     lastActiveAt = stillActive.lastActiveAt;
     // Access JWT still valid — renew it from claims (no refresh-token rotate).
     accessToken = signStaffAccessToken({
-      id: accessStaff.sub,
-      mobile: accessStaff.mobile,
-      role: accessStaff.role,
-      permissions: accessStaff.permissions,
-      name: accessStaff.name,
-      shopId: accessStaff.shopId,
+      id: stillActive.id,
+      mobile: stillActive.mobile,
+      role: stillActive.role,
+      permissions: stillActive.permissions,
+      name: stillActive.name,
+      shopId: stillActive.shopId,
+      accessGrants: stillActive.accessGrants,
+      accessRole: stillActive.accessRole,
     });
   } else if (refreshRaw) {
     const rotated = await rotateStaffRefreshToken(refreshRaw);

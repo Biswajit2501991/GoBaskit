@@ -19,6 +19,8 @@ export type AdminStaffRow = {
   longitude: number | null;
   deliveryRadius: number | null;
   shopId: string | null;
+  accessGrants?: { sections: string[] } | null;
+  accessRoleId?: string | null;
   deletedAt: string | null;
 };
 

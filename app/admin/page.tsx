@@ -46,6 +46,17 @@ export default function AdminLoginPage() {
         }).catch(() => null);
       }
       markAndroidAlertsPromptAfterLogin();
+      const home = typeof data.staff?.homePath === 'string' && data.staff.homePath
+        ? data.staff.homePath
+        : data.staff?.shopId || data.staff?.role
+          ? staffHomePath({
+              role: (data.staff.role ?? 'READ_ONLY') as StaffRole,
+              shopId: data.staff.shopId ?? null,
+            })
+          : '/admin/dashboard';
+      const next =
+        sanitizeAdminNextPath(new URLSearchParams(window.location.search).get('next')) ||
+        (home.startsWith('/admin') || home === '/shop' || home === '/delivery' ? home : '/admin/dashboard');
       if (data.staff?.shopId) {
         router.push('/shop');
         router.refresh();
@@ -56,12 +67,6 @@ export default function AdminLoginPage() {
         router.refresh();
         return;
       }
-      const roleHome = data.staff?.role
-        ? staffHomePath({ role: data.staff.role as StaffRole, shopId: data.staff.shopId })
-        : '/admin/dashboard';
-      const next =
-        sanitizeAdminNextPath(new URLSearchParams(window.location.search).get('next')) ||
-        (roleHome.startsWith('/admin') ? roleHome : '/admin/dashboard');
       router.push(next);
       router.refresh();
     } catch {

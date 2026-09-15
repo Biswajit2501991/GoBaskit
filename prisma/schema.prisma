@@ -490,6 +490,10 @@ model StaffAccount {
   /** AES-GCM sealed password for All Super Admin recovery only — never returned in list APIs. */
   passwordVault   String?   @map("password_vault")
   permissions     Json      @default("[]")
+  /** null = use named StaffRole defaults. { sections: string[] } = explicit page/action ticks. */
+  accessGrants    Json?     @map("access_grants")
+  accessRoleId    String?   @map("access_role_id")
+  accessRole      AccessRole? @relation(fields: [accessRoleId], references: [id], onDelete: SetNull)
   assignedCity    String?   @map("assigned_city")
   assignedAreas   Json      @default("[]") @map("assigned_areas")
   latitude        Float?
@@ -525,7 +529,20 @@ model StaffAccount {
   @@index([deletedAt])
   @@index([shopId])
   @@index([role, deliveryOnline, active])
+  @@index([accessRoleId])
   @@map("staff_accounts")
+}
+
+model AccessRole {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  description String         @default("")
+  grants      Json
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  staff       StaffAccount[]
+
+  @@map("access_roles")
 }
 
 model StaffPushSubscription {

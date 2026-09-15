@@ -47,6 +47,9 @@ export function signStaffAccessToken(staff: {
   permissions: unknown;
   name?: string | null;
   shopId?: string | null;
+  accessGrants?: unknown;
+  accessRole?: { grants: unknown } | null;
+  accessRoleGrants?: unknown;
 }) {
   const payload: StaffSessionPayload = {
     sub: staff.id,
@@ -56,6 +59,8 @@ export function signStaffAccessToken(staff: {
     type: 'staff',
     name: staff.name?.trim() || undefined,
     shopId: staff.shopId ?? null,
+    accessGrants: (staff.accessGrants ?? null) as StaffSessionPayload['accessGrants'],
+    accessRoleGrants: (staff.accessRole?.grants ?? staff.accessRoleGrants ?? null) as StaffSessionPayload['accessRoleGrants'],
   };
   return jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TTL });
 }
@@ -85,7 +90,7 @@ export async function rotateStaffRefreshToken(oldRaw: string) {
   const tokenHash = hashToken(oldRaw);
   const existing = await prisma.staffRefreshToken.findFirst({
     where: { tokenHash, expiresAt: { gt: new Date() } },
-    include: { staff: true },
+    include: { staff: { include: { accessRole: { select: { grants: true } } } } },
   });
   if (!existing || !existing.staff.active || existing.staff.deletedAt) return null;
 
@@ -151,6 +156,9 @@ export const getStaffFromSession = cache(async () => {
           deliveryOnline: true,
           createdAt: true,
           updatedAt: true,
+          accessGrants: true,
+          accessRoleId: true,
+          accessRole: { select: { grants: true } },
         },
       });
       if (!staff) return null;
@@ -226,6 +234,8 @@ export const getAdminPageStaff = cache(async () => {
       updatedAt: new Date(0),
       shopId: session.shopId ?? null,
       deliveryOnline: false,
+      accessGrants: session.accessGrants ?? null,
+      accessRoleGrants: session.accessRoleGrants ?? null,
     };
   }
 
