@@ -86,6 +86,63 @@ export function AdminShell({ staff, visibleNav, children }: AdminShellProps) {
   }, [pathname, visibleNav]);
 
   useEffect(() => {
+    void import('@/store/adminOrdersStore').then(({ useAdminOrdersStore }) => {
+      useAdminOrdersStore.getState().ensureRealtime();
+    });
+  }, []);
+
+  useEffect(() => {
+    const hasOrders = visibleNav.some((item) => item.href === '/admin/orders');
+    const hasDelivery = visibleNav.some((item) => item.href === '/admin/delivery');
+    const onLiveBoard =
+      pathname.startsWith('/admin/orders') || pathname.startsWith('/admin/delivery');
+    if (onLiveBoard || (!hasOrders && !hasDelivery)) return;
+
+    let cancelled = false;
+    const warm = () => {
+      if (cancelled) return;
+      void import('@/store/adminOrdersStore').then(({ useAdminOrdersStore }) => {
+        const store = useAdminOrdersStore.getState();
+        if (hasOrders) {
+          void store.fetchBoard({
+            page: 1,
+            search: '',
+            scope: 'all',
+            staffId: staff.id,
+            opsFilter: null,
+          });
+          void store.fetchOps();
+        }
+        if (hasDelivery) {
+          void store.fetchBoard({
+            page: 1,
+            search: '',
+            scope: 'mine',
+            staffId: staff.id,
+            opsFilter: null,
+          });
+        }
+      });
+    };
+
+    let idleId: number | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(warm, { timeout: 4000 });
+    } else {
+      timeoutId = setTimeout(warm, 1200);
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleId != null && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [pathname, visibleNav, staff.id]);
+
+  useEffect(() => {
     window.localStorage.setItem(SIDEBAR_PREF_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
 

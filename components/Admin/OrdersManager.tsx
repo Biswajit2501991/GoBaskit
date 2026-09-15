@@ -7,94 +7,35 @@ import { canStaffMutateItems } from '@/utils/orderEditPolicy';
 import OrderContentsEditor, { type EditableLine } from '@/components/Orders/OrderContentsEditor';
 import { formatCustomerAddress, formatCustomerName } from '@/utils/customer';
 import { formatOrderLineLabel } from '@/utils/orderItemName';
-import ShopPickupCosts, { type ShopPickupRow } from '@/components/Admin/ShopPickupCosts';
+import ShopPickupCosts from '@/components/Admin/ShopPickupCosts';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertTriangle, GripVertical, Lock, MapPin, MessageCircle, Phone, Trash2, Unlock } from 'lucide-react';
-import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 import { buildWhatsAppUrl, openWhatsAppUrl } from '@/utils/whatsapp';
 import { PAYMENT_METHODS } from '@/constants';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
 import { useConfigStore } from '@/store/configStore';
+import {
+  useAdminOrdersStore,
+  adminOrdersBoardKey,
+  ORDERS_OPS_KEY,
+  ORDERS_ASSIGNEES_KEY,
+  type AdminOrderRow as OrderRow,
+  type AdminAssignee as StaffOption,
+} from '@/store/adminOrdersStore';
+import { peekAdminQuery, useAdminSessionStore } from '@/store/adminSessionCache';
 import ListPagination from './ListPagination';
 import OrdersLiveOpsStrip, {
   type OpsFilter,
   type OpsSummary,
 } from './OrdersLiveOpsStrip';
 
-interface OrderItem {
-  id: string;
-  productId?: string;
-  variantId?: string | null;
-  productName: string;
-  quantity: number;
-  unit?: string;
-  unitPrice?: number;
-  totalPrice: number;
-}
-
-interface CustomerDetails {
-  firstName: string;
-  lastName: string;
-  mobile: string;
-  alternateMobile?: string | null;
-  houseNumber: string;
-  street: string;
-  area: string;
-  landmark?: string | null;
-  city: string;
-  state: string;
-  pincode: string;
-  isWhatsappVerified?: boolean;
-}
-
-interface StatusHistoryEntry {
-  id: string;
-  status: string;
-  note: string | null;
-  createdAt: string;
-  staff?: { name: string; mobile: string } | null;
-}
-
-interface OrderRow {
-  id: string;
-  orderNumber: string;
-  status: string;
-  grandTotal: number;
-  discountAmount?: number;
-  discountType?: string;
-  couponCode?: string | null;
-  priority: string;
-  paymentMethod: string;
-  deliveryNotes?: string | null;
-  orderSource?: string;
-  assignedStaffId: string | null;
-  assignedStaff: { id: string; name: string; mobile?: string } | null;
-  lockedAt: string | null;
-  adminNotes: string | null;
-  createdAt: string;
-  customer: CustomerDetails;
-  items: OrderItem[];
-  statusHistory?: StatusHistoryEntry[];
-  assignmentFrozenAt?: string | null;
-  shopSourcing?: {
-    procurementTotal: number;
-    fulfillments: ShopPickupRow[];
-  };
-}
-
-interface StaffOption {
-  id: string;
-  name: string;
-  role: string;
-  mobile?: string;
-}
-
 const STATUSES = ['PENDING', 'ACCEPTED', 'PACKED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
 const PRIORITIES = ['NORMAL', 'HIGH', 'URGENT'];
-const SSE_RELOAD_DEBOUNCE_MS = 800;
 const BOARD_PAGE_SIZE = ADMIN_LIST_PAGE_SIZE;
+const EMPTY_ORDERS: OrderRow[] = [];
+const EMPTY_ASSIGNEES: StaffOption[] = [];
 const ORDER_DRAG_TYPE = 'application/gobaskit-order-id';
 
 function isInteractiveDragTarget(target: EventTarget | null): boolean {
@@ -178,38 +119,6 @@ function isPendingUnverifiedLock(order: OrderRow): boolean {
   return isCustomerUnverified(order) && order.status === 'PENDING';
 }
 
-function patchOrderFromEvent(order: OrderRow, payload: Record<string, unknown>): OrderRow {
-  const assignedStaff = payload.assignedStaff as { id: string; name: string; mobile?: string } | null | undefined;
-  const customer = payload.customer as CustomerDetails | undefined;
-  const items = Array.isArray(payload.items) ? (payload.items as OrderItem[]) : undefined;
-  return {
-    ...order,
-    ...(payload.status ? { status: String(payload.status) } : {}),
-    ...(payload.priority ? { priority: String(payload.priority) } : {}),
-    ...(payload.grandTotal != null ? { grandTotal: Number(payload.grandTotal) } : {}),
-    ...(payload.discountAmount != null ? { discountAmount: Number(payload.discountAmount) } : {}),
-    ...(payload.discountType != null ? { discountType: String(payload.discountType) } : {}),
-    ...(payload.couponCode !== undefined
-      ? { couponCode: payload.couponCode ? String(payload.couponCode) : null }
-      : {}),
-    ...(payload.deliveryNotes !== undefined
-      ? { deliveryNotes: payload.deliveryNotes ? String(payload.deliveryNotes) : null }
-      : {}),
-    ...(payload.assignedStaffId !== undefined
-      ? { assignedStaffId: payload.assignedStaffId ? String(payload.assignedStaffId) : null }
-      : {}),
-    ...(assignedStaff !== undefined ? { assignedStaff: assignedStaff ?? null } : {}),
-    ...(payload.lockedAt !== undefined
-      ? { lockedAt: payload.lockedAt ? String(payload.lockedAt) : null }
-      : {}),
-    ...(payload.adminNotes !== undefined
-      ? { adminNotes: payload.adminNotes ? String(payload.adminNotes) : null }
-      : {}),
-    ...(customer ? { customer: { ...order.customer, ...customer } } : {}),
-    ...(items ? { items } : {}),
-  };
-}
-
 const ARCHIVE_CONFIRM_MESSAGE =
   'Customers will be notified that their order was cancelled due to unavailability or product quality. Orders move to Archive for 72 hours, then are permanently deleted. Customers see the notice for 24 hours.';
 
@@ -264,7 +173,9 @@ function OrderCard({
   onReplaceOrder: (order: OrderRow) => void;
   highlight?: boolean;
 }) {
-  const [history, setHistory] = useState<StatusHistoryEntry[] | null>(order.statusHistory ?? null);
+  const [history, setHistory] = useState<NonNullable<OrderRow['statusHistory']> | null>(
+    order.statusHistory ?? null,
+  );
   const [historyLoading, setHistoryLoading] = useState(false);
   const [editingContents, setEditingContents] = useState(false);
   const [savingContents, setSavingContents] = useState(false);
@@ -824,13 +735,10 @@ export default function OrdersManager({
 }) {
   const shopSourcingEnabled = useConfigStore((s) => s.shopSourcing.enabled);
   const refreshConfig = useConfigStore((s) => s.refreshConfig);
-  const [orders, setOrders] = useState<OrderRow[]>([]);
-  const [staffList, setStaffList] = useState<StaffOption[]>([]);
   const [search, setSearch] = useState('');
+  const searchDebounced = useRef(search);
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [archivingAll, setArchivingAll] = useState(false);
   const [archivingSelected, setArchivingSelected] = useState(false);
   const [archivingOrderId, setArchivingOrderId] = useState<string | null>(null);
@@ -838,49 +746,62 @@ export default function OrdersManager({
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [draggingOrderId, setDraggingOrderId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
-  const [opsSummary, setOpsSummary] = useState<OpsSummary | null>(null);
-  const [opsLoading, setOpsLoading] = useState(false);
   const [opsFilter, setOpsFilter] = useState<OpsFilter>(null);
   const [deepLinkNotice, setDeepLinkNotice] = useState<string | null>(null);
   const [highlightOrderId, setHighlightOrderId] = useState<string | null>(null);
 
-  const initialLoadDone = useRef(false);
   const deepLinkAppliedFor = useRef<string | null>(null);
-  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const opsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const loadRef = useRef<(options?: { silent?: boolean }) => Promise<void>>(async () => {});
-  const loadOpsRef = useRef<() => Promise<void>>(async () => {});
   const showLiveOps = !forceAssignedToMe;
+
+  const listParams = {
+    page,
+    pageSize: BOARD_PAGE_SIZE,
+    search: debouncedSearch,
+    scope: (forceAssignedToMe ? 'mine' : 'all') as 'all' | 'mine',
+    staffId: currentStaffId,
+    opsFilter,
+  };
+  const boardKey = adminOrdersBoardKey(listParams);
+  const boardEntry = useAdminSessionStore((s) => s.entries[boardKey]);
+  const opsEntry = useAdminSessionStore((s) => s.entries[ORDERS_OPS_KEY]);
+  const assigneeEntry = useAdminSessionStore((s) => s.entries[ORDERS_ASSIGNEES_KEY]);
+  const boardEpoch = useAdminOrdersStore((s) => s.boardEpoch);
+  const opsEpoch = useAdminOrdersStore((s) => s.opsEpoch);
+  const refreshing = useAdminOrdersStore((s) => s.refreshingBoard);
+  const opsLoading = useAdminOrdersStore((s) => s.refreshingOps);
+  const fetchBoard = useAdminOrdersStore((s) => s.fetchBoard);
+  const fetchOps = useAdminOrdersStore((s) => s.fetchOps);
+  const fetchAssignees = useAdminOrdersStore((s) => s.fetchAssignees);
+  const writeBoard = useAdminOrdersStore((s) => s.writeBoard);
+  const patchOrder = useAdminOrdersStore((s) => s.patchOrder);
+  const ensureRealtime = useAdminOrdersStore((s) => s.ensureRealtime);
+
+  const board = (boardEntry?.data as { items: OrderRow[]; total: number } | undefined) ?? null;
+  const orders = board?.items ?? EMPTY_ORDERS;
+  const total = board?.total ?? 0;
+  const loading = !board;
+  const staffList = (assigneeEntry?.data as StaffOption[] | undefined) ?? EMPTY_ASSIGNEES;
+  const opsSummary = (opsEntry?.data as OpsSummary | undefined) ?? null;
 
   useEffect(() => {
     void refreshConfig();
   }, [refreshConfig]);
 
-  const loadOpsSummary = useCallback(async () => {
-    if (!showLiveOps) return;
-    setOpsLoading(true);
-    try {
-      const res = await fetch('/api/admin/orders/ops-summary');
-      if (!res.ok) return;
-      const data = (await res.json()) as OpsSummary;
-      setOpsSummary(data);
-    } catch {
-      /* keep previous */
-    } finally {
-      setOpsLoading(false);
+  useEffect(() => {
+    ensureRealtime();
+  }, [ensureRealtime]);
+
+  useEffect(() => {
+    searchDebounced.current = search;
+    if (!search) {
+      setDebouncedSearch('');
+      return;
     }
-  }, [showLiveOps]);
-
-  loadOpsRef.current = loadOpsSummary;
-
-  function scheduleOpsRefresh() {
-    if (!showLiveOps) return;
-    if (opsTimerRef.current) clearTimeout(opsTimerRef.current);
-    opsTimerRef.current = setTimeout(() => {
-      opsTimerRef.current = null;
-      void loadOpsRef.current();
-    }, SSE_RELOAD_DEBOUNCE_MS);
-  }
+    const t = setTimeout(() => {
+      if (searchDebounced.current === search) setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const mergeNotificationFocus = useCallback(
     async (items: OrderRow[], opts: { announce: boolean }) => {
@@ -937,137 +858,35 @@ export default function OrdersManager({
     [forceAssignedToMe, currentStaffId],
   );
 
-  const load = useCallback(async (options?: { silent?: boolean }) => {
-    const silent = options?.silent ?? initialLoadDone.current;
-    if (silent) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
+  async function reloadBoard(force = false) {
+    await fetchBoard(listParams, { force });
+    const latest = peekAdminQuery<{ items: OrderRow[]; total: number }>(adminOrdersBoardKey(listParams));
+    if (!latest?.data) return;
+    const nextItems = await mergeNotificationFocus(latest.data.items, { announce: !force && !board });
+    if (nextItems !== latest.data.items) {
+      writeBoard(listParams, { items: nextItems, total: latest.data.total });
     }
-
-    const params = new URLSearchParams({
-      page: String(page),
-      pageSize: String(BOARD_PAGE_SIZE),
-    });
-    if (search) params.set('search', search);
-    if (forceAssignedToMe) {
-      params.set('assignedStaffId', currentStaffId);
-    } else if (opsFilter?.type === 'unassigned') {
-      params.set('assignedStaffId', 'unassigned');
-      if (opsFilter.status) params.set('status', opsFilter.status);
-      else params.set('activeOnly', '1');
-    } else if (opsFilter?.type === 'staff') {
-      params.set('assignedStaffId', opsFilter.staffId);
-      params.set('activeOnly', '1');
-    }
-
-    try {
-      const res = await fetch(`/api/admin/orders?${params}`);
-      let nextItems: OrderRow[] = [];
-      if (res.ok) {
-        const data = await res.json();
-        nextItems = Array.isArray(data.items) ? data.items : [];
-        setTotal(typeof data.total === 'number' ? data.total : 0);
-      }
-      nextItems = await mergeNotificationFocus(nextItems, { announce: !silent });
-      setOrders(nextItems);
-    } finally {
-      if (silent) {
-        setRefreshing(false);
-      } else {
-        setLoading(false);
-      }
-      initialLoadDone.current = true;
-    }
-  }, [page, search, forceAssignedToMe, currentStaffId, opsFilter, mergeNotificationFocus]);
-
-  loadRef.current = load;
+  }
 
   useEffect(() => {
-    // Debounce only search typing; first load / page change is immediate.
-    if (!initialLoadDone.current || !search) {
-      void load();
-      return;
-    }
-    const t = setTimeout(() => load(), 300);
-    return () => clearTimeout(t);
-  }, [load, search]);
+    void reloadBoard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch, opsFilter, forceAssignedToMe, currentStaffId, boardEpoch, fetchBoard]);
 
   useEffect(() => {
     if (!showLiveOps) return;
-    void loadOpsSummary();
-  }, [showLiveOps, loadOpsSummary]);
+    void fetchOps();
+  }, [showLiveOps, fetchOps, opsEpoch]);
 
   useEffect(() => {
     if (!canAssign) return;
-    let cancelled = false;
-    fetch('/api/admin/staff?pageSize=100')
-      .then((r) => r.json())
-      .then((d) => {
-        if (cancelled) return;
-        setStaffList(d.items?.filter((s: StaffOption & { active: boolean }) => s.active) ?? []);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [canAssign]);
+    void fetchAssignees();
+  }, [canAssign, fetchAssignees]);
 
-  useEffect(() => {
-    function scheduleSilentReload() {
-      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
-      reloadTimerRef.current = setTimeout(() => {
-        reloadTimerRef.current = null;
-        void loadRef.current({ silent: true });
-        scheduleOpsRefresh();
-      }, SSE_RELOAD_DEBOUNCE_MS);
-    }
-
-    const unsubscribe = subscribeToAdminEvents((data) => {
-      if (data.type === 'order_updated') {
-        const payload = data.payload;
-        const id = String(payload.id ?? '');
-        if (id) {
-          setOrders((prev) => {
-            const index = prev.findIndex((o) => o.id === id);
-            if (index === -1) {
-              scheduleSilentReload();
-              return prev;
-            }
-            return prev.map((o) => (o.id === id ? patchOrderFromEvent(o, payload) : o));
-          });
-          // Customer item/address edits include `items`; refetch so the card matches DB
-          // even if this admin tab missed a field on the live event.
-          if (Array.isArray(payload.items)) {
-            scheduleSilentReload();
-          }
-          scheduleOpsRefresh();
-        }
-        return;
-      }
-
-      if (data.type === 'order_created' || data.type === 'orders_archived') {
-        scheduleSilentReload();
-      }
-
-      // Re-verify / delete updates Customer.isWhatsappVerified — refresh locks.
-      if (data.type === 'whatsapp_verification_updated') {
-        scheduleSilentReload();
-      }
-    });
-
-    return () => {
-      unsubscribe();
-      if (reloadTimerRef.current) {
-        clearTimeout(reloadTimerRef.current);
-        reloadTimerRef.current = null;
-      }
-      if (opsTimerRef.current) {
-        clearTimeout(opsTimerRef.current);
-        opsTimerRef.current = null;
-      }
-    };
-  }, [showLiveOps]);
+  function scheduleOpsRefresh() {
+    if (!showLiveOps) return;
+    void fetchOps({ force: true });
+  }
 
   function handleOpsFilterChange(next: OpsFilter) {
     setOpsFilter(next);
@@ -1128,7 +947,7 @@ export default function OrdersManager({
       for (const id of orderIds) next.delete(id);
       return next;
     });
-    await load();
+    await reloadBoard(true);
     scheduleOpsRefresh();
     return data;
   }
@@ -1170,51 +989,44 @@ export default function OrdersManager({
       if (!entered) return;
       patch = { ...patch, deliveryPin: entered.trim() };
     }
-    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...optimistic } : o)));
+    patchOrder(id, optimistic);
     const res = await fetch('/api/admin/orders', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, ...patch }),
     });
     if (!res.ok) {
-      void load({ silent: true });
+      void reloadBoard(true);
       const data = await res.json();
       alert(data.error || 'Update failed');
       return;
     }
     const updated = await res.json();
-    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
+    patchOrder(id, updated);
     scheduleOpsRefresh();
   }
 
   async function assignOrder(id: string, staffId: string) {
     if (!canAssign) return;
     const staff = staffList.find((s) => s.id === staffId);
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === id
-          ? {
-              ...o,
-              assignedStaffId: staffId,
-              assignedStaff: staff ? { id: staff.id, name: staff.name, mobile: staff.mobile } : null,
-              lockedAt: new Date().toISOString(),
-            }
-          : o,
-      ),
-    );
+    patchOrder(id, {
+      assignedStaffId: staffId,
+      assignedStaff: staff ? { id: staff.id, name: staff.name, mobile: staff.mobile } : null,
+      lockedAt: new Date().toISOString(),
+    });
     const res = await fetch(`/api/admin/orders/${id}/assign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ staffId }),
     });
     if (!res.ok) {
-      void load({ silent: true });
+      void reloadBoard(true);
       const data = await res.json();
       alert(data.error || 'Assign failed');
       return;
     }
     const updated = await res.json();
-    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
+    patchOrder(id, updated);
     scheduleOpsRefresh();
   }
 
@@ -1240,18 +1052,16 @@ export default function OrdersManager({
   }
 
   async function releaseOrder(id: string) {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, assignedStaffId: null, assignedStaff: null, lockedAt: null } : o)),
-    );
+    patchOrder(id, { assignedStaffId: null, assignedStaff: null, lockedAt: null });
     const res = await fetch(`/api/admin/orders/${id}/release`, { method: 'POST' });
     if (!res.ok) {
-      void load({ silent: true });
+      void reloadBoard(true);
       const data = await res.json();
       alert(data.error || 'Release failed');
       return;
     }
     const updated = await res.json();
-    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
+    patchOrder(id, updated);
     scheduleOpsRefresh();
   }
 
@@ -1308,7 +1118,7 @@ export default function OrdersManager({
       alert(`Archived ${data.archivedCount ?? 0} order(s). SMS sent to ${data.smsRecipients ?? 0} customer(s) (if SMS is configured).`);
       setSelectedIds(new Set());
       setPage(1);
-      await load();
+      await reloadBoard(true);
     } finally {
       setArchivingAll(false);
     }
@@ -1477,7 +1287,7 @@ export default function OrdersManager({
                           onWhatsApp={sendWhatsAppUpdate}
                           onStaffWhatsApp={sendStaffDeliveryWhatsApp}
                           onReplaceOrder={(updated) => {
-                            setOrders((prev) => prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)));
+                            patchOrder(updated.id, updated);
                             scheduleOpsRefresh();
                           }}
                           highlight={highlightOrderId === order.id}
