@@ -1571,29 +1571,6 @@ export default function SettingsManager({
       </section>
           )}
 
-          {activeSection === 'partner-delivery' && (
-      <section className={SECTION_CARD}>
-        <div>
-          <h2 className="font-semibold text-sm text-gray-900">Partner delivery</h2>
-          <p className="text-xs text-gray-500 mt-1">
-            Off by default. When on, staff with the Delivery Partner role can log in at /delivery and
-            turn on Start Delivery. Pickup jobs and partner notifications are not sent until a later
-            update. Turning this off immediately takes every partner off shift.
-          </p>
-        </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={partnerDeliveryEnabled}
-            onChange={(e) => setPartnerDeliveryEnabled(e.target.checked)}
-            disabled={!canEdit}
-            className="accent-blinkit-green"
-          />
-          Enable partner delivery
-        </label>
-      </section>
-          )}
-
           {activeSection === 'weather' && (
       <section className={SECTION_CARD}>
         <div>
