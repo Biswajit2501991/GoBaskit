@@ -68,6 +68,8 @@ export default function ProductManager({
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [stockFilter, setStockFilter] = useState<'all' | 'in' | 'low' | 'out'>('all');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'IN_HOUSE' | 'OUTSOURCE' | 'UNSET'>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [shopIds, setShopIds] = useState<string[]>([]);
   const [shops, setShops] = useState<Array<{ id: string; name: string }>>([]);
@@ -101,6 +103,8 @@ export default function ProductManager({
     search: debouncedSearch,
     categoryId: categoryFilter || undefined,
     sort,
+    stock: stockFilter,
+    source: sourceFilter,
   };
   const cacheKey = adminProductListKey(listParams);
   const cached = useAdminProductsStore((s) => s.lists[cacheKey]);
@@ -143,7 +147,7 @@ export default function ProductManager({
     void fetchProducts(listParams);
     // listParams fields are primitives — expand for stable deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, debouncedSearch, categoryFilter, sort, fetchProducts]);
+  }, [page, debouncedSearch, categoryFilter, stockFilter, sourceFilter, sort, fetchProducts]);
 
   async function reloadAfterMutation() {
     // Refresh client cache only — avoid router.refresh(), which remounts the
@@ -375,6 +379,8 @@ export default function ProductManager({
     const qs = new URLSearchParams({ idsOnly: '1' });
     if (debouncedSearch) qs.set('search', debouncedSearch);
     if (categoryFilter) qs.set('categoryId', categoryFilter);
+    if (stockFilter !== 'all') qs.set('stock', stockFilter);
+    if (sourceFilter !== 'all') qs.set('source', sourceFilter);
     const res = await fetch(`/api/admin/products?${qs}`, { cache: 'no-store' });
     if (!res.ok) {
       alert('Could not load matching products');
@@ -418,6 +424,34 @@ export default function ProductManager({
           {categories.map((cat) => (
             <option key={cat.id} value={cat.id}>{cat.name}</option>
           ))}
+        </select>
+        <select
+          value={stockFilter}
+          onChange={(e) => {
+            setStockFilter(e.target.value as 'all' | 'in' | 'low' | 'out');
+            setPage(1);
+          }}
+          className={`max-w-[11rem] ${selectClass}`}
+          aria-label="Filter by stock"
+        >
+          <option value="all">All stock</option>
+          <option value="in">In stock</option>
+          <option value="low">Low stock</option>
+          <option value="out">Out of stock</option>
+        </select>
+        <select
+          value={sourceFilter}
+          onChange={(e) => {
+            setSourceFilter(e.target.value as 'all' | 'IN_HOUSE' | 'OUTSOURCE' | 'UNSET');
+            setPage(1);
+          }}
+          className={`max-w-[11rem] ${selectClass}`}
+          aria-label="Filter by source"
+        >
+          <option value="all">All sources</option>
+          <option value="IN_HOUSE">In house</option>
+          <option value="OUTSOURCE">Outsource</option>
+          <option value="UNSET">Untagged</option>
         </select>
       </div>
 
@@ -765,7 +799,7 @@ export default function ProductManager({
               ) : products.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="p-8 text-center text-gray-500">
-                    {search || categoryFilter ? 'No products match your filters.' : 'No products yet. Click Add Product to create one.'}
+                    {search || categoryFilter || stockFilter !== 'all' || sourceFilter !== 'all' ? 'No products match your filters.' : 'No products yet. Click Add Product to create one.'}
                   </td>
                 </tr>
               ) : (

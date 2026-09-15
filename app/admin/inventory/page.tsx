@@ -13,7 +13,7 @@ export default async function InventoryDeskPage() {
       canDelete={staffHasPermission(staff!.role, perms, 'products:delete')}
       sort="stock"
       title="Inventory"
-      subtitle="sorted by stock level"
+      subtitle="lowest stock first. Filter by stock or source — it does not change catalogue data."
     />
   );
 }

@@ -1,34 +1,75 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import type { ProductWithCategory } from '@/types';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants';
+import {
+  adminListSourceWhere,
+  adminListStockWhere,
+  type AdminSourceFilter,
+  type AdminStockFilter,
+} from '@/lib/adminProductFilters';
 
-function adminProductWhere(params?: { search?: string; categoryId?: string }) {
+type AdminListWhereParams = {
+  search?: string;
+  categoryId?: string;
+  stock?: AdminStockFilter;
+  source?: AdminSourceFilter;
+  lowStockIds?: string[];
+};
+
+function adminProductWhere(params?: AdminListWhereParams) {
   const where: Record<string, unknown> = {};
+  const and: Record<string, unknown>[] = [];
 
   if (params?.search?.trim()) {
     const q = params.search.trim();
-    where.OR = [
-      { name: { contains: q, mode: 'insensitive' } },
-      { description: { contains: q, mode: 'insensitive' } },
-      {
-        variants: {
-          some: {
-            OR: [
-              { brand: { contains: q, mode: 'insensitive' } },
-              { variantName: { contains: q, mode: 'insensitive' } },
-              { sku: { contains: q, mode: 'insensitive' } },
-            ],
+    and.push({
+      OR: [
+        { name: { contains: q, mode: 'insensitive' } },
+        { description: { contains: q, mode: 'insensitive' } },
+        {
+          variants: {
+            some: {
+              OR: [
+                { brand: { contains: q, mode: 'insensitive' } },
+                { variantName: { contains: q, mode: 'insensitive' } },
+                { sku: { contains: q, mode: 'insensitive' } },
+              ],
+            },
           },
         },
-      },
-    ];
+      ],
+    });
   }
 
   if (params?.categoryId) {
-    where.categoryId = params.categoryId;
+    and.push({ categoryId: params.categoryId });
   }
 
+  const sourceWhere = adminListSourceWhere(params?.source ?? 'all');
+  if (sourceWhere) and.push(sourceWhere);
+
+  if (params?.stock === 'low') {
+    and.push({ id: { in: params.lowStockIds ?? [] } });
+  } else {
+    const stockWhere = adminListStockWhere(params?.stock ?? 'all');
+    if (stockWhere) and.push(stockWhere);
+  }
+
+  if (and.length === 1) Object.assign(where, and[0]);
+  else if (and.length > 1) where.AND = and;
+
   return where;
+}
+
+async function lowStockProductIds(): Promise<string[]> {
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT id FROM products
+    WHERE stock > 0
+      AND stock_baseline > 0
+      AND stock <= CEIL(stock_baseline * 0.25)
+  `);
+  return rows.map((row) => row.id);
 }
 
 export class ProductService {
@@ -38,10 +79,16 @@ export class ProductService {
     page?: number;
     pageSize?: number;
     sort?: 'name' | 'stock';
+    stock?: AdminStockFilter;
+    source?: AdminSourceFilter;
   }) {
     const page = Math.max(params?.page ?? 1, 1);
     const pageSize = Math.min(params?.pageSize ?? ADMIN_LIST_PAGE_SIZE, 100);
-    const where = adminProductWhere(params);
+    const lowStockIds = params?.stock === 'low' ? await lowStockProductIds() : undefined;
+    if (params?.stock === 'low' && !lowStockIds?.length) {
+      return { items: [], total: 0, page, pageSize };
+    }
+    const where = adminProductWhere({ ...params, lowStockIds });
 
     const orderBy =
       params?.sort === 'stock'
@@ -98,8 +145,17 @@ export class ProductService {
   }
 
   /** Ids for bulk fulfillment tagging — same filters as the Products table. */
-  static async listAdminIds(params?: { search?: string; categoryId?: string }) {
-    const where = adminProductWhere(params);
+  static async listAdminIds(params?: {
+    search?: string;
+    categoryId?: string;
+    stock?: AdminStockFilter;
+    source?: AdminSourceFilter;
+  }) {
+    const lowStockIds = params?.stock === 'low' ? await lowStockProductIds() : undefined;
+    if (params?.stock === 'low' && !lowStockIds?.length) {
+      return { ids: [] as string[], total: 0 };
+    }
+    const where = adminProductWhere({ ...params, lowStockIds });
     const rows = await prisma.product.findMany({
       where,
       select: { id: true },

@@ -8,6 +8,7 @@ import { AuditService } from '@/services/AuditService';
 import { InventoryService } from '@/services/InventoryService';
 import { ProductService, CategoryService } from '@/services/ProductService';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants';
+import { parseAdminSourceFilter, parseAdminStockFilter } from '@/lib/adminProductFilters';
 
 export async function GET(req: NextRequest) {
   const auth = await requireStaffPermission('products:view');
@@ -17,9 +18,11 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || undefined;
     const categoryId = searchParams.get('categoryId') || undefined;
+    const stock = parseAdminStockFilter(searchParams.get('stock'));
+    const source = parseAdminSourceFilter(searchParams.get('source'));
 
     if (searchParams.get('idsOnly') === '1') {
-      const data = await ProductService.listAdminIds({ search, categoryId });
+      const data = await ProductService.listAdminIds({ search, categoryId, stock, source });
       return NextResponse.json(data);
     }
 
@@ -31,6 +34,8 @@ export async function GET(req: NextRequest) {
         page: Number(searchParams.get('page') || 1),
         pageSize: Number(searchParams.get('pageSize') || ADMIN_LIST_PAGE_SIZE),
         sort: searchParams.get('sort') === 'stock' ? 'stock' : 'name',
+        stock,
+        source,
       }),
       includeCategories ? CategoryService.getAll(false) : Promise.resolve(null),
     ]);

@@ -12,6 +12,8 @@ export type AdminProductListParams = {
   search?: string;
   categoryId?: string;
   sort?: 'name' | 'stock';
+  stock?: 'all' | 'in' | 'low' | 'out';
+  source?: 'all' | 'IN_HOUSE' | 'OUTSOURCE' | 'UNSET';
 };
 
 type ProductListCache = {
@@ -53,6 +55,8 @@ export function adminProductListKey(params: AdminProductListParams): string {
     search: (params.search ?? '').trim(),
     categoryId: params.categoryId ?? '',
     sort: params.sort ?? 'name',
+    stock: params.stock ?? 'all',
+    source: params.source ?? 'all',
   });
 }
 
@@ -141,6 +145,8 @@ async function loadProducts(
     });
     if (params.search?.trim()) qs.set('search', params.search.trim());
     if (params.categoryId) qs.set('categoryId', params.categoryId);
+    if (params.stock && params.stock !== 'all') qs.set('stock', params.stock);
+    if (params.source && params.source !== 'all') qs.set('source', params.source);
 
     // Bundle categories on first load when we don't have them yet.
     if (get().categories.length === 0) {
