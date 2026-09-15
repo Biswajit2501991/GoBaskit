@@ -1,3 +1,5 @@
+import { variantLabel } from '@/utils/variant';
+
 /**
  * Full line name for an ordered item. Never shorten to the first word —
  * "Amul Taaza 1L" and "Amul Gold 1L" must stay distinct.
@@ -54,6 +56,24 @@ export function formatOrderItemsSummary(
     )
     .filter((line) => line.trim().length > 0)
     .join('\n');
+}
+
+/** Website-style shop tagging label: parent plus pack size, or parent plus option. */
+export function shopCatalogLineName(
+  product: { name?: string | null; unit?: string | null },
+  variant?: {
+    brand?: string | null;
+    variantName?: string | null;
+    weight?: string | null;
+    unit?: string | null;
+  } | null,
+): string {
+  const productName = (product.name ?? '').trim();
+  if (!variant) return appendPackSize(productName, product.unit);
+  return composeOrderItemName({
+    productName,
+    variantLabel: variantLabel(variant),
+  });
 }
 
 /** Append pack size when it is not already in the name (e.g. Maaza + 600 ml). */

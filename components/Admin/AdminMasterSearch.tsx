@@ -70,6 +70,12 @@ const SETTINGS_DESTINATIONS: Omit<SearchDestination, 'group'>[] = [
     keywords: ['open', 'closed', 'holiday', 'overnight', '9pm', 'night delivery'],
   },
   {
+    id: 'settings-partner-delivery',
+    label: 'Partner delivery',
+    href: '/admin/settings#partner-delivery',
+    keywords: ['part time', 'rider', 'start delivery', 'pickup partner'],
+  },
+  {
     id: 'settings-payments',
     label: 'Payments',
     href: '/admin/settings#payments',

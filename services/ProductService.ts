@@ -89,7 +89,7 @@ export class ProductService {
       items: items.map((item) => ({
         ...item,
         previousPriceAt: item.previousPriceAt ? item.previousPriceAt.toISOString() : null,
-        shopIds: item.productShops.map((row) => row.shopId),
+        shopIds: [...new Set(item.productShops.map((row) => row.shopId))],
       })),
       total,
       page,

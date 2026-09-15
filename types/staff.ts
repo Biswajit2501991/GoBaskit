@@ -7,6 +7,7 @@ export const STAFF_ROLES: StaffRole[] = [
   'ORDER_MANAGER',
   'INVENTORY_MANAGER',
   'DELIVERY_MANAGER',
+  'DELIVERY_PARTNER',
   'CUSTOMER_SUPPORT',
   'FINANCE',
   'MARKETING',
@@ -22,6 +23,7 @@ export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
   ORDER_MANAGER: 'Order Manager',
   INVENTORY_MANAGER: 'Inventory Manager',
   DELIVERY_MANAGER: 'Delivery Manager',
+  DELIVERY_PARTNER: 'Delivery Partner',
   CUSTOMER_SUPPORT: 'Customer Support',
   FINANCE: 'Finance',
   MARKETING: 'Marketing',
@@ -96,6 +98,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, Permission[]> = {
     'orders:view', 'orders:edit', 'delivery:view', 'delivery:update',
     'learning:view', 'learning:edit',
   ],
+  DELIVERY_PARTNER: ['delivery:view', 'delivery:update'],
   CUSTOMER_SUPPORT: [
     'orders:view', 'products:view', 'verification:view', 'verification:manage',
     'learning:view', 'learning:edit',
@@ -167,6 +170,8 @@ export function assignableStaffRoles(actorRole: StaffRole): StaffRole[] {
 
 export function getRoleDefaultAdminPath(role: StaffRole): string {
   switch (role) {
+    case 'DELIVERY_PARTNER':
+      return '/delivery';
     case 'DELIVERY_MANAGER':
       return '/admin/delivery';
     case 'ORDER_MANAGER':
@@ -183,4 +188,15 @@ export function getRoleDefaultAdminPath(role: StaffRole): string {
     default:
       return '/admin/dashboard';
   }
+}
+
+export function isDeliveryPartnerRole(role: StaffRole): boolean {
+  return role === 'DELIVERY_PARTNER';
+}
+
+/** Where this staff account should land after login. */
+export function staffHomePath(staff: { role: StaffRole; shopId?: string | null }): string {
+  if (staff.shopId) return '/shop';
+  if (isDeliveryPartnerRole(staff.role)) return '/delivery';
+  return getRoleDefaultAdminPath(staff.role);
 }

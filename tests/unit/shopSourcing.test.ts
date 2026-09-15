@@ -8,6 +8,9 @@ import {
   nextCatalogSellingPrice,
   isSixDigitPin,
   shopHistorySince,
+  shopCatalogSkuId,
+  parseShopCatalogSkuId,
+  shopTagMatchesLine,
 } from '@/lib/shopSourcing';
 
 describe('shop sourcing helpers', () => {
@@ -51,6 +54,28 @@ describe('shop sourcing helpers', () => {
     expect(plan.add).toEqual(['add']);
     expect(plan.remove).toEqual(['drop']);
     expect(plan.skipped).toEqual(['full']);
+  });
+});
+
+describe('shop catalog SKUs', () => {
+  it('encodes parent and option rows the way tagging save expects', () => {
+    expect(shopCatalogSkuId('prod1')).toBe('p:prod1');
+    expect(shopCatalogSkuId('prod1', '')).toBe('p:prod1');
+    expect(shopCatalogSkuId('prod1', 'var1')).toBe('v:var1');
+    expect(parseShopCatalogSkuId('v:var1')).toEqual({ type: 'variant', id: 'var1' });
+    expect(parseShopCatalogSkuId('p:prod1')).toEqual({ type: 'product', id: 'prod1' });
+    expect(parseShopCatalogSkuId('prod1')).toEqual({ type: 'product', id: 'prod1' });
+  });
+
+  it('matches a shop tag only to the same website option', () => {
+    const tags = [
+      { shopId: 's1', variantId: '' },
+      { shopId: 's1', variantId: '1L' },
+    ];
+    expect(shopTagMatchesLine({ itemVariantId: null, tags, shopId: 's1' })).toBe(true);
+    expect(shopTagMatchesLine({ itemVariantId: '1L', tags, shopId: 's1' })).toBe(true);
+    expect(shopTagMatchesLine({ itemVariantId: '500ml', tags, shopId: 's1' })).toBe(false);
+    expect(shopTagMatchesLine({ itemVariantId: '1L', tags, shopId: 's2' })).toBe(false);
   });
 });
 

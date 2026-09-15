@@ -144,6 +144,23 @@ export async function requireShopStaff() {
   };
 }
 
+export async function requireDeliveryPartner() {
+  const staff = await getStaffFromSession();
+  if (!staff || !staff.active || staff.deletedAt) {
+    return {
+      error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+      staff: null,
+    };
+  }
+  if (staff.role !== 'DELIVERY_PARTNER') {
+    return {
+      error: NextResponse.json({ error: 'Use the delivery login at /delivery' }, { status: 403 }),
+      staff: null,
+    };
+  }
+  return { error: null, staff: staff as StaffAuthUser };
+}
+
 /** Mutations that create or skip offers — not required to view /shop history. */
 export async function requireShopSourcingEnabled() {
   const enabled = (await SettingsService.getStoreConfig()).shopSourcing.enabled;

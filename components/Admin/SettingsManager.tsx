@@ -8,6 +8,7 @@ import {
   Award,
   Ban,
   Bell,
+  Bike,
   Building2,
   CloudRain,
   CreditCard,
@@ -123,6 +124,12 @@ const SETTINGS_SECTIONS = [
     hint: 'Off by default. When on, tagged shops get pickup offers and delivery needs the customer PIN.',
   },
   {
+    id: 'partner-delivery',
+    label: 'Partner delivery',
+    group: 'Orders',
+    hint: 'Off by default. When on, Delivery Partner accounts can use Start Delivery at /delivery. Jobs come in a later update.',
+  },
+  {
     id: 'weather',
     label: 'Weather Notice',
     group: 'Orders',
@@ -201,6 +208,7 @@ const SETTINGS_ICONS: Record<(typeof SETTINGS_SECTIONS)[number]['id'], LucideIco
   session: Users,
   'store-status': Store,
   'shop-sourcing': Building2,
+  'partner-delivery': Bike,
   weather: CloudRain,
   payments: Wallet,
   'wa-templates': FileText,
@@ -346,6 +354,7 @@ interface StoreConfig {
   weatherDisclaimer?: WeatherDisclaimerPublic;
   overnightCheckout?: OvernightCheckoutConfig;
   shopSourcing?: ShopSourcingConfig;
+  partnerDeliveryEnabled?: boolean;
   discountConfig: DiscountConfig;
 }
 
@@ -459,6 +468,9 @@ export default function SettingsManager({
     parseOvernightCheckout(initialConfig.overnightCheckout),
   );
   const [shopSourcing, setShopSourcing] = useState(() => parseShopSourcing(initialConfig.shopSourcing));
+  const [partnerDeliveryEnabled, setPartnerDeliveryEnabled] = useState(
+    initialConfig.partnerDeliveryEnabled === true,
+  );
   const [broadcastTitle, setBroadcastTitle] = useState('GoBaskit');
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastSending, setBroadcastSending] = useState(false);
@@ -499,6 +511,7 @@ export default function SettingsManager({
       weatherDisclaimer,
       overnightCheckout,
       shopSourcing,
+      partnerDeliveryEnabled,
     };
     // Capture hydrated defaults once so the first save only writes real edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -776,6 +789,9 @@ export default function SettingsManager({
       ) {
         body.shopSourcing = parseShopSourcing(shopSourcing);
       }
+      if (Boolean(prev.partnerDeliveryEnabled) !== Boolean(partnerDeliveryEnabled)) {
+        body.partnerDeliveryEnabled = partnerDeliveryEnabled;
+      }
 
       if (Object.keys(body).length === 0) {
         setMessage({ type: 'ok', text: 'No changes to save.' });
@@ -811,6 +827,7 @@ export default function SettingsManager({
       setWeatherDisclaimer(parseWeatherDisclaimer(updated.weatherDisclaimer));
       setOvernightCheckout(parseOvernightCheckout(updated.overnightCheckout));
       setShopSourcing(parseShopSourcing(updated.shopSourcing));
+      setPartnerDeliveryEnabled(updated.partnerDeliveryEnabled === true);
       setHomepageConfig({
         ...updated.homepageConfig,
         showTopDiscounted: updated.homepageConfig.showTopDiscounted !== false,
@@ -1528,6 +1545,52 @@ export default function SettingsManager({
           and give shopkeepers a staff login linked to that shop. In House lines get a warehouse
           ticket after shop pickups (A/B then C).
         </p>
+      </section>
+          )}
+
+          {activeSection === 'partner-delivery' && (
+      <section className={SECTION_CARD}>
+        <div>
+          <h2 className="font-semibold text-sm text-gray-900">Partner delivery</h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Off by default. When on, staff with the Delivery Partner role can log in at /delivery and
+            turn on Start Delivery. Pickup jobs and partner notifications are not sent until a later
+            update. Turning this off immediately takes every partner off shift.
+          </p>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={partnerDeliveryEnabled}
+            onChange={(e) => setPartnerDeliveryEnabled(e.target.checked)}
+            disabled={!canEdit}
+            className="accent-blinkit-green"
+          />
+          Enable partner delivery
+        </label>
+      </section>
+          )}
+
+          {activeSection === 'partner-delivery' && (
+      <section className={SECTION_CARD}>
+        <div>
+          <h2 className="font-semibold text-sm text-gray-900">Partner delivery</h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Off by default. When on, staff with the Delivery Partner role can log in at /delivery and
+            turn on Start Delivery. Pickup jobs and partner notifications are not sent until a later
+            update. Turning this off immediately takes every partner off shift.
+          </p>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={partnerDeliveryEnabled}
+            onChange={(e) => setPartnerDeliveryEnabled(e.target.checked)}
+            disabled={!canEdit}
+            className="accent-blinkit-green"
+          />
+          Enable partner delivery
+        </label>
       </section>
           )}
 

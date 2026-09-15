@@ -266,7 +266,7 @@ export default function StaffManager({
       latitude: parseOptionalNumber(form.latitude),
       longitude: parseOptionalNumber(form.longitude),
       deliveryRadius: parseOptionalNumber(form.deliveryRadius),
-      shopId: form.shopId || null,
+      shopId: form.role === 'DELIVERY_PARTNER' ? null : form.shopId || null,
       ...(email ? { email } : {}),
       ...(form.password ? { password: form.password } : {}),
     };
@@ -395,7 +395,14 @@ export default function StaffManager({
                 <Label>Role</Label>
                 <select
                   value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value as StaffRole })}
+                  onChange={(e) => {
+                    const role = e.target.value as StaffRole;
+                    setForm({
+                      ...form,
+                      role,
+                      shopId: role === 'DELIVERY_PARTNER' ? '' : form.shopId,
+                    });
+                  }}
                   className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
                 >
                   {roleOptions.filter((r) => r !== 'ALL_SUPER_ADMIN').map((r) => (
@@ -429,7 +436,7 @@ export default function StaffManager({
                 <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
                 Active
               </label>
-              {shops.length > 0 && (
+              {shops.length > 0 && form.role !== 'DELIVERY_PARTNER' && (
                 <div>
                   <Label>Shop portal login</Label>
                   <select

@@ -68,6 +68,7 @@ enum StaffRole {
   ORDER_MANAGER
   INVENTORY_MANAGER
   DELIVERY_MANAGER
+  DELIVERY_PARTNER
   CUSTOMER_SUPPORT
   FINANCE
   MARKETING
@@ -498,6 +499,8 @@ model StaffAccount {
   deletedAt       DateTime? @map("deleted_at")
   lastLogin       DateTime? @map("last_login")
   lastActiveAt    DateTime? @map("last_active_at")
+  deliveryOnline  Boolean   @default(false) @map("delivery_online")
+  deliveryOnlineAt DateTime? @map("delivery_online_at")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
@@ -521,6 +524,7 @@ model StaffAccount {
   @@index([role, active])
   @@index([deletedAt])
   @@index([shopId])
+  @@index([role, deliveryOnline, active])
   @@map("staff_accounts")
 }
 
@@ -708,11 +712,14 @@ model ProductShop {
   id        String  @id @default(cuid())
   productId String  @map("product_id")
   shopId    String  @map("shop_id")
+  /** Empty string = website parent/base option; otherwise a product_variants id. */
+  variantId String  @default("") @map("variant_id")
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   shop      Shop    @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
-  @@unique([productId, shopId])
+  @@unique([productId, shopId, variantId])
   @@index([shopId])
+  @@index([variantId])
   @@map("product_shops")
 }
 

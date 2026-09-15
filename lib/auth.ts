@@ -148,6 +148,7 @@ export const getStaffFromSession = cache(async () => {
           deletedAt: true,
           lastLogin: true,
           lastActiveAt: true,
+          deliveryOnline: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -183,6 +184,7 @@ export const getStaffFromSession = cache(async () => {
       active: true,
       deletedAt: null,
       lastLogin: null,
+      deliveryOnline: false,
       createdAt: admin.createdAt,
       updatedAt: admin.updatedAt,
       shopId: null,
@@ -223,6 +225,7 @@ export const getAdminPageStaff = cache(async () => {
       createdAt: new Date(0),
       updatedAt: new Date(0),
       shopId: session.shopId ?? null,
+      deliveryOnline: false,
     };
   }
 

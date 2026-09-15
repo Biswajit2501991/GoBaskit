@@ -1,4 +1,4 @@
-import { appendPackSize, composeOrderItemName, formatCartLineName, formatOrderItemsSummary, formatOrderLineLabel } from '@/utils/orderItemName';
+import { appendPackSize, composeOrderItemName, formatCartLineName, formatOrderItemsSummary, formatOrderLineLabel, shopCatalogLineName } from '@/utils/orderItemName';
 
 describe('composeOrderItemName', () => {
   it('keeps the full product name instead of the first word', () => {
@@ -82,5 +82,23 @@ describe('formatOrderItemsSummary', () => {
     ).toBe('Maaza × 1 · 600 ml');
     expect(appendPackSize('Maaza', '600 ml')).toBe('Maaza (600 ml)');
     expect(appendPackSize('Maaza (600 ml)', '600 ml')).toBe('Maaza (600 ml)');
+  });
+});
+
+describe('shopCatalogLineName', () => {
+  it('shows parent pack size and each option the way the website does', () => {
+    expect(shopCatalogLineName({ name: 'Thums UP', unit: '1 L' })).toBe('Thums UP (1 L)');
+    expect(
+      shopCatalogLineName(
+        { name: 'Thums UP', unit: '1 L' },
+        { brand: 'Thums UP', variantName: '', weight: '1', unit: 'L' },
+      ),
+    ).toBe('Thums UP 1L');
+    expect(
+      shopCatalogLineName(
+        { name: 'Thums UP', unit: '1 L' },
+        { brand: 'Thums UP', variantName: '', weight: '1/2', unit: 'L' },
+      ),
+    ).toBe('Thums UP 1/2L');
   });
 });

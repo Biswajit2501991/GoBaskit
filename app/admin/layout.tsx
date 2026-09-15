@@ -34,6 +34,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if ('shopId' in staff && staff.shopId) {
     redirect('/shop');
   }
+  if (staff.role === 'DELIVERY_PARTNER') {
+    redirect('/delivery');
+  }
   const perms = parsePermissions(staff.permissions);
 
   const visibleNav = nav.filter((item) => staffHasPermission(staff!.role, perms, item.permission));

@@ -130,6 +130,7 @@ const settingsSchema = z.object({
       morningDeliveryFrom: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/).optional(),
     })
     .optional(),
+  partnerDeliveryEnabled: z.boolean().optional(),
   shopSourcing: z
     .object({
       enabled: z.boolean().optional(),

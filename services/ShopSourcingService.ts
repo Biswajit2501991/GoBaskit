@@ -13,9 +13,14 @@ import {
   parseFulfillmentLineCosts,
   parseShopSourcing,
   planShopCatalogSync,
+  shopCatalogSkuId,
+  parseShopCatalogSkuId,
+  shopTagMatchesLine,
+  SHOP_BASE_VARIANT_ID,
   shopHistorySince,
   verifyDeliveryPinHash,
 } from '@/lib/shopSourcing';
+import { shopCatalogLineName } from '@/utils/orderItemName';
 import { isShopOfferLine } from '@/lib/fulfillmentSource';
 import { formatCustomerName } from '@/utils/customer';
 import { formatOrderLineLabel } from '@/utils/orderItemName';
@@ -50,11 +55,15 @@ async function inIdChunks<T>(ids: string[], fn: (chunk: string[]) => Promise<T[]
 
 function shopOfferEligible(item: {
   fulfillmentRoute: string | null;
-  product: { productShops: { shopId: string }[] };
+  variantId?: string | null;
+  product: { productShops: { shopId: string; variantId: string }[] };
 }): boolean {
   return isShopOfferLine({
     fulfillmentRoute: item.fulfillmentRoute,
-    hasShopTags: item.product.productShops.length > 0,
+    hasShopTags: shopTagMatchesLine({
+      itemVariantId: item.variantId,
+      tags: item.product.productShops,
+    }),
   });
 }
 
@@ -126,18 +135,26 @@ export class ShopSourcingService {
     if (shops.length !== unique.length) {
       throw new ShopSourcingError('One or more shops are missing or inactive');
     }
-    await prisma.$transaction([
-      prisma.productShop.deleteMany({
+    const variants = await prisma.productVariant.findMany({
+      where: { productId, isActive: true },
+      select: { id: true },
+    });
+    const variantIds = [SHOP_BASE_VARIANT_ID, ...variants.map((row) => row.id)];
+    await prisma.$transaction(async (tx) => {
+      await tx.productShop.deleteMany({
         where: { productId, shopId: { notIn: unique } },
-      }),
-      ...unique.map((shopId) =>
-        prisma.productShop.upsert({
-          where: { productId_shopId: { productId, shopId } },
-          create: { productId, shopId },
-          update: {},
-        }),
-      ),
-    ]);
+      });
+      if (!unique.length) return;
+      await tx.productShop.deleteMany({
+        where: { productId, shopId: { in: unique }, variantId: { notIn: variantIds } },
+      });
+      await tx.productShop.createMany({
+        data: unique.flatMap((shopId) =>
+          variantIds.map((variantId) => ({ productId, shopId, variantId })),
+        ),
+        skipDuplicates: true,
+      });
+    });
     return unique;
   }
 
@@ -153,38 +170,73 @@ export class ShopSourcingService {
         select: {
           id: true,
           name: true,
+          unit: true,
           categoryId: true,
           category: { select: { name: true } },
+          variants: {
+            where: { isActive: true },
+            select: {
+              id: true,
+              brand: true,
+              variantName: true,
+              weight: true,
+              unit: true,
+              sortOrder: true,
+            },
+            orderBy: { sortOrder: 'asc' },
+          },
         },
         orderBy: [{ category: { name: 'asc' } }, { name: 'asc' }],
       }),
       prisma.productShop.findMany({
         where: { shopId },
-        select: { productId: true },
+        select: { productId: true, variantId: true },
       }),
       prisma.productShop.groupBy({
-        by: ['productId'],
+        by: ['productId', 'variantId'],
         where: { shopId: { not: shopId } },
         _count: { _all: true },
       }),
     ]);
-    const assigned = new Set(assignedRows.map((row) => row.productId));
-    const others = new Map(otherCounts.map((row) => [row.productId, row._count._all]));
-    return {
-      shop,
-      maxShopsPerItem: cfg.maxShopsPerItem,
-      items: products.map((row) => {
-        const isAssigned = assigned.has(row.id);
-        const otherCount = others.get(row.id) ?? 0;
+    const assigned = new Set(
+      assignedRows.map((row) => shopCatalogSkuId(row.productId, row.variantId)),
+    );
+    const others = new Map(
+      otherCounts.map((row) => [
+        shopCatalogSkuId(row.productId, row.variantId),
+        row._count._all,
+      ]),
+    );
+    const items = products.flatMap((row) => {
+      const lines = [
+        {
+          skuId: shopCatalogSkuId(row.id, SHOP_BASE_VARIANT_ID),
+          name: shopCatalogLineName({ name: row.name, unit: row.unit }),
+        },
+        ...[...row.variants]
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((variant) => ({
+            skuId: shopCatalogSkuId(row.id, variant.id),
+            name: shopCatalogLineName({ name: row.name, unit: row.unit }, variant),
+          })),
+      ];
+      return lines.map((line) => {
+        const isAssigned = assigned.has(line.skuId);
+        const otherCount = others.get(line.skuId) ?? 0;
         return {
-          id: row.id,
-          name: row.name,
+          id: line.skuId,
+          name: line.name,
           categoryId: row.categoryId,
           categoryName: row.category.name,
           assigned: isAssigned,
           atCap: !isAssigned && otherCount >= cfg.maxShopsPerItem,
         };
-      }),
+      });
+    });
+    return {
+      shop,
+      maxShopsPerItem: cfg.maxShopsPerItem,
+      items,
     };
   }
 
@@ -195,36 +247,68 @@ export class ShopSourcingService {
     });
     if (!shop) throw new ShopSourcingError('Shop not found or inactive', 404);
     const cfg = await this.config();
-    const wanted = [...new Set(productIds.filter(Boolean))];
-    if (wanted.length) {
-      const foundChunks = await inIdChunks(wanted, async (chunk) => {
+    const parsed = [...new Set(productIds.filter(Boolean))]
+      .map((id) => parseShopCatalogSkuId(id))
+      .filter((row): row is NonNullable<typeof row> => Boolean(row));
+    const wantedProductIds = [...new Set(parsed.filter((row) => row.type === 'product').map((row) => row.id))];
+    const wantedVariantIds = [...new Set(parsed.filter((row) => row.type === 'variant').map((row) => row.id))];
+    if (wantedProductIds.length) {
+      const foundChunks = await inIdChunks(wantedProductIds, async (chunk) => {
         const n = await prisma.product.count({ where: { id: { in: chunk } } });
         return [n];
       });
       const found = foundChunks.reduce((sum, n) => sum + n, 0);
-      if (found !== wanted.length) {
+      if (found !== wantedProductIds.length) {
         throw new ShopSourcingError('One or more products are missing');
       }
     }
+    const variantRows = wantedVariantIds.length
+      ? await prisma.productVariant.findMany({
+          where: { id: { in: wantedVariantIds }, isActive: true },
+          select: { id: true, productId: true },
+        })
+      : [];
+    if (variantRows.length !== wantedVariantIds.length) {
+      throw new ShopSourcingError('One or more products are missing');
+    }
+    const wantedRefs = [
+      ...wantedProductIds.map((productId) => ({
+        skuId: shopCatalogSkuId(productId, SHOP_BASE_VARIANT_ID),
+        productId,
+        variantId: SHOP_BASE_VARIANT_ID,
+      })),
+      ...variantRows.map((row) => ({
+        skuId: shopCatalogSkuId(row.productId, row.id),
+        productId: row.productId,
+        variantId: row.id,
+      })),
+    ];
+    const wanted = [...new Set(wantedRefs.map((row) => row.skuId))];
+    const refBySku = new Map(wantedRefs.map((row) => [row.skuId, row]));
     const currentRows = await prisma.productShop.findMany({
       where: { shopId },
-      select: { productId: true },
+      select: { productId: true, variantId: true },
     });
-    const currentIds = currentRows.map((row) => row.productId);
+    const currentIds = currentRows.map((row) => shopCatalogSkuId(row.productId, row.variantId));
     const currentSet = new Set(currentIds);
     const addCandidates = wanted.filter((id) => !currentSet.has(id));
     const otherShopCountByProduct: Record<string, number> = {};
-    await inIdChunks(addCandidates, async (chunk) => {
+    const addRefs = addCandidates
+      .map((id) => refBySku.get(id))
+      .filter((row): row is NonNullable<typeof row> => Boolean(row));
+    if (addRefs.length) {
       const grouped = await prisma.productShop.groupBy({
-        by: ['productId'],
-        where: { productId: { in: chunk }, shopId: { not: shopId } },
+        by: ['productId', 'variantId'],
+        where: {
+          shopId: { not: shopId },
+          OR: addRefs.map((row) => ({ productId: row.productId, variantId: row.variantId })),
+        },
         _count: { _all: true },
       });
       for (const row of grouped) {
-        otherShopCountByProduct[row.productId] = row._count._all;
+        otherShopCountByProduct[shopCatalogSkuId(row.productId, row.variantId)] = row._count._all;
       }
-      return grouped;
-    });
+    }
     const plan = planShopCatalogSync({
       currentProductIds: currentIds,
       wantedProductIds: wanted,
@@ -232,16 +316,39 @@ export class ShopSourcingService {
       maxShopsPerItem: cfg.maxShopsPerItem,
     });
 
+    const refForSku = (skuId: string) => {
+      const fromWanted = refBySku.get(skuId);
+      if (fromWanted) return fromWanted;
+      const parsedSku = parseShopCatalogSkuId(skuId);
+      if (!parsedSku) return null;
+      if (parsedSku.type === 'product') {
+        return { skuId, productId: parsedSku.id, variantId: SHOP_BASE_VARIANT_ID };
+      }
+      const current = currentRows.find((row) => row.variantId === parsedSku.id);
+      if (!current) return null;
+      return { skuId, productId: current.productId, variantId: parsedSku.id };
+    };
+
     if (plan.add.length || plan.remove.length) {
       await prisma.$transaction(async (tx) => {
         for (let i = 0; i < plan.remove.length; i += CATALOG_WRITE_CHUNK) {
+          const chunk = plan.remove.slice(i, i + CATALOG_WRITE_CHUNK).map(refForSku).filter(Boolean) as Array<{
+            productId: string;
+            variantId: string;
+          }>;
+          if (!chunk.length) continue;
           await tx.productShop.deleteMany({
-            where: { shopId, productId: { in: plan.remove.slice(i, i + CATALOG_WRITE_CHUNK) } },
+            where: { shopId, OR: chunk.map((row) => ({ productId: row.productId, variantId: row.variantId })) },
           });
         }
         for (let i = 0; i < plan.add.length; i += CATALOG_WRITE_CHUNK) {
+          const chunk = plan.add.slice(i, i + CATALOG_WRITE_CHUNK).map(refForSku).filter(Boolean) as Array<{
+            productId: string;
+            variantId: string;
+          }>;
+          if (!chunk.length) continue;
           await tx.productShop.createMany({
-            data: plan.add.slice(i, i + CATALOG_WRITE_CHUNK).map((productId) => ({ productId, shopId })),
+            data: chunk.map((row) => ({ productId: row.productId, shopId, variantId: row.variantId })),
             skipDuplicates: true,
           });
         }
@@ -266,7 +373,10 @@ export class ShopSourcingService {
     if (!category) throw new ShopSourcingError('Category not found', 404);
     const inCategory = await prisma.product.findMany({
       where: { categoryId },
-      select: { id: true },
+      select: {
+        id: true,
+        variants: { where: { isActive: true }, select: { id: true } },
+      },
     });
     const ids = inCategory.map((row) => row.id);
     if (!assigned) {
@@ -277,10 +387,14 @@ export class ShopSourcingService {
     }
     const currentRows = await prisma.productShop.findMany({
       where: { shopId },
-      select: { productId: true },
+      select: { productId: true, variantId: true },
     });
-    const current = new Set(currentRows.map((row) => row.productId));
-    const wanted = [...current, ...ids];
+    const current = currentRows.map((row) => shopCatalogSkuId(row.productId, row.variantId));
+    const categorySkus = inCategory.flatMap((row) => [
+      shopCatalogSkuId(row.id, SHOP_BASE_VARIANT_ID),
+      ...row.variants.map((variant) => shopCatalogSkuId(row.id, variant.id)),
+    ]);
+    const wanted = [...new Set([...current, ...categorySkus])];
     return this.setShopCatalog(shopId, wanted);
   }
 
@@ -383,6 +497,7 @@ export class ShopSourcingService {
       select: {
         id: true,
         productId: true,
+        variantId: true,
         productName: true,
         quantity: true,
         unit: true,
@@ -391,7 +506,7 @@ export class ShopSourcingService {
           select: {
             productShops: {
               where: { shop: EXTERNAL_ACTIVE_SHOP },
-              select: { shopId: true },
+              select: { shopId: true, variantId: true },
             },
           },
         },
@@ -448,6 +563,7 @@ export class ShopSourcingService {
             items: {
               select: {
                 id: true,
+                variantId: true,
                 productName: true,
                 quantity: true,
                 unit: true,
@@ -457,7 +573,7 @@ export class ShopSourcingService {
                   select: {
                     productShops: {
                       where: { shopId, shop: { isInternal: false } },
-                      select: { shopId: true },
+                      select: { shopId: true, variantId: true },
                     },
                   },
                 },
@@ -482,6 +598,7 @@ export class ShopSourcingService {
             !item.shopClaim &&
             shopOfferEligible({
               fulfillmentRoute: item.fulfillmentRoute,
+              variantId: item.variantId,
               product: item.product,
             }),
         );
@@ -639,7 +756,7 @@ export class ShopSourcingService {
               select: {
                 productShops: {
                   where: { shopId: params.shopId, shop: { isInternal: false } },
-                  select: { shopId: true },
+                  select: { shopId: true, variantId: true },
                 },
               },
             },
@@ -757,7 +874,12 @@ export class ShopSourcingService {
               include: {
                 shopClaim: true,
                 product: {
-                  select: { productShops: { where: { shop: { isInternal: false } }, select: { shopId: true } } },
+                  select: {
+                    productShops: {
+                      where: { shop: { isInternal: false } },
+                      select: { shopId: true, variantId: true },
+                    },
+                  },
                 },
               },
             },
@@ -778,12 +900,22 @@ export class ShopSourcingService {
         !item.shopClaim &&
         shopOfferEligible({
           fulfillmentRoute: item.fulfillmentRoute,
+          variantId: item.variantId,
           product: item.product,
         }),
     );
     const shopIds = new Set<string>();
     for (const item of remaining) {
-      for (const tag of item.product.productShops) shopIds.add(tag.shopId);
+      for (const tag of item.product.productShops) {
+        if (
+          shopTagMatchesLine({
+            itemVariantId: item.variantId,
+            tags: [tag],
+          })
+        ) {
+          shopIds.add(tag.shopId);
+        }
+      }
     }
     if (!shopIds.size) return;
 
@@ -806,8 +938,13 @@ export class ShopSourcingService {
 
     for (const member of staff) {
       if (!member.shopId) continue;
+      const memberShopId = member.shopId;
       const shopItems = remaining.filter((item) =>
-        item.product.productShops.some((tag) => tag.shopId === member.shopId),
+        shopTagMatchesLine({
+          itemVariantId: item.variantId,
+          tags: item.product.productShops,
+          shopId: memberShopId,
+        }),
       );
       if (!shopItems.length) continue;
       const itemSummary = shopItems

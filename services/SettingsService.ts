@@ -42,6 +42,10 @@ import {
   type ShopSourcingConfig,
 } from '@/lib/shopSourcing';
 import {
+  DEFAULT_PARTNER_DELIVERY,
+  parsePartnerDelivery,
+} from '@/lib/partnerDelivery';
+import {
   DEFAULT_STOREFRONT_RATING,
   parseStorefrontRating,
   withStorefrontDisplayCount,
@@ -153,6 +157,8 @@ export interface StoreConfig {
   overnightCheckout: OvernightCheckoutConfig;
   /** Multi-shop sourcing. Own Setting row. Default off — checkout/delivery unchanged. */
   shopSourcing: ShopSourcingConfig;
+  /** Part-time delivery partners at /delivery. Default off — no partner jobs or pushes. */
+  partnerDeliveryEnabled: boolean;
   /** Header rating chip next to GoBaskit. Staff own the score; count = seed + reviews × 10. */
   storefrontRating: StorefrontRatingConfig;
   /** Neighbourhood words learned from real checkouts. Separate Setting row. */
@@ -256,6 +262,7 @@ const KEY_DISCOUNT_CONFIG = 'discount_config';
 const KEY_WEATHER_DISCLAIMER = 'weather_disclaimer';
 const KEY_OVERNIGHT_CHECKOUT = 'overnight_checkout';
 const KEY_SHOP_SOURCING = 'shop_sourcing';
+const KEY_PARTNER_DELIVERY = 'partner_delivery_enabled';
 const KEY_STOREFRONT_RATING = 'storefront_rating';
 const KEY_DELIVERY_ADDRESS_LOCALITIES = 'delivery_address_localities';
 const KEY_PROFIT_DASHBOARD = 'profit_dashboard_enabled';
@@ -369,6 +376,7 @@ const DEFAULTS: StoreConfig = {
   weatherDisclaimer: parseWeatherDisclaimer(DEFAULT_WEATHER_DISCLAIMER),
   overnightCheckout: DEFAULT_OVERNIGHT_CHECKOUT,
   shopSourcing: DEFAULT_SHOP_SOURCING,
+  partnerDeliveryEnabled: DEFAULT_PARTNER_DELIVERY.enabled,
   storefrontRating: DEFAULT_STOREFRONT_RATING,
   deliveryAddressLocalities: [],
   profitDashboardEnabled: false,
@@ -733,6 +741,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
 
   const profitDashboardEnabled =
     (map.get(KEY_PROFIT_DASHBOARD) ?? 'false').toLowerCase() === 'true';
+  const partnerDeliveryEnabled = parsePartnerDelivery(map.get(KEY_PARTNER_DELIVERY) ?? 'false').enabled;
 
   return {
     serviceablePins: pins,
@@ -759,6 +768,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     weatherDisclaimer,
     overnightCheckout,
     shopSourcing,
+    partnerDeliveryEnabled,
     storefrontRating,
     deliveryAddressLocalities,
     profitDashboardEnabled,
@@ -798,6 +808,7 @@ export const SettingsService = {
               KEY_WEATHER_DISCLAIMER,
               KEY_OVERNIGHT_CHECKOUT,
               KEY_SHOP_SOURCING,
+              KEY_PARTNER_DELIVERY,
               KEY_STOREFRONT_RATING,
               KEY_DELIVERY_ADDRESS_LOCALITIES,
               KEY_PROFIT_DASHBOARD,
@@ -881,6 +892,11 @@ export const SettingsService = {
     if (partial.profitDashboardEnabled != null) {
       writes.push(
         upsert(KEY_PROFIT_DASHBOARD, partial.profitDashboardEnabled ? 'true' : 'false'),
+      );
+    }
+    if (partial.partnerDeliveryEnabled != null) {
+      writes.push(
+        upsert(KEY_PARTNER_DELIVERY, partial.partnerDeliveryEnabled ? 'true' : 'false'),
       );
     }
     if (partial.staffIdleTimeoutEnabled != null) {
@@ -1196,6 +1212,12 @@ export const SettingsService = {
     }
 
     await Promise.all(writes);
+    if (partial.partnerDeliveryEnabled === false) {
+      await prisma.staffAccount.updateMany({
+        where: { deliveryOnline: true },
+        data: { deliveryOnline: false, deliveryOnlineAt: null },
+      });
+    }
     cache = null; // invalidate so the next read reflects the change
     const saved = await this.getStoreConfig();
     // Do not block settings save on coupon insert; create-if-missing is safe to retry.

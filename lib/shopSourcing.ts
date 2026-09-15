@@ -69,6 +69,36 @@ export type ShopCatalogPlan = {
   skipped: string[];
 };
 
+/** Parent/base website option (no variant row). */
+export const SHOP_BASE_VARIANT_ID = '';
+
+export function shopCatalogSkuId(productId: string, variantId?: string | null): string {
+  const variant = (variantId ?? '').trim();
+  return variant ? `v:${variant}` : `p:${productId}`;
+}
+
+export function parseShopCatalogSkuId(
+  raw: string,
+): { type: 'product' | 'variant'; id: string } | null {
+  const value = String(raw ?? '').trim();
+  if (value.startsWith('v:') && value.length > 2) return { type: 'variant', id: value.slice(2) };
+  if (value.startsWith('p:') && value.length > 2) return { type: 'product', id: value.slice(2) };
+  if (value) return { type: 'product', id: value };
+  return null;
+}
+
+export function shopTagMatchesLine(params: {
+  itemVariantId?: string | null;
+  tags: Array<{ variantId: string; shopId?: string }>;
+  shopId?: string;
+}): boolean {
+  const itemVariant = (params.itemVariantId ?? '').trim();
+  return params.tags.some((tag) => {
+    if (params.shopId && tag.shopId && tag.shopId !== params.shopId) return false;
+    return (tag.variantId ?? '') === itemVariant;
+  });
+}
+
 /**
  * Sync one shop’s product tags only. Never removes other shops from an item.
  * Skips adds that would exceed maxShopsPerItem (counts shops other than this one).

@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { markAndroidAlertsPromptAfterLogin } from '@/lib/admin-push-client';
+import { staffHomePath } from '@/types/staff';
+import type { StaffRole } from '@prisma/client';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
 import { toE164 } from '@/utils/phone';
 
@@ -51,7 +53,14 @@ export default function StaffAdminLoginModal() {
         mobile: checkedMobile,
       });
       markAndroidAlertsPromptAfterLogin();
-      router.push('/admin/dashboard');
+      const home =
+        data.staff?.shopId || data.staff?.role
+          ? staffHomePath({
+              role: (data.staff.role ?? 'READ_ONLY') as StaffRole,
+              shopId: data.staff.shopId ?? null,
+            })
+          : '/admin/dashboard';
+      router.push(home);
       router.refresh();
     } catch {
       setError('Network error. Please try again.');

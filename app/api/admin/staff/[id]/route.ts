@@ -79,6 +79,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (parsed.data.longitude !== undefined) data.longitude = parsed.data.longitude;
   if (parsed.data.deliveryRadius !== undefined) data.deliveryRadius = parsed.data.deliveryRadius;
   if (parsed.data.shopId !== undefined) data.shopId = parsed.data.shopId || null;
+  const nextRole = parsed.data.role ?? existing.role;
+  if (nextRole === 'DELIVERY_PARTNER') {
+    data.shopId = null;
+  }
+  if (parsed.data.active === false || (parsed.data.role && parsed.data.role !== 'DELIVERY_PARTNER' && existing.role === 'DELIVERY_PARTNER')) {
+    data.deliveryOnline = false;
+    data.deliveryOnlineAt = null;
+  }
 
   let nextMobile: string | undefined;
   if (parsed.data.mobile) {

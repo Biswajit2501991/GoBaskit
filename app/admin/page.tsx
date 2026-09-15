@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { markAndroidAlertsPromptAfterLogin } from '@/lib/admin-push-client';
 import { sanitizeAdminNextPath } from '@/lib/adminDeepLink';
+import { staffHomePath } from '@/types/staff';
+import type { StaffRole } from '@prisma/client';
 import { normalizeMobile } from '@/utils/mobile';
 import { toE164 } from '@/utils/phone';
 
@@ -49,9 +51,17 @@ export default function AdminLoginPage() {
         router.refresh();
         return;
       }
+      if (data.staff?.role === 'DELIVERY_PARTNER') {
+        router.push('/delivery');
+        router.refresh();
+        return;
+      }
+      const roleHome = data.staff?.role
+        ? staffHomePath({ role: data.staff.role as StaffRole, shopId: data.staff.shopId })
+        : '/admin/dashboard';
       const next =
         sanitizeAdminNextPath(new URLSearchParams(window.location.search).get('next')) ||
-        '/admin/dashboard';
+        (roleHome.startsWith('/admin') ? roleHome : '/admin/dashboard');
       router.push(next);
       router.refresh();
     } catch {

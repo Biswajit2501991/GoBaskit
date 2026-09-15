@@ -93,6 +93,8 @@ export async function DELETE(req: NextRequest) {
   const session = accessRaw ? verifyToken(accessRaw) : null;
   if (session && 'type' in session && session.type === 'staff') {
     await revokeStaffRefreshTokens(session.sub).catch(() => null);
+    const { PartnerDeliveryService } = await import('@/services/PartnerDeliveryService');
+    await PartnerDeliveryService.clearOnline(session.sub).catch(() => null);
     await AuditService.log({
       staffId: session.sub,
       action: 'logout',

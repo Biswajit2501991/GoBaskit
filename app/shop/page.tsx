@@ -318,6 +318,10 @@ function ShopPortal() {
         return;
       }
       if (!data.staff?.shopId) {
+        if (data.staff?.role === 'DELIVERY_PARTNER') {
+          setError('This login is for delivery partners. Use /delivery instead.');
+          return;
+        }
         setError('This login is for staff. Use /admin instead.');
         return;
       }
