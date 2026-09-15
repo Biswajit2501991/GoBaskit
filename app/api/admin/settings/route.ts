@@ -131,6 +131,7 @@ const settingsSchema = z.object({
     })
     .optional(),
   partnerDeliveryEnabled: z.boolean().optional(),
+  deliveryOtpEnabled: z.boolean().optional(),
   shopSourcing: z
     .object({
       enabled: z.boolean().optional(),

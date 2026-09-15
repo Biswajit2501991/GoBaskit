@@ -733,6 +733,7 @@ export default function OrdersManager({
   canOverrideLock: boolean;
   forceAssignedToMe?: boolean;
 }) {
+  const deliveryOtpEnabled = useConfigStore((s) => s.deliveryOtpEnabled === true);
   const refreshConfig = useConfigStore((s) => s.refreshConfig);
   const [search, setSearch] = useState('');
   const searchDebounced = useRef(search);
@@ -983,7 +984,7 @@ export default function OrdersManager({
 
   async function updateOrder(id: string, patch: Record<string, unknown>, optimistic: Partial<OrderRow>) {
     if (!canEdit) return;
-    if (patch.status === 'DELIVERED') {
+    if (patch.status === 'DELIVERED' && deliveryOtpEnabled) {
       const entered = window.prompt('Enter the customer 4-digit delivery PIN');
       if (!entered) return;
       patch = { ...patch, deliveryPin: entered.trim() };

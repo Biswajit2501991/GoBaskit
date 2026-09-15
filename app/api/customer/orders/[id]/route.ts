@@ -3,6 +3,7 @@ import { getCustomerMobileFromRequest } from '@/lib/customer-session';
 import { requireSameOrigin } from '@/lib/security';
 import { CustomerOrderService } from '@/services/CustomerOrderService';
 import { ShopSourcingService } from '@/services/ShopSourcingService';
+import { SettingsService } from '@/services/SettingsService';
 import { OrderEditError, OrderMutationService } from '@/services/OrderMutationService';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -46,8 +47,9 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       delivery,
       actor: { type: 'customer', mobile },
     });
+    const otpOn = (await SettingsService.getStoreConfig()).deliveryOtpEnabled === true;
     const deliveryPin =
-      updated.status === 'DELIVERED' || updated.status === 'CANCELLED'
+      !otpOn || updated.status === 'DELIVERED' || updated.status === 'CANCELLED'
         ? null
         : await ShopSourcingService.customerDeliveryPin(id);
     return NextResponse.json({ order: CustomerOrderService.toDetail(updated, deliveryPin) });

@@ -13,6 +13,7 @@ import { ACTIVE_ORDER_STATUSES } from '@/constants/orders';
 import { shouldClaimUnassignedPending, shouldUnlockStaffLock } from '@/lib/orderClaim';
 import { NotificationService } from '@/services/NotificationService';
 import { CustomerPushService } from '@/services/CustomerPushService';
+import { SettingsService } from '@/services/SettingsService';
 import { ShopSourcingService } from '@/services/ShopSourcingService';
 import { ShopHandoverService } from '@/services/ShopHandoverService';
 import { shouldNotifyDelivered, shouldNotifyOutForDelivery } from '@/lib/customerOutForDeliveryPush';
@@ -360,7 +361,9 @@ export class OrderService {
       throw new Error('This delivery is locked to the staff who entered the PIN.');
     }
 
+    const deliveryOtpOn = (await SettingsService.getStoreConfig()).deliveryOtpEnabled === true;
     const pinDeliver =
+      deliveryOtpOn &&
       data.status === 'DELIVERED' &&
       order.status !== 'DELIVERED' &&
       (await ShopSourcingService.hasDeliveryPin(orderId));
@@ -476,7 +479,8 @@ export class OrderService {
     adminEventBus.emit({ type: 'order_updated', payload });
 
     if (shouldNotifyOutForDelivery(order.status, data.status)) {
-      const deliveryPin = await ShopSourcingService.createDeliveryPin(updated.id);
+      const otpOn = (await SettingsService.getStoreConfig()).deliveryOtpEnabled === true;
+      const deliveryPin = otpOn ? await ShopSourcingService.createDeliveryPin(updated.id) : null;
       void CustomerPushService.notifyOutForDelivery({
         orderId: updated.id,
         orderNumber: updated.orderNumber,

@@ -66,6 +66,12 @@ export const SETTINGS_NAV_SECTIONS = [
     hint: 'Off by default. When on, Delivery Partner accounts can use Start Delivery at /delivery. Jobs come in a later update.',
   },
   {
+    id: 'delivery-otp',
+    label: 'Delivery PIN',
+    group: 'Orders',
+    hint: 'Off by default. When on, every order gets a 4-digit PIN, it is pushed at Out for delivery, and staff must enter it to mark Delivered.',
+  },
+  {
     id: 'weather',
     label: 'Weather Notice',
     group: 'Orders',

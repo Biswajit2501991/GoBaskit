@@ -13,6 +13,7 @@ import {
   CloudRain,
   CreditCard,
   FileText,
+  KeyRound,
   LayoutDashboard,
   LayoutGrid,
   MapPin,
@@ -76,6 +77,7 @@ const SETTINGS_ICONS: Record<(typeof SETTINGS_SECTIONS)[number]['id'], LucideIco
   'store-status': Store,
   'shop-sourcing': Building2,
   'partner-delivery': Bike,
+  'delivery-otp': KeyRound,
   weather: CloudRain,
   payments: Wallet,
   'wa-templates': FileText,
@@ -213,6 +215,7 @@ interface StoreConfig {
   overnightCheckout?: OvernightCheckoutConfig;
   shopSourcing?: ShopSourcingConfig;
   partnerDeliveryEnabled?: boolean;
+  deliveryOtpEnabled?: boolean;
   discountConfig: DiscountConfig;
 }
 
@@ -331,6 +334,9 @@ export default function SettingsManager({
   const [partnerDeliveryEnabled, setPartnerDeliveryEnabled] = useState(
     initialConfig.partnerDeliveryEnabled === true,
   );
+  const [deliveryOtpEnabled, setDeliveryOtpEnabled] = useState(
+    initialConfig.deliveryOtpEnabled === true,
+  );
   const [broadcastTitle, setBroadcastTitle] = useState('GoBaskit');
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastSending, setBroadcastSending] = useState(false);
@@ -400,6 +406,7 @@ export default function SettingsManager({
       overnightCheckout,
       shopSourcing,
       partnerDeliveryEnabled,
+      deliveryOtpEnabled,
     };
     // Capture hydrated defaults once so the first save only writes real edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -680,6 +687,9 @@ export default function SettingsManager({
       if (Boolean(prev.partnerDeliveryEnabled) !== Boolean(partnerDeliveryEnabled)) {
         body.partnerDeliveryEnabled = partnerDeliveryEnabled;
       }
+      if (Boolean(prev.deliveryOtpEnabled) !== Boolean(deliveryOtpEnabled)) {
+        body.deliveryOtpEnabled = deliveryOtpEnabled;
+      }
 
       if (Object.keys(body).length === 0) {
         setMessage({ type: 'ok', text: 'No changes to save.' });
@@ -716,6 +726,7 @@ export default function SettingsManager({
       setOvernightCheckout(parseOvernightCheckout(updated.overnightCheckout));
       setShopSourcing(parseShopSourcing(updated.shopSourcing));
       setPartnerDeliveryEnabled(updated.partnerDeliveryEnabled === true);
+      setDeliveryOtpEnabled(updated.deliveryOtpEnabled === true);
       setHomepageConfig({
         ...updated.homepageConfig,
         showTopDiscounted: updated.homepageConfig.showTopDiscounted !== false,
@@ -1455,6 +1466,30 @@ export default function SettingsManager({
             className="accent-blinkit-green"
           />
           Enable partner delivery
+        </label>
+      </section>
+          )}
+
+          {activeSection === 'delivery-otp' && (
+      <section className={SECTION_CARD}>
+        <div>
+          <h2 className="font-semibold text-sm text-gray-900">Delivery PIN</h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Off by default. When on, every new order gets a 4-digit PIN. It is sent in the
+            out-for-delivery alert, shown on Track while the order is on the way, and staff must
+            enter it to mark Delivered. Turning this off does not delete existing orders or PINs;
+            staff can mark Delivered without a PIN again.
+          </p>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={deliveryOtpEnabled}
+            onChange={(e) => setDeliveryOtpEnabled(e.target.checked)}
+            disabled={!canEdit}
+            className="accent-blinkit-green"
+          />
+          Enable delivery PIN
         </label>
       </section>
           )}

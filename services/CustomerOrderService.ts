@@ -6,6 +6,7 @@ import { canCustomerMutate, customerEditExpiresAt } from '@/utils/orderEditPolic
 import { CustomerProfileService } from '@/services/CustomerProfileService';
 import { OrderArchiveService } from '@/services/OrderArchiveService';
 import { ShopSourcingService } from '@/services/ShopSourcingService';
+import { SettingsService } from '@/services/SettingsService';
 import type { SavedCheckoutProfile } from '@/utils/customerProfile';
 
 export interface CustomerOrderSummary {
@@ -157,8 +158,9 @@ export class CustomerOrderService {
     });
 
     if (!order) return null;
+    const otpOn = (await SettingsService.getStoreConfig()).deliveryOtpEnabled === true;
     const deliveryPin =
-      order.status === 'DELIVERED' || order.status === 'CANCELLED'
+      !otpOn || order.status === 'DELIVERED' || order.status === 'CANCELLED'
         ? null
         : await ShopSourcingService.customerDeliveryPin(order.id);
     return this.toDetail(order, deliveryPin);

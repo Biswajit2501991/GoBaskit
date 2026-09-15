@@ -92,6 +92,7 @@ interface ConfigState {
   shopSourcing: ShopSourcingConfig;
   storefrontRating: StorefrontRatingPublic;
   deliveryAddressLocalities: string[];
+  deliveryOtpEnabled: boolean;
   loaded: boolean;
   fetchConfig: () => Promise<void>;
   refreshConfig: () => Promise<void>;
@@ -166,6 +167,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   shopSourcing: DEFAULT_SHOP_SOURCING,
   storefrontRating: { ...DEFAULT_STOREFRONT_RATING, displayCount: 0 },
   deliveryAddressLocalities: [],
+  deliveryOtpEnabled: false,
   loaded: false,
 
   fetchConfig: async () => {
@@ -251,6 +253,7 @@ async function loadConfig(
             : get().weatherDisclaimer,
         overnightCheckout: parseOvernightCheckout(c.overnightCheckout),
         shopSourcing: parseShopSourcing(c.shopSourcing),
+        deliveryOtpEnabled: c.deliveryOtpEnabled === true,
         storefrontRating: (() => {
           const parsed = parseStorefrontRating(c.storefrontRating);
           const displayCount = Number(c.storefrontRating?.displayCount);

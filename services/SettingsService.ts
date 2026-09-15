@@ -46,6 +46,10 @@ import {
   parsePartnerDelivery,
 } from '@/lib/partnerDelivery';
 import {
+  DEFAULT_DELIVERY_OTP,
+  parseDeliveryOtp,
+} from '@/lib/deliveryOtp';
+import {
   DEFAULT_STOREFRONT_RATING,
   parseStorefrontRating,
   withStorefrontDisplayCount,
@@ -159,6 +163,8 @@ export interface StoreConfig {
   shopSourcing: ShopSourcingConfig;
   /** Part-time delivery partners at /delivery. Default off — no partner jobs or pushes. */
   partnerDeliveryEnabled: boolean;
+  /** Customer delivery PIN / OTP. Default off — no PIN at checkout and Delivered does not require it. */
+  deliveryOtpEnabled: boolean;
   /** Header rating chip next to GoBaskit. Staff own the score; count = seed + reviews × 10. */
   storefrontRating: StorefrontRatingConfig;
   /** Neighbourhood words learned from real checkouts. Separate Setting row. */
@@ -263,6 +269,7 @@ const KEY_WEATHER_DISCLAIMER = 'weather_disclaimer';
 const KEY_OVERNIGHT_CHECKOUT = 'overnight_checkout';
 const KEY_SHOP_SOURCING = 'shop_sourcing';
 const KEY_PARTNER_DELIVERY = 'partner_delivery_enabled';
+const KEY_DELIVERY_OTP = 'delivery_otp_enabled';
 const KEY_STOREFRONT_RATING = 'storefront_rating';
 const KEY_DELIVERY_ADDRESS_LOCALITIES = 'delivery_address_localities';
 const KEY_PROFIT_DASHBOARD = 'profit_dashboard_enabled';
@@ -377,6 +384,7 @@ const DEFAULTS: StoreConfig = {
   overnightCheckout: DEFAULT_OVERNIGHT_CHECKOUT,
   shopSourcing: DEFAULT_SHOP_SOURCING,
   partnerDeliveryEnabled: DEFAULT_PARTNER_DELIVERY.enabled,
+  deliveryOtpEnabled: DEFAULT_DELIVERY_OTP.enabled,
   storefrontRating: DEFAULT_STOREFRONT_RATING,
   deliveryAddressLocalities: [],
   profitDashboardEnabled: false,
@@ -742,6 +750,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
   const profitDashboardEnabled =
     (map.get(KEY_PROFIT_DASHBOARD) ?? 'false').toLowerCase() === 'true';
   const partnerDeliveryEnabled = parsePartnerDelivery(map.get(KEY_PARTNER_DELIVERY) ?? 'false').enabled;
+  const deliveryOtpEnabled = parseDeliveryOtp(map.get(KEY_DELIVERY_OTP) ?? 'false').enabled;
 
   return {
     serviceablePins: pins,
@@ -769,6 +778,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     overnightCheckout,
     shopSourcing,
     partnerDeliveryEnabled,
+    deliveryOtpEnabled,
     storefrontRating,
     deliveryAddressLocalities,
     profitDashboardEnabled,
@@ -809,6 +819,7 @@ export const SettingsService = {
               KEY_OVERNIGHT_CHECKOUT,
               KEY_SHOP_SOURCING,
               KEY_PARTNER_DELIVERY,
+              KEY_DELIVERY_OTP,
               KEY_STOREFRONT_RATING,
               KEY_DELIVERY_ADDRESS_LOCALITIES,
               KEY_PROFIT_DASHBOARD,
@@ -897,6 +908,11 @@ export const SettingsService = {
     if (partial.partnerDeliveryEnabled != null) {
       writes.push(
         upsert(KEY_PARTNER_DELIVERY, partial.partnerDeliveryEnabled ? 'true' : 'false'),
+      );
+    }
+    if (partial.deliveryOtpEnabled != null) {
+      writes.push(
+        upsert(KEY_DELIVERY_OTP, partial.deliveryOtpEnabled ? 'true' : 'false'),
       );
     }
     if (partial.staffIdleTimeoutEnabled != null) {
