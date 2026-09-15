@@ -49,6 +49,14 @@ export async function logoutEverywhere(redirectTo = '/') {
     /* ignore */
   }
 
+  try {
+    const { useAdminStaffStore } = await import('@/store/adminStaffStore');
+    useAdminStaffStore.getState().invalidateStaff();
+    useAdminStaffStore.getState().invalidateShops();
+  } catch {
+    /* ignore */
+  }
+
   const target = redirectTo.startsWith('/') ? redirectTo : '/';
   window.location.replace(target);
 }

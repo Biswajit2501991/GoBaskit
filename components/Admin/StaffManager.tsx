@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { STAFF_ROLE_LABELS, assignableStaffRoles } from '@/types/staff';
 import type { StaffRole } from '@prisma/client';
 import { Button } from '@/components/ui/button';
@@ -11,24 +10,15 @@ import { Plus, Pencil, Trash2, X, KeyRound, Eye, EyeOff } from 'lucide-react';
 import StaffBulkImport from '@/components/Admin/StaffBulkImport';
 import ListPagination from './ListPagination';
 import { ADMIN_LIST_PAGE_SIZE } from '@/constants/admin';
+import {
+  useAdminStaffStore,
+  adminStaffListKey,
+  type AdminStaffRow as StaffRow,
+  type AdminShopOption,
+} from '@/store/adminStaffStore';
 
-interface StaffRow {
-  id: string;
-  name: string;
-  mobile: string;
-  email: string | null;
-  role: StaffRole;
-  permissions: string[];
-  active: boolean;
-  lastLogin: string | null;
-  assignedCity: string | null;
-  assignedAreas: string[];
-  latitude: number | null;
-  longitude: number | null;
-  deliveryRadius: number | null;
-  shopId: string | null;
-  deletedAt: string | null;
-}
+const EMPTY_STAFF: StaffRow[] = [];
+const EMPTY_SHOPS: AdminShopOption[] = [];
 
 const emptyForm = {
   name: '',
@@ -87,13 +77,10 @@ export default function StaffManager({
   canManage: boolean;
   actorRole: StaffRole;
 }) {
-  const router = useRouter();
-  const [items, setItems] = useState<StaffRow[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
-  const initialLoadDone = useRef(false);
+  const searchDebounced = useRef(search);
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -106,7 +93,6 @@ export default function StaffManager({
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [showViewedPassword, setShowViewedPassword] = useState(false);
-  const [shops, setShops] = useState<Array<{ id: string; name: string }>>([]);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordSaving, setPasswordSaving] = useState(false);
@@ -114,42 +100,47 @@ export default function StaffManager({
   const canBulkImport = actorRole === 'ALL_SUPER_ADMIN';
   const roleOptions = assignableStaffRoles(actorRole).filter((r) => r !== 'ALL_SUPER_ADMIN' || actorRole === 'ALL_SUPER_ADMIN');
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({
-      page: String(page),
-      pageSize: String(ADMIN_LIST_PAGE_SIZE),
-    });
-    if (search.trim()) params.set('search', search.trim());
+  const listParams = {
+    page,
+    pageSize: ADMIN_LIST_PAGE_SIZE,
+    search: debouncedSearch,
+  };
+  const cacheKey = adminStaffListKey(listParams);
+  const cached = useAdminStaffStore((s) => s.lists[cacheKey]);
+  const storeShops = useAdminStaffStore((s) => s.shops);
+  const shops = storeShops.length > 0 ? storeShops : EMPTY_SHOPS;
+  const fetchStaff = useAdminStaffStore((s) => s.fetchStaff);
+  const refreshStaff = useAdminStaffStore((s) => s.refreshStaff);
+  const fetchShops = useAdminStaffStore((s) => s.fetchShops);
 
-    const res = await fetch(`/api/admin/staff?${params}`);
-    if (res.ok) {
-      const data = await res.json();
-      setItems(Array.isArray(data.items) ? data.items : []);
-      setTotal(typeof data.total === 'number' ? data.total : 0);
-    }
-    setLoading(false);
-    initialLoadDone.current = true;
-  }, [page, search]);
-
-  useEffect(() => {
-    fetch('/api/admin/shops', { cache: 'no-store' })
-      .then((res) => (res.ok ? res.json() : { items: [] }))
-      .then((data) => {
-        const items = Array.isArray(data.items) ? data.items : [];
-        setShops(items.map((shop: { id: string; name: string }) => ({ id: shop.id, name: shop.name })));
-      })
-      .catch(() => setShops([]));
-  }, []);
+  const items = cached?.items ?? EMPTY_STAFF;
+  const total = cached?.total ?? 0;
+  const loading = !cached;
 
   useEffect(() => {
-    if (!initialLoadDone.current || !search) {
-      void load();
+    searchDebounced.current = search;
+    if (!search) {
+      setDebouncedSearch('');
       return;
     }
-    const t = setTimeout(load, 300);
+    const t = setTimeout(() => {
+      if (searchDebounced.current === search) setDebouncedSearch(search);
+    }, 300);
     return () => clearTimeout(t);
-  }, [load]);
+  }, [search]);
+
+  useEffect(() => {
+    void fetchStaff(listParams);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch, fetchStaff]);
+
+  useEffect(() => {
+    void fetchShops();
+  }, [fetchShops]);
+
+  function reloadAfterMutation() {
+    void refreshStaff(listParams);
+  }
 
   function openCreate() {
     if (!canManage) return;
@@ -284,8 +275,7 @@ export default function StaffManager({
         return;
       }
       setShowForm(false);
-      load();
-      router.refresh();
+      reloadAfterMutation();
     } catch {
       setError('Network or server error. Please try again.');
     } finally {
@@ -301,8 +291,7 @@ export default function StaffManager({
       body: JSON.stringify({ active: true }),
     });
     if (res.ok) {
-      load();
-      router.refresh();
+      reloadAfterMutation();
       return;
     }
     const data = await res.json().catch(() => ({}));
@@ -314,8 +303,7 @@ export default function StaffManager({
     if (!confirm('Deactivate this staff member?')) return;
     const res = await fetch(`/api/admin/staff/${id}`, { method: 'DELETE' });
     if (res.ok) {
-      load();
-      router.refresh();
+      reloadAfterMutation();
     } else {
       const data = await res.json().catch(() => ({}));
       alert(typeof data.error === 'string' ? data.error : 'Could not deactivate staff');
@@ -337,7 +325,7 @@ export default function StaffManager({
         </div>
         {canManage && (
           <div className="flex gap-2">
-            {canBulkImport && <StaffBulkImport onComplete={load} />}
+            {canBulkImport && <StaffBulkImport onComplete={reloadAfterMutation} />}
             <Button onClick={openCreate} className="gap-1">
               <Plus className="w-4 h-4" /> Add Staff
             </Button>
