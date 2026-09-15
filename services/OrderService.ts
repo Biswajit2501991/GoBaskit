@@ -15,7 +15,7 @@ import { NotificationService } from '@/services/NotificationService';
 import { CustomerPushService } from '@/services/CustomerPushService';
 import { ShopSourcingService } from '@/services/ShopSourcingService';
 import { ShopHandoverService } from '@/services/ShopHandoverService';
-import { shouldNotifyOutForDelivery } from '@/lib/customerOutForDeliveryPush';
+import { shouldNotifyDelivered, shouldNotifyOutForDelivery } from '@/lib/customerOutForDeliveryPush';
 
 export interface OrderListParams {
   /** Exact live-board order id (notification deep link). */
@@ -360,9 +360,10 @@ export class OrderService {
       throw new Error('This delivery is locked to the staff who entered the PIN.');
     }
 
-    const sourcingOn = await ShopSourcingService.isEnabled();
     const pinDeliver =
-      sourcingOn && data.status === 'DELIVERED' && order.status !== 'DELIVERED';
+      data.status === 'DELIVERED' &&
+      order.status !== 'DELIVERED' &&
+      (await ShopSourcingService.hasDeliveryPin(orderId));
     if (pinDeliver) {
       const ok = await ShopSourcingService.verifyDeliveryPin(orderId, String(data.deliveryPin ?? ''));
       if (!ok) {
@@ -475,11 +476,21 @@ export class OrderService {
     adminEventBus.emit({ type: 'order_updated', payload });
 
     if (shouldNotifyOutForDelivery(order.status, data.status)) {
+      const deliveryPin = await ShopSourcingService.createDeliveryPin(updated.id);
       void CustomerPushService.notifyOutForDelivery({
         orderId: updated.id,
         orderNumber: updated.orderNumber,
         customerMobile: updated.customer.mobile,
+        deliveryPin,
       }).catch((err) => console.error('[orders] customer OFD push failed', err));
+    }
+
+    if (shouldNotifyDelivered(order.status, data.status)) {
+      void CustomerPushService.notifyDelivered({
+        orderId: updated.id,
+        orderNumber: updated.orderNumber,
+        customerMobile: updated.customer.mobile,
+      }).catch((err) => console.error('[orders] customer delivered push failed', err));
     }
 
     if (claim) {

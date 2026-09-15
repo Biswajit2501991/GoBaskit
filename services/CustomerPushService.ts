@@ -1,7 +1,7 @@
 import webpush from 'web-push';
 import { prisma } from '@/lib/prisma';
 import { readVapidPrivateKey, readVapidPublicKey, readVapidSubject } from '@/lib/vapid';
-import { outForDeliveryPushPayload } from '@/lib/customerOutForDeliveryPush';
+import { outForDeliveryPushPayload, deliveredPushPayload } from '@/lib/customerOutForDeliveryPush';
 import { customerBroadcastPayload } from '@/lib/customerBroadcastPush';
 import { normalizeMobile, isValidIndianMobile } from '@/utils/mobile';
 import { mobileVariantsFromE164, toE164 } from '@/utils/phone';
@@ -71,10 +71,39 @@ export class CustomerPushService {
     orderId: string;
     orderNumber: string;
     customerMobile: string;
+    deliveryPin?: string | null;
   }) {
+    await this.sendToCustomer(
+      params.customerMobile,
+      outForDeliveryPushPayload({
+        id: params.orderId,
+        orderNumber: params.orderNumber,
+        deliveryPin: params.deliveryPin,
+      }),
+      'high',
+    );
+  }
+
+  static async notifyDelivered(params: {
+    orderId: string;
+    orderNumber: string;
+    customerMobile: string;
+  }) {
+    await this.sendToCustomer(
+      params.customerMobile,
+      deliveredPushPayload({ id: params.orderId, orderNumber: params.orderNumber }),
+      'high',
+    );
+  }
+
+  private static async sendToCustomer(
+    customerMobile: string,
+    payload: { title: string; body: string; url: string; tag: string },
+    urgency: 'high' | 'normal',
+  ) {
     if (!ensureConfigured()) return;
 
-    const account = await this.findCustomerMobile(params.customerMobile);
+    const account = await this.findCustomerMobile(customerMobile);
     if (!account) return;
 
     const subs = await prisma.customerPushSubscription.findMany({
@@ -82,10 +111,6 @@ export class CustomerPushService {
     });
     if (!subs.length) return;
 
-    const payload = outForDeliveryPushPayload({
-      id: params.orderId,
-      orderNumber: params.orderNumber,
-    });
     const body = JSON.stringify(payload);
 
     await Promise.allSettled(
@@ -97,7 +122,7 @@ export class CustomerPushService {
               keys: { p256dh: sub.p256dh, auth: sub.auth },
             },
             body,
-            { urgency: 'high', TTL: CUSTOMER_PUSH_TTL_SECONDS },
+            { urgency, TTL: CUSTOMER_PUSH_TTL_SECONDS },
           );
         } catch (err) {
           const status = (err as { statusCode?: number })?.statusCode;

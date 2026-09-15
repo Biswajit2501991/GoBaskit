@@ -390,10 +390,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const deliveryPin =
-      config.shopSourcing.enabled === true
-        ? await ShopSourcingService.createDeliveryPin(order.id)
-        : '';
+    const deliveryPin = await ShopSourcingService.createDeliveryPin(order.id);
     const res = NextResponse.json(
       successPayload(order, started, false, deliveryPin ? { deliveryPin } : undefined),
     );

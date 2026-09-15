@@ -271,7 +271,7 @@ export default function OrderTrackDetailClient({ orderId }: { orderId: string })
                 </p>
               )}
               {lockedReason ? <p className="text-xs text-gray-500 mt-2">{lockedReason}</p> : null}
-              {order.deliveryPin && order.status !== 'CANCELLED' ? (
+              {order.deliveryPin && order.status !== 'CANCELLED' && order.status !== 'DELIVERED' ? (
                 <div className="mt-4 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-center">
                   <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Delivery PIN</p>
                   <p className="text-3xl font-mono font-bold tracking-[0.35em] text-gray-900 mt-1">{order.deliveryPin}</p>

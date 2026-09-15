@@ -439,6 +439,11 @@ export class ShopSourcingService {
     return this.rotateDeliveryPin(orderId);
   }
 
+  static async hasDeliveryPin(orderId: string): Promise<boolean> {
+    const row = await prisma.orderDeliveryPin.findUnique({ where: { orderId }, select: { id: true } });
+    return Boolean(row);
+  }
+
   static async verifyDeliveryPin(orderId: string, pin: string): Promise<boolean> {
     if (!isFourDigitPin(pin)) return false;
     const row = await prisma.orderDeliveryPin.findUnique({ where: { orderId } });

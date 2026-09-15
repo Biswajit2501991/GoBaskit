@@ -46,7 +46,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       delivery,
       actor: { type: 'customer', mobile },
     });
-    const deliveryPin = await ShopSourcingService.customerDeliveryPin(id);
+    const deliveryPin =
+      updated.status === 'DELIVERED' || updated.status === 'CANCELLED'
+        ? null
+        : await ShopSourcingService.customerDeliveryPin(id);
     return NextResponse.json({ order: CustomerOrderService.toDetail(updated, deliveryPin) });
   } catch (err) {
     if (err instanceof OrderEditError) {

@@ -157,7 +157,10 @@ export class CustomerOrderService {
     });
 
     if (!order) return null;
-    const deliveryPin = await ShopSourcingService.customerDeliveryPin(order.id);
+    const deliveryPin =
+      order.status === 'DELIVERED' || order.status === 'CANCELLED'
+        ? null
+        : await ShopSourcingService.customerDeliveryPin(order.id);
     return this.toDetail(order, deliveryPin);
   }
 

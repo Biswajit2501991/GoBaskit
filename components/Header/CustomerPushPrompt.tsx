@@ -88,7 +88,7 @@ export default function CustomerPushPrompt({
           <div>
             <h2 className="text-lg font-bold text-gray-900">Get out-for-delivery alerts</h2>
             <p className="text-sm text-gray-600 mt-1.5 leading-relaxed">
-              Enable push notifications so you know when your order is out for delivery. We never include staff or rider names.
+              Enable push notifications so you know when your order is out for delivery, including the delivery PIN. We never include staff or rider names.
             </p>
             {iosHint && (
               <p className="text-sm text-amber-800 mt-2 leading-relaxed">
