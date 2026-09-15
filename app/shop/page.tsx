@@ -104,7 +104,10 @@ function ShopPortal() {
 
   const loadOffers = useCallback(async () => {
     const seq = ++loadSeq.current;
-    const res = await fetch('/api/shop/offers', { cache: 'no-store', credentials: 'same-origin' });
+    const offersReq = fetch('/api/shop/offers', { cache: 'no-store', credentials: 'same-origin' });
+    const historyReq = fetch('/api/shop/history', { cache: 'no-store', credentials: 'same-origin' });
+
+    const res = await offersReq;
     if (seq !== loadSeq.current) return { ok: false as const, offers: [] as Offer[], history: [] as HistoryRow[] };
     if (res.status === 401) {
       setAuthed(false);
@@ -120,9 +123,7 @@ function ShopPortal() {
     const data = await res.json().catch(() => ({}));
     if (seq !== loadSeq.current) return { ok: false as const, offers: [] as Offer[], history: [] as HistoryRow[] };
     const next = Array.isArray(data.offers) ? (data.offers as Offer[]) : [];
-    const past = Array.isArray(data.history) ? (data.history as HistoryRow[]) : [];
     setOffers(next);
-    setHistory(past);
     setError('');
     setAuthed(true);
     setSessionReady(true);
@@ -130,10 +131,19 @@ function ShopPortal() {
       if (current && next.some((offer) => offer.offerId === current.offerId)) return current;
       return next[0] ?? null;
     });
-    setViewedHistory((current) => {
-      if (!current) return current;
-      return past.find((row) => row.id === current.id) ?? current;
-    });
+
+    const historyRes = await historyReq;
+    if (seq !== loadSeq.current) return { ok: true as const, offers: next, history: [] as HistoryRow[] };
+    let past: HistoryRow[] = [];
+    if (historyRes.ok) {
+      const historyData = await historyRes.json().catch(() => ({}));
+      past = Array.isArray(historyData.history) ? (historyData.history as HistoryRow[]) : [];
+      setHistory(past);
+      setViewedHistory((current) => {
+        if (!current) return current;
+        return past.find((row) => row.id === current.id) ?? current;
+      });
+    }
     return { ok: true as const, offers: next, history: past };
   }, []);
 

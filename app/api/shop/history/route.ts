@@ -5,6 +5,6 @@ import { ShopSourcingService } from '@/services/ShopSourcingService';
 export async function GET() {
   const auth = await requireShopStaff();
   if (auth.error) return auth.error;
-  const offers = await ShopSourcingService.listOpenForShop(auth.staff!.shopId!);
-  return NextResponse.json({ offers });
+  const history = await ShopSourcingService.listFulfillmentsForShop(auth.staff!.shopId!);
+  return NextResponse.json({ history });
 }

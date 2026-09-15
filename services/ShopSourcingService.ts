@@ -37,6 +37,16 @@ function isUniqueViolation(err: unknown): boolean {
 }
 
 const EXTERNAL_ACTIVE_SHOP = { active: true, isInternal: false } as const;
+const CATALOG_WRITE_CHUNK = 1_000;
+
+async function inIdChunks<T>(ids: string[], fn: (chunk: string[]) => Promise<T[]>): Promise<T[]> {
+  if (!ids.length) return [];
+  const out: T[] = [];
+  for (let i = 0; i < ids.length; i += CATALOG_WRITE_CHUNK) {
+    out.push(...(await fn(ids.slice(i, i + CATALOG_WRITE_CHUNK))));
+  }
+  return out;
+}
 
 function shopOfferEligible(item: {
   fulfillmentRoute: string | null;
@@ -62,7 +72,14 @@ export class ShopSourcingService {
     return prisma.shop.findMany({
       where: { isInternal: false },
       orderBy: { name: 'asc' },
-      include: { _count: { select: { staff: true, productShops: true } } },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        address: true,
+        city: true,
+        active: true,
+      },
     });
   }
 
@@ -131,29 +148,41 @@ export class ShopSourcingService {
     });
     if (!shop) throw new ShopSourcingError('Shop not found', 404);
     const cfg = await this.config();
-    const products = await prisma.product.findMany({
-      select: {
-        id: true,
-        name: true,
-        categoryId: true,
-        category: { select: { id: true, name: true } },
-        productShops: { select: { shopId: true } },
-      },
-      orderBy: [{ category: { name: 'asc' } }, { name: 'asc' }],
-    });
+    const [products, assignedRows, otherCounts] = await Promise.all([
+      prisma.product.findMany({
+        select: {
+          id: true,
+          name: true,
+          categoryId: true,
+          category: { select: { name: true } },
+        },
+        orderBy: [{ category: { name: 'asc' } }, { name: 'asc' }],
+      }),
+      prisma.productShop.findMany({
+        where: { shopId },
+        select: { productId: true },
+      }),
+      prisma.productShop.groupBy({
+        by: ['productId'],
+        where: { shopId: { not: shopId } },
+        _count: { _all: true },
+      }),
+    ]);
+    const assigned = new Set(assignedRows.map((row) => row.productId));
+    const others = new Map(otherCounts.map((row) => [row.productId, row._count._all]));
     return {
       shop,
       maxShopsPerItem: cfg.maxShopsPerItem,
       items: products.map((row) => {
-        const assigned = row.productShops.some((tag) => tag.shopId === shopId);
-        const otherCount = row.productShops.filter((tag) => tag.shopId !== shopId).length;
+        const isAssigned = assigned.has(row.id);
+        const otherCount = others.get(row.id) ?? 0;
         return {
           id: row.id,
           name: row.name,
           categoryId: row.categoryId,
           categoryName: row.category.name,
-          assigned,
-          atCap: !assigned && otherCount >= cfg.maxShopsPerItem,
+          assigned: isAssigned,
+          atCap: !isAssigned && otherCount >= cfg.maxShopsPerItem,
         };
       }),
     };
@@ -167,48 +196,57 @@ export class ShopSourcingService {
     if (!shop) throw new ShopSourcingError('Shop not found or inactive', 404);
     const cfg = await this.config();
     const wanted = [...new Set(productIds.filter(Boolean))];
-    const products = wanted.length
-      ? await prisma.product.findMany({
-          where: { id: { in: wanted } },
-          select: { id: true, productShops: { select: { shopId: true } } },
-        })
-      : [];
-    if (products.length !== wanted.length) {
-      throw new ShopSourcingError('One or more products are missing');
+    if (wanted.length) {
+      const foundChunks = await inIdChunks(wanted, async (chunk) => {
+        const n = await prisma.product.count({ where: { id: { in: chunk } } });
+        return [n];
+      });
+      const found = foundChunks.reduce((sum, n) => sum + n, 0);
+      if (found !== wanted.length) {
+        throw new ShopSourcingError('One or more products are missing');
+      }
     }
     const currentRows = await prisma.productShop.findMany({
       where: { shopId },
       select: { productId: true },
     });
+    const currentIds = currentRows.map((row) => row.productId);
+    const currentSet = new Set(currentIds);
+    const addCandidates = wanted.filter((id) => !currentSet.has(id));
     const otherShopCountByProduct: Record<string, number> = {};
-    for (const row of products) {
-      otherShopCountByProduct[row.id] = row.productShops.filter((tag) => tag.shopId !== shopId).length;
-    }
+    await inIdChunks(addCandidates, async (chunk) => {
+      const grouped = await prisma.productShop.groupBy({
+        by: ['productId'],
+        where: { productId: { in: chunk }, shopId: { not: shopId } },
+        _count: { _all: true },
+      });
+      for (const row of grouped) {
+        otherShopCountByProduct[row.productId] = row._count._all;
+      }
+      return grouped;
+    });
     const plan = planShopCatalogSync({
-      currentProductIds: currentRows.map((row) => row.productId),
+      currentProductIds: currentIds,
       wantedProductIds: wanted,
       otherShopCountByProduct,
       maxShopsPerItem: cfg.maxShopsPerItem,
     });
 
-    const ops = [];
-    if (plan.remove.length) {
-      ops.push(
-        prisma.productShop.deleteMany({
-          where: { shopId, productId: { in: plan.remove } },
-        }),
-      );
+    if (plan.add.length || plan.remove.length) {
+      await prisma.$transaction(async (tx) => {
+        for (let i = 0; i < plan.remove.length; i += CATALOG_WRITE_CHUNK) {
+          await tx.productShop.deleteMany({
+            where: { shopId, productId: { in: plan.remove.slice(i, i + CATALOG_WRITE_CHUNK) } },
+          });
+        }
+        for (let i = 0; i < plan.add.length; i += CATALOG_WRITE_CHUNK) {
+          await tx.productShop.createMany({
+            data: plan.add.slice(i, i + CATALOG_WRITE_CHUNK).map((productId) => ({ productId, shopId })),
+            skipDuplicates: true,
+          });
+        }
+      }, { maxWait: 5_000, timeout: 20_000 });
     }
-    for (const productId of plan.add) {
-      ops.push(
-        prisma.productShop.upsert({
-          where: { productId_shopId: { productId, shopId } },
-          create: { productId, shopId },
-          update: {},
-        }),
-      );
-    }
-    if (ops.length) await prisma.$transaction(ops);
 
     return {
       added: plan.add.length,
@@ -377,17 +415,50 @@ export class ShopSourcingService {
         status: 'OPEN',
         expiresAt: { gt: new Date() },
         skips: { none: { shopId } },
-      },
-      include: {
         order: {
-          include: {
-            customer: true,
+          items: {
+            some: {
+              product: { productShops: { some: { shopId, shop: { isInternal: false } } } },
+            },
+          },
+        },
+      },
+      select: {
+        id: true,
+        round: true,
+        expiresAt: true,
+        pickupHint: true,
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            customer: {
+              select: {
+                firstName: true,
+                lastName: true,
+                mobile: true,
+                houseNumber: true,
+                street: true,
+                area: true,
+                landmark: true,
+                city: true,
+                pincode: true,
+              },
+            },
             items: {
-              include: {
-                shopClaim: true,
+              select: {
+                id: true,
+                productName: true,
+                quantity: true,
+                unit: true,
+                fulfillmentRoute: true,
+                shopClaim: { select: { id: true } },
                 product: {
                   select: {
-                    productShops: { where: { shopId, shop: { isInternal: false } }, select: { shopId: true } },
+                    productShops: {
+                      where: { shopId, shop: { isInternal: false } },
+                      select: { shopId: true },
+                    },
                   },
                 },
               },

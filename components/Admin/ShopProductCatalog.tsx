@@ -34,8 +34,8 @@ export default function ShopProductCatalog({
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { quiet?: boolean }) => {
+    if (!opts?.quiet) setLoading(true);
     setError('');
     try {
       const res = await fetch(`/api/admin/shops/${shopId}/products`, { cache: 'no-store' });
@@ -49,7 +49,7 @@ export default function ShopProductCatalog({
       setMaxShops(typeof data.maxShopsPerItem === 'number' ? data.maxShopsPerItem : 3);
       setChecked(Object.fromEntries(next.map((row) => [row.id, row.assigned])));
     } finally {
-      setLoading(false);
+      if (!opts?.quiet) setLoading(false);
     }
   }, [shopId]);
 
@@ -106,13 +106,25 @@ export default function ShopProductCatalog({
         setError(typeof data.error === 'string' ? data.error : 'Could not save');
         return;
       }
-      const skipped = Array.isArray(data.skipped) ? data.skipped.length : 0;
+      const skippedList = Array.isArray(data.skipped) ? data.skipped.map((id: unknown) => String(id)) : [];
+      const skippedIds = new Set(skippedList);
+      setChecked((prev) => {
+        const next = { ...prev };
+        for (const id of skippedList) next[id] = false;
+        return next;
+      });
+      setItems((prev) =>
+        prev.map((row) => ({
+          ...row,
+          assigned: Boolean(checked[row.id]) && !skippedIds.has(row.id),
+        })),
+      );
+      const skipped = skippedIds.size;
       setInfo(
         skipped
           ? `Saved. ${data.assigned} tagged. ${skipped} skipped (already at ${maxShops} shops).`
           : `Saved. ${data.assigned} products tagged to this shop.`,
       );
-      await load();
     } finally {
       setSaving(false);
     }
@@ -145,7 +157,7 @@ export default function ShopProductCatalog({
             : 'Whole category tagged to this shop.'
           : `Removed this shop from ${data.removed ?? 0} items in the category.`,
       );
-      await load();
+      await load({ quiet: true });
     } finally {
       setSaving(false);
     }
