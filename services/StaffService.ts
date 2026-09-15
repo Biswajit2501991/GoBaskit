@@ -110,6 +110,10 @@ export class StaffService {
   }
 
   static async updateLastLogin(id: string) {
-    await prisma.staffAccount.update({ where: { id }, data: { lastLogin: new Date() } });
+    const now = new Date();
+    await prisma.staffAccount.update({
+      where: { id },
+      data: { lastLogin: now, lastActiveAt: now },
+    });
   }
 }

@@ -497,6 +497,7 @@ model StaffAccount {
   active          Boolean   @default(true)
   deletedAt       DateTime? @map("deleted_at")
   lastLogin       DateTime? @map("last_login")
+  lastActiveAt    DateTime? @map("last_active_at")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 

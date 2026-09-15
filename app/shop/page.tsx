@@ -16,6 +16,7 @@ import {
 } from '@/lib/admin-push-client';
 import { normalizeMobile } from '@/utils/mobile';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
+import StaffSessionKeeper from '@/components/Admin/StaffSessionKeeper';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { formatOrderLineLabel } from '@/utils/orderItemName';
 
@@ -526,6 +527,7 @@ function ShopPortal() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <StaffSessionKeeper logoutRedirect="/shop" />
       <header className="bg-white border-b px-4 py-3 flex items-center justify-between gap-3">
         <p className="font-extrabold">
           Go<span className="text-blinkit-green">Baskit</span> Shop

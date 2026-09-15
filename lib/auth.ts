@@ -5,6 +5,8 @@ import crypto from 'crypto';
 import { cookies } from 'next/headers';
 import type { StaffRole } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { SettingsService } from '@/services/SettingsService';
+import { isStaffIdleExpired } from '@/lib/staffIdle';
 import {
   parsePermissions,
   staffHasPermission,
@@ -87,6 +89,16 @@ export async function rotateStaffRefreshToken(oldRaw: string) {
   });
   if (!existing || !existing.staff.active || existing.staff.deletedAt) return null;
 
+  const idleConfig = await SettingsService.getStoreConfig();
+  if (
+    isStaffIdleExpired(existing.staff.lastActiveAt, {
+      enabled: idleConfig.staffIdleTimeoutEnabled,
+      minutes: idleConfig.staffIdleTimeoutMinutes,
+    })
+  ) {
+    return null;
+  }
+
   await prisma.staffRefreshToken.delete({ where: { id: existing.id } });
   const access = signStaffAccessToken(existing.staff);
   const refresh = await createStaffRefreshToken(existing.staffId, existing.rememberMe);
@@ -135,10 +147,21 @@ export const getStaffFromSession = cache(async () => {
           active: true,
           deletedAt: true,
           lastLogin: true,
+          lastActiveAt: true,
           createdAt: true,
           updatedAt: true,
         },
       });
+      if (!staff) return null;
+      const idleConfig = await SettingsService.getStoreConfig();
+      if (
+        isStaffIdleExpired(staff.lastActiveAt, {
+          enabled: idleConfig.staffIdleTimeoutEnabled,
+          minutes: idleConfig.staffIdleTimeoutMinutes,
+        })
+      ) {
+        return null;
+      }
       return staff;
     }
 

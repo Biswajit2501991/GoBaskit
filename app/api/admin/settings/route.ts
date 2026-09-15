@@ -30,7 +30,7 @@ const settingsSchema = z.object({
   notificationSoundEnabled: z.boolean().optional(),
   profitDashboardEnabled: z.boolean().optional(),
   staffIdleTimeoutEnabled: z.boolean().optional(),
-  staffIdleTimeoutMinutes: z.number().int().min(5).max(240).optional(),
+  staffIdleTimeoutMinutes: z.number().int().min(5).max(720).optional(),
   cityAliases: z.record(z.string(), z.array(z.string().min(1))).optional(),
   pinCityMap: z.record(z.string().regex(/^\d{6}$/), z.string().min(1).max(80)).optional(),
   cityDefaultPins: z.record(z.string().min(1).max(80), z.string().regex(/^\d{6}$/)).optional(),

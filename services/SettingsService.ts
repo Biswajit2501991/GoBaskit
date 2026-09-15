@@ -20,6 +20,10 @@ import {
 } from '@/constants/seasonalThemes';
 import { parseDeliveryLocalities, sanitizeLearnedLocality } from '@/lib/deliveryAddress';
 import {
+  clampIdleTimeoutMinutes,
+  DEFAULT_STAFF_IDLE_TIMEOUT_MINUTES,
+} from '@/lib/staffIdle';
+import {
   applyWeatherObservation,
   DEFAULT_WEATHER_DISCLAIMER,
   parseWeatherDisclaimer,
@@ -89,7 +93,7 @@ export interface StoreConfig {
   notificationSoundEnabled: boolean;
   /** When true, idle staff are force-logged out after staffIdleTimeoutMinutes. */
   staffIdleTimeoutEnabled: boolean;
-  /** Minutes of no activity before forced staff logout (5–240). */
+  /** Minutes of no activity before forced staff logout (5–720). */
   staffIdleTimeoutMinutes: number;
   homepageConfig: {
     showHeroBanner: boolean;
@@ -255,14 +259,6 @@ const KEY_SHOP_SOURCING = 'shop_sourcing';
 const KEY_STOREFRONT_RATING = 'storefront_rating';
 const KEY_DELIVERY_ADDRESS_LOCALITIES = 'delivery_address_localities';
 const KEY_PROFIT_DASHBOARD = 'profit_dashboard_enabled';
-
-const DEFAULT_STAFF_IDLE_TIMEOUT_MINUTES = 15;
-
-function clampIdleTimeoutMinutes(raw: unknown): number {
-  const n = typeof raw === 'number' ? raw : Number(raw);
-  if (!Number.isFinite(n)) return DEFAULT_STAFF_IDLE_TIMEOUT_MINUTES;
-  return Math.min(240, Math.max(5, Math.round(n)));
-}
 
 const DEFAULT_DISCOUNT_CONFIG: DiscountConfig = {
   couponsEnabled: false,

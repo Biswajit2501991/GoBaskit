@@ -450,7 +450,7 @@ export default function SettingsManager({
     initialConfig.staffIdleTimeoutEnabled ?? true,
   );
   const [staffIdleTimeoutMinutes, setStaffIdleTimeoutMinutes] = useState(
-    initialConfig.staffIdleTimeoutMinutes ?? 15,
+    initialConfig.staffIdleTimeoutMinutes ?? 360,
   );
   const [weatherDisclaimer, setWeatherDisclaimer] = useState(() =>
     parseWeatherDisclaimer(initialConfig.weatherDisclaimer),
@@ -807,7 +807,7 @@ export default function SettingsManager({
       setCheckoutMode(updated.checkoutMode ?? 'both');
       setNotificationSoundEnabled(updated.notificationSoundEnabled ?? true);
       setStaffIdleTimeoutEnabled(updated.staffIdleTimeoutEnabled ?? true);
-      setStaffIdleTimeoutMinutes(updated.staffIdleTimeoutMinutes ?? 15);
+      setStaffIdleTimeoutMinutes(updated.staffIdleTimeoutMinutes ?? 360);
       setWeatherDisclaimer(parseWeatherDisclaimer(updated.weatherDisclaimer));
       setOvernightCheckout(parseOvernightCheckout(updated.overnightCheckout));
       setShopSourcing(parseShopSourcing(updated.shopSourcing));
@@ -1308,13 +1308,16 @@ export default function SettingsManager({
             id="staff-idle-minutes"
             type="number"
             min={5}
-            max={240}
+            max={720}
             step={1}
             value={staffIdleTimeoutMinutes}
-            onChange={(e) => setStaffIdleTimeoutMinutes(Number(e.target.value) || 15)}
+            onChange={(e) => setStaffIdleTimeoutMinutes(Number(e.target.value) || 360)}
             disabled={!canEdit || !staffIdleTimeoutEnabled}
           />
-          <p className="text-[11px] text-gray-400">Allowed range: 5–240 minutes. Default: 15.</p>
+          <p className="text-[11px] text-gray-400">
+            Any click, tap, scroll, or typing resets this timer. After this many minutes of no
+            activity, staff are logged out. Allowed range: 5–720 minutes. Default: 360 (6 hours).
+          </p>
         </div>
       </section>
           )}
