@@ -8,6 +8,7 @@ import { AnalyticsService } from '@/services/AnalyticsService';
 import { InventoryService } from '@/services/InventoryService';
 import { WhatsAppVerificationService } from '@/services/WhatsAppVerificationService';
 import { toE164 } from '@/utils/phone';
+import { formatCustomerName } from '@/utils/customer';
 import { normalizeMobile } from '@/utils/mobile';
 import { ACTIVE_ORDER_STATUSES } from '@/constants/orders';
 import { shouldClaimUnassignedPending, shouldUnlockStaffLock } from '@/lib/orderClaim';
@@ -504,6 +505,18 @@ export class OrderService {
         orderNumber: updated.orderNumber,
         staffName,
       }).catch((err) => console.error('[orders] claim notify failed', err));
+    }
+
+    if (data.status === 'CANCELLED' && order.status !== 'CANCELLED') {
+      void NotificationService.notifyOrderCancelled({
+        orderId: updated.id,
+        orderNumber: updated.orderNumber,
+        customerName: formatCustomerName(updated.customer.firstName, updated.customer.lastName),
+        city: updated.customer.city ?? '',
+        grandTotal: Number(updated.grandTotal) || 0,
+        by: 'staff',
+        assignedStaffId: updated.assignedStaffId,
+      }).catch((err) => console.error('[orders] staff cancel notify failed', err));
     }
 
     return updated;

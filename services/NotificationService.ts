@@ -10,6 +10,7 @@ import { InventoryService } from '@/services/InventoryService';
 import { AdminPushService } from '@/services/AdminPushService';
 import { formatOrderItemsSummary } from '@/utils/orderItemName';
 import { staffOrderDeepLink } from '@/lib/adminDeepLink';
+import { buildCancelledOrderAlert } from '@/lib/orderCancelledNotify';
 
 export interface NewOrderNotificationInput {
   id: string;
@@ -121,6 +122,55 @@ export class NotificationService {
     await prisma.order.updateMany({
       where: { id: order.id, assignedStaffId: null },
       data: { lastUnassignedPushAt: new Date() },
+    });
+
+    return notifications;
+  }
+
+  static async notifyOrderCancelled(params: {
+    orderId: string;
+    orderNumber: string;
+    customerName: string;
+    city: string;
+    grandTotal: number;
+    by: 'customer' | 'staff';
+    staffName?: string;
+    assignedStaffId?: string | null;
+  }) {
+    const alert = buildCancelledOrderAlert(params);
+    const recipientIds = [
+      ...new Set([
+        ...(await StaffAssignmentService.getOrderCapableStaffIds()),
+        ...(params.assignedStaffId ? [params.assignedStaffId] : []),
+      ]),
+    ];
+    if (!recipientIds.length) return [];
+
+    const notifications = await Promise.all(
+      recipientIds.map((staffId) =>
+        prisma.adminNotification.create({
+          data: {
+            staffId,
+            type: alert.type,
+            title: alert.title,
+            message: alert.message,
+            entityType: 'orders',
+            entityId: params.orderId,
+          },
+        }),
+      ),
+    );
+
+    for (const notification of notifications) {
+      await emitNotification(notification);
+    }
+
+    // Same tag as new-order so the system popup is replaced, not stacked.
+    void AdminPushService.notifyStaffIds(recipientIds, {
+      title: alert.title,
+      body: alert.message,
+      url: staffOrderDeepLink(params.orderId),
+      tag: `order-${params.orderId}`,
     });
 
     return notifications;

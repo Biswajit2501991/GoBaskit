@@ -31,6 +31,11 @@ jest.mock('@/services/OrderService', () => ({
     recordStatusChange: jest.fn(),
   },
 }));
+jest.mock('@/services/NotificationService', () => ({
+  NotificationService: {
+    notifyOrderCancelled: jest.fn().mockResolvedValue([]),
+  },
+}));
 jest.mock('@/services/AuditService', () => ({
   AuditService: { log: jest.fn() },
 }));
@@ -52,12 +57,15 @@ jest.mock('next/server', () => ({
 
 import { OrderEditError, OrderMutationService } from '@/services/OrderMutationService';
 import { InventoryService } from '@/services/InventoryService';
+import { NotificationService } from '@/services/NotificationService';
 
 const recent = new Date();
 
 function pendingOrder(overrides: Record<string, unknown> = {}) {
   return {
     id: 'ord1',
+    orderNumber: 'GB1',
+    grandTotal: 240,
     customerId: 'c1',
     status: 'PENDING',
     createdAt: recent,
@@ -139,6 +147,15 @@ describe('OrderMutationService guards', () => {
     expect(prismaMock.order.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ status: 'CANCELLED' }),
+      }),
+    );
+    expect(NotificationService.notifyOrderCancelled).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 'ord1',
+        orderNumber: 'GB1',
+        by: 'customer',
+        city: 'Adra',
+        grandTotal: 240,
       }),
     );
   });

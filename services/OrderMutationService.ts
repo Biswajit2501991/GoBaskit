@@ -28,6 +28,8 @@ import {
   extractLearnableTokens,
   setLearnedDeliveryLocalities,
 } from '@/lib/deliveryAddress';
+import { NotificationService } from '@/services/NotificationService';
+import { formatCustomerName } from '@/utils/customer';
 
 export class OrderEditError extends Error {
   constructor(
@@ -468,6 +470,15 @@ export class OrderMutationService {
     emitOrderUpdated(updated);
     deferAfterResponse(async () => {
       await OrderService.recordStatusChange(order.id, 'CANCELLED', undefined, 'Cancelled by customer');
+      await NotificationService.notifyOrderCancelled({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        customerName: formatCustomerName(order.customer.firstName, order.customer.lastName),
+        city: order.customer.city ?? '',
+        grandTotal: Number(order.grandTotal) || 0,
+        by: 'customer',
+        assignedStaffId: order.assignedStaffId,
+      }).catch((err) => console.error('[orders] customer cancel notify failed', err));
     });
     return updated;
   }
