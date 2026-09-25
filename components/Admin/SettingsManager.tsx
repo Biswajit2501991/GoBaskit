@@ -166,6 +166,7 @@ interface StoreConfig {
   whatsappTemplates: Record<string, string>;
   whatsappNumber: string;
   checkoutMode: 'website' | 'whatsapp' | 'both';
+  acceptingOrders?: boolean;
   notificationSoundEnabled: boolean;
   staffIdleTimeoutEnabled: boolean;
   staffIdleTimeoutMinutes: number;
