@@ -42,6 +42,7 @@ interface ConfigState {
   deliverySlabs: DeliverySlab[];
   minOrderValue: number;
   checkoutMode: 'website' | 'whatsapp' | 'both';
+  acceptingOrders: boolean;
   notificationSoundEnabled: boolean;
   upiId: string;
   upiQrImageUrl: string;
@@ -113,6 +114,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   deliverySlabs: DELIVERY_SLABS,
   minOrderValue: MIN_ORDER_VALUE,
   checkoutMode: 'both',
+  acceptingOrders: true,
   notificationSoundEnabled: true,
   upiId: '',
   upiQrImageUrl: '',
@@ -211,6 +213,7 @@ async function loadConfig(
           c.checkoutMode === 'website' || c.checkoutMode === 'whatsapp' || c.checkoutMode === 'both'
             ? c.checkoutMode
             : get().checkoutMode,
+        acceptingOrders: c.acceptingOrders !== false,
         notificationSoundEnabled:
           typeof c.notificationSoundEnabled === 'boolean'
             ? c.notificationSoundEnabled

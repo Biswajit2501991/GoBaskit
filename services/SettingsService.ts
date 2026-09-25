@@ -98,6 +98,8 @@ export interface StoreConfig {
   whatsappTemplates: Record<string, string>;
   whatsappNumber: string;
   checkoutMode: 'website' | 'whatsapp' | 'both';
+  /** Customers may place orders. Default on. Only All Super Admin can change it. */
+  acceptingOrders: boolean;
   notificationSoundEnabled: boolean;
   /** When true, idle staff are force-logged out after staffIdleTimeoutMinutes. */
   staffIdleTimeoutEnabled: boolean;
@@ -279,6 +281,7 @@ const KEY_DELIVERY_ADDRESS_LOCALITIES = 'delivery_address_localities';
 const KEY_PROFIT_DASHBOARD = 'profit_dashboard_enabled';
 const KEY_EXPENSES_ENABLED = 'expenses_enabled';
 const KEY_SHOW_TOTAL_PROFIT = 'show_total_profit_enabled';
+const KEY_ACCEPTING_ORDERS = 'accepting_orders';
 
 const DEFAULT_DISCOUNT_CONFIG: DiscountConfig = {
   couponsEnabled: false,
@@ -308,6 +311,7 @@ const DEFAULTS: StoreConfig = {
   upiId: '',
   upiQrImageUrl: '',
   checkoutMode: 'both',
+  acceptingOrders: true,
   notificationSoundEnabled: true,
   staffIdleTimeoutEnabled: true,
   staffIdleTimeoutMinutes: DEFAULT_STAFF_IDLE_TIMEOUT_MINUTES,
@@ -528,6 +532,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
   if (rawCheckoutMode === 'website' || rawCheckoutMode === 'whatsapp' || rawCheckoutMode === 'both') {
     checkoutMode = rawCheckoutMode;
   }
+  const acceptingOrders = (map.get(KEY_ACCEPTING_ORDERS) ?? 'true').toLowerCase() !== 'false';
 
   const notificationSoundEnabled =
     (map.get(KEY_NOTIFICATION_SOUND) ?? 'true').toLowerCase() !== 'false';
@@ -780,6 +785,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
     whatsappTemplates,
     whatsappNumber,
     checkoutMode,
+    acceptingOrders,
     notificationSoundEnabled,
     staffIdleTimeoutEnabled,
     staffIdleTimeoutMinutes,
@@ -823,6 +829,7 @@ export const SettingsService = {
               KEY_WHATSAPP_TEMPLATES,
               KEY_WHATSAPP_NUMBER,
               KEY_CHECKOUT_MODE,
+              KEY_ACCEPTING_ORDERS,
               KEY_NOTIFICATION_SOUND,
               KEY_STAFF_IDLE_TIMEOUT_ENABLED,
               KEY_STAFF_IDLE_TIMEOUT_MINUTES,
@@ -909,6 +916,9 @@ export const SettingsService = {
     }
     if (partial.checkoutMode) {
       writes.push(upsert(KEY_CHECKOUT_MODE, partial.checkoutMode));
+    }
+    if (partial.acceptingOrders != null) {
+      writes.push(upsert(KEY_ACCEPTING_ORDERS, partial.acceptingOrders ? 'true' : 'false'));
     }
     if (partial.notificationSoundEnabled != null) {
       writes.push(

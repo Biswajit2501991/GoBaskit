@@ -33,7 +33,7 @@ export const SETTINGS_NAV_SECTIONS = [
     id: 'checkout',
     label: 'Checkout Mode',
     group: 'Orders',
-    hint: 'Chooses which Place Order buttons customers see. The change applies on the next checkout load.',
+    hint: 'Website vs WhatsApp Place Order, plus the Accepting orders switch. Only All Super Admin can pause orders.',
   },
   {
     id: 'notifications',

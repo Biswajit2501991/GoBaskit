@@ -49,7 +49,7 @@ const SETTINGS_DESTINATIONS: Omit<SearchDestination, 'group'>[] = [
     id: 'settings-checkout',
     label: 'Checkout Mode',
     href: '/admin/settings#checkout',
-    keywords: ['checkout', 'website', 'whatsapp order'],
+    keywords: ['checkout', 'website', 'whatsapp order', 'accepting orders', 'pause orders'],
   },
   {
     id: 'settings-notifications',

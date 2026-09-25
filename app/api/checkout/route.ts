@@ -39,6 +39,7 @@ import {
   stockOrUnavailableCode,
 } from '@/lib/checkoutOrder';
 import { nightDeliveryCopy, nightDeliveryWindow } from '@/lib/nightDelivery';
+import { isAcceptingOrders, ORDERS_PAUSED_MESSAGE } from '@/lib/acceptingOrders';
 
 type CheckoutLineItem = {
   productId: string;
@@ -191,6 +192,10 @@ export async function POST(req: NextRequest) {
       }),
       WhatsAppVerificationService.getCheckoutVerificationState(mobileE164),
     ]);
+
+    if (!isAcceptingOrders(config.acceptingOrders)) {
+      return jsonError(ORDERS_PAUSED_MESSAGE, CHECKOUT_CODES.ORDERS_PAUSED, 403);
+    }
 
     if (!resolvedDiscount.ok) {
       return jsonError(resolvedDiscount.error, CHECKOUT_CODES.DISCOUNT, 400);

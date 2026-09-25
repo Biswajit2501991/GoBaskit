@@ -19,6 +19,7 @@ export default async function AdminSettingsPage() {
     <SettingsManager
       initialConfig={config}
       canEdit={staffHasEffectivePermission(staff!, 'settings:edit')}
+      canToggleAcceptingOrders={staff!.role === 'ALL_SUPER_ADMIN'}
       allowedSectionIds={allowedSectionIds}
     />
   );

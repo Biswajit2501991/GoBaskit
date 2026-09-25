@@ -18,6 +18,7 @@ import { refreshCartStockFromServer } from '@/utils/refreshCartStock';
 import StockRemovalNotice from '@/components/Cart/StockRemovalNotice';
 import WeatherDisclaimerBanner from '@/components/Storefront/WeatherDisclaimerBanner';
 import { Button } from '@/components/ui/button';
+import { isAcceptingOrders, ORDERS_PAUSED_MESSAGE } from '@/lib/acceptingOrders';
 
 type CartPanelContentProps = {
   /** Called when user continues shopping (drawer close) or after navigating away. */
@@ -37,7 +38,7 @@ export default function CartPanelContent({
 }: CartPanelContentProps) {
   const router = useRouter();
   const { items, updateQuantity, removeItem, clearCart, getSubtotal } = useCartStore();
-  const { deliverySlabs, minOrderValue, homepageConfig, refreshConfig } = useConfigStore();
+  const { deliverySlabs, minOrderValue, homepageConfig, acceptingOrders, refreshConfig } = useConfigStore();
   const appliedDiscount = useDiscountStore((s) => s.applied);
   const clearDiscount = useDiscountStore((s) => s.clear);
   const customerMobile = useStaffPortalStore((s) => s.customerMobile);
@@ -64,6 +65,7 @@ export default function CartPanelContent({
   const grandTotal = Math.max(0, subtotal - discountAmount + deliveryCharge);
   const belowMinimum = minOrderValue > 0 && subtotal < minOrderValue;
   const hasOutOfStock = items.some((i) => i.stock <= 0 || i.quantity > i.stock);
+  const accepting = isAcceptingOrders(acceptingOrders);
   const itemCount = items.reduce((n, i) => n + i.quantity, 0);
 
   useEffect(() => {
@@ -105,7 +107,7 @@ export default function CartPanelContent({
   }
 
   async function handleCheckoutClick() {
-    if (belowMinimum || hasOutOfStock || checkoutBusy) return;
+    if (!isAcceptingOrders(acceptingOrders) || belowMinimum || hasOutOfStock || checkoutBusy) return;
 
     if (customerMobile) {
       onBeforeCheckout?.();
@@ -302,6 +304,11 @@ export default function CartPanelContent({
 
       {showFooterActions && (
         <div className="shrink-0 border-t border-gray-200 bg-white p-3 pb-mobile-chrome space-y-2 shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
+          {customerMobile && !accepting && (
+            <p className="text-amber-800 text-[11px] font-semibold text-center">
+              {ORDERS_PAUSED_MESSAGE}
+            </p>
+          )}
           {customerMobile && belowMinimum && (
             <p className="text-amber-600 text-[11px] font-semibold text-center">
               Add {formatCurrency(minOrderValue - subtotal)} more to checkout
@@ -354,7 +361,7 @@ export default function CartPanelContent({
               <Button
                 type="button"
                 className="flex-[1.2]"
-                disabled={belowMinimum || hasOutOfStock || checkoutBusy}
+                disabled={!accepting || belowMinimum || hasOutOfStock || checkoutBusy}
                 onClick={() => void handleCheckoutClick()}
               >
                 <span className="flex w-full items-center justify-between gap-2 px-0.5">

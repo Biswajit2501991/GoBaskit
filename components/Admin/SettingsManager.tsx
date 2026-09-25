@@ -244,10 +244,12 @@ function formatSettingsError(data: SettingsErrorResponse): string {
 export default function SettingsManager({
   initialConfig,
   canEdit,
+  canToggleAcceptingOrders = false,
   allowedSectionIds,
 }: {
   initialConfig: StoreConfig;
   canEdit: boolean;
+  canToggleAcceptingOrders?: boolean;
   allowedSectionIds?: string[];
 }) {
   const [minOrderValue, setMinOrderValue] = useState<number>(initialConfig.minOrderValue);
@@ -315,6 +317,7 @@ export default function SettingsManager({
     };
   });
   const [checkoutMode, setCheckoutMode] = useState<StoreConfig['checkoutMode']>(initialConfig.checkoutMode ?? 'both');
+  const [acceptingOrders, setAcceptingOrders] = useState(initialConfig.acceptingOrders !== false);
   const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(
     initialConfig.notificationSoundEnabled ?? true,
   );
@@ -398,6 +401,7 @@ export default function SettingsManager({
       whatsappTemplates,
       whatsappNumber,
       checkoutMode,
+      acceptingOrders,
       notificationSoundEnabled,
       staffIdleTimeoutEnabled,
       staffIdleTimeoutMinutes,
@@ -614,6 +618,12 @@ export default function SettingsManager({
       if (!sameJson(prev.whatsappTemplates, whatsappTemplates)) body.whatsappTemplates = whatsappTemplates;
       if ((prev.whatsappNumber ?? '') !== whatsappNumber) body.whatsappNumber = whatsappNumber;
       if ((prev.checkoutMode ?? 'both') !== checkoutMode) body.checkoutMode = checkoutMode;
+      if (
+        canToggleAcceptingOrders &&
+        Boolean(prev.acceptingOrders !== false) !== Boolean(acceptingOrders)
+      ) {
+        body.acceptingOrders = acceptingOrders;
+      }
       if (Boolean(prev.notificationSoundEnabled) !== Boolean(notificationSoundEnabled)) {
         body.notificationSoundEnabled = notificationSoundEnabled;
       }
@@ -719,6 +729,7 @@ export default function SettingsManager({
       setWhatsappTemplates(updated.whatsappTemplates);
       setWhatsappNumber(updated.whatsappNumber ?? '');
       setCheckoutMode(updated.checkoutMode ?? 'both');
+      setAcceptingOrders(updated.acceptingOrders !== false);
       setNotificationSoundEnabled(updated.notificationSoundEnabled ?? true);
       setStaffIdleTimeoutEnabled(updated.staffIdleTimeoutEnabled ?? true);
       setStaffIdleTimeoutMinutes(updated.staffIdleTimeoutMinutes ?? 360);
@@ -1098,6 +1109,33 @@ export default function SettingsManager({
           {activeSection === 'checkout' && (
       <section className={SECTION_CARD}>
         <h2 className="font-semibold text-sm text-gray-900">Checkout Mode</h2>
+        <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-2">
+          <label className="flex items-center gap-3 text-sm font-medium">
+            <span>Accepting orders</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={acceptingOrders}
+              disabled={!canToggleAcceptingOrders}
+              onClick={() => setAcceptingOrders((on) => !on)}
+              className={`relative h-7 w-12 rounded-full transition-colors ${
+                acceptingOrders ? 'bg-blinkit-green' : 'bg-gray-300'
+              } disabled:opacity-60`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                  acceptingOrders ? 'translate-x-5' : ''
+                }`}
+              />
+            </button>
+            <span className="text-gray-500 font-normal">{acceptingOrders ? 'On' : 'Off'}</span>
+          </label>
+          <p className="text-[11px] text-gray-500">
+            Default on. Off hides Place Order and the checkout API refuses new orders. Existing
+            orders are unchanged. Only All Super Admin can turn this on or off; others see it
+            read-only. Save Settings to apply.
+          </p>
+        </div>
         <select
           value={checkoutMode}
           onChange={(e) => setCheckoutMode(e.target.value as StoreConfig['checkoutMode'])}

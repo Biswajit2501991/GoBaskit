@@ -27,6 +27,7 @@ const settingsSchema = z.object({
   whatsappTemplates: z.record(z.string(), z.string().max(500)).optional(),
   whatsappNumber: z.string().max(20).optional(),
   checkoutMode: z.enum(['website', 'whatsapp', 'both']).optional(),
+  acceptingOrders: z.boolean().optional(),
   notificationSoundEnabled: z.boolean().optional(),
   profitDashboardEnabled: z.boolean().optional(),
   expensesEnabled: z.boolean().optional(),
@@ -173,6 +174,13 @@ export async function PUT(req: NextRequest) {
         fieldErrors: flattened.fieldErrors,
       },
       { status: 400 },
+    );
+  }
+
+  if (parsed.data.acceptingOrders != null && auth.staff?.role !== 'ALL_SUPER_ADMIN') {
+    return NextResponse.json(
+      { error: 'Only All Super Admin can turn Accepting orders on or off.' },
+      { status: 403 },
     );
   }
 

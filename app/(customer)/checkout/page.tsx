@@ -33,6 +33,7 @@ import { getOrCreateCheckoutIdempotencyKey, clearCheckoutIdempotencyKey } from '
 import { nightDeliveryCopy, nightDeliveryWindow } from '@/lib/nightDelivery';
 import { setLearnedDeliveryLocalities } from '@/lib/deliveryAddress';
 import { formatCurrency } from '@/utils/formatter';
+import { isAcceptingOrders, ORDERS_PAUSED_MESSAGE } from '@/lib/acceptingOrders';
 import { WHATSAPP_NUMBER, STORE_NAME } from '@/constants';
 import { isValidIndianMobile, normalizeMobile } from '@/utils/mobile';
 import { e164ToCheckoutMobile, toE164 } from '@/utils/phone';
@@ -59,6 +60,7 @@ export default function CheckoutPage() {
     deliverySlabs,
     minOrderValue,
     checkoutMode,
+    acceptingOrders,
     homepageConfig,
     overnightCheckout,
     deliveryAddressLocalities,
@@ -591,6 +593,10 @@ export default function CheckoutPage() {
       focusSection('address');
       return;
     }
+    if (!isAcceptingOrders(acceptingOrders)) {
+      setOrderError(ORDERS_PAUSED_MESSAGE);
+      return;
+    }
     data = parsed.data;
     if (!validateBeforeSubmit(data)) return;
     if (!(await ensureWhatsAppVerified(data))) {
@@ -924,10 +930,12 @@ export default function CheckoutPage() {
     focusSection('summary');
   }
 
-  const showWebsite = checkoutMode === 'website' || checkoutMode === 'both';
-  const showWhatsApp = checkoutMode === 'whatsapp' || checkoutMode === 'both';
+  const accepting = isAcceptingOrders(acceptingOrders);
+  const showWebsite = accepting && (checkoutMode === 'website' || checkoutMode === 'both');
+  const showWhatsApp = accepting && (checkoutMode === 'whatsapp' || checkoutMode === 'both');
 
   const canSubmit =
+    accepting &&
     deliveryServiceable &&
     isWhatsAppPatternValid &&
     !belowMinimum &&
@@ -1254,6 +1262,12 @@ export default function CheckoutPage() {
           </div>
 
           <CancellationPolicyCard text={homepageConfig.cancellationPolicy} />
+
+          {!accepting ? (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+              {ORDERS_PAUSED_MESSAGE}
+            </p>
+          ) : null}
 
           {whatsappMessage && showWhatsApp && (
             <details className="bg-gray-50 rounded-xl border border-gray-200 p-3 text-xs">
