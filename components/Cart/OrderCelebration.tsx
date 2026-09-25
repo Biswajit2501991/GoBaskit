@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { Check } from 'lucide-react';
+import { CUSTOMER_DELIVERY_PROMISE } from '@/constants';
 
 const CELEBRATE_KEY = 'gobaskit_celebrate_order';
 const ORDER_NUMBER_KEY = 'gobaskit_last_order_number';
@@ -98,7 +99,7 @@ export default function OrderCelebration() {
           </p>
         ) : null}
         <p className="mt-2 text-sm text-gray-500">
-          We&apos;re on it — delivery in about 15 minutes. Taking you home to keep shopping…
+          {CUSTOMER_DELIVERY_PROMISE}. Taking you home to keep shopping…
         </p>
         <div className="mt-4 flex flex-col gap-2">
           <Link

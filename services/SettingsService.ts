@@ -5,6 +5,8 @@ import {
   MIN_ORDER_VALUE,
   SLAB_MAX,
   WHATSAPP_NUMBER,
+  CUSTOMER_DELIVERY_PROMISE,
+  CUSTOMER_DELIVERY_DISCLAIMER,
   type DeliverySlab,
 } from '@/constants';
 import {
@@ -333,9 +335,8 @@ const DEFAULTS: StoreConfig = {
     showHealthStarRating: true,
     healthStarDisplay: DEFAULT_HEALTH_STAR_DISPLAY,
     announcementBarText: '',
-    deliveryTimeText: 'Delivery in 10 minutes',
-    deliveryDisclaimer:
-      'Delivery times shown (for example “Delivery in 10 minutes”) are estimates for typical orders in our service area. Most of the time we aim to meet this timeline, but due to unusual circumstances — traffic, weather, high order volume, stock checks, or delivery distance — delivery may take longer. This estimate is not a guaranteed delivery commitment.',
+    deliveryTimeText: CUSTOMER_DELIVERY_PROMISE,
+    deliveryDisclaimer: CUSTOMER_DELIVERY_DISCLAIMER,
     themeColor: '#facc15',
     cancellationPolicy:
       'Orders cannot be cancelled once packed for delivery. In case of unexpected delays, a refund will be provided, if applicable. Fresh items are quality-checked before dispatch — message us on WhatsApp if anything is missing or damaged.',

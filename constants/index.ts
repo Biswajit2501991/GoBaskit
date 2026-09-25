@@ -2,6 +2,12 @@ export { ADMIN_LIST_PAGE_SIZE } from './admin';
 
 export const STORE_NAME = process.env.NEXT_PUBLIC_STORE_NAME || 'GoBaskit';
 
+/** Customer-facing delivery promise. Same wording everywhere it is shown. */
+export const CUSTOMER_DELIVERY_PROMISE = 'Same-Day Delivery — Anytime Between 8 AM and 9 PM';
+
+export const CUSTOMER_DELIVERY_DISCLAIMER =
+  `Delivery times shown (for example “${CUSTOMER_DELIVERY_PROMISE}”) are estimates for typical orders in our service area. Most of the time we aim to meet this timeline, but due to unusual circumstances — traffic, weather, high order volume, stock checks, or delivery distance — delivery may take longer. This estimate is not a guaranteed delivery commitment.`;
+
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.gobaskitkaro.com').replace(/\/+$/, '');
 
 export const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '919046370119';

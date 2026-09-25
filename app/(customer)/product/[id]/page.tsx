@@ -13,6 +13,7 @@ import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { useCartUiStore } from '@/store/cartUiStore';
 import { useProductVariants } from '@/hooks/useProductVariants';
 import { useCatalogStore } from '@/store/catalogStore';
+import { CUSTOMER_DELIVERY_PROMISE } from '@/constants';
 import { formatCurrency } from '@/utils/formatter';
 import { getListPrice } from '@/utils/pricing';
 import { sizedImageUrl } from '@/utils/image';
@@ -273,13 +274,13 @@ export default function ProductPage() {
             )}
 
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-blinkit-green bg-blinkit-green-light px-2 py-1 rounded-md">
-              <Clock className="w-3.5 h-3.5" /> Delivery in 15 minutes
+              <Clock className="w-3.5 h-3.5" /> {CUSTOMER_DELIVERY_PROMISE}
             </span>
 
             {product.description && <p className="text-gray-600 text-sm pt-1">{product.description}</p>}
 
             <div className="grid grid-cols-3 gap-2 pt-2">
-              <Highlight icon={<Clock className="w-4 h-4" />} label="15-min delivery" />
+              <Highlight icon={<Clock className="w-4 h-4" />} label={CUSTOMER_DELIVERY_PROMISE} />
               <Highlight icon={<Wallet className="w-4 h-4" />} label="Cash on delivery" />
               <Highlight icon={<ShieldCheck className="w-4 h-4" />} label="Quality checked" />
             </div>

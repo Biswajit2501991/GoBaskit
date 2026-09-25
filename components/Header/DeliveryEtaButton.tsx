@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Clock, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CUSTOMER_DELIVERY_DISCLAIMER, CUSTOMER_DELIVERY_PROMISE } from '@/constants';
 import { useConfigStore } from '@/store/configStore';
 
-export const DEFAULT_DELIVERY_DISCLAIMER =
-  'Delivery times shown (for example “Delivery in 10 minutes”) are estimates for typical orders in our service area. Most of the time we aim to meet this timeline, but due to unusual circumstances — traffic, weather, high order volume, stock checks, or delivery distance — delivery may take longer. This estimate is not a guaranteed delivery commitment.';
+export const DEFAULT_DELIVERY_DISCLAIMER = CUSTOMER_DELIVERY_DISCLAIMER;
 
 export function resolveDeliveryDisclaimer(text?: string | null): string {
   const trimmed = (text ?? '').trim();
@@ -37,7 +37,7 @@ export default function DeliveryEtaButton({
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
   const deliveryTimeText = useConfigStore((s) => s.homepageConfig.deliveryTimeText);
   const disclaimer = useConfigStore((s) => s.homepageConfig.deliveryDisclaimer);
-  const eta = (label ?? deliveryTimeText)?.trim() || 'Delivery in 10 minutes';
+  const eta = (label ?? deliveryTimeText)?.trim() || CUSTOMER_DELIVERY_PROMISE;
   const body = resolveDeliveryDisclaimer(disclaimer);
 
   useEffect(() => {

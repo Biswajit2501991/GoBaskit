@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { STORE_NAME } from '@/constants';
+import { CUSTOMER_DELIVERY_PROMISE, STORE_NAME } from '@/constants';
 import { useStaffPortalStore } from '@/store/staffPortalStore';
 
 export default function Footer() {
@@ -40,7 +40,7 @@ export default function Footer() {
           </div>
           <div>
             <h4 className="font-bold text-gray-900 mb-3 text-sm">Download App</h4>
-            <p className="text-sm text-gray-600">Get groceries delivered in minutes</p>
+            <p className="text-sm text-gray-600">{CUSTOMER_DELIVERY_PROMISE}</p>
           </div>
         </div>
         <div className="border-t border-gray-200 pt-6 text-center">

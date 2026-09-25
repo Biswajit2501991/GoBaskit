@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
 import { DM_Sans } from 'next/font/google';
 import './globals.css';
-import { STORE_NAME, SITE_URL } from '@/constants';
+import { CUSTOMER_DELIVERY_PROMISE, STORE_NAME, SITE_URL } from '@/constants';
 import { parseSeasonalThemeId } from '@/constants/seasonalThemes';
 import { SettingsService } from '@/services/SettingsService';
 
@@ -11,8 +11,8 @@ const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans' });
 /** Live seasonal skin on first HTML — do not cache a stale data-theme. */
 export const dynamic = 'force-dynamic';
 
-const title = `${STORE_NAME} — Groceries delivered in minutes`;
-const description = 'Order groceries and essentials online. Fast delivery, cash on delivery, order via WhatsApp.';
+const title = `${STORE_NAME} — ${CUSTOMER_DELIVERY_PROMISE}`;
+const description = `Order groceries and essentials online. ${CUSTOMER_DELIVERY_PROMISE}. Cash on delivery, order via WhatsApp.`;
 
 export const viewport: Viewport = {
   width: 'device-width',
