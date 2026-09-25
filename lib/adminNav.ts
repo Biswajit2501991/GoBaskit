@@ -88,6 +88,13 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     hint: 'Stock on hand and reservations. Does not place customer orders.',
   },
   {
+    href: '/admin/wishlist-demand',
+    label: 'Wishlist demand',
+    permission: 'products:view',
+    group: 'Catalogue',
+    hint: 'Most-saved products first. View only — does not change wishlists or stock.',
+  },
+  {
     href: '/admin/price-adjust',
     label: 'Price Adjust',
     permission: 'products:edit',

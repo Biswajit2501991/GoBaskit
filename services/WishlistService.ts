@@ -280,6 +280,96 @@ export class WishlistService {
     });
   }
 
+  /**
+   * Read-only demand board: how many customers saved each product option.
+   * Does not create, update, or delete wishlist rows.
+   */
+  static async demandRanking(limit = 300) {
+    const take = Math.min(Math.max(Number(limit) || 300, 1), 500);
+    const rows = await prisma.customerWishlistItem.findMany({
+      where: {
+        product: { isVisible: true, status: { not: 'INACTIVE' } },
+      },
+      select: {
+        productId: true,
+        variantKey: true,
+        variantId: true,
+        awaitingRestock: true,
+        product: {
+          select: {
+            name: true,
+            price: true,
+            stock: true,
+            unit: true,
+            imageUrl: true,
+            variants: {
+              select: {
+                id: true,
+                price: true,
+                stock: true,
+                isActive: true,
+                brand: true,
+                variantName: true,
+                weight: true,
+                unit: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    type Bucket = {
+      productId: string;
+      variantId: string | null;
+      name: string;
+      price: number;
+      stock: number;
+      unit: string;
+      imageUrl: string | null;
+      customers: number;
+      waiting: number;
+    };
+    const map = new Map<string, Bucket>();
+    for (const row of rows) {
+      const key = `${row.productId}::${row.variantKey || ''}`;
+      const variant = row.variantId
+        ? row.product.variants.find((v) => v.id === row.variantId)
+        : null;
+      let bucket = map.get(key);
+      if (!bucket) {
+        const label = optionLabel(row.product, row.variantId);
+        bucket = {
+          productId: row.productId,
+          variantId: row.variantId,
+          name: label,
+          price: variant ? variant.price : row.product.price,
+          stock: variant ? variant.stock : row.product.stock,
+          unit: variant?.unit || row.product.unit,
+          imageUrl: variant?.imageUrl || row.product.imageUrl,
+          customers: 0,
+          waiting: 0,
+        };
+        map.set(key, bucket);
+      }
+      bucket.customers += 1;
+      if (row.awaitingRestock) bucket.waiting += 1;
+    }
+
+    const items = [...map.values()].sort((a, b) => {
+      if (b.customers !== a.customers) return b.customers - a.customers;
+      if (b.waiting !== a.waiting) return b.waiting - a.waiting;
+      return a.name.localeCompare(b.name);
+    });
+
+    return {
+      totalProducts: items.length,
+      totalSaves: rows.length,
+      items: items.slice(0, take),
+    };
+  }
+
   static async markNoticesRead(mobile: string, ids?: string[]) {
     const normalized = normalizeMobile(mobile);
     await prisma.customerRestockNotice.updateMany({
