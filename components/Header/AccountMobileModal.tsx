@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, MessageCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,12 @@ import { toE164, formatE164Display } from '@/utils/phone';
 import { openWhatsAppUrl } from '@/utils/whatsapp';
 import { notifyWhatsAppOpened } from '@/utils/notifyWhatsAppOpened';
 import { setSessionVerifiedMobile } from '@/utils/whatsappVerificationSession';
+import {
+  clearAccountAuthFlow,
+  loadAccountAuthFlow,
+  nextAccountPhaseAfterProof,
+  saveAccountAuthFlow,
+} from '@/utils/accountAuthFlow';
 import LoginBrandSeal from '@/components/Header/LoginBrandSeal';
 import { useConfigStore } from '@/store/configStore';
 import { LOGIN_VERIFICATION_POLL_INTERVAL_MS, SENT_ACK_WAIT_MS } from '@/constants/whatsappVerification';
@@ -29,8 +35,15 @@ type Phase = 'enter' | 'password' | 'waiting' | 'create-password' | 'verified';
 
 export default function AccountMobileModal() {
   const router = useRouter();
-  const { showAccountModal, closeAccountModal, setStaffEligible, setCustomerMobile, clearStaffEligible, openAdminLoginModal } =
-    useStaffPortalStore();
+  const {
+    showAccountModal,
+    closeAccountModal,
+    openAccountModal,
+    setStaffEligible,
+    setCustomerMobile,
+    clearStaffEligible,
+    openAdminLoginModal,
+  } = useStaffPortalStore();
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
   const showLoginLogo = useConfigStore((s) => s.homepageConfig.showLoginLogo !== false);
   const loginLogoUrl = useConfigStore(
@@ -48,8 +61,11 @@ export default function AccountMobileModal() {
   const [sentWaitUntil, setSentWaitUntil] = useState(0);
   const [sentWaitSeconds, setSentWaitSeconds] = useState(0);
   const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const staffNameRef = useRef<string>('');
   const existingPasswordRef = useRef(false);
+  const resettingPasswordRef = useRef(false);
+  const restoreAttemptedRef = useRef(false);
   const leftForWhatsAppRef = useRef(false);
   const sentInFlightRef = useRef(false);
   const hiddenAtRef = useRef(0);
@@ -64,6 +80,102 @@ export default function AccountMobileModal() {
     if (showAccountModal) void fetchConfig();
   }, [showAccountModal, fetchConfig]);
 
+  function persistAuthFlow(opts: {
+    phase: 'waiting' | 'create-password';
+    mobile10?: string;
+    mobileE164?: string;
+    verificationId?: string | null;
+    verificationCode?: string | null;
+    whatsappUrl?: string | null;
+  }) {
+    const previous = loadAccountAuthFlow();
+    const mobile10 = opts.mobile10 || normalizeMobile(mobile) || previous?.mobile10 || '';
+    const e164 = opts.mobileE164 || mobileE164 || previous?.mobileE164 || '';
+    if (!mobile10 || !e164) return;
+    saveAccountAuthFlow({
+      mobile10,
+      mobileE164: e164,
+      verificationId: opts.verificationId ?? verificationIdRef.current ?? previous?.verificationId ?? null,
+      verificationCode:
+        opts.verificationCode ?? verification?.verificationCode ?? previous?.verificationCode ?? null,
+      whatsappUrl:
+        opts.whatsappUrl === undefined
+          ? whatsappUrl ?? previous?.whatsappUrl ?? null
+          : opts.whatsappUrl,
+      phase: opts.phase,
+      resetting: resettingPasswordRef.current,
+      hasExistingPassword: existingPasswordRef.current,
+    });
+  }
+
+  function applyProofPhase() {
+    const next = nextAccountPhaseAfterProof({
+      resetting: resettingPasswordRef.current,
+      hasExistingPassword: existingPasswordRef.current,
+    });
+    setPhase(next);
+    setError('');
+    if (next === 'create-password') persistAuthFlow({ phase: 'create-password' });
+    else clearAccountAuthFlow();
+  }
+
+  useLayoutEffect(() => {
+    if (restoreAttemptedRef.current) return;
+    restoreAttemptedRef.current = true;
+    const flow = loadAccountAuthFlow();
+    if (!flow) return;
+
+    setMobile(flow.mobile10);
+    waitingMobileRef.current = flow.mobileE164;
+    verificationIdRef.current = flow.verificationId;
+    resettingPasswordRef.current = flow.resetting;
+    existingPasswordRef.current = flow.hasExistingPassword;
+    setIsResettingPassword(flow.resetting);
+    if (flow.verificationId && flow.verificationCode) {
+      setVerification({
+        id: flow.verificationId,
+        verificationCode: flow.verificationCode,
+        mobile: flow.mobileE164,
+      });
+    }
+    setWhatsappUrl(flow.whatsappUrl);
+    setPhase(flow.phase);
+    openAccountModal();
+
+    if (!flow.verificationId) return;
+
+    void (async () => {
+      try {
+        const params = new URLSearchParams({
+          mobile: flow.mobileE164,
+          verificationId: flow.verificationId as string,
+        });
+        const res = await fetch(`/api/customer/verification/status?${params.toString()}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          verified?: boolean;
+          verification?: { status?: string };
+        };
+        const approved =
+          data.verified === true || data.verification?.status === 'VERIFIED';
+        if (!approved) return;
+        setSessionVerifiedMobile(flow.mobileE164);
+        const next = nextAccountPhaseAfterProof({
+          resetting: flow.resetting,
+          hasExistingPassword: flow.hasExistingPassword,
+        });
+        setPhase(next);
+        if (next === 'create-password') {
+          saveAccountAuthFlow({ ...flow, phase: 'create-password' });
+        } else {
+          clearAccountAuthFlow();
+        }
+      } catch {
+        /* keep restored waiting / create-password */
+      }
+    })();
+  }, [openAccountModal]);
+
   function resetState() {
     setMobile('');
     setPassword('');
@@ -77,7 +189,10 @@ export default function AccountMobileModal() {
     setAttemptsRemaining(null);
     staffNameRef.current = '';
     existingPasswordRef.current = false;
+    resettingPasswordRef.current = false;
+    setIsResettingPassword(false);
     leftForWhatsAppRef.current = false;
+    clearAccountAuthFlow();
     sentInFlightRef.current = false;
     hiddenAtRef.current = 0;
     verificationIdRef.current = null;
@@ -183,8 +298,7 @@ export default function AccountMobileModal() {
           data.verified === true || data.verification?.status === 'VERIFIED';
         if (approved) {
           setSessionVerifiedMobile(mobile);
-          setPhase(existingPasswordRef.current ? 'password' : 'create-password');
-          setError('');
+          applyProofPhase();
         }
       } catch {
         /* keep polling */
@@ -216,8 +330,7 @@ export default function AccountMobileModal() {
         }
         if (data.verified === true) {
           setSessionVerifiedMobile(mobile);
-          setPhase(existingPasswordRef.current ? 'password' : 'create-password');
-          setError('');
+          applyProofPhase();
         } else {
           sentInFlightRef.current = false;
         }
@@ -275,8 +388,7 @@ export default function AccountMobileModal() {
     const result = await notifyWhatsAppOpened({ mobile, verificationId });
     if (result.verified) {
       setSessionVerifiedMobile(mobile);
-      setPhase(existingPasswordRef.current ? 'password' : 'create-password');
-      setError('');
+      applyProofPhase();
       return true;
     }
     return false;
@@ -303,14 +415,20 @@ export default function AccountMobileModal() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(typeof data.error === 'string' ? data.error : 'Could not start verification');
+        if (resettingPasswordRef.current) setPhase('password');
         return;
       }
-      // Already permanently verified — no WhatsApp again until admin deletes.
-      if (data.verified === true) {
+      if (resettingPasswordRef.current && data.verified === true && !data.verification?.id) {
+        setError('Could not start a reset code. Try Forgot password again.');
+        setPhase('password');
+        return;
+      }
+      // Permanent verify is not enough for forgot-password — still need a new proof.
+      if (data.verified === true && !resettingPasswordRef.current) {
         setSessionVerifiedMobile(mobileE164);
         setVerification(null);
         setWhatsappUrl(null);
-        setPhase(existingPasswordRef.current ? 'password' : 'create-password');
+        applyProofPhase();
         return;
       }
       setVerification(data.verification);
@@ -321,6 +439,14 @@ export default function AccountMobileModal() {
         waitingMobileRef.current = mobileE164;
         leftForWhatsAppRef.current = true;
         hiddenAtRef.current = Date.now();
+        persistAuthFlow({
+          phase: 'waiting',
+          mobileE164,
+          mobile10: normalizeMobile(mobile),
+          verificationId: data.verification.id,
+          verificationCode: data.verification.verificationCode ?? null,
+          whatsappUrl: data.whatsappUrl,
+        });
         beginSentAckWait();
         await completeAfterWhatsAppOpened(mobileE164, data.verification.id);
         openWhatsAppUrl(data.whatsappUrl);
@@ -361,7 +487,7 @@ export default function AccountMobileModal() {
       }
       if (data.verified === true) {
         setSessionVerifiedMobile(mobileE164);
-        setPhase(existingPasswordRef.current ? 'password' : 'create-password');
+        applyProofPhase();
         return;
       }
       sentInFlightRef.current = false;
@@ -463,6 +589,9 @@ export default function AccountMobileModal() {
       // Locked account recovery must prove WhatsApp ownership again (forceNew).
       if (status.isLocked) {
         existingPasswordRef.current = false;
+        resettingPasswordRef.current = true;
+        setIsResettingPassword(true);
+        setPhase('waiting');
         await startVerification(true);
         return;
       }
@@ -567,7 +696,9 @@ export default function AccountMobileModal() {
           mobile: mobileE164,
           password,
           confirmPassword,
-          ...(verification?.id ? { verificationId: verification.id } : {}),
+          ...((verification?.id || verificationIdRef.current)
+            ? { verificationId: verification?.id || verificationIdRef.current }
+            : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -613,11 +744,15 @@ export default function AccountMobileModal() {
           </div>
         ) : phase === 'create-password' ? (
           <div className="text-center">
-            <h2 className="text-xl font-bold text-gray-900 tracking-tight">Create your password</h2>
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight">
+              {isResettingPassword ? 'Reset your password' : 'Create your password'}
+            </h2>
             <p className="text-sm text-gray-500 mt-1.5 mb-5 leading-relaxed">
-              {verification
-                ? 'WhatsApp verified. Set a password to sign in next time on any device.'
-                : 'Your WhatsApp is already verified. Set a password to sign in next time on any device.'}
+              {isResettingPassword
+                ? 'WhatsApp verified. Set a new sign-in password. This is not the delivery PIN on an order.'
+                : verification
+                  ? 'WhatsApp verified. Set a password to sign in next time on any device.'
+                  : 'Your WhatsApp is already verified. Set a password to sign in next time on any device.'}
             </p>
             <div className="space-y-3 text-left">
               <div>
@@ -660,16 +795,22 @@ export default function AccountMobileModal() {
               </Button>
             </div>
           </div>
-        ) : phase === 'waiting' && verification ? (
+        ) : phase === 'waiting' ? (
           <div className="text-center">
-            <h2 className="text-xl font-bold text-gray-900 tracking-tight">Verify your WhatsApp</h2>
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight">
+              {isResettingPassword ? 'Reset password via WhatsApp' : 'Verify your WhatsApp'}
+            </h2>
             <p className="text-sm text-gray-500 mt-1.5 mb-5 leading-relaxed">
               Open WhatsApp from this screen. Your number is verified automatically — you do not need staff approval.
             </p>
             <div className="bg-gray-50 rounded-2xl p-4 space-y-1 mb-4 border border-gray-100">
               <p className="text-[11px] text-gray-500 uppercase tracking-wide">Verification Code</p>
-              <p className="text-2xl font-bold tracking-widest text-gray-900">{verification.verificationCode}</p>
-              <p className="text-sm text-gray-600">{formatE164Display(verification.mobile)}</p>
+              <p className="text-2xl font-bold tracking-widest text-gray-900">
+                {verification?.verificationCode ?? '…'}
+              </p>
+              <p className="text-sm text-gray-600">
+                {verification ? formatE164Display(verification.mobile) : `+91 ${mobile}`}
+              </p>
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-4">
               <p className="text-sm font-medium text-amber-900">
@@ -691,6 +832,12 @@ export default function AccountMobileModal() {
                     hiddenAtRef.current = Date.now();
                     if (verification?.id) verificationIdRef.current = verification.id;
                     if (mobileE164) waitingMobileRef.current = mobileE164;
+                    persistAuthFlow({
+                      phase: 'waiting',
+                      verificationId: verification?.id ?? verificationIdRef.current,
+                      verificationCode: verification?.verificationCode ?? null,
+                      whatsappUrl,
+                    });
                     beginSentAckWait();
                     void (async () => {
                       if (mobileE164 && verification?.id) {
@@ -785,12 +932,14 @@ export default function AccountMobileModal() {
               <button
                 type="button"
                 className="w-full text-center text-xs text-blinkit-green font-semibold py-1"
-                disabled={loading}
                 onClick={() => {
                   setPassword('');
                   setError('');
                   existingPasswordRef.current = false;
-                  startVerification(true);
+                  resettingPasswordRef.current = true;
+                  setIsResettingPassword(true);
+                  setPhase('waiting');
+                  void startVerification(true);
                 }}
               >
                 Forgot password? Verify via WhatsApp
