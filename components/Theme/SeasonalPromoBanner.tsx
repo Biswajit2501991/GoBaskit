@@ -42,7 +42,7 @@ export default function SeasonalPromoBanner() {
         </p>
         <p className="text-sm font-semibold text-gray-900 mt-0.5">
           Use code{' '}
-          <span className="seasonal-promo-code font-mono tracking-wide text-blinkit-green">
+          <span className="seasonal-promo-code font-mono tracking-wide text-forest">
             {code}
           </span>
         </p>
@@ -51,7 +51,7 @@ export default function SeasonalPromoBanner() {
       <button
         type="button"
         onClick={handleCopy}
-        className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg bg-blinkit-green text-white text-xs font-semibold px-3.5 py-2 hover:bg-blinkit-green-dark transition-colors"
+        className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg bg-forest text-white text-xs font-semibold px-3.5 py-2 hover:bg-forest-dark transition-colors"
       >
         {copied ? (
           <>

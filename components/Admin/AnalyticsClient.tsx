@@ -85,7 +85,7 @@ export default function AnalyticsClient() {
                 <span className="w-12 text-gray-500">{row.day.slice(5)}</span>
                 <div className="h-2 bg-gray-100 rounded flex-1">
                   <div
-                    className="h-2 bg-blinkit-green rounded"
+                    className="h-2 bg-forest rounded"
                     style={{ width: `${Math.max(3, (row.revenue / maxRevenue) * 100)}%` }}
                   />
                 </div>

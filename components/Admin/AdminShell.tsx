@@ -11,6 +11,7 @@ import AdminThemeToggle from '@/components/Admin/AdminThemeToggle';
 import AdminProfitChip from '@/components/Admin/AdminProfitChip';
 import { subscribeToAdminEvents } from '@/lib/realtime/adminEventsClient';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
+import BrandLockup from '@/components/Brand/BrandLockup';
 import StaffSessionKeeper from '@/components/Admin/StaffSessionKeeper';
 import { adminNavForPath, groupAdminNav, type AdminNavLinkItem } from '@/lib/adminNav';
 
@@ -247,7 +248,7 @@ export function AdminShell({ staff, visibleNav, showProfitChip = false, children
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex overflow-hidden">
+    <div className="h-screen bg-paper flex overflow-hidden">
       <StaffSessionKeeper />
       <aside
         className={`hidden lg:flex shrink-0 h-screen flex-col sticky top-0 border-r border-gray-200/80 bg-white/95 p-3 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.35)] transition-[width] duration-200 ${
@@ -257,9 +258,7 @@ export function AdminShell({ staff, visibleNav, showProfitChip = false, children
         <div className="mb-5">
           <div className="flex items-start justify-between gap-2">
             <div className={collapsed ? 'hidden' : 'block min-w-0'}>
-              <span className="font-extrabold text-lg tracking-tight">
-                Go<span className="text-blinkit-green">Baskit</span>
-              </span>
+              <BrandLockup compact />
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400 mt-2">
                 Staff Portal
               </p>
@@ -311,9 +310,7 @@ export function AdminShell({ staff, visibleNav, showProfitChip = false, children
           <aside className="relative h-full w-[min(19rem,88vw)] bg-white border-r border-gray-200/80 p-3 flex flex-col shadow-[0_12px_40px_-28px_rgba(15,23,42,0.45)]">
             <div className="mb-4 flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <span className="font-extrabold text-lg tracking-tight">
-                  Go<span className="text-blinkit-green">Baskit</span>
-                </span>
+                <BrandLockup compact />
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400 mt-2">
                   Staff Portal
                 </p>

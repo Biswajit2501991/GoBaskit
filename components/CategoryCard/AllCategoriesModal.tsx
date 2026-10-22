@@ -93,7 +93,7 @@ export default function AllCategoriesModal({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search categories"
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green focus:bg-white"
+              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-forest/30 focus:border-forest focus:bg-white"
             />
           </div>
         </div>
@@ -118,8 +118,8 @@ export default function AllCategoriesModal({
                     <div
                       className={`w-full aspect-square rounded-2xl flex items-center justify-center text-3xl border transition-all overflow-hidden ${
                         active
-                          ? 'border-blinkit-green ring-2 ring-blinkit-green/30 bg-blinkit-green-light'
-                          : 'border-gray-100 bg-gradient-to-br from-yellow-50 to-green-50 group-hover:border-blinkit-green/40 group-hover:shadow-sm'
+                          ? 'border-forest ring-2 ring-forest/30 bg-leaf-light'
+                          : 'border-gray-100 bg-gradient-to-br from-yellow-50 to-green-50 group-hover:border-forest/40 group-hover:shadow-sm'
                       }`}
                     >
                       {cat.imageUrl ? (
@@ -137,7 +137,7 @@ export default function AllCategoriesModal({
                     </div>
                     <span
                       className={`text-[11px] font-semibold text-center leading-tight line-clamp-2 ${
-                        active ? 'text-blinkit-green' : 'text-gray-700'
+                        active ? 'text-forest' : 'text-gray-700'
                       }`}
                     >
                       {cat.name}

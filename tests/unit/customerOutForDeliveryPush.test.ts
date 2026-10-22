@@ -19,7 +19,7 @@ describe('out-for-delivery customer push', () => {
       orderNumber: 'GB12345678',
       deliveryPin: '4821',
     });
-    expect(payload.title).toBe('GoBaskit');
+    expect(payload.title).toBe('GoBasket');
     expect(payload.body).toBe(
       'Your order GB12345678 is out for delivery. Delivery PIN: 4821. Tell this to the rider.',
     );

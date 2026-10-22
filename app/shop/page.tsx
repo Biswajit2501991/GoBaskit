@@ -17,6 +17,7 @@ import {
 import { normalizeMobile } from '@/utils/mobile';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
 import StaffSessionKeeper from '@/components/Admin/StaffSessionKeeper';
+import BrandLockup from '@/components/Brand/BrandLockup';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { formatOrderLineLabel } from '@/utils/orderItemName';
 
@@ -493,9 +494,12 @@ function ShopPortal() {
 
   if (!authed) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl border border-gray-100 p-8 shadow-sm">
-          <h1 className="text-xl font-bold text-center mb-6">Shop login</h1>
+      <div className="min-h-screen flex items-center justify-center bg-paper px-4">
+        <div className="w-full max-w-md bg-white rounded-3xl border border-paper-deep p-8 shadow-sm">
+          <div className="flex justify-center mb-4">
+            <BrandLockup compact suffix="Shop" />
+          </div>
+          <h1 className="font-display text-xl font-semibold text-center mb-6">Shop login</h1>
           <form onSubmit={onLogin} className="space-y-4">
             <div>
               <Label>Mobile Number</Label>
@@ -540,12 +544,10 @@ function ShopPortal() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-paper">
       <StaffSessionKeeper logoutRedirect="/shop" />
-      <header className="bg-white border-b px-4 py-3 flex items-center justify-between gap-3">
-        <p className="font-extrabold">
-          Go<span className="text-blinkit-green">Baskit</span> Shop
-        </p>
+      <header className="bg-paper border-b border-paper-deep px-4 py-3 flex items-center justify-between gap-3">
+        <BrandLockup compact suffix="Shop" />
         <button
           type="button"
           onClick={() => {
@@ -592,7 +594,7 @@ function ShopPortal() {
         <section className="pt-4 space-y-2">
           <h2 className="text-sm font-semibold text-gray-900">Accepted last 30 days</h2>
           <p className="text-xs text-gray-500">
-            After accept, enter each item cost and Confirm. After Confirm only GoBaskit admin can change costs.
+            After accept, enter each item cost and Confirm. After Confirm only GoBasket admin can change costs.
           </p>
           {!history.length && (
             <p className="text-sm text-gray-500">No accepted pickups in the last 30 days.</p>
@@ -716,7 +718,7 @@ function ShopPortal() {
               </>
             ) : (
               <>
-                <p className="text-xs text-gray-400">Costs are locked. Only GoBaskit admin can change them.</p>
+                <p className="text-xs text-gray-400">Costs are locked. Only GoBasket admin can change them.</p>
                 {viewedHistory.paymentStatus !== 'PAID' && (
                   <div className="space-y-2 border-t pt-3">
                     <Label>Staff arrived — 6-digit shop code</Label>

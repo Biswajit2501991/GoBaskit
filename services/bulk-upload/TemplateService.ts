@@ -41,7 +41,7 @@ export function buildTemplateWorkbook(categories: TemplateCategory[]) {
   productsSheet['!cols'] = headers.map((h) => ({ wch: Math.max(h.length + 4, 16) }));
 
   const instructions = [
-    ['GoBaskit Bulk Product Upload Template'],
+    ['GoBasket Bulk Product Upload Template'],
     [''],
     ['How to use:'],
     ['1. Fill the Products sheet starting from row 5 (sample rows are examples).'],

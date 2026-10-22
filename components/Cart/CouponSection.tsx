@@ -276,10 +276,10 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
             {couponApplied && loggedIn ? (
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-sm font-semibold text-blinkit-green">
+                  <p className="text-sm font-semibold text-forest">
                     {applied.couponCode} applied
                   </p>
-                  <p className="text-xs text-blinkit-green">{applied.youSavedLabel}</p>
+                  <p className="text-xs text-forest">{applied.youSavedLabel}</p>
                 </div>
                 <button
                   type="button"
@@ -341,10 +341,10 @@ export default function CouponSection({ subtotal }: CouponSectionProps) {
           {membershipApplied && loggedIn ? (
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-sm font-semibold text-blinkit-green">
+                <p className="text-sm font-semibold text-forest">
                   {applied.message || 'Action Plus Membership Discount Applied'}
                 </p>
-                <p className="text-xs text-blinkit-green">{applied.youSavedLabel}</p>
+                <p className="text-xs text-forest">{applied.youSavedLabel}</p>
               </div>
               <button
                 type="button"

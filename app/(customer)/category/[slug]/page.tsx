@@ -57,16 +57,16 @@ export default function CategoryPage() {
   const categoryIcon = CATEGORY_ICONS[category?.slug ?? decodedSlug] || '🛒';
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-paper">
       <Header />
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-4 pb-24">
         <nav className="text-xs text-gray-400 mb-3">
-          <Link href="/" className="hover:text-blinkit-green">Home</Link>
+          <Link href="/" className="hover:text-forest">Home</Link>
           <span className="mx-1.5">/</span>
           <span className="text-gray-600 font-medium">{category?.name || decodedSlug}</span>
         </nav>
 
-        <div className="mb-5 rounded-2xl bg-gradient-to-r from-green-50 to-yellow-50 border border-gray-100 p-5 flex items-center gap-4">
+        <div className="mb-5 rounded-3xl bg-white border border-paper-deep shadow-sm p-5 flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center text-4xl overflow-hidden shrink-0">
             {showSkeleton ? (
               <div className="w-full h-full skeleton" aria-hidden />
@@ -82,7 +82,7 @@ export default function CategoryPage() {
             )}
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-gray-900">
+            <h1 className="text-2xl font-display font-semibold text-forest">
               {showSkeleton ? (
                 <span className="inline-block h-6 w-36 skeleton rounded" />
               ) : (
@@ -103,7 +103,7 @@ export default function CategoryPage() {
           <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
             <span className="text-5xl mb-3 block">🛒</span>
             <p className="font-semibold text-gray-700">No products in this category yet</p>
-            <Link href="/" className="text-sm text-blinkit-green font-medium mt-2 inline-block">Browse all products →</Link>
+            <Link href="/" className="text-sm text-forest font-medium mt-2 inline-block">Browse all products →</Link>
           </div>
         ) : (
           <div className={PRODUCT_GRID}>

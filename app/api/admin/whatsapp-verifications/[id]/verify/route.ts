@@ -23,7 +23,7 @@ export async function POST(
       const { sendWhatsAppTextReply } = await import('@/lib/whatsapp-cloud');
       void sendWhatsAppTextReply(
         result.mobile,
-        'GoBaskit: Your WhatsApp account is verified. Thank you!',
+        'GoBasket: Your WhatsApp account is verified. Thank you!',
       );
     }
     return NextResponse.json(result);

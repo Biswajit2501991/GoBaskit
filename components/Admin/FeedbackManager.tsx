@@ -107,7 +107,7 @@ export default function FeedbackManager() {
 
       <section className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
         <div>
-          <h2 className="font-semibold text-sm text-gray-900">Website rating next to GoBaskit</h2>
+          <h2 className="font-semibold text-sm text-gray-900">Website rating next to GoBasket</h2>
           <p className="text-xs text-gray-500 mt-1">
             You set the score. Public count is seed + {STOREFRONT_RATING_PER_REVIEW} for each real star
             rating (skips do not count).
@@ -246,7 +246,7 @@ export default function FeedbackManager() {
                     {new Date(row.createdAt).toLocaleString()}
                   </td>
                   <td className="px-4 py-3 font-semibold">
-                    <Link href={`/admin/orders?order=${row.orderId}`} className="text-blinkit-green">
+                    <Link href={`/admin/orders?order=${row.orderId}`} className="text-forest">
                       {row.orderNumber}
                     </Link>
                   </td>

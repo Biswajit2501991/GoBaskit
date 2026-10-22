@@ -394,7 +394,7 @@ export default function ProductManager({
   const allVisibleSelected = products.length > 0 && products.every((p) => selectedIds.includes(p.id));
 
   const selectClass =
-    'flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green';
+    'flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest/30 focus:border-forest';
 
   return (
     <div className="p-6 space-y-6">
@@ -541,7 +541,7 @@ export default function ProductManager({
                   rows={5}
                   disabled={!canEdit}
                   placeholder={'Shown in an expandable "Product Details" section on the product page.\nTip: use "Label: Value" per line for a clean spec list, e.g.\nBrand: Aashirvaad\nShelf life: 6 months\nStorage: Cool, dry place'}
-                  className="mt-1 flex w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green disabled:bg-gray-50 resize-y"
+                  className="mt-1 flex w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest/30 focus:border-forest disabled:bg-gray-50 resize-y"
                 />
                 {errors.details && <p className="text-red-500 text-xs mt-1">{errors.details.message}</p>}
                 <p className="text-[11px] text-gray-400 mt-1">
@@ -589,7 +589,7 @@ export default function ProductManager({
                   type="number"
                   step="0.01"
                   min="0"
-                  placeholder="GoBaskit unit cost"
+                  placeholder="GoBasket unit cost"
                   className="mt-1"
                   disabled={!canEdit}
                 />
@@ -672,11 +672,11 @@ export default function ProductManager({
 
               <div className="flex flex-col gap-2 md:col-span-2 lg:col-span-3">
                 <label className="flex items-center gap-2 text-sm font-medium">
-                  <input type="checkbox" {...register('isFeatured')} className="accent-blinkit-green" disabled={!canEdit} />
+                  <input type="checkbox" {...register('isFeatured')} className="accent-forest" disabled={!canEdit} />
                   Featured (Best Seller badge)
                 </label>
                 <label className="flex items-center gap-2 text-sm font-medium">
-                  <input type="checkbox" {...register('isVisible')} className="accent-blinkit-green" disabled={!canEdit} />
+                  <input type="checkbox" {...register('isVisible')} className="accent-forest" disabled={!canEdit} />
                   Visible on store
                 </label>
                 <div>
@@ -684,7 +684,7 @@ export default function ProductManager({
                   <select
                     {...register('healthStarRating')}
                     disabled={!canEdit}
-                    className="mt-1 flex h-10 w-full max-w-xs rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green"
+                    className="mt-1 flex h-10 w-full max-w-xs rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest/30 focus:border-forest"
                   >
                     <option value="">None (hidden)</option>
                     <option value="1">★ 1 star</option>
@@ -702,7 +702,7 @@ export default function ProductManager({
               <div className="md:col-span-2 lg:col-span-3 border-t border-gray-100 pt-4">
                 <h3 className="font-semibold text-sm mb-1">Product Options</h3>
                 <label className="flex items-center gap-2 text-sm font-medium">
-                  <input type="checkbox" {...register('hasVariants')} className="accent-blinkit-green" disabled={!canEdit} />
+                  <input type="checkbox" {...register('hasVariants')} className="accent-forest" disabled={!canEdit} />
                   This product has multiple options (brands / sizes / weights)
                 </label>
                 <p className="text-[11px] text-gray-400 mt-1">
@@ -829,10 +829,10 @@ export default function ProductManager({
                   <td className="p-3 font-medium">
                     {p.name}
                     {p.isFeatured && (
-                      <span className="ml-2 text-[10px] bg-blinkit-yellow px-1.5 py-0.5 rounded font-bold">FEATURED</span>
+                      <span className="ml-2 text-[10px] bg-carrot px-1.5 py-0.5 rounded font-bold">FEATURED</span>
                     )}
                     {p.hasVariants && (p._count?.variants ?? 0) > 0 && (
-                      <span className="ml-2 text-[10px] bg-blinkit-green-light text-blinkit-green px-1.5 py-0.5 rounded font-bold">
+                      <span className="ml-2 text-[10px] bg-leaf-light text-forest px-1.5 py-0.5 rounded font-bold">
                         {p._count?.variants} OPTIONS
                       </span>
                     )}
@@ -841,7 +841,7 @@ export default function ProductManager({
                     )}
                   </td>
                   <td className="p-3">
-                    <span className="bg-blinkit-green-light text-blinkit-green text-xs font-semibold px-2 py-0.5 rounded">
+                    <span className="bg-leaf-light text-forest text-xs font-semibold px-2 py-0.5 rounded">
                       {p.category?.name ?? '—'}
                     </span>
                   </td>

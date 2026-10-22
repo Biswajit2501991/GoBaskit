@@ -21,7 +21,7 @@ export default function SuccessPage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-paper">
       <p className="text-sm text-gray-500">Taking you home…</p>
     </div>
   );

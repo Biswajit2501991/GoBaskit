@@ -135,7 +135,7 @@ export default function LearningManager({ canEdit }: { canEdit: boolean }) {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-blinkit-green" />
+            <BookOpen className="w-6 h-6 text-forest" />
             Learning
           </h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -179,7 +179,7 @@ export default function LearningManager({ canEdit }: { canEdit: boolean }) {
                     type="button"
                     onClick={() => setSelectedId(note.id)}
                     className={`w-full text-left px-3 py-3 hover:bg-gray-50 transition-colors ${
-                      selected?.id === note.id ? 'bg-blinkit-green-light/60' : ''
+                      selected?.id === note.id ? 'bg-leaf-light/60' : ''
                     }`}
                   >
                     <p className="text-sm font-semibold text-gray-900 line-clamp-2">{note.title}</p>
@@ -262,7 +262,7 @@ export default function LearningManager({ canEdit }: { canEdit: boolean }) {
                   onChange={(e) => setBody(e.target.value)}
                   rows={14}
                   placeholder="Write steps the team should follow..."
-                  className="mt-1 flex w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green resize-y min-h-[220px]"
+                  className="mt-1 flex w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest/30 focus:border-forest resize-y min-h-[220px]"
                 />
               </div>
               {error && <p className="text-sm text-red-600">{error}</p>}

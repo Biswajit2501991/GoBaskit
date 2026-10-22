@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   manifest: '/admin-manifest.webmanifest',
   appleWebApp: {
     capable: true,
-    title: 'GoBaskit Delivery',
+    title: 'GoBasket Delivery',
     statusBarStyle: 'default',
   },
 };

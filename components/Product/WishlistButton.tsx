@@ -41,7 +41,7 @@ export default function WishlistButton({
       onClick={onClick}
       aria-label={has ? 'Remove from wishlist' : 'Add to wishlist'}
       title={has ? 'Remove from wishlist' : 'Save for later / notify on restock'}
-      className={`inline-flex items-center justify-center rounded-full bg-white/90 border border-gray-200 shadow-sm hover:border-blinkit-green ${className}`}
+      className={`inline-flex items-center justify-center rounded-full bg-white/90 border border-gray-200 shadow-sm hover:border-forest ${className}`}
     >
       <Heart
         className={`${iconClass} ${has ? 'fill-red-500 text-red-500' : 'text-gray-500'}`}

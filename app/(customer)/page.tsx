@@ -109,7 +109,7 @@ export default function HomePage() {
   }, [rotatingBanners.length]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-paper">
       <Header />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-4 pb-24">
@@ -117,7 +117,7 @@ export default function HomePage() {
         <WeatherDisclaimerBanner className="mb-3" />
 
         {homepageConfig.announcementBarText && (
-          <div className="mb-3 rounded-xl px-3 py-2 text-sm font-medium bg-blinkit-green-light text-blinkit-green">
+          <div className="mb-3 rounded-2xl px-4 py-2.5 text-sm font-medium bg-white border border-paper-deep text-forest">
             {homepageConfig.announcementBarText}
           </div>
         )}

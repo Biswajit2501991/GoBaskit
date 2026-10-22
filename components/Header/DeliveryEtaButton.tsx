@@ -77,9 +77,9 @@ export default function DeliveryEtaButton({
 
   const triggerClass =
     variant === 'card'
-      ? `w-full text-left bg-white rounded-xl border border-gray-100 p-3.5 flex items-start gap-3 shadow-sm hover:border-blinkit-green/40 transition-colors ${className}`
+      ? `w-full text-left bg-white rounded-xl border border-gray-100 p-3.5 flex items-start gap-3 shadow-sm hover:border-forest/40 transition-colors ${className}`
       : variant === 'inline'
-        ? `inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 hover:text-blinkit-green ${className}`
+        ? `inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 hover:text-forest ${className}`
         : `inline-flex items-center gap-1.5 bg-white/80 hover:bg-white rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-800 transition-colors shadow-sm ${className}`;
 
   return (
@@ -93,7 +93,7 @@ export default function DeliveryEtaButton({
       >
         {variant === 'card' ? (
           <>
-            <div className="rounded-lg bg-blinkit-green-light p-2 text-blinkit-green shrink-0">
+            <div className="rounded-lg bg-leaf-light p-2 text-forest shrink-0">
               <Clock className="w-5 h-5" />
             </div>
             <div className="min-w-0">
@@ -103,7 +103,7 @@ export default function DeliveryEtaButton({
           </>
         ) : (
           <>
-            <Clock className="w-3.5 h-3.5 text-blinkit-green shrink-0" />
+            <Clock className="w-3.5 h-3.5 text-forest shrink-0" />
             <span className="truncate">{eta}</span>
           </>
         )}
@@ -139,7 +139,7 @@ export default function DeliveryEtaButton({
                     id="delivery-eta-title"
                     className="flex items-center gap-2 text-base font-bold text-gray-900 pr-2"
                   >
-                    <Clock className="w-5 h-5 text-blinkit-green shrink-0" />
+                    <Clock className="w-5 h-5 text-forest shrink-0" />
                     <span>{eta}</span>
                   </h2>
                   <button

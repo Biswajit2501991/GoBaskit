@@ -19,8 +19,8 @@ export default function CategoryCard({ category, active }: CategoryCardProps) {
       <div
         className={`w-[68px] h-[68px] rounded-2xl flex items-center justify-center text-3xl border transition-all overflow-hidden ${
           active
-            ? 'border-blinkit-green ring-2 ring-blinkit-green/30 bg-blinkit-green-light'
-            : 'border-gray-100 bg-gradient-to-br from-yellow-50 to-green-50 group-hover:border-blinkit-green/40 group-hover:shadow-sm'
+            ? 'border-forest ring-2 ring-forest/30 bg-leaf-light'
+            : 'border-paper-deep bg-[#F7F3EA] group-hover:border-leaf/50 group-hover:shadow-sm'
         }`}
       >
         {category.imageUrl ? (
@@ -31,7 +31,7 @@ export default function CategoryCard({ category, active }: CategoryCardProps) {
       </div>
       <span
         className={`text-[11px] font-semibold text-center leading-tight line-clamp-2 ${
-          active ? 'text-blinkit-green' : 'text-gray-700'
+          active ? 'text-forest' : 'text-gray-700'
         }`}
       >
         {category.name}

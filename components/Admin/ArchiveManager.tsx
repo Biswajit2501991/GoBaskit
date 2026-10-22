@@ -99,7 +99,7 @@ export default function ArchiveManager() {
                   </p>
                 </div>
                 <div className="text-right text-sm">
-                  <p className="font-semibold text-blinkit-green">{formatCurrency(order.grandTotal)}</p>
+                  <p className="font-semibold text-forest">{formatCurrency(order.grandTotal)}</p>
                   <p className="text-gray-400">{order.status}</p>
                 </div>
               </div>

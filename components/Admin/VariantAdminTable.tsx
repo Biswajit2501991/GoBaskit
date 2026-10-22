@@ -117,7 +117,7 @@ export default function VariantAdminTable({
             Each option has its own price and stock. Image can match the product or be unique.
           </p>
           {productName ? (
-            <p className="text-[11px] text-blinkit-green mt-1 font-medium">
+            <p className="text-[11px] text-forest mt-1 font-medium">
               Storefront first option = base product “{productName}” (edit fields above). Extra brands/sizes are listed below.
             </p>
           ) : null}
@@ -190,7 +190,7 @@ export default function VariantAdminTable({
                         <p className="font-medium truncate">{variantLabel(v)}</p>
                         {v.sku ? <p className="text-[10px] text-gray-400">SKU: {v.sku}</p> : null}
                         {!v.imageUrl && productImageUrl ? (
-                          <p className="text-[10px] text-blinkit-green">Same photo as product</p>
+                          <p className="text-[10px] text-forest">Same photo as product</p>
                         ) : null}
                       </div>
                     </div>

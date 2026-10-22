@@ -13,7 +13,7 @@ interface Props {
 export function ImportSummary({ result, onUndo, canUndo }: Props) {
   function downloadErrorReport() {
     const lines = [
-      'GoBaskit Bulk Import Error Report',
+      'GoBasket Bulk Import Error Report',
       `Imported: ${result.imported}`,
       `Updated: ${result.updated}`,
       `Skipped: ${result.skipped}`,
@@ -34,7 +34,7 @@ export function ImportSummary({ result, onUndo, canUndo }: Props) {
   return (
     <div className="rounded-xl border border-green-200 bg-green-50 p-5 mb-4">
       <div className="flex items-center gap-2 mb-3">
-        <CheckCircle2 className="h-5 w-5 text-blinkit-green" />
+        <CheckCircle2 className="h-5 w-5 text-forest" />
         <h3 className="font-semibold text-green-900">Upload Complete</h3>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mb-4">

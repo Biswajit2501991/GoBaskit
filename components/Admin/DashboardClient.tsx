@@ -118,7 +118,7 @@ export default function DashboardClient() {
               <div key={row.day} className="flex items-center gap-2">
                 <span className="text-xs text-gray-500 w-24">{row.day.slice(5)}</span>
                 <div className="flex-1 h-2 bg-gray-100 rounded">
-                  <div className="h-2 bg-blinkit-green rounded" style={{ width: `${Math.max(4, (row.revenue / trendMax) * 100)}%` }} />
+                  <div className="h-2 bg-forest rounded" style={{ width: `${Math.max(4, (row.revenue / trendMax) * 100)}%` }} />
                 </div>
                 <span className="text-xs font-medium w-24 text-right">{formatCurrency(row.revenue)}</span>
               </div>

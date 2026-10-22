@@ -44,7 +44,7 @@ const emptyVariant: VariantFormData = {
 };
 
 const selectClass =
-  'flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green';
+  'flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest/30 focus:border-forest';
 
 export default function VariantForm({
   productId,
@@ -249,7 +249,7 @@ export default function VariantForm({
               {...register('details')}
               rows={4}
               placeholder={'Shown in the "Product Details" section when this option is selected.\nLeave blank to reuse the product-level details.\nTip: "Label: Value" per line, e.g.\nNet weight: 5 kg\nShelf life: 6 months'}
-              className="mt-1 flex w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green resize-y"
+              className="mt-1 flex w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest/30 focus:border-forest resize-y"
             />
             {errors.details && <p className="text-red-500 text-xs mt-1">{errors.details.message}</p>}
           </div>
@@ -262,7 +262,7 @@ export default function VariantForm({
                 onClick={selectSameAsProduct}
                 className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                   useProductImage
-                    ? 'border-blinkit-green bg-blinkit-green-light text-blinkit-green'
+                    ? 'border-forest bg-leaf-light text-forest'
                     : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -273,7 +273,7 @@ export default function VariantForm({
                 onClick={() => setUseProductImage(false)}
                 className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                   !useProductImage
-                    ? 'border-blinkit-green bg-blinkit-green-light text-blinkit-green'
+                    ? 'border-forest bg-leaf-light text-forest'
                     : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -318,14 +318,14 @@ export default function VariantForm({
 
           <div className="flex items-center gap-4 md:col-span-2 lg:col-span-3 flex-wrap">
             <label className="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" {...register('isActive')} className="accent-blinkit-green" />
+              <input type="checkbox" {...register('isActive')} className="accent-forest" />
               Active
             </label>
             <div className="min-w-[180px]">
               <Label>Health Star Rating</Label>
               <select
                 {...register('healthStarRating')}
-                className="mt-1 flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green"
+                className="mt-1 flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest/30 focus:border-forest"
               >
                 <option value="">Same as product</option>
                 <option value="1">★ 1 star</option>

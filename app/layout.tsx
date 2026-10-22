@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
-import { DM_Sans } from 'next/font/google';
+import { Fraunces, Outfit } from 'next/font/google';
 import './globals.css';
 import { CUSTOMER_DELIVERY_PROMISE, STORE_NAME, SITE_URL } from '@/constants';
 import { parseSeasonalThemeId } from '@/constants/seasonalThemes';
 import { SettingsService } from '@/services/SettingsService';
 
-const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans' });
+const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' });
+const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-fraunces' });
 
 /** Live seasonal skin on first HTML — do not cache a stale data-theme. */
 export const dynamic = 'force-dynamic';
@@ -24,14 +25,14 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title,
   description,
-  keywords: ['grocery', 'online shopping', 'delivery', 'GoBaskit'],
+  keywords: ['grocery', 'online shopping', 'delivery', 'GoBasket'],
   alternates: {
     canonical: '/',
   },
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
-    title: 'GoBaskit',
+    title: 'GoBasket',
     statusBarStyle: 'default',
   },
   icons: {
@@ -82,11 +83,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang="en"
-      className={dmSans.variable}
+      className={`${outfit.variable} ${fraunces.variable}`}
       {...(seasonalTheme ? { 'data-theme': seasonalTheme } : {})}
       suppressHydrationWarning
     >
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased bg-paper text-forest font-sans">{children}</body>
     </html>
   );
 }

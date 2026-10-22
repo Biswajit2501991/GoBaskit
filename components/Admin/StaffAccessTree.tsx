@@ -48,7 +48,7 @@ export default function StaffAccessTree({
             <label className="flex items-start gap-2 text-sm font-medium text-gray-800">
               <input
                 type="checkbox"
-                className="mt-0.5 accent-blinkit-green"
+                className="mt-0.5 accent-forest"
                 checked={pageOn}
                 onChange={(e) => togglePage(page, e.target.checked)}
               />
@@ -63,7 +63,7 @@ export default function StaffAccessTree({
                   <label key={child.id} className="flex items-start gap-2 text-xs text-gray-600">
                     <input
                       type="checkbox"
-                      className="mt-0.5 accent-blinkit-green"
+                      className="mt-0.5 accent-forest"
                       checked={selected.has(child.id)}
                       onChange={(e) => toggleChild(child, e.target.checked)}
                     />

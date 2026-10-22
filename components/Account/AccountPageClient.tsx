@@ -93,7 +93,7 @@ export default function AccountPageClient() {
   const loggedIn = Boolean(mobile);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-paper">
       <Header showSearch={false} />
 
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6">
@@ -137,14 +137,14 @@ export default function AccountPageClient() {
             )}
             <section className="bg-white rounded-2xl border border-gray-100 p-5">
               <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <User className="w-4 h-4 text-blinkit-green" />
+                <User className="w-4 h-4 text-forest" />
                 Account
               </h2>
               <p className="text-sm text-gray-600">
                 Mobile: <span className="font-medium text-gray-900">+91 {mobile}</span>
               </p>
               {activeCount > 0 && (
-                <p className="text-sm text-blinkit-green font-medium mt-2">
+                <p className="text-sm text-forest font-medium mt-2">
                   {activeCount} active order{activeCount === 1 ? '' : 's'} in progress
                 </p>
               )}
@@ -153,7 +153,7 @@ export default function AccountPageClient() {
             {activeOrders.length > 0 && (
               <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
                 <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-                  <Package className="w-4 h-4 text-blinkit-green" />
+                  <Package className="w-4 h-4 text-forest" />
                   Active orders
                 </h2>
                 <ul className="space-y-2">
@@ -161,7 +161,7 @@ export default function AccountPageClient() {
                     <li key={order.id}>
                       <Link
                         href={`/account/track/${order.id}`}
-                        className="block rounded-xl border border-gray-100 p-3 hover:border-blinkit-green/40"
+                        className="block rounded-xl border border-gray-100 p-3 hover:border-forest/40"
                       >
                         <div className="flex justify-between gap-3">
                           <div>
@@ -172,7 +172,7 @@ export default function AccountPageClient() {
                               {order.status.replace(/_/g, ' ').toLowerCase()}
                             </p>
                           </div>
-                          <p className="font-semibold text-blinkit-green">{formatCurrency(order.grandTotal)}</p>
+                          <p className="font-semibold text-forest">{formatCurrency(order.grandTotal)}</p>
                         </div>
                       </Link>
                     </li>

@@ -55,7 +55,7 @@ const STATUS_SECTION_STYLES: Record<string, { header: string; border: string }> 
 function getWhatsAppMessage(order: OrderRow) {
   return [
     `Hi ${order.customer.firstName},`,
-    `Your GoBaskit order ${order.orderNumber} is now ${order.status.replace(/_/g, ' ')}.`,
+    `Your GoBasket order ${order.orderNumber} is now ${order.status.replace(/_/g, ' ')}.`,
     `Total: ${formatCurrency(order.grandTotal)}.`,
     'Thank you for shopping with us.',
   ].join('\n');
@@ -73,7 +73,7 @@ function getStaffDeliveryWhatsAppMessage(order: OrderRow): string {
   const paymentLabel =
     PAYMENT_METHODS[order.paymentMethod as keyof typeof PAYMENT_METHODS] ?? order.paymentMethod;
   const lines: string[] = [
-    `GoBaskit delivery — ${order.orderNumber}`,
+    `GoBasket delivery — ${order.orderNumber}`,
     `Status: ${order.status.replace(/_/g, ' ')}`,
     `Payment: ${paymentLabel}`,
     `Total: ${formatCurrency(order.grandTotal)}`,
@@ -274,10 +274,10 @@ function OrderCard({
       }}
       onDragEnd={onDragEnd}
       className={`bg-white rounded-lg border shadow-sm overflow-hidden transition-all ${
-        isDragging ? 'opacity-40 border-dashed border-blinkit-green scale-[0.98]' : 'border-gray-100'
+        isDragging ? 'opacity-40 border-dashed border-forest scale-[0.98]' : 'border-gray-100'
       } ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''} ${
         pendingVerifyLock ? 'opacity-75 ring-1 ring-amber-300' : ''
-      } ${shopPayPending ? 'ring-2 ring-amber-500' : ''} ${highlight ? 'ring-2 ring-blinkit-green' : ''}`}
+      } ${shopPayPending ? 'ring-2 ring-amber-500' : ''} ${highlight ? 'ring-2 ring-forest' : ''}`}
     >
       <div
         role="button"
@@ -327,11 +327,11 @@ function OrderCard({
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               )}
-              <p className="font-bold text-sm text-blinkit-green">{formatCurrency(order.grandTotal)}</p>
+              <p className="font-bold text-sm text-forest">{formatCurrency(order.grandTotal)}</p>
             </div>
           </div>
           {(order.discountAmount ?? 0) > 0 && (
-            <p className="text-[10px] text-blinkit-green font-medium">
+            <p className="text-[10px] text-forest font-medium">
               Discount −{formatCurrency(order.discountAmount!)}
               {order.discountType === 'COUPON' && order.couponCode
                 ? ` (${order.couponCode})`
@@ -1203,7 +1203,7 @@ export default function OrdersManager({
             <button
               type="button"
               onClick={() => handleOpsFilterChange(null)}
-              className="text-sm font-semibold text-blinkit-green hover:underline"
+              className="text-sm font-semibold text-forest hover:underline"
             >
               Clear filter
             </button>
@@ -1221,7 +1221,7 @@ export default function OrdersManager({
                   key={status}
                   className={`flex flex-col w-[min(300px,78vw)] shrink-0 rounded-xl border overflow-hidden max-h-[calc(100vh-13rem)] transition-shadow ${
                     styles.border
-                  } ${dragOverStatus === status ? 'ring-2 ring-blinkit-green shadow-md' : ''}`}
+                  } ${dragOverStatus === status ? 'ring-2 ring-forest shadow-md' : ''}`}
                 >
                   <div className={`px-3 py-3 border-b shrink-0 ${styles.header}`}>
                     <p className="font-extrabold text-sm sm:text-base leading-tight tracking-wide uppercase">
@@ -1237,7 +1237,7 @@ export default function OrdersManager({
 
                   <div
                     className={`flex-1 overflow-y-auto p-2 space-y-2 min-h-[120px] transition-colors ${
-                      dragOverStatus === status ? 'bg-blinkit-green-light/50' : 'bg-gray-50/60'
+                      dragOverStatus === status ? 'bg-leaf-light/50' : 'bg-gray-50/60'
                     }`}
                     onDragOver={(e) => {
                       if (!canEdit) return;
@@ -1254,7 +1254,7 @@ export default function OrdersManager({
                     {sectionOrders.length === 0 ? (
                       <p className={`text-[11px] text-center py-6 px-2 border border-dashed rounded-lg ${
                         dragOverStatus === status
-                          ? 'text-blinkit-green border-blinkit-green/40 bg-white/60'
+                          ? 'text-forest border-forest/40 bg-white/60'
                           : 'text-gray-400 border-transparent'
                       }`}
                       >

@@ -142,7 +142,7 @@ export default function CartPanelContent({
 
   return (
     <div className={`flex flex-col h-full min-h-0 ${className}`}>
-      <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-3 bg-[#f4f6fb]">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-3 bg-paper">
         <StockRemovalNotice />
         <WeatherDisclaimerBanner />
         <div className="space-y-1">
@@ -152,7 +152,7 @@ export default function CartPanelContent({
           </p>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-paper-deep shadow-sm overflow-hidden">
           <div className="px-4 py-2.5 flex items-center justify-between border-b border-gray-50">
             <p className="text-sm font-bold text-gray-900">Items in cart</p>
             <button
@@ -169,7 +169,7 @@ export default function CartPanelContent({
               const overStock = !outOfStock && item.quantity > item.stock;
               return (
               <div key={itemLineKey(item)} className="p-3.5 flex gap-3">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100 overflow-hidden flex-shrink-0 relative">
+                <div className="w-14 h-14 rounded-2xl bg-[#F7F3EA] overflow-hidden flex-shrink-0 relative">
                   {item.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -179,7 +179,7 @@ export default function CartPanelContent({
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-lg font-bold text-blinkit-green">
+                      <span className="text-lg font-bold text-forest">
                         {item.name.charAt(0)}
                       </span>
                     </div>
@@ -195,7 +195,7 @@ export default function CartPanelContent({
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-sm text-gray-900 truncate">{item.name}</h3>
                   {item.variantLabel ? (
-                    <p className="text-xs text-blinkit-green font-medium truncate">
+                    <p className="text-xs text-forest font-medium truncate">
                       {item.variantLabel}
                     </p>
                   ) : null}
@@ -208,7 +208,7 @@ export default function CartPanelContent({
                     </p>
                   ) : null}
                   <div className="flex items-baseline gap-1.5 mt-1">
-                    <p className="font-bold text-sm">{formatCurrency(item.price)}</p>
+                    <p className="font-bold text-sm text-carrot">{formatCurrency(item.price)}</p>
                     {getListPrice(item.mrp ?? null, item.price) ? (
                       <p className="text-[11px] text-gray-400 line-through">
                         {formatCurrency(getListPrice(item.mrp ?? null, item.price)!)}
@@ -229,7 +229,7 @@ export default function CartPanelContent({
                       Out of stock
                     </span>
                   ) : (
-                    <div className="flex items-center bg-blinkit-green rounded-lg overflow-hidden">
+                    <div className="flex items-center bg-leaf rounded-full overflow-hidden">
                       <button
                         type="button"
                         onClick={() => updateQuantity(itemLineKey(item), item.quantity - 1)}
@@ -261,14 +261,14 @@ export default function CartPanelContent({
 
         <CouponSection subtotal={subtotal} />
 
-        <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-2 text-sm shadow-sm">
-          <h3 className="font-bold text-sm text-gray-900 mb-1">Bill details</h3>
+        <div className="bg-white rounded-2xl border border-paper-deep p-4 space-y-2 text-sm shadow-sm">
+          <h3 className="font-display font-semibold text-base text-forest mb-1">Receipt</h3>
           <div className="flex justify-between">
             <span className="text-gray-500">Items total</span>
             <span className="font-medium">{formatCurrency(subtotal)}</span>
           </div>
           {discountAmount > 0 && (
-            <div className="flex justify-between text-blinkit-green">
+            <div className="flex justify-between text-forest">
               <span>
                 Discount
                 {appliedDiscount?.type === 'COUPON' && appliedDiscount.couponCode
@@ -284,9 +284,9 @@ export default function CartPanelContent({
             <span className="text-gray-500">Delivery charge</span>
             <span className="font-medium">{formatCurrency(deliveryCharge)}</span>
           </div>
-          <div className="flex justify-between border-t border-dashed pt-2 font-bold text-base">
+          <div className="flex justify-between border-t border-dashed border-paper-deep pt-2 font-display text-lg">
             <span>Grand total</span>
-            <span className="text-blinkit-green">{formatCurrency(grandTotal)}</span>
+            <span className="text-carrot font-semibold">{formatCurrency(grandTotal)}</span>
           </div>
           {belowMinimum && (
             <p className="text-amber-600 text-xs font-semibold">
@@ -303,7 +303,7 @@ export default function CartPanelContent({
       </div>
 
       {showFooterActions && (
-        <div className="shrink-0 border-t border-gray-200 bg-white p-3 pb-mobile-chrome space-y-2 shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
+        <div className="shrink-0 border-t border-paper-deep bg-paper p-3 pb-mobile-chrome space-y-2">
           {customerMobile && !accepting && (
             <p className="text-amber-800 text-[11px] font-semibold text-center">
               {ORDERS_PAUSED_MESSAGE}

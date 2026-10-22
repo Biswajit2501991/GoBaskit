@@ -119,7 +119,7 @@ export const TEMPLATE_COLUMNS = [
   { key: 'brand', header: 'Brand', required: false, sample: 'GoBaskit Farms', description: 'Product brand' },
   { key: 'countryOfOrigin', header: 'Country of Origin', required: false, sample: 'India', description: 'Country of origin' },
   { key: 'fulfillmentSource', header: 'Fulfillment Source', required: false, sample: 'IN_HOUSE', description: 'UNSET, IN_HOUSE, or OUTSOURCE' },
-  { key: 'costPrice', header: 'Cost Price', required: false, sample: '20', description: 'GoBaskit unit cost for in-house profit (not MRP)' },
+  { key: 'costPrice', header: 'Cost Price', required: false, sample: '20', description: 'GoBasket unit cost for in-house profit (not MRP)' },
 ] as const;
 
 // Legacy column aliases (backward compatible)

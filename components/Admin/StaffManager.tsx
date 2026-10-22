@@ -544,7 +544,7 @@ export default function StaffManager({
                   />
                   <button
                     type="button"
-                    className="text-xs text-blinkit-green underline"
+                    className="text-xs text-forest underline"
                     onClick={() =>
                       setForm({
                         ...form,

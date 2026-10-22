@@ -225,7 +225,7 @@ export default function CategoryManager({
                   type="checkbox"
                   id="isActive"
                   {...register('isActive')}
-                  className="accent-blinkit-green"
+                  className="accent-forest"
                   disabled={!canEdit}
                 />
                 <label htmlFor="isActive" className="text-sm font-medium">Active (visible on store)</label>

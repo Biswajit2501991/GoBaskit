@@ -1,15 +1,19 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap');
 @import "tailwindcss";
 
 @theme inline {
-  --color-background: #ffffff;
-  --color-foreground: #171717;
-  --color-blinkit-yellow: #f7c948;
-  --color-blinkit-yellow-dark: #e8b830;
-  --color-blinkit-green: #0c831f;
-  --color-blinkit-green-dark: #0a6b19;
-  --color-blinkit-green-light: #e8f5e9;
-  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --color-background: #F4F1EA;
+  --color-foreground: #143028;
+  --color-paper: #F4F1EA;
+  --color-paper-deep: #E8E2D6;
+  --color-forest: #143028;
+  --color-forest-dark: #0C211A;
+  --color-leaf: #2F9E44;
+  --color-leaf-dark: #257A35;
+  --color-leaf-light: #E7F6EB;
+  --color-carrot: #E37A1F;
+  --color-carrot-dark: #C46514;
+  --font-sans: var(--font-outfit), 'Outfit', system-ui, sans-serif;
+  --font-display: var(--font-fraunces), Georgia, serif;
 }
 
 html {
@@ -94,8 +98,8 @@ body {
 }
 
 @keyframes login-seal-glow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(247, 201, 72, 0.35); }
-  50% { box-shadow: 0 0 0 6px rgba(247, 201, 72, 0.12); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(47, 158, 68, 0.28); }
+  50% { box-shadow: 0 0 0 6px rgba(47, 158, 68, 0.1); }
 }
 
 .login-brand-seal {
@@ -105,11 +109,12 @@ body {
 .login-brand-ring {
   background: conic-gradient(
     from 0deg,
-    #f7c948,
-    #ffffff,
-    #0c831f,
-    #ffffff,
-    #f7c948
+    #E37A1F,
+    #F4F1EA,
+    #143028,
+    #F4F1EA,
+    #2F9E44,
+    #E37A1F
   );
   opacity: 0.55;
   mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
@@ -242,10 +247,10 @@ body {
   height: 4px;
 }
 .celebration-piece:nth-child(5n) {
-  background: #0c831f;
+  background: #2F9E44;
 }
 .celebration-piece:nth-child(7n) {
-  background: #f7c948;
+  background: #E37A1F;
 }
 .celebration-piece:nth-child(11n) {
   background: #ef4444;
@@ -262,11 +267,11 @@ body {
    Toggle via Admin → Seasonal / 15 Aug. Removing data-theme restores defaults. */
 html[data-theme='independence-day'] {
   --color-background: #fffbf5;
-  --color-blinkit-yellow: #f0a83a;
-  --color-blinkit-yellow-dark: #e08f28;
-  --color-blinkit-green: #136b3a;
-  --color-blinkit-green-dark: #0e5630;
-  --color-blinkit-green-light: #e8f3ec;
+  --color-carrot: #f0a83a;
+  --color-carrot-dark: #e08f28;
+  --color-forest: #136b3a;
+  --color-forest-dark: #0e5630;
+  --color-leaf-light: #e8f3ec;
 }
 
 html[data-theme='independence-day'] body {
@@ -276,7 +281,7 @@ html[data-theme='independence-day'] body {
 }
 
 /* Refined tricolor wash on the yellow header bar */
-html[data-theme='independence-day'] header .bg-blinkit-yellow {
+html[data-theme='independence-day'] header .brand-bar {
   background: linear-gradient(
     90deg,
     #ff9933 0%,
@@ -319,8 +324,8 @@ html[data-theme='independence-day'] [data-sticky-chips] {
    chrome (header bar + ribbon) is a yellow–orange liquid-glass wash. */
 html[data-theme='raksha-bandhan'] {
   --color-background: #fbf6ee;
-  --color-blinkit-yellow: #f3b23a;
-  --color-blinkit-yellow-dark: #e08922;
+  --color-carrot: #f3b23a;
+  --color-carrot-dark: #e08922;
 }
 
 html[data-theme='raksha-bandhan'] body {
@@ -334,7 +339,7 @@ html[data-theme='raksha-bandhan'] .min-h-screen {
   background-color: transparent;
 }
 
-html[data-theme='raksha-bandhan'] header .bg-blinkit-yellow {
+html[data-theme='raksha-bandhan'] header .brand-bar {
   position: relative;
   overflow: visible;
   isolation: isolate;
@@ -350,7 +355,7 @@ html[data-theme='raksha-bandhan'] header .bg-blinkit-yellow {
     0 10px 28px rgba(180, 80, 16, 0.14);
 }
 
-html[data-theme='raksha-bandhan'] header .bg-blinkit-yellow::before {
+html[data-theme='raksha-bandhan'] header .brand-bar::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -361,7 +366,7 @@ html[data-theme='raksha-bandhan'] header .bg-blinkit-yellow::before {
     radial-gradient(70% 90% at 92% 130%, rgba(255, 214, 130, 0.32), transparent 52%);
 }
 
-html[data-theme='raksha-bandhan'] header .bg-blinkit-yellow::after {
+html[data-theme='raksha-bandhan'] header .brand-bar::after {
   content: '';
   position: absolute;
   z-index: 2;
@@ -378,14 +383,14 @@ html[data-theme='raksha-bandhan'] header .bg-blinkit-yellow::after {
   pointer-events: none;
 }
 
-html[data-theme='raksha-bandhan'] header .bg-blinkit-yellow > div {
+html[data-theme='raksha-bandhan'] header .brand-bar > div {
   position: relative;
   z-index: 1;
   padding-right: 3.75rem;
 }
 
-html[data-theme='raksha-bandhan'] header .bg-blinkit-yellow .bg-white,
-html[data-theme='raksha-bandhan'] header .bg-blinkit-yellow .bg-white\/80 {
+html[data-theme='raksha-bandhan'] header .brand-bar .bg-white,
+html[data-theme='raksha-bandhan'] header .brand-bar .bg-white\/80 {
   background-color: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
@@ -500,20 +505,20 @@ html[data-theme='raksha-bandhan'] footer {
 }
 
 /* ── Normal day-to-day promo skin (presentation only) ──
-   Keep default yellow/green brand tokens. Only ribbon + promo strip. */
+   Paper, forest, and carrot. Only ribbon + promo strip. */
 html[data-theme='normal'] .seasonal-ribbon {
-  background: linear-gradient(90deg, #f7c948 0%, #eef8ee 48%, #318616 100%);
-  color: #1a1a1a;
+  background: linear-gradient(90deg, #143028 0%, #2F9E44 58%, #E37A1F 100%);
+  color: #F4F1EA;
 }
 
 html[data-theme='normal'] .seasonal-promo-banner {
-  background: linear-gradient(135deg, #fffdf5 0%, #ffffff 48%, #e8f3ec 100%);
-  border: 1px solid rgba(49, 134, 22, 0.16);
-  box-shadow: 0 1px 0 rgba(247, 201, 72, 0.2);
+  background: linear-gradient(135deg, #F4F1EA 0%, #ffffff 52%, #E7F6EB 100%);
+  border: 1px solid rgba(20, 48, 40, 0.12);
+  box-shadow: 0 1px 0 rgba(227, 122, 31, 0.18);
 }
 
 html[data-theme='normal'] .seasonal-promo-eyebrow {
-  color: #2f6b16;
+  color: #143028;
 }
 
 /* ── Admin color mode (light / dark / system) ──
@@ -568,21 +573,21 @@ html[data-admin-theme='dark'] .text-gray-500,
 html[data-admin-theme='dark'] .text-gray-400 {
   color: var(--admin-muted) !important;
 }
-html[data-admin-theme='dark'] .bg-blinkit-green-light,
-html[data-admin-theme='dark'] .bg-blinkit-green-light\/70 {
+html[data-admin-theme='dark'] .bg-leaf-light,
+html[data-admin-theme='dark'] .bg-leaf-light\/70 {
   background-color: var(--admin-green-soft) !important;
 }
-html[data-admin-theme='dark'] .text-blinkit-green {
+html[data-admin-theme='dark'] .text-forest {
   color: var(--admin-green) !important;
 }
 html[data-admin-theme='dark'] .hover\:bg-gray-50:hover,
 html[data-admin-theme='dark'] .hover\:bg-gray-100:hover {
   background-color: var(--admin-elevated) !important;
 }
-html[data-admin-theme='dark'] .hover\:bg-blinkit-green-light:hover {
+html[data-admin-theme='dark'] .hover\:bg-leaf-light:hover {
   background-color: var(--admin-green-soft) !important;
 }
-html[data-admin-theme='dark'] .hover\:text-blinkit-green:hover {
+html[data-admin-theme='dark'] .hover\:text-forest:hover {
   color: var(--admin-green) !important;
 }
 html[data-admin-theme='dark'] .hover\:text-gray-700:hover {

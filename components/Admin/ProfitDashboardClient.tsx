@@ -176,7 +176,7 @@ export default function ProfitDashboardClient({ canToggle }: { canToggle: boolea
             disabled={!canToggle || toggling}
             onClick={() => void toggleEnabled()}
             className={`relative h-7 w-12 rounded-full transition-colors ${
-              enabled ? 'bg-blinkit-green' : 'bg-gray-300'
+              enabled ? 'bg-forest' : 'bg-gray-300'
             } disabled:opacity-60`}
           >
             <span
@@ -221,7 +221,7 @@ export default function ProfitDashboardClient({ canToggle }: { canToggle: boolea
                 checked={includeDelivery}
                 onChange={(e) => setIncludeDelivery(e.target.checked)}
               />
-              Include delivery in GoBaskit profit
+              Include delivery in GoBasket profit
             </label>
           </div>
 
@@ -232,7 +232,7 @@ export default function ProfitDashboardClient({ canToggle }: { canToggle: boolea
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <Stat label="Orders" value={String(totals.orders)} />
                 <Stat label="Paid to shops" value={formatCurrency(totals.paidToShops)} />
-                <Stat label="Paid to GoBaskit" value={formatCurrency(totals.paidToGobaskit)} />
+                <Stat label="Paid to GoBasket" value={formatCurrency(totals.paidToGobaskit)} />
                 <Stat label="Total profit" value={formatCurrency(totals.totalProfit)} />
                 <Stat label="Outsource profit" value={formatCurrency(totals.outsourceProfit)} />
                 <Stat label="In-house profit" value={formatCurrency(totals.inHouseProfit)} />
@@ -246,7 +246,7 @@ export default function ProfitDashboardClient({ canToggle }: { canToggle: boolea
                     <tr>
                       <th className="text-left p-3">Order</th>
                       <th className="text-right p-3">Shops</th>
-                      <th className="text-right p-3">GoBaskit</th>
+                      <th className="text-right p-3">GoBasket</th>
                       <th className="text-right p-3">Outsource profit</th>
                       <th className="text-right p-3">In-house profit</th>
                       <th className="text-right p-3">Total</th>
@@ -264,7 +264,7 @@ export default function ProfitDashboardClient({ canToggle }: { canToggle: boolea
                         <tr
                           key={row.id}
                           className={`border-b border-gray-50 cursor-pointer ${
-                            selectedId === row.id ? 'bg-blinkit-green-light' : 'hover:bg-gray-50'
+                            selectedId === row.id ? 'bg-leaf-light' : 'hover:bg-gray-50'
                           }`}
                           onClick={() => setSelectedId(row.id)}
                         >
@@ -311,7 +311,7 @@ export default function ProfitDashboardClient({ canToggle }: { canToggle: boolea
                         </div>
                       ))}
                       <p className="text-sm">
-                        Paid to shops {formatCurrency(detail.paidToShops)} · Paid to GoBaskit{' '}
+                        Paid to shops {formatCurrency(detail.paidToShops)} · Paid to GoBasket{' '}
                         {formatCurrency(detail.paidToGobaskit)}
                         {includeDelivery ? ` (includes delivery ${formatCurrency(detail.deliveryCharge)})` : ''}
                       </p>

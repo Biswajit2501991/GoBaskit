@@ -114,7 +114,7 @@ export default function StaffAdminLoginModal() {
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="accent-blinkit-green"
+              className="accent-forest"
             />
             Remember me
           </label>

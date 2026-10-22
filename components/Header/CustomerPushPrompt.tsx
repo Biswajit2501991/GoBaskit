@@ -92,7 +92,7 @@ export default function CustomerPushPrompt({
             </p>
             {iosHint && (
               <p className="text-sm text-amber-800 mt-2 leading-relaxed">
-                On iPhone, add GoBaskit to the Home Screen first (Share → Add to Home Screen), open it from the icon, then tap Enable.
+                On iPhone, add GoBasket to the Home Screen first (Share → Add to Home Screen), open it from the icon, then tap Enable.
               </p>
             )}
             {!canUseWebPush() && !iosHint && (

@@ -61,8 +61,8 @@ function CategoryChip({
       }}
       className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-2.5 py-2 min-h-10 text-[11px] font-semibold border transition-colors touch-manipulation select-none ${
         active
-          ? 'bg-blinkit-green text-white border-blinkit-green'
-          : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-blinkit-green/40'
+          ? 'bg-forest text-white border-forest'
+          : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-forest/40'
       }`}
     >
       <span
@@ -114,10 +114,10 @@ export default function StickyCategoryChips({
           <button
             type="button"
             onClick={onOpenAll}
-            className="shrink-0 inline-flex flex-col items-center justify-center gap-0.5 w-12 min-h-10 text-[10px] font-semibold text-blinkit-green touch-manipulation"
+            className="shrink-0 inline-flex flex-col items-center justify-center gap-0.5 w-12 min-h-10 text-[10px] font-semibold text-forest touch-manipulation"
             aria-label="See all categories"
           >
-            <span className="w-9 h-9 rounded-full bg-blinkit-green-light flex items-center justify-center pointer-events-none">
+            <span className="w-9 h-9 rounded-full bg-leaf-light flex items-center justify-center pointer-events-none">
               <LayoutGrid className="w-4 h-4" />
             </span>
             All

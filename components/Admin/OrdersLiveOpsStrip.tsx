@@ -69,7 +69,7 @@ export default function OrdersLiveOpsStrip({
           <button
             type="button"
             onClick={() => onFilterChange(null)}
-            className="text-xs font-semibold text-blinkit-green hover:underline"
+            className="text-xs font-semibold text-forest hover:underline"
           >
             Clear filter
           </button>
@@ -155,7 +155,7 @@ export default function OrdersLiveOpsStrip({
                     title={detail}
                     className={`rounded-lg px-2.5 py-1.5 text-left border transition-colors max-w-full ${
                       active
-                        ? 'bg-blinkit-green border-blinkit-green text-white'
+                        ? 'bg-forest border-forest text-white'
                         : overloaded
                           ? 'bg-orange-50 border-orange-200 text-orange-950 hover:bg-orange-100'
                           : 'bg-gray-50 border-gray-200 text-gray-900 hover:bg-gray-100'

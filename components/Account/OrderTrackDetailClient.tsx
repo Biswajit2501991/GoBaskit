@@ -266,7 +266,7 @@ export default function OrderTrackDetailClient({ orderId }: { orderId: string })
               <h1 className="text-xl font-bold text-gray-900">{order.orderNumber}</h1>
               <p className="text-sm text-gray-500 mt-1">{formatDateTime(order.createdAt)} · {formatCurrency(order.grandTotal)}</p>
               {canMutate && countdown && (
-                <p className="text-xs text-blinkit-green font-semibold mt-2">
+                <p className="text-xs text-forest font-semibold mt-2">
                   You can edit or cancel for {countdown}
                 </p>
               )}
@@ -309,7 +309,7 @@ export default function OrderTrackDetailClient({ orderId }: { orderId: string })
                     </div>
                   )}
                   {(order.discountAmount ?? 0) > 0 && (
-                    <div className="flex justify-between text-blinkit-green">
+                    <div className="flex justify-between text-forest">
                       <span>
                         Discount
                         {order.discountType === 'COUPON' && order.couponCode
@@ -329,7 +329,7 @@ export default function OrderTrackDetailClient({ orderId }: { orderId: string })
                   )}
                   <div className="flex justify-between font-bold text-base pt-1">
                     <span>Grand Total</span>
-                    <span className="text-blinkit-green">{formatCurrency(order.grandTotal)}</span>
+                    <span className="text-forest">{formatCurrency(order.grandTotal)}</span>
                   </div>
                 </div>
               )}

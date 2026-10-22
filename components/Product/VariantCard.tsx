@@ -20,19 +20,19 @@ export default function VariantCard({ option, inCartQty = 0, onAdd }: VariantCar
   return (
     <div
       className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${
-        option.inStock ? 'border-gray-100 bg-white hover:border-blinkit-green/30' : 'border-gray-100 bg-gray-50 opacity-75'
+        option.inStock ? 'border-gray-100 bg-white hover:border-forest/30' : 'border-gray-100 bg-gray-50 opacity-75'
       }`}
     >
       <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100 flex-shrink-0">
         {imageUrl ? (
           <img src={imageUrl} alt={option.name} loading="lazy" className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-lg font-bold text-blinkit-green">
+          <div className="w-full h-full flex items-center justify-center text-lg font-bold text-forest">
             {option.name.charAt(0)}
           </div>
         )}
         {discountLabel ? (
-          <span className="absolute top-0 left-0 bg-blinkit-green text-white text-[8px] font-bold px-1 py-0.5 rounded-br-md leading-none">
+          <span className="absolute top-0 left-0 bg-forest text-white text-[8px] font-bold px-1 py-0.5 rounded-br-md leading-none">
             {discountLabel}
           </span>
         ) : null}
@@ -59,7 +59,7 @@ export default function VariantCard({ option, inCartQty = 0, onAdd }: VariantCar
         size="sm"
         disabled={!option.inStock}
         onClick={() => onAdd(option)}
-        className="text-[11px] uppercase tracking-wide h-8 px-4 shrink-0 border-blinkit-green text-blinkit-green hover:bg-blinkit-green-light disabled:opacity-60"
+        className="text-[11px] uppercase tracking-wide h-8 px-4 shrink-0 border-forest text-forest hover:bg-leaf-light disabled:opacity-60"
       >
         {!option.inStock ? 'Out of stock' : inCartQty > 0 ? `${inCartQty}` : 'ADD'}
       </Button>

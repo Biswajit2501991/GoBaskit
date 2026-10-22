@@ -339,7 +339,7 @@ export default function AdminMasterSearch({ navItems }: { navItems: NavItem[] })
           placeholder="Search pages & settings…"
           autoComplete="off"
           spellCheck={false}
-          className="w-full h-10 rounded-xl border border-gray-200 bg-gray-50/80 pl-10 pr-16 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition-[border-color,box-shadow,background] focus:bg-white focus:border-blinkit-green/40 focus:ring-2 focus:ring-blinkit-green/15"
+          className="w-full h-10 rounded-xl border border-gray-200 bg-gray-50/80 pl-10 pr-16 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition-[border-color,box-shadow,background] focus:bg-white focus:border-forest/40 focus:ring-2 focus:ring-forest/15"
         />
         <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center gap-0.5 rounded-md border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-400 shadow-sm">
           ⌘K
@@ -375,13 +375,13 @@ export default function AdminMasterSearch({ navItems }: { navItems: NavItem[] })
                       onMouseEnter={() => setActiveIndex(index)}
                       onClick={() => goTo(dest.href)}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
-                        active ? 'bg-blinkit-green-light/70' : 'hover:bg-gray-50'
+                        active ? 'bg-leaf-light/70' : 'hover:bg-gray-50'
                       }`}
                     >
                       <span
                         className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
                           active
-                            ? 'bg-blinkit-green text-white'
+                            ? 'bg-forest text-white'
                             : 'bg-gray-100 text-gray-500'
                         }`}
                       >
@@ -398,7 +398,7 @@ export default function AdminMasterSearch({ navItems }: { navItems: NavItem[] })
                       </span>
                       <ArrowRight
                         className={`w-4 h-4 shrink-0 ${
-                          active ? 'text-blinkit-green' : 'text-gray-300'
+                          active ? 'text-forest' : 'text-gray-300'
                         }`}
                       />
                     </button>

@@ -286,7 +286,7 @@ export default function SettingsManager({
       poweredByText:
         hc.poweredByText ?? 'Powered by Action Plus Gym · Healthy Life · Wealthy Life',
       showLoginLogo: hc.showLoginLogo !== false,
-      loginLogoUrl: hc.loginLogoUrl || '/branding/gobaskit-seal.png',
+      loginLogoUrl: hc.loginLogoUrl || '/branding/gobasket-mark.png',
       showTopDiscounted: hc.showTopDiscounted !== false,
       topDiscountedTitle: hc.topDiscountedTitle ?? 'Top Discounted Items',
       topDiscountedLimit: hc.topDiscountedLimit ?? 12,
@@ -341,7 +341,7 @@ export default function SettingsManager({
   const [deliveryOtpEnabled, setDeliveryOtpEnabled] = useState(
     initialConfig.deliveryOtpEnabled === true,
   );
-  const [broadcastTitle, setBroadcastTitle] = useState('GoBaskit');
+  const [broadcastTitle, setBroadcastTitle] = useState('GoBasket');
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastInfo, setBroadcastInfo] = useState<{
@@ -917,7 +917,7 @@ export default function SettingsManager({
                 onClick={() => openSection(section.id)}
                 className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
                   isActive
-                    ? 'bg-blinkit-green text-white'
+                    ? 'bg-forest text-white'
                     : 'bg-white text-gray-600 border border-gray-200'
                 }`}
               >
@@ -949,7 +949,7 @@ export default function SettingsManager({
                       onClick={() => openSection(section.id)}
                       className={`w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-colors ${
                         isActive
-                          ? 'bg-blinkit-green-light text-blinkit-green font-semibold'
+                          ? 'bg-leaf-light text-forest font-semibold'
                           : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium'
                       }`}
                       aria-current={isActive ? 'page' : undefined}
@@ -968,7 +968,7 @@ export default function SettingsManager({
           <div className="lg:sticky lg:top-20 z-[8] -mx-1 px-1 py-2 bg-gray-50/90 backdrop-blur-md">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex items-center gap-3">
-                <div className="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white border border-gray-200 text-blinkit-green">
+                <div className="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white border border-gray-200 text-forest">
                   <ActiveIcon size={18} />
                 </div>
                 <div className="min-w-0">
@@ -1024,7 +1024,7 @@ export default function SettingsManager({
         <div className="flex flex-wrap gap-2">
           {pins.length === 0 && <span className="text-sm text-gray-400">No PINs added yet.</span>}
           {pins.map((pin) => (
-            <span key={pin} className="inline-flex items-center gap-2 bg-blinkit-green-light text-blinkit-green rounded-full px-3 py-1 text-sm font-medium">
+            <span key={pin} className="inline-flex items-center gap-2 bg-leaf-light text-forest rounded-full px-3 py-1 text-sm font-medium">
               {pin}
               <button type="button" onClick={() => removePin(pin)} aria-label={`Remove ${pin}`} className="hover:text-red-500" disabled={!canEdit}>
                 <Trash2 size={14} />
@@ -1063,7 +1063,7 @@ export default function SettingsManager({
         <div className="flex flex-wrap gap-2">
           {cities.length === 0 && <span className="text-sm text-gray-400">No cities added yet.</span>}
           {cities.map((city) => (
-            <span key={city} className="inline-flex items-center gap-2 bg-blinkit-green-light text-blinkit-green rounded-full px-3 py-1 text-sm font-medium">
+            <span key={city} className="inline-flex items-center gap-2 bg-leaf-light text-forest rounded-full px-3 py-1 text-sm font-medium">
               {city}
               <button type="button" onClick={() => removeCity(city)} aria-label={`Remove ${city}`} className="hover:text-red-500" disabled={!canEdit}>
                 <Trash2 size={14} />
@@ -1120,7 +1120,7 @@ export default function SettingsManager({
               disabled={!canToggleAcceptingOrders}
               onClick={() => setAcceptingOrders((on) => !on)}
               className={`relative h-7 w-12 rounded-full transition-colors ${
-                acceptingOrders ? 'bg-blinkit-green' : 'bg-gray-300'
+                acceptingOrders ? 'bg-forest' : 'bg-gray-300'
               } disabled:opacity-60`}
             >
               <span
@@ -1159,7 +1159,7 @@ export default function SettingsManager({
             checked={notificationSoundEnabled}
             onChange={(e) => setNotificationSoundEnabled(e.target.checked)}
             disabled={!canEdit}
-            className="accent-blinkit-green"
+            className="accent-forest"
           />
           Play sound when a new order arrives
         </label>
@@ -1207,7 +1207,7 @@ export default function SettingsManager({
               maxLength={BROADCAST_TITLE_MAX}
               disabled={!canEdit || broadcastSending}
               className="mt-1"
-              placeholder="GoBaskit"
+              placeholder="GoBasket"
             />
           </div>
           <div>
@@ -1253,7 +1253,7 @@ export default function SettingsManager({
             checked={staffIdleTimeoutEnabled}
             onChange={(e) => setStaffIdleTimeoutEnabled(e.target.checked)}
             disabled={!canEdit}
-            className="accent-blinkit-green"
+            className="accent-forest"
           />
           Auto log out idle staff
         </label>
@@ -1399,7 +1399,7 @@ export default function SettingsManager({
           <h2 className="font-semibold text-sm text-gray-900">Shop sourcing</h2>
           <p className="text-xs text-gray-500 mt-1">
             Off by default. When on, tagged shops get pickup offers (no website total), shops enter
-            the amount GoBaskit should pay, and delivery staff need the customer 4-digit PIN.
+            the amount GoBasket should pay, and delivery staff need the customer 4-digit PIN.
             Saving this does not change homepage or overnight settings.
           </p>
         </div>
@@ -1502,7 +1502,7 @@ export default function SettingsManager({
             checked={partnerDeliveryEnabled}
             onChange={(e) => setPartnerDeliveryEnabled(e.target.checked)}
             disabled={!canEdit}
-            className="accent-blinkit-green"
+            className="accent-forest"
           />
           Enable partner delivery
         </label>
@@ -1526,7 +1526,7 @@ export default function SettingsManager({
             checked={deliveryOtpEnabled}
             onChange={(e) => setDeliveryOtpEnabled(e.target.checked)}
             disabled={!canEdit}
-            className="accent-blinkit-green"
+            className="accent-forest"
           />
           Enable delivery PIN
         </label>
@@ -1703,7 +1703,7 @@ export default function SettingsManager({
                 setHomepageConfig((prev) => ({ ...prev, showTopDiscounted: e.target.checked }))
               }
               disabled={!canEdit}
-              className="accent-blinkit-green"
+              className="accent-forest"
             />
             Show Top Discounted Items
           </label>
@@ -1752,7 +1752,7 @@ export default function SettingsManager({
                 }))
               }
               disabled={!canEdit}
-              className="accent-blinkit-green"
+              className="accent-forest"
             />
             Show Most Loved
           </label>
@@ -1797,7 +1797,7 @@ export default function SettingsManager({
                 setHomepageConfig((prev) => ({ ...prev, showCategoryRails: e.target.checked }))
               }
               disabled={!canEdit}
-              className="accent-blinkit-green"
+              className="accent-forest"
             />
             Show a product rail for every category
           </label>
@@ -1835,7 +1835,7 @@ export default function SettingsManager({
               setHomepageConfig((prev) => ({ ...prev, showHealthStarRating: e.target.checked }))
             }
             disabled={!canEdit}
-            className="accent-blinkit-green"
+            className="accent-forest"
           />
           Show Health Star Rating on storefront
         </label>
@@ -1856,7 +1856,7 @@ export default function SettingsManager({
                     key={opt.value}
                     className={`rounded-lg border p-3 cursor-pointer text-sm ${
                       healthStarDisplay.mode === opt.value
-                        ? 'border-blinkit-green bg-green-50'
+                        ? 'border-forest bg-green-50'
                         : 'border-gray-200'
                     } ${!canEdit ? 'opacity-60 pointer-events-none' : ''}`}
                   >
@@ -1929,7 +1929,7 @@ export default function SettingsManager({
                         onClick={() => updateHealthStarDisplay({ badgeUrl: badge.url })}
                         className={`relative rounded-xl border p-2 w-28 text-left ${
                           healthStarDisplay.badgeUrl === badge.url
-                            ? 'border-blinkit-green ring-2 ring-blinkit-green/30'
+                            ? 'border-forest ring-2 ring-forest/30'
                             : 'border-gray-200'
                         }`}
                       >
@@ -2017,7 +2017,7 @@ export default function SettingsManager({
               }))
             }
             disabled={!canEdit}
-            className="accent-blinkit-green"
+            className="accent-forest"
           />
           Enable seasonal theme
         </label>
@@ -2103,7 +2103,7 @@ export default function SettingsManager({
                   }))
                 }
                 disabled={!canEdit}
-                className="accent-blinkit-green"
+                className="accent-forest"
               />
               Show promo banner on home
             </label>
@@ -2201,9 +2201,9 @@ export default function SettingsManager({
                 setHomepageConfig((prev) => ({ ...prev, showPoweredByBanner: e.target.checked }))
               }
               disabled={!canEdit}
-              className="accent-blinkit-green"
+              className="accent-forest"
             />
-            Show Powered by banner next to GoBaskit
+            Show Powered by banner next to GoBasket
           </label>
           <div>
             <Label className="text-xs text-gray-500">Banner text</Label>
@@ -2232,7 +2232,7 @@ export default function SettingsManager({
                 setHomepageConfig((prev) => ({ ...prev, showLoginLogo: e.target.checked }))
               }
               disabled={!canEdit}
-              className="accent-blinkit-green"
+              className="accent-forest"
             />
             Show brand seal on customer login
           </label>
@@ -2243,7 +2243,7 @@ export default function SettingsManager({
                 onChange={(url) =>
                   setHomepageConfig((prev) => ({
                     ...prev,
-                    loginLogoUrl: url || '/branding/gobaskit-seal.png',
+                    loginLogoUrl: url || '/branding/gobasket-mark.png',
                   }))
                 }
                 label="Login logo"
@@ -2357,7 +2357,7 @@ export default function SettingsManager({
                   checked={section.enabled}
                   onChange={(e) => updatePromoSection(index, 'enabled', e.target.checked)}
                   disabled={!canEdit}
-                  className="accent-blinkit-green"
+                  className="accent-forest"
                 />
                 Toggle live (show on homepage)
               </label>

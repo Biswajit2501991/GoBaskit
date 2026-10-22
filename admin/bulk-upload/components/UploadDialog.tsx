@@ -105,7 +105,7 @@ export function UploadDialog({
           <button
             type="button"
             onClick={handleCloseRequest}
-            className="absolute right-4 top-4 rounded-lg p-1.5 text-gray-500 opacity-70 transition-all hover:opacity-100 hover:bg-gray-100 hover:rotate-90 focus:outline-none focus:ring-2 focus:ring-blinkit-green"
+            className="absolute right-4 top-4 rounded-lg p-1.5 text-gray-500 opacity-70 transition-all hover:opacity-100 hover:bg-gray-100 hover:rotate-90 focus:outline-none focus:ring-2 focus:ring-forest"
             aria-label="Close upload dialog"
           >
             <span className="text-lg leading-none">×</span>
@@ -125,7 +125,7 @@ export function UploadDialog({
               type="checkbox"
               checked={state.autoCreateCategories}
               onChange={(e) => setAutoCreateCategories(e.target.checked)}
-              className="accent-blinkit-green"
+              className="accent-forest"
             />
             Auto Create Missing Categories
           </label>
@@ -135,7 +135,7 @@ export function UploadDialog({
             onDragLeave={() => setDragOver(false)}
             onDrop={onDrop}
             className={`rounded-xl border-2 border-dashed p-8 text-center transition-colors mb-4 ${
-              dragOver ? 'border-blinkit-green bg-green-50' : 'border-gray-200 bg-gray-50/50'
+              dragOver ? 'border-forest bg-green-50' : 'border-gray-200 bg-gray-50/50'
             }`}
           >
             <Upload className="h-8 w-8 mx-auto text-gray-400 mb-3" />
@@ -167,7 +167,7 @@ export function UploadDialog({
                 Upload Image ZIP
               </Button>
             </div>
-            {state.file && <p className="text-xs text-blinkit-green mt-3 font-medium">{state.file.name}</p>}
+            {state.file && <p className="text-xs text-forest mt-3 font-medium">{state.file.name}</p>}
             {Object.keys(state.imageMap).length > 0 && (
               <p className="text-xs text-gray-500 mt-1">{Object.keys(state.imageMap).length} images mapped from ZIP</p>
             )}

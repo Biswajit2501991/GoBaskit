@@ -36,7 +36,7 @@ export default function OrderProgressTracker({
       <div className="relative px-2">
         <div className="absolute left-8 right-8 top-5 h-0.5 bg-gray-200" aria-hidden />
         <div
-          className="absolute left-8 top-5 h-0.5 bg-blinkit-green transition-all duration-500"
+          className="absolute left-8 top-5 h-0.5 bg-forest transition-all duration-500"
           style={{
             width:
               status === 'DELIVERED'
@@ -61,9 +61,9 @@ export default function OrderProgressTracker({
                 <div
                   className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 transition-colors ${
                     done
-                      ? 'border-blinkit-green bg-blinkit-green text-white'
+                      ? 'border-forest bg-forest text-white'
                       : active
-                        ? 'border-blinkit-green bg-white text-blinkit-green ring-4 ring-blinkit-green/20'
+                        ? 'border-forest bg-white text-forest ring-4 ring-forest/20'
                         : 'border-gray-200 bg-white text-gray-300'
                   }`}
                 >
@@ -71,7 +71,7 @@ export default function OrderProgressTracker({
                 </div>
                 <p
                   className={`mt-2 text-[11px] font-semibold leading-tight ${
-                    upcoming ? 'text-gray-400' : active ? 'text-blinkit-green' : 'text-gray-800'
+                    upcoming ? 'text-gray-400' : active ? 'text-forest' : 'text-gray-800'
                   }`}
                 >
                   {step.label}
@@ -86,7 +86,7 @@ export default function OrderProgressTracker({
       </div>
 
       {status === 'DELIVERED' && (
-        <p className="text-center text-sm text-blinkit-green font-medium">Item has been delivered. Thank you for shopping with GoBaskit!</p>
+        <p className="text-center text-sm text-forest font-medium">Item has been delivered. Thank you for shopping with GoBasket!</p>
       )}
     </div>
   );

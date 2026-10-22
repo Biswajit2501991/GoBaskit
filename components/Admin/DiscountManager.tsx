@@ -214,7 +214,7 @@ export default function DiscountManager({
       </div>
 
       {message && (
-        <p className={`text-sm font-medium ${message.type === 'ok' ? 'text-blinkit-green' : 'text-red-600'}`}>
+        <p className={`text-sm font-medium ${message.type === 'ok' ? 'text-forest' : 'text-red-600'}`}>
           {message.text}
         </p>
       )}
@@ -229,7 +229,7 @@ export default function DiscountManager({
               setDiscountConfig((prev) => ({ ...prev, couponsEnabled: e.target.checked }))
             }
             disabled={!canEdit}
-            className="accent-blinkit-green"
+            className="accent-forest"
           />
           Enable Coupon System
         </label>
@@ -241,7 +241,7 @@ export default function DiscountManager({
               setDiscountConfig((prev) => ({ ...prev, membershipEnabled: e.target.checked }))
             }
             disabled={!canEdit}
-            className="accent-blinkit-green"
+            className="accent-forest"
           />
           Enable Membership Discount
         </label>
@@ -534,7 +534,7 @@ export default function DiscountManager({
                           <button
                             type="button"
                             onClick={() => startEdit(c)}
-                            className="p-1 text-gray-500 hover:text-blinkit-green"
+                            className="p-1 text-gray-500 hover:text-forest"
                             aria-label={`Edit ${c.couponCode}`}
                           >
                             <Pencil size={14} />

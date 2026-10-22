@@ -64,7 +64,7 @@ export async function enableCustomerPushAlerts(): Promise<{ ok: boolean; error?:
       return {
         ok: false,
         error:
-          'On iPhone, add GoBaskit to the Home Screen first. Share → Add to Home Screen, open the icon, then tap Enable.',
+          'On iPhone, add GoBasket to the Home Screen first. Share → Add to Home Screen, open the icon, then tap Enable.',
       };
     }
     return { ok: false, error: 'This browser does not support push notifications' };

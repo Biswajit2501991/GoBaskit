@@ -25,7 +25,7 @@ function ResultRow({ product, onPick }: { product: ProductWithCategory; onPick: 
       onClick={onPick}
       className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 text-left transition-colors"
     >
-      <div className="w-11 h-11 rounded-lg overflow-hidden bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100 flex-shrink-0 flex items-center justify-center">
+      <div className="w-11 h-11 rounded-2xl overflow-hidden bg-[#F7F3EA] flex-shrink-0 flex items-center justify-center">
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imageUrl} alt={product.name} loading="lazy" className="w-full h-full object-cover" />
@@ -37,7 +37,7 @@ function ResultRow({ product, onPick }: { product: ProductWithCategory; onPick: 
         <p className="text-sm font-medium text-gray-800 truncate">{product.name}</p>
         <p className="text-xs text-gray-400 truncate">{product.category?.name ?? product.unit}</p>
       </div>
-      <div className="text-sm font-bold text-gray-900 shrink-0">
+      <div className="text-sm font-bold text-carrot shrink-0">
         {showOptions ? <span className="text-[10px] font-medium text-gray-400 mr-1">from</span> : null}
         {formatCurrency(price)}
       </div>
@@ -143,7 +143,7 @@ export default function GlobalSearch() {
           onFocus={() => setOpen(true)}
           placeholder="Search for products, brands and more"
           enterKeyHint="search"
-          className="w-full pl-10 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green focus:bg-white"
+          className="w-full pl-10 pr-9 py-2.5 bg-white border border-paper-deep rounded-full text-sm text-forest placeholder:text-forest/40 focus:outline-none focus:ring-2 focus:ring-leaf/30 focus:border-leaf"
           aria-label="Search products"
         />
         {query && (
@@ -175,7 +175,7 @@ export default function GlobalSearch() {
                 href={searchHref}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setOpen(false)}
-                className="block px-4 py-3 text-sm font-semibold text-blinkit-green bg-gray-50 hover:bg-blinkit-green-light border-t border-gray-100 text-center"
+                className="block px-4 py-3 text-sm font-semibold text-forest bg-gray-50 hover:bg-leaf-light border-t border-gray-100 text-center"
               >
                 {hasMore ? 'See all results' : 'View all matching products'}
               </Link>

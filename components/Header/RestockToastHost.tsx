@@ -60,7 +60,7 @@ export default function RestockToastHost({ enabled }: { enabled: boolean }) {
       {notices.slice(0, 3).map((notice) => (
         <div
           key={notice.id}
-          className="pointer-events-auto rounded-xl border border-blinkit-green/30 bg-white shadow-lg p-3"
+          className="pointer-events-auto rounded-xl border border-forest/30 bg-white shadow-lg p-3"
         >
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
@@ -68,7 +68,7 @@ export default function RestockToastHost({ enabled }: { enabled: boolean }) {
               <p className="text-xs text-gray-600 mt-0.5">{notice.message}</p>
               <Link
                 href={`/product/${notice.productId}`}
-                className="inline-block mt-2 text-xs font-bold text-blinkit-green hover:underline"
+                className="inline-block mt-2 text-xs font-bold text-forest hover:underline"
                 onClick={() => dismiss([notice.id])}
               >
                 Order now →

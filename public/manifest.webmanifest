@@ -1,12 +1,12 @@
 {
-  "name": "GoBaskit",
-  "short_name": "GoBaskit",
-  "description": "Groceries delivered in minutes",
+  "name": "GoBasket",
+  "short_name": "GoBasket",
+  "description": "Groceries delivered to your door",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#F5C518",
+  "background_color": "#F4F1EA",
+  "theme_color": "#143028",
   "icons": [
     {
       "src": "/icon-192.png",

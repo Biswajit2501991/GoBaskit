@@ -153,7 +153,7 @@ export default function ProductImageUpload({
         onDrop={handleDrop}
         onClick={() => !disabled && inputRef.current?.click()}
         className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
-          dragOver ? 'border-blinkit-green bg-blinkit-green-light' : 'border-gray-200 hover:border-blinkit-green hover:bg-gray-50'
+          dragOver ? 'border-forest bg-leaf-light' : 'border-gray-200 hover:border-forest hover:bg-gray-50'
         } ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
       >
         <input
@@ -166,12 +166,12 @@ export default function ProductImageUpload({
         />
         {uploading ? (
           <div className="flex flex-col items-center gap-2 text-gray-500">
-            <Loader2 className="w-8 h-8 animate-spin text-blinkit-green" />
+            <Loader2 className="w-8 h-8 animate-spin text-forest" />
             <p className="text-sm font-medium">Uploading...</p>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2 text-gray-500">
-            <Upload className="w-8 h-8 text-blinkit-green" />
+            <Upload className="w-8 h-8 text-forest" />
             <p className="text-sm font-medium text-gray-700">
               {value ? 'Click or drag to replace image' : 'Click or drag image to upload'}
             </p>
@@ -216,7 +216,7 @@ export default function ProductImageUpload({
                   type="button"
                   onClick={() => importFromWeb(s.url, s.id)}
                   disabled={disabled || uploading}
-                  className="border rounded-lg overflow-hidden hover:border-blinkit-green transition-colors text-left"
+                  className="border rounded-lg overflow-hidden hover:border-forest transition-colors text-left"
                 >
                   <div className="aspect-square bg-gray-50">
                     <img src={s.url} alt={s.label} className="w-full h-full object-cover" />

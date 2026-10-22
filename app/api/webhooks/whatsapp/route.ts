@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
       if (result === 'approved' || result === 'already_verified') {
         void sendWhatsAppTextReply(
           msg.from,
-          'GoBaskit: Your WhatsApp is verified. You can continue on the website.',
+          'GoBasket: Your WhatsApp is verified. You can continue on the website.',
         );
       }
     } catch (err) {

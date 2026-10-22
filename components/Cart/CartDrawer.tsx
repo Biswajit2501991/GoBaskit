@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 /**
- * Blinkit-style right cart drawer with dimmed backdrop.
+ * Right-hand cart drawer with dimmed backdrop.
  * Items scroll; bill + checkout stay fixed at the bottom.
  */
 export default function CartDrawer() {
@@ -117,12 +117,12 @@ export default function CartDrawer() {
         role="dialog"
         aria-modal="true"
         aria-label="My Cart"
-        className={`relative h-full w-full max-w-md bg-[#f4f6fb] shadow-2xl flex flex-col overflow-hidden
+        className={`relative h-full w-full max-w-md bg-paper shadow-2xl flex flex-col overflow-hidden
           pt-[env(safe-area-inset-top,0px)]
           transition-transform duration-300 ease-out will-change-transform
           ${entered ? 'translate-x-0' : 'translate-x-full'}`}
       >
-        <header className="shrink-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between gap-3">
+        <header className="shrink-0 bg-paper border-b border-paper-deep px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <button
               type="button"
@@ -133,7 +133,7 @@ export default function CartDrawer() {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="min-w-0">
-              <h2 className="font-bold text-base text-gray-900 leading-tight">My Cart</h2>
+              <h2 className="font-display font-semibold text-lg text-forest leading-tight">My Cart</h2>
               {hydrated && itemCount > 0 ? (
                 <p className="text-[11px] text-gray-500">
                   {itemCount} {itemCount === 1 ? 'item' : 'items'}
@@ -144,7 +144,7 @@ export default function CartDrawer() {
           <Link
             href="/cart"
             onClick={closeCart}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blinkit-green hover:underline shrink-0"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-forest hover:underline shrink-0"
           >
             <ShoppingBag className="w-3.5 h-3.5" />
             Full page
@@ -160,10 +160,11 @@ export default function CartDrawer() {
         ) : itemCount === 0 ? (
           <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 text-center">
             <StockRemovalNotice className="w-full max-w-sm mb-4 text-left" />
-            <div className="w-20 h-20 bg-blinkit-green-light rounded-full flex items-center justify-center mb-4 text-3xl">
-              🛒
+            <div className="w-20 h-20 bg-white border border-paper-deep rounded-full flex items-center justify-center mb-4 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/branding/gobasket-mark.png" alt="" className="w-16 h-16 object-contain" />
             </div>
-            <h3 className="text-lg font-bold mb-1">Your cart is empty</h3>
+            <h3 className="font-display text-lg font-semibold mb-1">Your cart is empty</h3>
             <p className="text-sm text-gray-500 mb-5">Add groceries to get started</p>
             <Button type="button" onClick={closeCart}>
               Start Shopping

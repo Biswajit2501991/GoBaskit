@@ -71,7 +71,7 @@ export function AdminNavLink({
       onClick={onNavigate}
       className={`flex items-center rounded-xl text-sm transition-colors ${
         isActive
-          ? 'bg-blinkit-green-light text-blinkit-green font-semibold'
+          ? 'bg-leaf-light text-forest font-semibold'
           : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium'
       } ${collapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-3 py-2'}`}
       aria-current={isActive ? 'page' : undefined}

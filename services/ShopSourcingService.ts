@@ -1127,7 +1127,7 @@ export class ShopSourcingService {
         throw new ShopSourcingError('Pickup not found', 404);
       }
       if (fulfillment.costConfirmedAt) {
-        throw new ShopSourcingError('Costs are locked. Ask GoBaskit admin to change them.', 409, 'LOCKED');
+        throw new ShopSourcingError('Costs are locked. Ask GoBasket admin to change them.', 409, 'LOCKED');
       }
     }
 

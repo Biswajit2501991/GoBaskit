@@ -1,12 +1,12 @@
 {
-  "name": "GoBaskit Shop",
-  "short_name": "GoBaskit Shop",
-  "description": "GoBaskit shop pickups — new order alerts",
+  "name": "GoBasket Shop",
+  "short_name": "GoBasket Shop",
+  "description": "GoBasket shop pickups — new order alerts",
   "start_url": "/shop",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0A7A3E",
+  "background_color": "#F4F1EA",
+  "theme_color": "#143028",
   "icons": [
     {
       "src": "/icon-192.png",

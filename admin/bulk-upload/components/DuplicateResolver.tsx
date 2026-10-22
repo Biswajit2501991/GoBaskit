@@ -28,7 +28,7 @@ export function DuplicateResolver({ value, onChange, duplicateCount }: Props) {
           <label
             key={opt.value}
             className={`flex items-start gap-2 rounded-lg border p-3 cursor-pointer transition-colors ${
-              value === opt.value ? 'border-blinkit-green bg-white' : 'border-transparent bg-white/60 hover:bg-white'
+              value === opt.value ? 'border-forest bg-white' : 'border-transparent bg-white/60 hover:bg-white'
             }`}
           >
             <input
@@ -37,7 +37,7 @@ export function DuplicateResolver({ value, onChange, duplicateCount }: Props) {
               value={opt.value}
               checked={value === opt.value}
               onChange={() => onChange(opt.value)}
-              className="mt-0.5 accent-blinkit-green"
+              className="mt-0.5 accent-forest"
             />
             <span>
               <span className="text-sm font-medium block">{opt.label}</span>

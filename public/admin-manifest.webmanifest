@@ -1,12 +1,12 @@
 {
-  "name": "GoBaskit Admin",
-  "short_name": "GoBaskit",
-  "description": "GoBaskit staff portal — new order alerts",
+  "name": "GoBasket Admin",
+  "short_name": "GoBasket",
+  "description": "GoBasket staff portal — new order alerts",
   "start_url": "/admin/orders",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0A7A3E",
+  "background_color": "#F4F1EA",
+  "theme_color": "#143028",
   "icons": [
     {
       "src": "/icon-192.png",

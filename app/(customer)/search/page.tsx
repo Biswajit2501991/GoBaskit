@@ -35,7 +35,7 @@ function SearchResults() {
   return (
     <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-4 pb-24">
       <nav className="text-xs text-gray-400 mb-3">
-        <Link href="/" className="hover:text-blinkit-green">
+        <Link href="/" className="hover:text-forest">
           Home
         </Link>
         <span className="mx-1.5">/</span>
@@ -69,7 +69,7 @@ function SearchResults() {
           {categories[0] && (
             <Link
               href={`/category/${categories[0].slug}`}
-              className="text-sm text-blinkit-green font-medium mt-3 inline-block"
+              className="text-sm text-forest font-medium mt-3 inline-block"
             >
               Or browse categories →
             </Link>
@@ -85,7 +85,7 @@ function SearchResults() {
         <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
           <span className="text-5xl mb-3 block">🛒</span>
           <p className="font-semibold text-gray-700">No products found for “{trimmed}”</p>
-          <Link href="/" className="text-sm text-blinkit-green font-medium mt-2 inline-block">
+          <Link href="/" className="text-sm text-forest font-medium mt-2 inline-block">
             Back to home →
           </Link>
         </div>
@@ -102,7 +102,7 @@ function SearchResults() {
 
 export default function SearchPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-paper">
       <Header />
       <Suspense
         fallback={

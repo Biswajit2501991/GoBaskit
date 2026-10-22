@@ -24,7 +24,7 @@ export default function ProductPriceDisplay({
 
   return (
     <div className={className}>
-      <p className={`font-bold text-gray-900 leading-none ${sizes.selling}`}>{selling}</p>
+      <p className={`font-bold text-carrot leading-none ${sizes.selling}`}>{selling}</p>
       {list && (
         <p className={`text-gray-400 line-through mt-0.5 ${sizes.list}`}>{list}</p>
       )}

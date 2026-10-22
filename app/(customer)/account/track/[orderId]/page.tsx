@@ -1,7 +1,7 @@
 import OrderTrackDetailClient from '@/components/Account/OrderTrackDetailClient';
 
 export const metadata = {
-  title: 'Order Tracking — GoBaskit',
+  title: 'Order Tracking — GoBasket',
 };
 
 type PageProps = { params: Promise<{ orderId: string }> };

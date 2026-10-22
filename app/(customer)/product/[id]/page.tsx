@@ -102,7 +102,7 @@ export default function ProductPage() {
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-paper">
         <Header />
         <div className="max-w-3xl mx-auto p-8 skeleton h-96 rounded-xl mt-8" />
       </div>
@@ -159,15 +159,15 @@ export default function ProductPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-paper">
       <Header />
       <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 pb-28">
         <nav className="text-xs text-gray-400 mb-3">
-          <Link href="/" className="hover:text-blinkit-green">Home</Link>
+          <Link href="/" className="hover:text-forest">Home</Link>
           <span className="mx-1.5">/</span>
           {product.category?.slug && (
             <>
-              <Link href={`/category/${product.category.slug}`} className="hover:text-blinkit-green">
+              <Link href={`/category/${product.category.slug}`} className="hover:text-forest">
                 {product.category.name}
               </Link>
               <span className="mx-1.5">/</span>
@@ -178,7 +178,7 @@ export default function ProductPage() {
 
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden md:flex">
           <div className="md:w-1/2 aspect-square p-4 md:p-8">
-            <div className="relative w-full h-full rounded-2xl overflow-hidden bg-gradient-to-br from-yellow-50 to-green-50 border border-gray-100 flex items-center justify-center">
+            <div className="relative w-full h-full rounded-3xl overflow-hidden bg-[#F7F3EA] flex items-center justify-center">
               {imageUrl ? (
                 <ZoomImage src={imageUrl} alt={product.name} className="w-full h-full" />
               ) : (
@@ -212,12 +212,12 @@ export default function ProductPage() {
 
           <div className="p-5 space-y-3 md:w-1/2">
             {product.category?.slug && (
-              <Link href={`/category/${product.category.slug}`} className="text-xs font-semibold text-blinkit-green uppercase tracking-wide">
+              <Link href={`/category/${product.category.slug}`} className="text-xs font-semibold text-forest uppercase tracking-wide">
                 {product.category.name}
               </Link>
             )}
             <div className="flex items-start justify-between gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold text-gray-900">{product.name}</h1>
+              <h1 className="text-3xl font-display font-semibold text-forest">{product.name}</h1>
               {showDetailStars && (
                 <HealthStarRating
                   rating={detailHealthRating}
@@ -233,7 +233,7 @@ export default function ProductPage() {
 
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-2xl font-bold text-gray-900 leading-none">{formatCurrency(sellingPrice)}</span>
+                <span className="text-3xl font-display font-semibold text-carrot leading-none">{formatCurrency(sellingPrice)}</span>
                 {listPrice ? (
                   <span className="text-base text-gray-400 leading-none">
                     MRP <span className="line-through">{formatCurrency(listPrice)}</span>
@@ -242,7 +242,7 @@ export default function ProductPage() {
                 <DiscountBadge mrp={displayMrp} price={sellingPrice} size="sm" />
               </div>
               {listPrice ? (
-                <span className="block text-sm font-bold text-blinkit-green">Save {formatCurrency(savings)}</span>
+                <span className="block text-sm font-bold text-forest">Save {formatCurrency(savings)}</span>
               ) : null}
               <span className="block text-[11px] text-gray-400">Inclusive of all taxes</span>
             </div>
@@ -260,10 +260,10 @@ export default function ProductPage() {
                       onClick={() => setSelectedKey(o.key)}
                       className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
                         isActive
-                          ? 'border-blinkit-green bg-blinkit-green-light text-blinkit-green'
+                          ? 'border-forest bg-leaf-light text-forest'
                           : out
                             ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed line-through'
-                            : 'border-gray-200 bg-white text-gray-700 hover:border-blinkit-green/50'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-forest/50'
                       }`}
                     >
                       {o.isBase ? (o.sizeLabel || 'Base') : (o.sizeLabel || o.name)}
@@ -273,7 +273,7 @@ export default function ProductPage() {
               </div>
             )}
 
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-blinkit-green bg-blinkit-green-light px-2 py-1 rounded-md">
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-forest bg-leaf-light px-2 py-1 rounded-md">
               <Clock className="w-3.5 h-3.5" /> {CUSTOMER_DELIVERY_PROMISE}
             </span>
 
@@ -297,7 +297,7 @@ export default function ProductPage() {
                 </div>
               ) : cartQty > 0 ? (
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center bg-blinkit-green rounded-lg">
+                  <div className="flex items-center bg-leaf rounded-full">
                     <button onClick={() => updateQuantity(lineKey, cartQty - 1)} className="w-10 h-10 text-white font-bold text-xl">−</button>
                     <span className="text-white font-bold w-8 text-center">{cartQty}</span>
                     <button onClick={() => updateQuantity(lineKey, cartQty + 1)} disabled={cartQty >= effectiveStock} className="w-10 h-10 text-white font-bold text-xl disabled:opacity-40">+</button>
@@ -307,7 +307,7 @@ export default function ProductPage() {
                   </Button>
                 </div>
               ) : (
-                <Button size="lg" className="w-full" onClick={addSelected}>
+                <Button size="lg" className="w-full rounded-full bg-leaf hover:bg-leaf-dark" onClick={addSelected}>
                   ADD TO CART
                 </Button>
               )}
@@ -320,10 +320,10 @@ export default function ProductPage() {
         {similar.length > 0 && (
           <section className="mt-8">
             <div className="flex items-center gap-2 mb-3">
-              <BadgePercent className="w-4 h-4 text-blinkit-green" />
+              <BadgePercent className="w-4 h-4 text-forest" />
               <h2 className="font-bold text-gray-900 text-base">More from {product.category?.name}</h2>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
               {similar.map((p) => <ProductCard key={p.id} product={p} />)}
             </div>
           </section>
@@ -338,7 +338,7 @@ export default function ProductPage() {
 function Highlight({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <div className="flex flex-col items-center gap-1 text-center bg-gray-50 rounded-lg py-2 px-1">
-      <span className="text-blinkit-green">{icon}</span>
+      <span className="text-forest">{icon}</span>
       <span className="text-[10px] font-medium text-gray-600 leading-tight">{label}</span>
     </div>
   );

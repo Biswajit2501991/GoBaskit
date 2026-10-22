@@ -23,7 +23,7 @@ export default function DiscountBadge({
 
   return (
     <span
-      className={`inline-flex font-bold text-white bg-blinkit-green rounded-md ${sizeClasses[size]} ${className}`}
+      className={`inline-flex font-bold text-white bg-forest rounded-md ${sizeClasses[size]} ${className}`}
     >
       {label}
     </span>

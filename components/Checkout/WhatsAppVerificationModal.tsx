@@ -369,7 +369,7 @@ export default function WhatsAppVerificationModal({
           ) : !pending || !verification ? (
             <>
               <p className="text-sm text-gray-600">
-                Open WhatsApp from here to verify this number. Send the prefilled message to GoBaskit.
+                Open WhatsApp from here to verify this number. Send the prefilled message to GoBasket.
               </p>
 
               <div>
@@ -431,7 +431,7 @@ export default function WhatsAppVerificationModal({
                     : 'Checking WhatsApp from this number…'}
                 </p>
                 <p className="text-xs text-amber-700 mt-1">
-                  Opening WhatsApp from this button verifies your number. Send the prefilled message to GoBaskit.
+                  Opening WhatsApp from this button verifies your number. Send the prefilled message to GoBasket.
                 </p>
               </div>
 

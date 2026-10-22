@@ -97,14 +97,13 @@ export default function VariantSelector({
   return (
     <>
       <Button
-        variant="outline"
         size={size}
         onClick={() => setOpen(true)}
         className={
           className ||
           (fullWidth
-            ? 'w-full'
-            : 'text-[10px] uppercase tracking-wide h-6 px-2 min-w-[2.75rem] shrink-0')
+            ? 'w-full rounded-full bg-leaf hover:bg-leaf-dark'
+            : 'text-[10px] uppercase tracking-wide h-7 px-3 min-w-[3.25rem] shrink-0 rounded-full bg-leaf hover:bg-leaf-dark text-white border-0')
         }
       >
         {anyInStock ? buttonLabel : buttonLabel || 'VIEW'}

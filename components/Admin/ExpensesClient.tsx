@@ -50,7 +50,7 @@ function Switch({
       disabled={disabled}
       onClick={onClick}
       className={`relative h-7 w-12 rounded-full transition-colors ${
-        on ? 'bg-blinkit-green' : 'bg-gray-300'
+        on ? 'bg-forest' : 'bg-gray-300'
       } disabled:opacity-60`}
     >
       <span
@@ -237,7 +237,7 @@ export default function ExpensesClient({
           <button
             type="submit"
             disabled={saving}
-            className="h-10 rounded-lg bg-blinkit-green text-white text-sm font-semibold px-4 disabled:opacity-60"
+            className="h-10 rounded-lg bg-forest text-white text-sm font-semibold px-4 disabled:opacity-60"
           >
             {saving ? 'Saving…' : 'Add expense'}
           </button>

@@ -105,8 +105,8 @@ export default function ProductCard({ product }: ProductCardProps) {
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-100 overflow-hidden flex flex-col hover:shadow-sm transition-shadow group">
-      <Link href={`/product/${product.id}`} className="block p-1.5">
+    <div className="bg-white rounded-3xl border border-paper-deep overflow-hidden flex flex-col shadow-[0_10px_30px_-22px_rgba(20,48,40,0.45)] hover:shadow-[0_16px_36px_-20px_rgba(20,48,40,0.4)] transition-shadow group">
+      <Link href={`/product/${product.id}`} className="block p-2.5 pb-0">
         <div className={PRODUCT_IMAGE_FRAME}>
           <ProductImageCarousel
             images={carouselImages}
@@ -143,8 +143,8 @@ export default function ProductCard({ product }: ProductCardProps) {
         </div>
       </Link>
 
-      <div className="px-1.5 pb-1.5 flex flex-col flex-1">
-        <div className="flex items-center justify-between gap-0.5 mb-1 min-h-[14px] flex-nowrap">
+      <div className="px-3 pb-3 pt-2.5 flex flex-col flex-1">
+        <div className="flex items-center justify-between gap-0.5 mb-1.5 min-h-[14px] flex-nowrap">
           {product.isFeatured ? (
             <BestsellerBadge className="relative self-center text-[8px] leading-none px-1.5 py-0.5 tracking-tight" />
           ) : (
@@ -155,11 +155,11 @@ export default function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
         <Link href={`/product/${product.id}`}>
-          <h3 className="font-medium text-gray-800 text-[11px] leading-tight line-clamp-2 min-h-[1.75rem] hover:text-blinkit-green">
+          <h3 className="font-semibold text-forest text-[13px] leading-snug line-clamp-2 min-h-[2.4rem] hover:text-leaf">
             {product.name}
           </h3>
         </Link>
-        <p className="text-[10px] text-gray-400 mt-0.5 truncate">
+        <p className="text-[11px] text-forest/50 mt-0.5 truncate">
           {showOptions ? `${optionCount} option${optionCount === 1 ? '' : 's'}` : product.unit}
         </p>
         <div className="flex items-end justify-between mt-1.5 gap-1">
@@ -167,7 +167,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             {showOptions ? (
               <div>
                 <p className="text-[9px] text-gray-400 leading-none">From</p>
-                <p className="text-xs font-bold text-gray-900 leading-none mt-0.5">
+                <p className="text-sm font-bold text-carrot leading-none mt-0.5">
                   {fromPrice != null ? formatCurrency(fromPrice) : formatCurrency(product.price)}
                 </p>
               </div>
@@ -182,22 +182,21 @@ export default function ProductCard({ product }: ProductCardProps) {
               label={showOutOfStock ? 'VIEW' : optionsLabel}
             />
           ) : cartQty > 0 ? (
-            <div className="flex items-center bg-blinkit-green rounded-md overflow-hidden shrink-0">
-              <button onClick={() => updateQuantity(product.id, cartQty - 1)} className="w-6 h-6 text-white text-sm font-bold hover:bg-blinkit-green-dark">−</button>
+            <div className="flex items-center bg-leaf rounded-full overflow-hidden shrink-0">
+              <button onClick={() => updateQuantity(product.id, cartQty - 1)} className="w-7 h-7 text-white text-sm font-bold hover:bg-leaf-dark">−</button>
               <span className="font-bold text-white text-xs w-4 text-center">{cartQty}</span>
               <button
                 onClick={() => updateQuantity(product.id, cartQty + 1)}
                 disabled={cartQty >= product.stock}
-                className="w-6 h-6 text-white text-sm font-bold hover:bg-blinkit-green-dark disabled:opacity-40"
+                className="w-7 h-7 text-white text-sm font-bold hover:bg-leaf-dark disabled:opacity-40"
               >+</button>
             </div>
           ) : (
             <Button
-              variant="outline"
               size="sm"
               onClick={handleAdd}
               disabled={!inStock}
-              className="text-[10px] uppercase tracking-wide h-6 px-2 min-w-[2.75rem] shrink-0"
+              className="text-[10px] uppercase tracking-wide h-7 px-3 min-w-[3.25rem] shrink-0 rounded-full bg-leaf hover:bg-leaf-dark text-white border-0"
             >
               {inStock ? 'ADD' : 'OOS'}
             </Button>

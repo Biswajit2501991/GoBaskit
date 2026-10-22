@@ -11,7 +11,7 @@ export function buildStaffTemplateWorkbook() {
   staffSheet['!cols'] = headers.map((h) => ({ wch: Math.max(h.length + 4, 18) }));
 
   const instructions = [
-    ['GoBaskit Staff Bulk Import Template'],
+    ['GoBasket Staff Bulk Import Template'],
     [''],
     ['How to use:'],
     ['1. Fill the Staff sheet starting from row 5.'],

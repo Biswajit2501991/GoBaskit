@@ -7,11 +7,11 @@ import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   // Keep staff "Add to Home Screen" opening Orders for push alerts,
-  // while sharing the same GoBaskit brand icons as the storefront.
+  // while sharing the same GoBasket brand icons as the storefront.
   manifest: '/admin-manifest.webmanifest',
   appleWebApp: {
     capable: true,
-    title: 'GoBaskit Admin',
+    title: 'GoBasket Admin',
     statusBarStyle: 'default',
   },
 };
@@ -27,7 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     console.error('[admin/layout] session lookup failed', err);
   }
   if (!staff) {
-    return <div className="min-h-screen bg-gray-50">{children}</div>;
+    return <div className="min-h-screen bg-paper">{children}</div>;
   }
   if ('shopId' in staff && staff.shopId) {
     redirect('/shop');

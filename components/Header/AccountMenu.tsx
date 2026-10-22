@@ -120,7 +120,7 @@ export default function AccountMenu({
             href="/account"
             role="menuitem"
             onClick={() => window.setTimeout(onClose, 300)}
-            className="block w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-blinkit-green"
+            className="block w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-gray-50 font-medium text-forest"
           >
             My Account
           </Link>

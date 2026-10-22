@@ -90,7 +90,7 @@ export default function OrderTrackListClient() {
               <li key={order.id}>
                 <Link
                   href={`/account/track/${order.id}`}
-                  className="block bg-white rounded-xl border border-gray-100 p-4 hover:border-blinkit-green/40 hover:shadow-sm transition-all"
+                  className="block bg-white rounded-xl border border-gray-100 p-4 hover:border-forest/40 hover:shadow-sm transition-all"
                 >
                   <div className="flex justify-between items-start gap-3">
                     <div>
@@ -99,7 +99,7 @@ export default function OrderTrackListClient() {
                       <p className="text-xs text-gray-500">{order.itemCount} item{order.itemCount === 1 ? '' : 's'}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-blinkit-green">{formatCurrency(order.grandTotal)}</p>
+                      <p className="font-semibold text-forest">{formatCurrency(order.grandTotal)}</p>
                       <p className="text-[11px] text-gray-400 mt-1 capitalize">{order.status.replace(/_/g, ' ').toLowerCase()}</p>
                     </div>
                   </div>

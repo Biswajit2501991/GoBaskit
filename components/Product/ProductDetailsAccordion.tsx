@@ -52,10 +52,10 @@ export default function ProductDetailsAccordion({
         className="w-full flex items-center justify-between px-5 py-4 text-left"
       >
         <span className="flex items-center gap-2 font-bold text-gray-900 text-base">
-          <FileText className="w-4 h-4 text-blinkit-green" />
+          <FileText className="w-4 h-4 text-forest" />
           Product Details
         </span>
-        <span className="flex items-center gap-1 text-sm font-semibold text-blinkit-green">
+        <span className="flex items-center gap-1 text-sm font-semibold text-forest">
           {open ? 'Hide' : 'Show'}
           <ChevronDown
             className={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}

@@ -167,7 +167,7 @@ export default function CategoryScroller({ categories, activeSlug }: CategoryScr
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-blinkit-green hover:underline"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-forest hover:underline"
         >
           <LayoutGrid className="w-3.5 h-3.5" />
           See all

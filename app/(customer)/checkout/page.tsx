@@ -946,7 +946,7 @@ export default function CheckoutPage() {
 
   if (!hydrated || !authChecked) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-paper">
         <Header showSearch={false} />
         <div className="max-w-lg mx-auto p-4 space-y-4 mt-4">
           <div className="h-8 w-32 skeleton rounded" />
@@ -958,7 +958,7 @@ export default function CheckoutPage() {
 
   if (!customerMobile) {
     return (
-      <div className="min-h-screen flex flex-col bg-gray-50">
+      <div className="min-h-screen flex flex-col bg-paper">
         <Header showSearch={false} />
         <main className="flex-1 max-w-lg mx-auto w-full px-4 py-10">
           <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center space-y-4">
@@ -985,11 +985,11 @@ export default function CheckoutPage() {
       ? `/account/track/${placedSuccess.orderId}`
       : '/account';
     return (
-      <div className="min-h-screen flex flex-col bg-gray-50">
+      <div className="min-h-screen flex flex-col bg-paper">
         <Header showSearch={false} />
         <main className="flex-1 max-w-lg mx-auto w-full px-4 py-10">
           <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center space-y-4">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blinkit-green-light text-blinkit-green">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-leaf-light text-forest">
               <CheckCircle2 className="h-7 w-7" />
             </div>
             <h2 className="text-lg font-bold text-gray-900">Order {placedSuccess.orderNumber} is in</h2>
@@ -1052,7 +1052,7 @@ export default function CheckoutPage() {
   if (items.length === 0) return null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-paper">
       <Header showSearch={false} />
       <main className="flex-1 max-w-lg mx-auto w-full px-4 py-4 pb-28 space-y-4">
         <div className="flex items-center gap-2">
@@ -1081,7 +1081,7 @@ export default function CheckoutPage() {
             <p className="text-xs text-red-600/80">
               If you already placed this order, open Track order instead of tapping Place Order again.
             </p>
-            <Link href="/account" className="text-xs font-semibold text-blinkit-green underline">
+            <Link href="/account" className="text-xs font-semibold text-forest underline">
               Track my order
             </Link>
           </div>
@@ -1210,11 +1210,11 @@ export default function CheckoutPage() {
             <label
               className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${
                 formValues.paymentMethod === 'COD'
-                  ? 'border-2 border-blinkit-green bg-blinkit-green-light'
-                  : 'border border-gray-200 hover:border-blinkit-green'
+                  ? 'border-2 border-forest bg-leaf-light'
+                  : 'border border-gray-200 hover:border-forest'
               }`}
             >
-              <input type="radio" value="COD" {...register('paymentMethod')} className="accent-blinkit-green" />
+              <input type="radio" value="COD" {...register('paymentMethod')} className="accent-forest" />
               <div>
                 <p className="font-bold text-sm">Cash On Delivery</p>
                 <p className="text-xs text-gray-500">Pay when order arrives</p>
@@ -1223,11 +1223,11 @@ export default function CheckoutPage() {
             <label
               className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${
                 formValues.paymentMethod === 'QR_ON_DELIVERY'
-                  ? 'border-2 border-blinkit-green bg-blinkit-green-light'
-                  : 'border border-gray-200 hover:border-blinkit-green'
+                  ? 'border-2 border-forest bg-leaf-light'
+                  : 'border border-gray-200 hover:border-forest'
               }`}
             >
-              <input type="radio" value="QR_ON_DELIVERY" {...register('paymentMethod')} className="accent-blinkit-green" />
+              <input type="radio" value="QR_ON_DELIVERY" {...register('paymentMethod')} className="accent-forest" />
               <div>
                 <p className="font-bold text-sm">QR Payment on Delivery</p>
                 <p className="text-xs text-gray-500">Scan & pay at doorstep</p>
@@ -1243,7 +1243,7 @@ export default function CheckoutPage() {
           >
             <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
             {discountAmount > 0 && (
-              <div className="flex justify-between text-blinkit-green">
+              <div className="flex justify-between text-forest">
                 <span>
                   Discount
                   {appliedDiscount?.type === 'COUPON' && appliedDiscount.couponCode
@@ -1257,7 +1257,7 @@ export default function CheckoutPage() {
             )}
             <div className="flex justify-between"><span>Delivery</span><span>{formatCurrency(deliveryCharge)}</span></div>
             <div className="flex justify-between font-bold text-base border-t border-dashed pt-2">
-              <span>Total</span><span className="text-blinkit-green">{formatCurrency(grandTotal)}</span>
+              <span>Total</span><span className="text-forest">{formatCurrency(grandTotal)}</span>
             </div>
           </div>
 
@@ -1331,7 +1331,7 @@ export default function CheckoutPage() {
             <p className="text-sm text-gray-600 leading-relaxed">
               Our rider must find this house from the address you entered. If the address is incomplete
               or cannot be located, we may cancel the order. We do not auto-close orders from this check
-              — please WhatsApp GoBaskit Karo if you need help correcting it.
+              — please WhatsApp GoBasket if you need help correcting it.
             </p>
             <a
               href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}`}
@@ -1339,7 +1339,7 @@ export default function CheckoutPage() {
               rel="noopener noreferrer"
               className="block text-sm font-semibold text-emerald-700 underline"
             >
-              WhatsApp GoBaskit Karo +{WHATSAPP_NUMBER.replace(/\D/g, '')}
+              WhatsApp GoBasket +{WHATSAPP_NUMBER.replace(/\D/g, '')}
             </a>
             <div className="space-y-2">
               <Button

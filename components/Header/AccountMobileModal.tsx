@@ -47,7 +47,7 @@ export default function AccountMobileModal() {
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
   const showLoginLogo = useConfigStore((s) => s.homepageConfig.showLoginLogo !== false);
   const loginLogoUrl = useConfigStore(
-    (s) => s.homepageConfig.loginLogoUrl || '/branding/gobaskit-seal.png',
+    (s) => s.homepageConfig.loginLogoUrl || '/branding/gobasket-mark.png',
   );
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
@@ -819,7 +819,7 @@ export default function AccountMobileModal() {
                   : 'Checking WhatsApp from this number…'}
               </p>
               <p className="text-xs text-amber-800 mt-1">
-                Opening WhatsApp from this button verifies your number. Send the prefilled message to GoBaskit.
+                Opening WhatsApp from this button verifies your number. Send the prefilled message to GoBasket.
               </p>
             </div>
             <div className="space-y-2">
@@ -884,7 +884,7 @@ export default function AccountMobileModal() {
               +91 {mobile}
               <button
                 type="button"
-                className="ml-2 text-blinkit-green text-xs font-semibold"
+                className="ml-2 text-forest text-xs font-semibold"
                 onClick={() => {
                   setPhase('enter');
                   setPassword('');
@@ -931,7 +931,7 @@ export default function AccountMobileModal() {
               </Button>
               <button
                 type="button"
-                className="w-full text-center text-xs text-blinkit-green font-semibold py-1"
+                className="w-full text-center text-xs text-forest font-semibold py-1"
                 onClick={() => {
                   setPassword('');
                   setError('');
@@ -957,7 +957,7 @@ export default function AccountMobileModal() {
                 <Label className="text-center block w-full mb-2 text-sm font-medium text-gray-700">
                   Mobile Number
                 </Label>
-                <label className="flex items-center w-full h-12 rounded-2xl border border-gray-200 bg-white px-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] focus-within:border-blinkit-green/50 focus-within:ring-2 focus-within:ring-blinkit-green/15 transition-shadow">
+                <label className="flex items-center w-full h-12 rounded-2xl border border-gray-200 bg-white px-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] focus-within:border-forest/50 focus-within:ring-2 focus-within:ring-forest/15 transition-shadow">
                   <span className="text-[15px] font-semibold text-gray-900 tabular-nums select-none">
                     +91
                   </span>

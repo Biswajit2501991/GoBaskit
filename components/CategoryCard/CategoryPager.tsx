@@ -164,7 +164,7 @@ export default function CategoryPager({ categories, onSeeAll }: CategoryPagerPro
               stopAutoScroll();
               onSeeAll();
             }}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-blinkit-green hover:underline"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-forest hover:underline"
           >
             <LayoutGrid className="w-3.5 h-3.5" />
             See all
@@ -202,7 +202,7 @@ export default function CategoryPager({ categories, onSeeAll }: CategoryPagerPro
                       onClick={stopAutoScroll}
                       className="flex flex-col items-center gap-1.5 group"
                     >
-                      <div className="w-full aspect-square max-w-[88px] mx-auto rounded-2xl flex items-center justify-center text-2xl sm:text-3xl border border-gray-100 bg-gradient-to-br from-yellow-50 to-green-50 overflow-hidden group-hover:border-blinkit-green/40 group-hover:shadow-sm transition-all">
+                      <div className="w-full aspect-square max-w-[88px] mx-auto rounded-2xl flex items-center justify-center text-2xl sm:text-3xl border border-gray-100 bg-gradient-to-br from-yellow-50 to-green-50 overflow-hidden group-hover:border-forest/40 group-hover:shadow-sm transition-all">
                         {cat.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img

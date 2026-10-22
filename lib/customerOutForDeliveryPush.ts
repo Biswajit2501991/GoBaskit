@@ -15,7 +15,7 @@ export function outForDeliveryPushPayload(order: {
 }) {
   const pin = typeof order.deliveryPin === 'string' && /^\d{4}$/.test(order.deliveryPin) ? order.deliveryPin : '';
   return {
-    title: 'GoBaskit',
+    title: 'GoBasket',
     body: pin
       ? `Your order ${order.orderNumber} is out for delivery. Delivery PIN: ${pin}. Tell this to the rider.`
       : `Your order ${order.orderNumber} is out for delivery by our partner.`,
@@ -34,7 +34,7 @@ export function shouldNotifyDelivered(
 /** Same tag as OFD so Android/Chrome replaces the PIN notification. */
 export function deliveredPushPayload(order: { id: string; orderNumber: string }) {
   return {
-    title: 'GoBaskit',
+    title: 'GoBasket',
     body: `Your order ${order.orderNumber} has been delivered. Thank you!`,
     url: `/account/track/${order.id}`,
     tag: `ofd-${order.id}`,

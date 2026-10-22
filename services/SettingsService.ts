@@ -169,7 +169,7 @@ export interface StoreConfig {
   partnerDeliveryEnabled: boolean;
   /** Customer delivery PIN / OTP. Default off — no PIN at checkout and Delivered does not require it. */
   deliveryOtpEnabled: boolean;
-  /** Header rating chip next to GoBaskit. Staff own the score; count = seed + reviews × 10. */
+  /** Header rating chip next to GoBasket. Staff own the score; count = seed + reviews × 10. */
   storefrontRating: StorefrontRatingConfig;
   /** Neighbourhood words learned from real checkouts. Separate Setting row. */
   deliveryAddressLocalities: string[];
@@ -211,6 +211,14 @@ type StoreConfigUpdate = Partial<
   shopSourcing?: Partial<ShopSourcingConfig>;
   storefrontRating?: Partial<StorefrontRatingConfig>;
 };
+
+const LEGACY_LOGIN_LOGO = '/branding/gobaskit-seal.png';
+
+/** Saved rows may still point at the previous seal. Show the basket mark instead. */
+function resolveLoginLogoUrl(value: unknown, fallback: string): string {
+  const url = String(value ?? '').trim() || fallback;
+  return url === LEGACY_LOGIN_LOGO ? fallback : url;
+}
 
 function parseHealthStarDisplay(raw: unknown): HealthStarDisplay {
   const src = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
@@ -337,13 +345,13 @@ const DEFAULTS: StoreConfig = {
     announcementBarText: '',
     deliveryTimeText: CUSTOMER_DELIVERY_PROMISE,
     deliveryDisclaimer: CUSTOMER_DELIVERY_DISCLAIMER,
-    themeColor: '#facc15',
+    themeColor: '#143028',
     cancellationPolicy:
       'Orders cannot be cancelled once packed for delivery. In case of unexpected delays, a refund will be provided, if applicable. Fresh items are quality-checked before dispatch — message us on WhatsApp if anything is missing or damaged.',
     showPoweredByBanner: true,
     poweredByText: 'Powered by Action Plus Gym · Healthy Life · Wealthy Life',
     showLoginLogo: true,
-    loginLogoUrl: '/branding/gobaskit-seal.png',
+    loginLogoUrl: '/branding/gobasket-mark.png',
     showTopDiscounted: true,
     topDiscountedTitle: 'Top Discounted Items',
     topDiscountedLimit: 12,
@@ -614,8 +622,10 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
         poweredByText:
           String(parsed.poweredByText ?? '').trim() || DEFAULTS.homepageConfig.poweredByText,
         showLoginLogo: parsed.showLoginLogo !== false,
-        loginLogoUrl:
-          String(parsed.loginLogoUrl ?? '').trim() || DEFAULTS.homepageConfig.loginLogoUrl,
+        loginLogoUrl: resolveLoginLogoUrl(
+          parsed.loginLogoUrl,
+          DEFAULTS.homepageConfig.loginLogoUrl,
+        ),
         showTopDiscounted: parsed.showTopDiscounted !== false,
         topDiscountedTitle:
           String(parsed.topDiscountedTitle ?? '').trim() ||
@@ -1061,8 +1071,11 @@ export const SettingsService = {
             : current.homepageConfig.showLoginLogo,
         loginLogoUrl:
           hc.loginLogoUrl !== undefined
-            ? String(hc.loginLogoUrl ?? '').trim() || DEFAULTS.homepageConfig.loginLogoUrl
-            : current.homepageConfig.loginLogoUrl,
+            ? resolveLoginLogoUrl(hc.loginLogoUrl, DEFAULTS.homepageConfig.loginLogoUrl)
+            : resolveLoginLogoUrl(
+                current.homepageConfig.loginLogoUrl,
+                DEFAULTS.homepageConfig.loginLogoUrl,
+              ),
         showTopDiscounted:
           hc.showTopDiscounted !== undefined
             ? Boolean(hc.showTopDiscounted)

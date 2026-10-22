@@ -80,12 +80,12 @@ export default function OrderCelebration() {
       </div>
 
       <div className="relative z-10 pointer-events-auto mx-4 max-w-sm w-full rounded-2xl bg-white shadow-2xl border border-gray-100 p-6 text-center animate-[celebration-pop_0.45s_ease-out]">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-blinkit-green-light text-blinkit-green">
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-leaf-light text-forest">
           <Check className="h-7 w-7" strokeWidth={3} />
         </div>
         <h2 className="text-xl font-extrabold text-gray-900">Order placed!</h2>
         {orderNumber ? (
-          <p className="mt-1 text-sm font-semibold text-blinkit-green">#{orderNumber}</p>
+          <p className="mt-1 text-sm font-semibold text-forest">#{orderNumber}</p>
         ) : null}
         {deliveryPin ? (
           <p className="mt-3 rounded-xl bg-emerald-50 border border-emerald-100 px-3 py-2">
@@ -112,7 +112,7 @@ export default function OrderCelebration() {
           <button
             type="button"
             onClick={() => setVisible(false)}
-            className="inline-flex items-center justify-center rounded-xl bg-blinkit-green px-4 py-2.5 text-sm font-bold text-white hover:bg-blinkit-green-dark"
+            className="inline-flex items-center justify-center rounded-xl bg-forest px-4 py-2.5 text-sm font-bold text-white hover:bg-forest-dark"
           >
             Continue shopping
           </button>

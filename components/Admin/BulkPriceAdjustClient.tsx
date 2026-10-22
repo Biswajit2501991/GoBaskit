@@ -251,7 +251,7 @@ export default function BulkPriceAdjustClient({ canEdit }: { canEdit: boolean })
             variant="outline"
             onClick={() => setConfirmKind('apply')}
             disabled={!canEdit || loading || !preview}
-            className="border-blinkit-green text-blinkit-green"
+            className="border-forest text-forest"
           >
             Apply to catalog
           </Button>
@@ -327,7 +327,7 @@ export default function BulkPriceAdjustClient({ canEdit }: { canEdit: boolean })
                       <span className="text-gray-400 line-through mr-1">
                         {money(row.beforePrice)}
                       </span>
-                      <span className="font-semibold text-blinkit-green">
+                      <span className="font-semibold text-forest">
                         {money(row.afterPrice)}
                       </span>
                     </td>

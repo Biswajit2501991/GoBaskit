@@ -72,7 +72,7 @@ export function UploadHistory({ history, onUndo, onRefresh }: Props) {
                           setUndoing(h.id);
                           try { await onUndo(h.id); } finally { setUndoing(null); }
                         }}
-                        className="text-xs text-blinkit-green hover:underline flex items-center gap-1"
+                        className="text-xs text-forest hover:underline flex items-center gap-1"
                       >
                         <RotateCcw className="h-3 w-3" />
                         Undo

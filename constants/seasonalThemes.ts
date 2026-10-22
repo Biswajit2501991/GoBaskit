@@ -15,7 +15,7 @@ export const SEASONAL_THEME_OPTIONS: Array<{
   {
     id: 'normal',
     label: 'Normal (day-to-day)',
-    description: 'Brand yellow/green storefront for everyday codes (welcome offer, Rakhi, etc.)',
+    description: 'Paper, forest, and carrot storefront for everyday codes (welcome offer, Rakhi, etc.)',
   },
   {
     id: 'independence-day',

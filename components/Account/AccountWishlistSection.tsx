@@ -91,20 +91,20 @@ export default function AccountWishlistSection() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-sm font-bold text-blinkit-green">
+                  <div className="w-full h-full flex items-center justify-center text-sm font-bold text-forest">
                     {item.label.charAt(0)}
                   </div>
                 )}
               </Link>
               <div className="flex-1 min-w-0">
-                <Link href={`/product/${item.productId}`} className="text-sm font-semibold text-gray-900 truncate block hover:text-blinkit-green">
+                <Link href={`/product/${item.productId}`} className="text-sm font-semibold text-gray-900 truncate block hover:text-forest">
                   {item.label}
                 </Link>
                 <p className="text-xs text-gray-400">{item.unit}</p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-sm font-bold">{formatCurrency(item.price)}</span>
                   {item.inStock ? (
-                    <span className="text-[10px] font-bold uppercase text-blinkit-green">In stock</span>
+                    <span className="text-[10px] font-bold uppercase text-forest">In stock</span>
                   ) : (
                     <span className="text-[10px] font-bold uppercase text-amber-700">Out of stock · Coming soon</span>
                   )}

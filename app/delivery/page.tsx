@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { normalizeMobile } from '@/utils/mobile';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
 import StaffSessionKeeper from '@/components/Admin/StaffSessionKeeper';
+import BrandLockup from '@/components/Brand/BrandLockup';
 
 function DeliveryPortal() {
   const [sessionReady, setSessionReady] = useState(false);
@@ -118,9 +119,12 @@ function DeliveryPortal() {
 
   if (!authed) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl border border-gray-100 p-8 shadow-sm">
-          <h1 className="text-xl font-bold text-center mb-2">Delivery login</h1>
+      <div className="min-h-screen flex items-center justify-center bg-paper px-4">
+        <div className="w-full max-w-md bg-white rounded-3xl border border-paper-deep p-8 shadow-sm">
+          <div className="flex justify-center mb-4">
+            <BrandLockup compact suffix="Delivery" />
+          </div>
+          <h1 className="font-display text-xl font-semibold text-center mb-2">Delivery login</h1>
           <p className="text-sm text-gray-500 text-center mb-6">
             Part-time partners sign in here, then turn on Start Delivery.
           </p>
@@ -164,12 +168,10 @@ function DeliveryPortal() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-paper">
       <StaffSessionKeeper logoutRedirect="/delivery" />
-      <header className="bg-white border-b px-4 py-3 flex items-center justify-between gap-3">
-        <p className="font-extrabold">
-          Go<span className="text-blinkit-green">Baskit</span> Delivery
-        </p>
+      <header className="bg-paper border-b border-paper-deep px-4 py-3 flex items-center justify-between gap-3">
+        <BrandLockup compact suffix="Delivery" />
         <button
           type="button"
           onClick={() => {
@@ -201,7 +203,7 @@ function DeliveryPortal() {
               disabled={saving || !enabled}
               onClick={() => void toggleOnline(!online)}
               className={`relative h-8 w-14 shrink-0 rounded-full transition-colors disabled:opacity-40 ${
-                online ? 'bg-blinkit-green' : 'bg-gray-300'
+                online ? 'bg-forest' : 'bg-gray-300'
               }`}
             >
               <span

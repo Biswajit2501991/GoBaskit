@@ -28,11 +28,11 @@ export function ImportProgress({
       <p className="text-sm font-semibold mb-3">Uploading...</p>
       <div className="h-3 rounded-full bg-gray-100 overflow-hidden mb-2">
         <div
-          className="h-full bg-blinkit-green transition-all duration-300 rounded-full"
+          className="h-full bg-forest transition-all duration-300 rounded-full"
           style={{ width: `${percent}%` }}
         />
       </div>
-      <p className="text-sm font-medium text-blinkit-green mb-3">{percent}%</p>
+      <p className="text-sm font-medium text-forest mb-3">{percent}%</p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-gray-600">
         <div><span className="font-semibold text-gray-900">{processed}</span> / {total} rows processed</div>
         <div><span className="font-semibold text-gray-900">{total - processed}</span> remaining</div>

@@ -48,7 +48,7 @@ function EditableCell({
       <button
         type="button"
         onClick={() => { setDraft(value); setEditing(true); }}
-        className={`group flex items-center gap-1 text-left hover:text-blinkit-green ${className}`}
+        className={`group flex items-center gap-1 text-left hover:text-forest ${className}`}
         title="Click to edit"
       >
         <span>{value || '—'}</span>

@@ -8,9 +8,9 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-blinkit-green text-white hover:bg-blinkit-green-dark',
+        default: 'bg-forest text-white hover:bg-forest-dark',
         secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200',
-        outline: 'border-2 border-blinkit-green text-blinkit-green hover:bg-blinkit-green hover:text-white',
+        outline: 'border-2 border-forest text-forest hover:bg-forest hover:text-white',
         ghost: 'hover:bg-gray-100',
         destructive: 'bg-red-600 text-white hover:bg-red-700',
       },

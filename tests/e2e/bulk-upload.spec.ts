@@ -12,7 +12,7 @@ async function adminLogin(page: import('@playwright/test').Page) {
 test.describe('GoBaskit E2E', () => {
   test('storefront home loads', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('body')).toContainText(/GoBaskit|GoBaskit/i);
+    await expect(page.locator('body')).toContainText(/GoBasket/i);
   });
 
   test('public products API returns JSON', async ({ request }) => {

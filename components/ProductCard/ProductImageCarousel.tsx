@@ -89,7 +89,7 @@ export default function ProductImageCarousel({
           <span
             key={src}
             className={`h-1 rounded-full transition-all duration-300 ${
-              i === index ? 'w-3 bg-blinkit-green' : 'w-1 bg-white/70'
+              i === index ? 'w-3 bg-forest' : 'w-1 bg-white/70'
             }`}
           />
         ))}

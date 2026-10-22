@@ -12,6 +12,7 @@ import { staffHomePath } from '@/types/staff';
 import type { StaffRole } from '@prisma/client';
 import { normalizeMobile } from '@/utils/mobile';
 import { toE164 } from '@/utils/phone';
+import BrandLockup from '@/components/Brand/BrandLockup';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -77,13 +78,11 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl border border-gray-100 p-8 shadow-sm">
+    <div className="min-h-screen flex items-center justify-center bg-paper px-4">
+      <div className="w-full max-w-md bg-white rounded-3xl border border-paper-deep p-8 shadow-sm">
         <div className="text-center mb-8">
-          <div className="bg-blinkit-yellow rounded-lg px-3 py-1.5 inline-block mb-4">
-            <span className="font-extrabold text-xl">
-              Go<span className="text-blinkit-green">Baskit</span>
-            </span>
+          <div className="inline-flex justify-center mb-4">
+            <BrandLockup />
           </div>
           <h1 className="text-xl font-bold">Admin Login</h1>
         </div>
@@ -130,7 +129,7 @@ export default function AdminLoginPage() {
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="accent-blinkit-green"
+              className="accent-forest"
             />
             Remember me
           </label>

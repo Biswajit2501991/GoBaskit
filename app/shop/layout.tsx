@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   manifest: '/shop-manifest.webmanifest',
   appleWebApp: {
     capable: true,
-    title: 'GoBaskit Shop',
+    title: 'GoBasket Shop',
     statusBarStyle: 'default',
   },
 };

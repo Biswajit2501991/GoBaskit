@@ -23,18 +23,18 @@ export default function ProductRail({
   return (
     <section className="mb-6">
       <div className="flex items-center justify-between mb-3 gap-2">
-        <h2 className="font-bold text-gray-900 text-base">{title}</h2>
+        <h2 className="font-display font-semibold text-forest text-xl">{title}</h2>
         {seeAllHref && (
           <Link
             href={seeAllHref}
-            className="text-xs font-semibold text-blinkit-green hover:underline shrink-0"
+            className="text-xs font-semibold text-forest hover:underline shrink-0"
           >
             {seeAllLabel}
           </Link>
         )}
       </div>
       <div className="overflow-x-auto scrollbar-hide overscroll-x-contain -mx-4 px-4">
-        <div className="flex gap-2 w-max pb-1">
+        <div className="flex gap-3 w-max pb-1">
           {products.map((p) => (
             <div key={p.id} className={PRODUCT_RAIL_CARD}>
               <ProductCard product={p} />

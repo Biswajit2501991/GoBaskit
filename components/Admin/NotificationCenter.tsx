@@ -246,7 +246,7 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
       if (!canUseWebPush()) {
         if (isAppleMobile && !isStandalone) {
           setStatusMessage(
-            'Sound is on for this tab. For popup alerts when Safari is minimized: Share → Add to Home Screen, open GoBaskit from the home icon, then tap Enable Alerts again.',
+            'Sound is on for this tab. For popup alerts when Safari is minimized: Share → Add to Home Screen, open GoBasket from the home icon, then tap Enable Alerts again.',
           );
         } else {
           setStatusMessage('Sound is on. Keep the admin tab open — this browser cannot show background popups.');
@@ -460,7 +460,7 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
                     type="button"
                     disabled={pushBusy}
                     onClick={() => void enableBackgroundAlerts()}
-                    className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-blinkit-green px-2.5 py-1.5 rounded-lg disabled:opacity-60"
+                    className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-forest px-2.5 py-1.5 rounded-lg disabled:opacity-60"
                   >
                     <Volume2 className="w-3.5 h-3.5" />
                     {pushBusy
@@ -508,13 +508,13 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
               </div>
               <div className="flex justify-between gap-2 flex-wrap">
                 {unreadCount > 0 ? (
-                  <button type="button" onClick={markAllRead} className="text-xs text-blinkit-green hover:underline">
+                  <button type="button" onClick={markAllRead} className="text-xs text-forest hover:underline">
                     Mark all read
                   </button>
                 ) : <span />}
                 <div className="flex gap-3 ml-auto">
                   {typeFilter && (
-                    <button type="button" onClick={markTypeRead} className="text-xs text-blinkit-green hover:underline">
+                    <button type="button" onClick={markTypeRead} className="text-xs text-forest hover:underline">
                       Mark {typeFilter} read
                     </button>
                   )}
@@ -544,12 +544,12 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
                     <p className="text-sm font-medium">{n.title}</p>
                     <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-line">{n.message}</p>
                     {n.entityType === 'orders' && n.entityId && (
-                      <Link href={staffOrderDeepLink(n.entityId)} className="text-xs text-blinkit-green mt-1 inline-block" onClick={() => setOpen(false)}>
+                      <Link href={staffOrderDeepLink(n.entityId)} className="text-xs text-forest mt-1 inline-block" onClick={() => setOpen(false)}>
                         View orders →
                       </Link>
                     )}
                     {n.entityType === 'products' && n.entityId && (
-                      <Link href="/admin/products" className="text-xs text-blinkit-green mt-1 inline-block" onClick={() => setOpen(false)}>
+                      <Link href="/admin/products" className="text-xs text-forest mt-1 inline-block" onClick={() => setOpen(false)}>
                         Update stock →
                       </Link>
                     )}
@@ -567,7 +567,7 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
             <p className="font-semibold text-base">Turn on order alerts</p>
             <p className="text-sm text-gray-600 mt-2 leading-snug">
               {typeof Notification !== 'undefined' && Notification.permission === 'denied'
-                ? 'Chrome blocked notifications. Open Chrome settings → Site settings → Notifications, allow GoBaskit, then tap Enable Alerts.'
+                ? 'Chrome blocked notifications. Open Chrome settings → Site settings → Notifications, allow GoBasket, then tap Enable Alerts.'
                 : 'Tap Enable Alerts so this phone gets a sound and popup when a new order arrives — even if Chrome is in the background.'}
             </p>
             <div className="flex gap-2 mt-4">
@@ -575,7 +575,7 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
                 type="button"
                 disabled={pushBusy}
                 onClick={() => void enableBackgroundAlerts()}
-                className="flex-1 text-sm font-semibold text-white bg-blinkit-green px-3 py-2.5 rounded-lg disabled:opacity-60"
+                className="flex-1 text-sm font-semibold text-white bg-forest px-3 py-2.5 rounded-lg disabled:opacity-60"
               >
                 {pushBusy ? 'Enabling…' : 'Enable Alerts'}
               </button>
@@ -597,12 +597,12 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
 
       {showSoundHint && soundEnabled && !soundUnlocked && !showAndroidLoginPrompt && (
         <div className="fixed bottom-20 left-4 right-4 z-[60] sm:left-auto sm:right-4 sm:max-w-sm bg-white border shadow-lg rounded-xl p-3 flex gap-3 items-center">
-          <Volume2 className="w-5 h-5 text-blinkit-green shrink-0" />
+          <Volume2 className="w-5 h-5 text-forest shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm">Enable order sound</p>
             <p className="text-xs text-gray-600 mt-0.5">
               {isAppleMobile && !isStandalone
-                ? 'Tap Enable to hear new orders in this tab. For popups when Safari is minimized, add GoBaskit to your Home Screen.'
+                ? 'Tap Enable to hear new orders in this tab. For popups when Safari is minimized, add GoBasket to your Home Screen.'
                 : 'Tap Enable so new orders play a sound (and popup when supported).'}
             </p>
           </div>
@@ -610,7 +610,7 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
             type="button"
             disabled={pushBusy}
             onClick={() => void enableBackgroundAlerts()}
-            className="shrink-0 text-xs font-semibold text-white bg-blinkit-green px-3 py-2 rounded-lg disabled:opacity-60"
+            className="shrink-0 text-xs font-semibold text-white bg-forest px-3 py-2 rounded-lg disabled:opacity-60"
           >
             Enable
           </button>
@@ -622,7 +622,7 @@ export function NotificationCenter({ staffId }: { staffId: string }) {
 
       {toast && (
         <div className="fixed bottom-4 right-4 z-[60] bg-white border shadow-lg rounded-xl p-4 max-w-sm flex gap-3">
-          <Bell className="w-5 h-5 text-blinkit-green shrink-0 mt-0.5" />
+          <Bell className="w-5 h-5 text-forest shrink-0 mt-0.5" />
           <button
             type="button"
             className="flex-1 text-left"

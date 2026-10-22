@@ -1,7 +1,7 @@
 import AccountPageClient from '@/components/Account/AccountPageClient';
 
 export const metadata = {
-  title: 'My Account — GoBaskit',
+  title: 'My Account — GoBasket',
 };
 
 export default function AccountPage() {

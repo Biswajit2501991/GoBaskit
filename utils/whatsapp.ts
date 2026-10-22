@@ -26,7 +26,7 @@ export function buildWhatsAppMessage({
   grandTotal,
   discountAmount = 0,
   discountLabel,
-  storeName = 'GoBaskit',
+  storeName = 'GoBasket',
   orderNumber,
   deliveryNote,
   deliveryPin,
