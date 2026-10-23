@@ -10,10 +10,11 @@ import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { refreshCartStockFromServer } from '@/utils/refreshCartStock';
 import { Button } from '@/components/ui/button';
-import { BRAND_MARK_SRC } from '@/constants';
+import { useBrandLogoUrl } from '@/components/Brand/useBrandLogo';
 
 export default function CartPage() {
   const hydrated = useCartHydrated();
+  const logoUrl = useBrandLogoUrl();
   const itemCount = useCartStore((s) => s.getItemCount());
   const itemsLength = useCartStore((s) => s.items.length);
 
@@ -43,7 +44,7 @@ export default function CartPage() {
           <StockRemovalNotice className="w-full max-w-sm mb-4 text-left" />
           <div className="w-24 h-24 bg-white border border-paper-deep rounded-full flex items-center justify-center mb-5 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={BRAND_MARK_SRC} alt="" className="w-20 h-20 object-contain" />
+            <img src={logoUrl} alt="" className="h-28 w-auto max-w-[11rem] object-contain" />
           </div>
           <h2 className="text-xl font-bold mb-2">Your cart is empty</h2>
           <p className="text-gray-500 mb-6 text-sm">Add groceries to get started</p>

@@ -1,7 +1,13 @@
 export { ADMIN_LIST_PAGE_SIZE } from './admin';
 
-/** One basket mark for the header, login seal, cart, and staff screens. */
-export const BRAND_MARK_SRC = '/branding/gobasket-mark.png';
+/** Default store logo. A logo saved in Branding replaces this everywhere it is shown. */
+export const BRAND_MARK_SRC = '/branding/gobasketkaro-logo.jpg';
+
+/** Older saved paths that should show the current GoBasketkaro logo. */
+export const LEGACY_BRAND_LOGOS = new Set([
+  '/branding/gobaskit-seal.png',
+  '/branding/gobasket-mark.png',
+]);
 
 /** A saved Railway/env value of the previous name still has to read as GoBasket. */
 export function resolveStoreName(value: string | undefined): string {

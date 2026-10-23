@@ -42,9 +42,9 @@ import {
   type SeasonalThemeId,
 } from '@/constants/seasonalThemes';
 import DiscountManager from '@/components/Admin/DiscountManager';
-import LoginBrandSeal from '@/components/Header/LoginBrandSeal';
 import ProductImageUpload from '@/components/Admin/ProductImageUpload';
-import { upiQrDisplayUrl } from '@/utils/image';
+import { BRAND_MARK_SRC } from '@/constants';
+import { resolvePublicImageUrl, upiQrDisplayUrl } from '@/utils/image';
 import {
   DEFAULT_WEATHER_DISCLAIMER_MESSAGE,
   parseWeatherDisclaimer,
@@ -287,7 +287,7 @@ export default function SettingsManager({
       poweredByText:
         hc.poweredByText ?? 'Powered by Action Plus Gym · Healthy Life · Wealthy Life',
       showLoginLogo: true,
-      loginLogoUrl: '/branding/gobasket-mark.png',
+      loginLogoUrl: hc.loginLogoUrl || BRAND_MARK_SRC,
       showTopDiscounted: hc.showTopDiscounted !== false,
       topDiscountedTitle: hc.topDiscountedTitle ?? 'Top Discounted Items',
       topDiscountedLimit: hc.topDiscountedLimit ?? 12,
@@ -2225,12 +2225,30 @@ export default function SettingsManager({
         </div>
 
         <div className="space-y-3">
-          <p className="text-sm font-medium text-gray-900">Customer login</p>
-          <div className="flex justify-center rounded-2xl border border-paper-deep bg-paper py-4">
-            <LoginBrandSeal />
+          <p className="text-sm font-medium text-gray-900">Store logo</p>
+          <ProductImageUpload
+            value={homepageConfig.loginLogoUrl}
+            onChange={(url) =>
+              setHomepageConfig((prev) => ({
+                ...prev,
+                loginLogoUrl: url || BRAND_MARK_SRC,
+              }))
+            }
+            label="Upload logo"
+            uploadType="badge"
+            showWebSuggestions={false}
+            disabled={!canEdit}
+          />
+          <div className="flex justify-center rounded-2xl border border-paper-deep bg-white px-4 py-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={resolvePublicImageUrl(homepageConfig.loginLogoUrl) || BRAND_MARK_SRC}
+              alt="Store logo preview"
+              className="h-28 w-auto max-w-full object-contain"
+            />
           </div>
           <p className="text-xs text-gray-500">
-            The GoBasket seal is shown on customer login. The same basket mark and name are used across the store.
+            Save settings and this logo replaces the one in the header, footer, login screens, and empty cart.
           </p>
         </div>
       </section>

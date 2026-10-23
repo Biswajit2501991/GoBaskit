@@ -1,6 +1,9 @@
-import { BRAND_MARK_SRC, STORE_NAME } from '@/constants';
+'use client';
 
-/** Basket mark plus the GoBasket wordmark. The image has no wordmark baked in. */
+import { STORE_NAME } from '@/constants';
+import { useBrandLogoUrl } from '@/components/Brand/useBrandLogo';
+
+/** Store logo from Branding. The artwork carries the name, so no second wordmark is added. */
 export default function BrandLockup({
   compact = false,
   suffix,
@@ -12,27 +15,27 @@ export default function BrandLockup({
   tone?: 'forest' | 'paper';
   className?: string;
 }) {
+  const src = useBrandLogoUrl();
   const ink = tone === 'paper' ? 'text-paper' : 'text-forest';
   return (
-    <span className={`inline-flex items-center gap-1.5 min-w-0 ${ink} ${className}`}>
+    <span className={`inline-flex items-center gap-2 min-w-0 ${ink} ${className}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={BRAND_MARK_SRC}
-        alt=""
-        className={compact ? 'h-7 w-auto shrink-0' : 'h-9 sm:h-10 w-auto shrink-0'}
+        src={src}
+        alt={STORE_NAME}
+        className={`w-auto object-contain object-left shrink-0 ${
+          tone === 'paper' ? 'bg-white rounded-xl' : ''
+        } ${compact ? 'h-14 max-w-[8.75rem]' : 'h-20 max-w-[11.5rem]'}`}
       />
-      <span
-        className={`font-display font-semibold tracking-tight leading-none truncate ${
-          compact ? 'text-lg' : 'text-xl sm:text-[1.65rem]'
-        }`}
-      >
-        {STORE_NAME}
-        {suffix ? (
-          <span className={`font-sans text-[11px] font-semibold tracking-[0.14em] uppercase ml-1.5 ${tone === 'paper' ? 'text-paper/70' : 'text-forest/60'}`}>
-            {suffix}
-          </span>
-        ) : null}
-      </span>
+      {suffix ? (
+        <span
+          className={`font-sans text-[11px] font-semibold tracking-[0.14em] uppercase ${
+            tone === 'paper' ? 'text-paper/70' : 'text-forest/60'
+          }`}
+        >
+          {suffix}
+        </span>
+      ) : null}
     </span>
   );
 }

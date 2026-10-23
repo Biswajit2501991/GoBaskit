@@ -6,6 +6,7 @@ import {
   SLAB_MAX,
   WHATSAPP_NUMBER,
   BRAND_MARK_SRC,
+  LEGACY_BRAND_LOGOS,
   CUSTOMER_DELIVERY_PROMISE,
   CUSTOMER_DELIVERY_DISCLAIMER,
   type DeliverySlab,
@@ -213,9 +214,11 @@ type StoreConfigUpdate = Partial<
   storefrontRating?: Partial<StorefrontRatingConfig>;
 };
 
-/** Customer login always uses the GoBasket mark, even if a row still stores the old seal. */
-function resolveLoginLogoUrl(_value: unknown, fallback: string): string {
-  return fallback;
+/** Saved branding logo. Legacy built-in files fall back to the current logo. */
+function resolveLoginLogoUrl(value: unknown, fallback: string): string {
+  const url = String(value ?? '').trim();
+  if (!url || LEGACY_BRAND_LOGOS.has(url)) return fallback;
+  return url;
 }
 
 function parseHealthStarDisplay(raw: unknown): HealthStarDisplay {
@@ -814,7 +817,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
 }
 
 export const SettingsService = {
-  /** Cached read of the store config. Hits the DB at most once per TTL. */
+  /** Cached read of the store config. Hits the database at most once per TTL. */
   async getStoreConfig(): Promise<StoreConfig> {
     if (cache && cache.expiresAt > Date.now()) return cache.data;
     try {
