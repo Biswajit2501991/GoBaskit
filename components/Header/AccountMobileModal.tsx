@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { X, MessageCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -62,6 +63,7 @@ export default function AccountMobileModal() {
   const [sentWaitSeconds, setSentWaitSeconds] = useState(0);
   const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const staffNameRef = useRef<string>('');
   const existingPasswordRef = useRef(false);
   const resettingPasswordRef = useRef(false);
@@ -75,6 +77,10 @@ export default function AccountMobileModal() {
   const confirmSentRef = useRef<(opts?: { silent?: boolean }) => Promise<void>>(async () => {});
 
   const mobileE164 = toE164('91', mobile);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (showAccountModal) void fetchConfig();
@@ -382,7 +388,7 @@ export default function AccountMobileModal() {
     };
   }, [showAccountModal, phase]);
 
-  if (!showAccountModal) return null;
+  if (!showAccountModal || !mounted) return null;
 
   async function completeAfterWhatsAppOpened(mobile: string, verificationId: string) {
     const result = await notifyWhatsAppOpened({ mobile, verificationId });
@@ -721,9 +727,15 @@ export default function AccountMobileModal() {
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
-      <div className="bg-white rounded-3xl w-full max-w-[22rem] px-6 pt-6 pb-7 shadow-2xl relative max-h-[90vh] overflow-y-auto border border-gray-100">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-forest/45" aria-hidden />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="My Account"
+        className="relative z-10 isolate bg-white text-gray-900 [color-scheme:light] rounded-3xl w-full max-w-[22rem] px-6 pt-6 pb-7 shadow-2xl max-h-[90vh] overflow-y-auto border border-paper-deep"
+      >
         <button
           type="button"
           onClick={handleClose}
@@ -987,6 +999,7 @@ export default function AccountMobileModal() {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
