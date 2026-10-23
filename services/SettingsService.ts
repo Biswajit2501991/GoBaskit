@@ -5,6 +5,7 @@ import {
   MIN_ORDER_VALUE,
   SLAB_MAX,
   WHATSAPP_NUMBER,
+  BRAND_MARK_SRC,
   CUSTOMER_DELIVERY_PROMISE,
   CUSTOMER_DELIVERY_DISCLAIMER,
   type DeliverySlab,
@@ -212,12 +213,9 @@ type StoreConfigUpdate = Partial<
   storefrontRating?: Partial<StorefrontRatingConfig>;
 };
 
-const LEGACY_LOGIN_LOGO = '/branding/gobaskit-seal.png';
-
-/** Saved rows may still point at the previous seal. Show the basket mark instead. */
-function resolveLoginLogoUrl(value: unknown, fallback: string): string {
-  const url = String(value ?? '').trim() || fallback;
-  return url === LEGACY_LOGIN_LOGO ? fallback : url;
+/** Customer login always uses the GoBasket mark, even if a row still stores the old seal. */
+function resolveLoginLogoUrl(_value: unknown, fallback: string): string {
+  return fallback;
 }
 
 function parseHealthStarDisplay(raw: unknown): HealthStarDisplay {
@@ -351,7 +349,7 @@ const DEFAULTS: StoreConfig = {
     showPoweredByBanner: true,
     poweredByText: 'Powered by Action Plus Gym · Healthy Life · Wealthy Life',
     showLoginLogo: true,
-    loginLogoUrl: '/branding/gobasket-mark.png',
+    loginLogoUrl: BRAND_MARK_SRC,
     showTopDiscounted: true,
     topDiscountedTitle: 'Top Discounted Items',
     topDiscountedLimit: 12,
@@ -621,7 +619,7 @@ function parseRows(rows: { key: string; value: string }[]): StoreConfig {
         showPoweredByBanner: parsed.showPoweredByBanner !== false,
         poweredByText:
           String(parsed.poweredByText ?? '').trim() || DEFAULTS.homepageConfig.poweredByText,
-        showLoginLogo: parsed.showLoginLogo !== false,
+        showLoginLogo: true,
         loginLogoUrl: resolveLoginLogoUrl(
           parsed.loginLogoUrl,
           DEFAULTS.homepageConfig.loginLogoUrl,
@@ -1065,10 +1063,7 @@ export const SettingsService = {
           hc.poweredByText !== undefined
             ? String(hc.poweredByText ?? '').trim() || DEFAULTS.homepageConfig.poweredByText
             : current.homepageConfig.poweredByText,
-        showLoginLogo:
-          hc.showLoginLogo !== undefined
-            ? Boolean(hc.showLoginLogo)
-            : current.homepageConfig.showLoginLogo,
+        showLoginLogo: true,
         loginLogoUrl:
           hc.loginLogoUrl !== undefined
             ? resolveLoginLogoUrl(hc.loginLogoUrl, DEFAULTS.homepageConfig.loginLogoUrl)

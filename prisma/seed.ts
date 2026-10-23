@@ -80,7 +80,7 @@ async function main() {
   });
 
   const settings = [
-    { key: 'store_name', value: 'GoBaskit' },
+    { key: 'store_name', value: 'GoBasket' },
     { key: 'whatsapp_number', value: process.env.WHATSAPP_NUMBER || '919046370119' },
     { key: 'delivery_charge', value: process.env.DELIVERY_CHARGE || 'tiered' },
     { key: 'min_order_value', value: process.env.MIN_ORDER_VALUE || '100' },

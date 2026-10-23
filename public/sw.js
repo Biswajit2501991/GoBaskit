@@ -14,8 +14,8 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('push', (event) => {
   let data = {
-    title: 'GoBaskit',
-    body: 'GoBaskit update',
+    title: 'GoBasket',
+    body: 'GoBasket update',
     url: '/',
     tag: 'gobaskit',
   };
@@ -28,8 +28,8 @@ self.addEventListener('push', (event) => {
   }
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'GoBaskit', {
-      body: data.body || 'GoBaskit update',
+    self.registration.showNotification(data.title || 'GoBasket', {
+      body: data.body || 'GoBasket update',
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       tag: data.tag || 'gobaskit',

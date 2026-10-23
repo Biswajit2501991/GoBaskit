@@ -11,6 +11,7 @@ import { useCartUiStore } from '@/store/cartUiStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { refreshCartStockFromServer } from '@/utils/refreshCartStock';
 import { Button } from '@/components/ui/button';
+import { BRAND_MARK_SRC } from '@/constants';
 import Link from 'next/link';
 
 /**
@@ -162,7 +163,7 @@ export default function CartDrawer() {
             <StockRemovalNotice className="w-full max-w-sm mb-4 text-left" />
             <div className="w-20 h-20 bg-white border border-paper-deep rounded-full flex items-center justify-center mb-4 overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/branding/gobasket-mark.png" alt="" className="w-16 h-16 object-contain" />
+              <img src={BRAND_MARK_SRC} alt="" className="w-16 h-16 object-contain" />
             </div>
             <h3 className="font-display text-lg font-semibold mb-1">Your cart is empty</h3>
             <p className="text-sm text-gray-500 mb-5">Add groceries to get started</p>

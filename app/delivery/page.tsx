@@ -9,6 +9,7 @@ import { normalizeMobile } from '@/utils/mobile';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
 import StaffSessionKeeper from '@/components/Admin/StaffSessionKeeper';
 import BrandLockup from '@/components/Brand/BrandLockup';
+import LoginBrandSeal from '@/components/Header/LoginBrandSeal';
 
 function DeliveryPortal() {
   const [sessionReady, setSessionReady] = useState(false);
@@ -121,9 +122,7 @@ function DeliveryPortal() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-paper px-4">
         <div className="w-full max-w-md bg-white rounded-3xl border border-paper-deep p-8 shadow-sm">
-          <div className="flex justify-center mb-4">
-            <BrandLockup compact suffix="Delivery" />
-          </div>
+          <LoginBrandSeal suffix="Delivery" />
           <h1 className="font-display text-xl font-semibold text-center mb-2">Delivery login</h1>
           <p className="text-sm text-gray-500 text-center mb-6">
             Part-time partners sign in here, then turn on Start Delivery.

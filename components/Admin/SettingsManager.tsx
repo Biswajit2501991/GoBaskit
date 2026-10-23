@@ -42,6 +42,7 @@ import {
   type SeasonalThemeId,
 } from '@/constants/seasonalThemes';
 import DiscountManager from '@/components/Admin/DiscountManager';
+import LoginBrandSeal from '@/components/Header/LoginBrandSeal';
 import ProductImageUpload from '@/components/Admin/ProductImageUpload';
 import { upiQrDisplayUrl } from '@/utils/image';
 import {
@@ -285,8 +286,8 @@ export default function SettingsManager({
       showPoweredByBanner: hc.showPoweredByBanner !== false,
       poweredByText:
         hc.poweredByText ?? 'Powered by Action Plus Gym · Healthy Life · Wealthy Life',
-      showLoginLogo: hc.showLoginLogo !== false,
-      loginLogoUrl: hc.loginLogoUrl || '/branding/gobasket-mark.png',
+      showLoginLogo: true,
+      loginLogoUrl: '/branding/gobasket-mark.png',
       showTopDiscounted: hc.showTopDiscounted !== false,
       topDiscountedTitle: hc.topDiscountedTitle ?? 'Top Discounted Items',
       topDiscountedLimit: hc.topDiscountedLimit ?? 12,
@@ -2224,50 +2225,13 @@ export default function SettingsManager({
         </div>
 
         <div className="space-y-3">
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input
-              type="checkbox"
-              checked={homepageConfig.showLoginLogo !== false}
-              onChange={(e) =>
-                setHomepageConfig((prev) => ({ ...prev, showLoginLogo: e.target.checked }))
-              }
-              disabled={!canEdit}
-              className="accent-forest"
-            />
-            Show brand seal on customer login
-          </label>
-          {homepageConfig.showLoginLogo !== false && (
-            <div className="space-y-3">
-              <ProductImageUpload
-                value={homepageConfig.loginLogoUrl}
-                onChange={(url) =>
-                  setHomepageConfig((prev) => ({
-                    ...prev,
-                    loginLogoUrl: url || '/branding/gobasket-mark.png',
-                  }))
-                }
-                label="Login logo"
-                uploadType="badge"
-                showWebSuggestions={false}
-                disabled={!canEdit}
-              />
-              {homepageConfig.loginLogoUrl ? (
-                <div className="flex items-center gap-3">
-                  <div className="w-20 h-20 rounded-full border border-[#f7c948]/70 overflow-hidden bg-white shadow-sm">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={homepageConfig.loginLogoUrl}
-                      alt="Login logo preview"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Preview of the circular seal shown on My Account login.
-                  </p>
-                </div>
-              ) : null}
-            </div>
-          )}
+          <p className="text-sm font-medium text-gray-900">Customer login</p>
+          <div className="flex justify-center rounded-2xl border border-paper-deep bg-paper py-4">
+            <LoginBrandSeal />
+          </div>
+          <p className="text-xs text-gray-500">
+            The GoBasket seal is shown on customer login. The same basket mark and name are used across the store.
+          </p>
         </div>
       </section>
           )}

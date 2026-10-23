@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { X, Eye, EyeOff } from 'lucide-react';
+import LoginBrandSeal from '@/components/Header/LoginBrandSeal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,8 +23,13 @@ export default function StaffAdminLoginModal() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [mounted, setMounted] = useState(false);
 
-  if (!showAdminLoginModal) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!showAdminLoginModal || !mounted) return null;
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -71,18 +78,25 @@ export default function StaffAdminLoginModal() {
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl relative">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-forest/45" aria-hidden />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Admin Login"
+        className="relative z-10 isolate bg-white text-gray-900 [color-scheme:light] rounded-3xl w-full max-w-sm p-6 shadow-xl border border-paper-deep"
+      >
         <button
           type="button"
           onClick={closeAdminLoginModal}
-          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 z-10"
           aria-label="Close"
         >
           <X className="w-5 h-5" />
         </button>
-        <h2 className="text-lg font-bold mb-1">Admin Login</h2>
+        <LoginBrandSeal suffix="Admin" />
+        <h2 className="text-lg font-bold mb-1 text-center">Admin Login</h2>
         <p className="text-sm text-gray-500 mb-4">Use your staff password (not your customer account password).</p>
         <form onSubmit={handleLogin} className="space-y-3">
           <div>
@@ -124,6 +138,7 @@ export default function StaffAdminLoginModal() {
           </Button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

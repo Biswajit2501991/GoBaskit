@@ -116,7 +116,7 @@ export const TEMPLATE_COLUMNS = [
   { key: 'gstPercent', header: 'GST %', required: false, sample: '5', description: 'GST percentage' },
   { key: 'weight', header: 'Weight', required: false, sample: '1 kg', description: 'Shipping weight' },
   { key: 'tags', header: 'Tags', required: false, sample: 'organic,fresh', description: 'Comma-separated tags' },
-  { key: 'brand', header: 'Brand', required: false, sample: 'GoBaskit Farms', description: 'Product brand' },
+  { key: 'brand', header: 'Brand', required: false, sample: 'GoBasket Farms', description: 'Product brand' },
   { key: 'countryOfOrigin', header: 'Country of Origin', required: false, sample: 'India', description: 'Country of origin' },
   { key: 'fulfillmentSource', header: 'Fulfillment Source', required: false, sample: 'IN_HOUSE', description: 'UNSET, IN_HOUSE, or OUTSOURCE' },
   { key: 'costPrice', header: 'Cost Price', required: false, sample: '20', description: 'GoBasket unit cost for in-house profit (not MRP)' },

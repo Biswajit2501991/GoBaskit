@@ -10,6 +10,7 @@ import { useCartStore } from '@/store/cartStore';
 import { useCartHydrated } from '@/hooks/useCartHydrated';
 import { refreshCartStockFromServer } from '@/utils/refreshCartStock';
 import { Button } from '@/components/ui/button';
+import { BRAND_MARK_SRC } from '@/constants';
 
 export default function CartPage() {
   const hydrated = useCartHydrated();
@@ -42,7 +43,7 @@ export default function CartPage() {
           <StockRemovalNotice className="w-full max-w-sm mb-4 text-left" />
           <div className="w-24 h-24 bg-white border border-paper-deep rounded-full flex items-center justify-center mb-5 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/branding/gobasket-mark.png" alt="" className="w-20 h-20 object-contain" />
+            <img src={BRAND_MARK_SRC} alt="" className="w-20 h-20 object-contain" />
           </div>
           <h2 className="text-xl font-bold mb-2">Your cart is empty</h2>
           <p className="text-gray-500 mb-6 text-sm">Add groceries to get started</p>

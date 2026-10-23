@@ -46,10 +46,6 @@ export default function AccountMobileModal() {
     openAdminLoginModal,
   } = useStaffPortalStore();
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
-  const showLoginLogo = useConfigStore((s) => s.homepageConfig.showLoginLogo !== false);
-  const loginLogoUrl = useConfigStore(
-    (s) => s.homepageConfig.loginLogoUrl || '/branding/gobasket-mark.png',
-  );
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -745,9 +741,7 @@ export default function AccountMobileModal() {
           <X className="w-4 h-4" />
         </button>
 
-        {phase !== 'verified' && showLoginLogo && loginLogoUrl ? (
-          <LoginBrandSeal logoUrl={loginLogoUrl} />
-        ) : null}
+        {phase !== 'verified' ? <LoginBrandSeal /> : null}
 
         {phase === 'verified' ? (
           <div className="text-center py-8 space-y-3">

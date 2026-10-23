@@ -1,4 +1,4 @@
-import { STORE_NAME } from '@/constants';
+import { BRAND_MARK_SRC, STORE_NAME } from '@/constants';
 
 /** Basket mark plus the GoBasket wordmark. The image has no wordmark baked in. */
 export default function BrandLockup({
@@ -17,7 +17,7 @@ export default function BrandLockup({
     <span className={`inline-flex items-center gap-1.5 min-w-0 ${ink} ${className}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/branding/gobasket-mark.png"
+        src={BRAND_MARK_SRC}
         alt=""
         className={compact ? 'h-7 w-auto shrink-0' : 'h-9 sm:h-10 w-auto shrink-0'}
       />

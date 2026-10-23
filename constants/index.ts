@@ -1,6 +1,16 @@
 export { ADMIN_LIST_PAGE_SIZE } from './admin';
 
-export const STORE_NAME = process.env.NEXT_PUBLIC_STORE_NAME || 'GoBasket';
+/** One basket mark for the header, login seal, cart, and staff screens. */
+export const BRAND_MARK_SRC = '/branding/gobasket-mark.png';
+
+/** A saved Railway/env value of the previous name still has to read as GoBasket. */
+export function resolveStoreName(value: string | undefined): string {
+  const name = (value ?? '').trim();
+  if (!name || name.toLowerCase().replace(/\s+/g, '') === 'gobaskit') return 'GoBasket';
+  return name;
+}
+
+export const STORE_NAME = resolveStoreName(process.env.NEXT_PUBLIC_STORE_NAME);
 
 /** Customer-facing delivery promise. Same wording everywhere it is shown. */
 export const CUSTOMER_DELIVERY_PROMISE = 'Same-Day Delivery — Anytime Between 8 AM and 9 PM';

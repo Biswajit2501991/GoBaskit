@@ -18,6 +18,7 @@ import { normalizeMobile } from '@/utils/mobile';
 import { logoutEverywhere } from '@/utils/logoutEverywhere';
 import StaffSessionKeeper from '@/components/Admin/StaffSessionKeeper';
 import BrandLockup from '@/components/Brand/BrandLockup';
+import LoginBrandSeal from '@/components/Header/LoginBrandSeal';
 import { formatCurrency, formatDateTime } from '@/utils/formatter';
 import { formatOrderLineLabel } from '@/utils/orderItemName';
 
@@ -496,9 +497,7 @@ function ShopPortal() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-paper px-4">
         <div className="w-full max-w-md bg-white rounded-3xl border border-paper-deep p-8 shadow-sm">
-          <div className="flex justify-center mb-4">
-            <BrandLockup compact suffix="Shop" />
-          </div>
+          <LoginBrandSeal suffix="Shop" />
           <h1 className="font-display text-xl font-semibold text-center mb-6">Shop login</h1>
           <form onSubmit={onLogin} className="space-y-4">
             <div>

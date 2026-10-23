@@ -9,7 +9,7 @@ async function adminLogin(page: import('@playwright/test').Page) {
   await page.waitForURL('**/admin/dashboard');
 }
 
-test.describe('GoBaskit E2E', () => {
+test.describe('GoBasket E2E', () => {
   test('storefront home loads', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('body')).toContainText(/GoBasket/i);

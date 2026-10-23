@@ -12,7 +12,7 @@ import { staffHomePath } from '@/types/staff';
 import type { StaffRole } from '@prisma/client';
 import { normalizeMobile } from '@/utils/mobile';
 import { toE164 } from '@/utils/phone';
-import BrandLockup from '@/components/Brand/BrandLockup';
+import LoginBrandSeal from '@/components/Header/LoginBrandSeal';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -80,10 +80,8 @@ export default function AdminLoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-paper px-4">
       <div className="w-full max-w-md bg-white rounded-3xl border border-paper-deep p-8 shadow-sm">
-        <div className="text-center mb-8">
-          <div className="inline-flex justify-center mb-4">
-            <BrandLockup />
-          </div>
+        <div className="text-center mb-6">
+          <LoginBrandSeal suffix="Admin" />
           <h1 className="text-xl font-bold">Admin Login</h1>
         </div>
         <form onSubmit={onSubmit} className="space-y-4">
