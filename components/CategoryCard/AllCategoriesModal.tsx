@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { X, Search } from 'lucide-react';
 import { CATEGORY_ICONS } from '@/constants';
@@ -48,7 +49,12 @@ export default function AllCategoriesModal({
       if (e.key === 'Escape') onClose();
     }
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previousOverflow;
+    };
   }, [open, onClose]);
 
   const filtered = useMemo(() => {
@@ -59,16 +65,19 @@ export default function AllCategoriesModal({
 
   if (!mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center sm:justify-center">
+  return createPortal(
+    <div className="fixed inset-0 z-[80] flex items-stretch sm:items-center sm:justify-center">
       <div
-        className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${
+        className={`absolute inset-0 bg-black/45 transition-opacity duration-200 ${
           entered ? 'opacity-100' : 'opacity-0'
         }`}
         onClick={onClose}
       />
       <div
-        className={`relative bg-white w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl shadow-xl max-h-[85vh] flex flex-col transition-transform duration-200 ${
+        role="dialog"
+        aria-modal="true"
+        aria-label="All Categories"
+        className={`relative flex h-[100dvh] w-full flex-col bg-white shadow-xl pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] transition-transform duration-200 sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:rounded-2xl ${
           entered ? 'translate-y-0' : 'translate-y-6 sm:translate-y-4'
         }`}
       >
@@ -88,17 +97,16 @@ export default function AllCategoriesModal({
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
-              autoFocus
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search categories"
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-forest/30 focus:border-forest focus:bg-white"
+              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-forest/30 focus:border-forest focus:bg-white"
             />
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-5">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6">
           {filtered.length === 0 ? (
             <p className="text-center text-sm text-gray-500 py-10">
               No categories found for “{query.trim()}”.
@@ -149,6 +157,7 @@ export default function AllCategoriesModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
